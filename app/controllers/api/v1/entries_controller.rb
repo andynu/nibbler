@@ -28,7 +28,7 @@ module Api
         # Virtual feeds
         case params[:view]
         when "fresh"
-          @user_entries = @user_entries.where("entries.date_entered > ?", 24.hours.ago)
+          @user_entries = @user_entries.where("entries.date_entered > ?", fresh_article_cutoff)
         when "starred"
           @user_entries = @user_entries.starred
         when "published"
@@ -127,7 +127,7 @@ module Api
 
         case params[:view]
         when "fresh"
-          @user_entries = @user_entries.where("entries.date_entered > ?", 24.hours.ago)
+          @user_entries = @user_entries.where("entries.date_entered > ?", fresh_article_cutoff)
         when "starred"
           @user_entries = @user_entries.where(marked: true)
         when "published"
@@ -216,6 +216,13 @@ module Api
           starred: ue.marked,
           score: ue.score
         }
+      end
+
+      # Get the cutoff time for "fresh" articles based on user preference
+      def fresh_article_cutoff
+        pref = current_user.user_preferences.find_by(pref_name: "fresh_article_max_age")
+        hours = pref&.value&.to_i || 24
+        hours.hours.ago
       end
     end
   end

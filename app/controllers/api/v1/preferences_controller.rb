@@ -29,6 +29,7 @@ module Api
           confirm_feed_catchup
           default_view_mode
           default_view_limit
+          fresh_article_max_age
         ]
       end
 
@@ -39,7 +40,8 @@ module Api
           "default_update_interval" => "30",
           "confirm_feed_catchup" => "true",
           "default_view_mode" => "adaptive",
-          "default_view_limit" => "30"
+          "default_view_limit" => "30",
+          "fresh_article_max_age" => "24"
         }
       end
     end

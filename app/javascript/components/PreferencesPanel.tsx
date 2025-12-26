@@ -34,6 +34,15 @@ const VIEW_LIMIT_OPTIONS = [
   { value: "100", label: "100 articles" },
 ]
 
+const FRESH_AGE_OPTIONS = [
+  { value: "6", label: "6 hours" },
+  { value: "12", label: "12 hours" },
+  { value: "24", label: "24 hours" },
+  { value: "48", label: "48 hours" },
+  { value: "72", label: "72 hours" },
+  { value: "168", label: "1 week" },
+]
+
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
 
@@ -172,6 +181,30 @@ export function PreferencesPanel() {
               </SelectTrigger>
               <SelectContent>
                 {VIEW_LIMIT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="fresh_article_max_age">Fresh articles age</Label>
+              <p className="text-sm text-muted-foreground">
+                Articles newer than this appear in the Fresh view
+              </p>
+            </div>
+            <Select
+              value={preferences.fresh_article_max_age}
+              onValueChange={(value) => updatePreference("fresh_article_max_age", value)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FRESH_AGE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

@@ -89,6 +89,7 @@ export interface Preferences {
   confirm_feed_catchup: string
   default_view_mode: string
   default_view_limit: string
+  fresh_article_max_age: string
 }
 
 export const api = {

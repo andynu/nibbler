@@ -15,6 +15,7 @@ const defaultPreferences: Preferences = {
   confirm_feed_catchup: "true",
   default_view_mode: "adaptive",
   default_view_limit: "30",
+  fresh_article_max_age: "24",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
