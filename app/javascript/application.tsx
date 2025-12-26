@@ -17,7 +17,7 @@ function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
   const [showStarred, setShowStarred] = useState(false)
 
-  const [isLoadingFeeds, setIsLoadingFeeds] = useState(true)
+  const [_isLoadingFeeds, setIsLoadingFeeds] = useState(true)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
   const [isLoadingEntry, setIsLoadingEntry] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
