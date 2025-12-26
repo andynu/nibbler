@@ -17,6 +17,9 @@ const defaultPreferences: Preferences = {
   default_view_limit: "30",
   fresh_article_max_age: "24",
   date_format: "relative",
+  hide_read_feeds: "false",
+  hide_read_shows_special: "true",
+  feeds_sort_by_unread: "false",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)

@@ -31,6 +31,9 @@ module Api
           default_view_limit
           fresh_article_max_age
           date_format
+          hide_read_feeds
+          hide_read_shows_special
+          feeds_sort_by_unread
         ]
       end
 
@@ -43,7 +46,10 @@ module Api
           "default_view_mode" => "adaptive",
           "default_view_limit" => "30",
           "fresh_article_max_age" => "24",
-          "date_format" => "relative"
+          "date_format" => "relative",
+          "hide_read_feeds" => "false",
+          "hide_read_shows_special" => "true",
+          "feeds_sort_by_unread" => "false"
         }
       end
     end

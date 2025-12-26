@@ -9,11 +9,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Rss, Folder, FolderOpen, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2 } from "lucide-react"
+import { Rss, Folder, FolderOpen, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import type { Feed, Category } from "@/lib/api"
 import { CategoryDialog } from "@/components/CategoryDialog"
+import { usePreferences } from "@/contexts/PreferencesContext"
 
 type VirtualFeed = "starred" | "fresh" | "published" | null
 
@@ -50,15 +51,44 @@ export function FeedSidebar({
   onSettings,
   onCategoriesChange,
 }: FeedSidebarProps) {
+  const { preferences, updatePreference } = usePreferences()
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
     new Set(categories.map((c) => c.id))
   )
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
 
+  // Local override for hide read feeds (toggle in UI)
+  const [hideReadOverride, setHideReadOverride] = useState<boolean | null>(null)
+  const hideReadFeeds = hideReadOverride ?? preferences.hide_read_feeds === "true"
+  const sortByUnread = preferences.feeds_sort_by_unread === "true"
+
   useEffect(() => {
     setExpandedCategories(new Set(categories.map((c) => c.id)))
   }, [categories])
+
+  // Helper to filter and sort feeds
+  const filterAndSortFeeds = (feedList: Feed[]): Feed[] => {
+    let filtered = feedList
+    if (hideReadFeeds) {
+      filtered = filtered.filter((f) => f.unread_count > 0)
+    }
+    if (sortByUnread) {
+      return [...filtered].sort((a, b) => b.unread_count - a.unread_count)
+    }
+    return filtered
+  }
+
+  const toggleHideRead = () => {
+    const newValue = !hideReadFeeds
+    setHideReadOverride(newValue)
+    // Persist to preference
+    updatePreference("hide_read_feeds", newValue ? "true" : "false")
+  }
+
+  const toggleSortByUnread = () => {
+    updatePreference("feeds_sort_by_unread", sortByUnread ? "false" : "true")
+  }
 
   const toggleCategory = (categoryId: number) => {
     setExpandedCategories((prev) => {
@@ -72,7 +102,7 @@ export function FeedSidebar({
     })
   }
 
-  const uncategorizedFeeds = feeds.filter((f) => !f.category_id)
+  const uncategorizedFeeds = filterAndSortFeeds(feeds.filter((f) => !f.category_id))
   const totalUnread = feeds.reduce((sum, f) => sum + f.unread_count, 0)
 
   const handleCategoryCreated = (category: Category) => {
@@ -128,6 +158,23 @@ export function FeedSidebar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleHideRead}
+            title={hideReadFeeds ? "Show all feeds" : "Hide read feeds"}
+          >
+            {hideReadFeeds ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSortByUnread}
+            title={sortByUnread ? "Sort alphabetically" : "Sort by unread count"}
+            className={cn(sortByUnread && "text-primary")}
+          >
+            <ArrowUpDown className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={onRefreshAll} disabled={isRefreshing} title="Refresh all feeds">
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
           </Button>
@@ -185,22 +232,29 @@ export function FeedSidebar({
 
           <div className="h-px bg-border my-2" />
 
-          {categories.map((category) => (
-            <CategoryItem
-              key={category.id}
-              category={category}
-              feeds={feeds.filter((f) => f.category_id === category.id)}
-              isExpanded={expandedCategories.has(category.id)}
-              selectedFeedId={selectedFeedId}
-              selectedCategoryId={selectedCategoryId}
-              onToggle={() => toggleCategory(category.id)}
-              onSelectFeed={onSelectFeed}
-              onSelectCategory={onSelectCategory}
-              onEditFeed={onEditFeed}
-              onEditCategory={setEditingCategory}
-              onDeleteCategory={handleDeleteCategory}
-            />
-          ))}
+          {categories.map((category) => {
+            const categoryFeeds = filterAndSortFeeds(
+              feeds.filter((f) => f.category_id === category.id)
+            )
+            // Hide empty categories when hiding read feeds
+            if (hideReadFeeds && categoryFeeds.length === 0) return null
+            return (
+              <CategoryItem
+                key={category.id}
+                category={category}
+                feeds={categoryFeeds}
+                isExpanded={expandedCategories.has(category.id)}
+                selectedFeedId={selectedFeedId}
+                selectedCategoryId={selectedCategoryId}
+                onToggle={() => toggleCategory(category.id)}
+                onSelectFeed={onSelectFeed}
+                onSelectCategory={onSelectCategory}
+                onEditFeed={onEditFeed}
+                onEditCategory={setEditingCategory}
+                onDeleteCategory={handleDeleteCategory}
+              />
+            )
+          })}
 
           {uncategorizedFeeds.length > 0 && (
             <>
