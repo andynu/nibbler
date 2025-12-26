@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { createRoot } from "react-dom/client"
 import { FeedSidebar } from "@/components/FeedSidebar"
 import { EntryList } from "@/components/EntryList"
@@ -177,8 +177,8 @@ function App() {
     }
   }
 
-  // Keyboard navigation handlers
-  const handleKeyboardNext = () => {
+  // Keyboard navigation handlers - use useCallback to avoid stale closures
+  const handleKeyboardNext = useCallback(() => {
     if (entries.length === 0) return
     if (currentIndex === -1) {
       // No entry selected, select first
@@ -186,9 +186,9 @@ function App() {
     } else if (currentIndex < entries.length - 1) {
       loadEntry(entries[currentIndex + 1].id)
     }
-  }
+  }, [entries, currentIndex])
 
-  const handleKeyboardPrevious = () => {
+  const handleKeyboardPrevious = useCallback(() => {
     if (entries.length === 0) return
     if (currentIndex === -1) {
       // No entry selected, select last
@@ -196,41 +196,41 @@ function App() {
     } else if (currentIndex > 0) {
       loadEntry(entries[currentIndex - 1].id)
     }
-  }
+  }, [entries, currentIndex])
 
   // Keyboard action handlers
-  const handleKeyboardToggleRead = () => {
+  const handleKeyboardToggleRead = useCallback(() => {
     if (selectedEntry) {
       handleToggleRead(selectedEntry.id)
     }
-  }
+  }, [selectedEntry])
 
-  const handleKeyboardToggleStarred = () => {
+  const handleKeyboardToggleStarred = useCallback(() => {
     if (selectedEntry) {
       handleToggleStarredEntry(selectedEntry.id)
     }
-  }
+  }, [selectedEntry])
 
-  const handleKeyboardOpen = () => {
+  const handleKeyboardOpen = useCallback(() => {
     if (selectedEntry) {
       loadEntry(selectedEntry.id)
     } else if (entries.length > 0) {
       // If no entry selected, open first one
       loadEntry(entries[0].id)
     }
-  }
+  }, [selectedEntry, entries])
 
-  const handleKeyboardClose = () => {
+  const handleKeyboardClose = useCallback(() => {
     setSelectedEntry(null)
-  }
+  }, [])
 
-  const handleKeyboardRefresh = () => {
+  const handleKeyboardRefresh = useCallback(() => {
     loadEntries()
-  }
+  }, [selectedFeedId, selectedCategoryId, showStarred])
 
-  const handleKeyboardHelp = () => {
+  const handleKeyboardHelp = useCallback(() => {
     setShowKeyboardShortcuts((prev) => !prev)
-  }
+  }, [])
 
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
@@ -246,7 +246,16 @@ function App() {
       { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
       { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts" },
     ],
-    [entries, currentIndex, selectedEntry]
+    [
+      handleKeyboardNext,
+      handleKeyboardPrevious,
+      handleKeyboardToggleRead,
+      handleKeyboardToggleStarred,
+      handleKeyboardOpen,
+      handleKeyboardClose,
+      handleKeyboardRefresh,
+      handleKeyboardHelp,
+    ]
   )
 
   useKeyboardCommands(keyboardCommands)
