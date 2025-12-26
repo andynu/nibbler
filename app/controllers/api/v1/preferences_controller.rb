@@ -26,6 +26,9 @@ module Api
           show_content_preview
           strip_images
           default_update_interval
+          confirm_feed_catchup
+          default_view_mode
+          default_view_limit
         ]
       end
 
@@ -33,7 +36,10 @@ module Api
         {
           "show_content_preview" => "true",
           "strip_images" => "false",
-          "default_update_interval" => "30"
+          "default_update_interval" => "30",
+          "confirm_feed_catchup" => "true",
+          "default_view_mode" => "adaptive",
+          "default_view_limit" => "30"
         }
       end
     end

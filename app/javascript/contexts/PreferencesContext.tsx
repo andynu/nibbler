@@ -12,6 +12,9 @@ const defaultPreferences: Preferences = {
   show_content_preview: "true",
   strip_images: "false",
   default_update_interval: "30",
+  confirm_feed_catchup: "true",
+  default_view_mode: "adaptive",
+  default_view_limit: "30",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)

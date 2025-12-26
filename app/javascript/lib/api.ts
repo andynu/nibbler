@@ -86,6 +86,9 @@ export interface Preferences {
   show_content_preview: string
   strip_images: string
   default_update_interval: string
+  confirm_feed_catchup: string
+  default_view_mode: string
+  default_view_limit: string
 }
 
 export const api = {

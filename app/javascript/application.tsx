@@ -8,11 +8,13 @@ import { SubscribeFeedDialog } from "@/components/SubscribeFeedDialog"
 import { EditFeedDialog } from "@/components/EditFeedDialog"
 import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
 import { SettingsDialog } from "@/components/SettingsDialog"
-import { PreferencesProvider } from "@/contexts/PreferencesContext"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesContext"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
 function App() {
+  const { preferences } = usePreferences()
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
@@ -30,6 +32,7 @@ function App() {
   const [showSubscribeDialog, setShowSubscribeDialog] = useState(false)
   const [editingFeed, setEditingFeed] = useState<Feed | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
   const commandPalette = useCommandPalette()
 
   // Load feeds and categories on mount
@@ -61,11 +64,12 @@ function App() {
   const loadEntries = async () => {
     setIsLoadingEntries(true)
     try {
+      const perPage = parseInt(preferences.default_view_limit, 10) || 30
       const result = await api.entries.list({
         feed_id: selectedFeedId || undefined,
         category_id: selectedCategoryId || undefined,
         view: virtualFeed || undefined,
-        per_page: 100,
+        per_page: perPage,
       })
       setEntries(result.entries)
       setSelectedEntry(null)
@@ -157,7 +161,7 @@ function App() {
     }
   }
 
-  const handleMarkAllRead = async () => {
+  const doMarkAllRead = async () => {
     try {
       await api.entries.markAllRead({
         feed_id: selectedFeedId || undefined,
@@ -167,6 +171,17 @@ function App() {
       loadFeeds() // Refresh unread counts
     } catch (error) {
       console.error("Failed to mark all read:", error)
+    }
+  }
+
+  const handleMarkAllRead = () => {
+    const unreadCount = entries.filter((e) => e.unread).length
+    if (unreadCount === 0) return
+
+    if (preferences.confirm_feed_catchup === "true") {
+      setShowMarkAllReadConfirm(true)
+    } else {
+      doMarkAllRead()
     }
   }
 
@@ -421,6 +436,14 @@ function App() {
         categories={categories}
         onFeedsChange={setFeeds}
         onCategoriesChange={setCategories}
+      />
+      <ConfirmDialog
+        open={showMarkAllReadConfirm}
+        onOpenChange={setShowMarkAllReadConfirm}
+        title="Mark all as read?"
+        description={`This will mark ${entries.filter((e) => e.unread).length} article(s) as read.`}
+        confirmLabel="Mark as read"
+        onConfirm={doMarkAllRead}
       />
     </div>
   )
