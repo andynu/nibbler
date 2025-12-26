@@ -222,6 +222,10 @@ function App() {
     setSelectedEntry(null)
   }
 
+  const handleKeyboardRefresh = () => {
+    loadEntries()
+  }
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       { key: "j", handler: handleKeyboardNext, description: "Next entry" },
@@ -231,6 +235,7 @@ function App() {
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Escape", handler: handleKeyboardClose, description: "Close/deselect entry" },
+      { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
     ],
     [entries, currentIndex, selectedEntry]
   )
