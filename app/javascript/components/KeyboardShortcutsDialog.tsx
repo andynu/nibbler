@@ -15,14 +15,19 @@ const shortcuts = [
   { category: "Navigation", items: [
     { key: "j / n", description: "Next entry" },
     { key: "k / p", description: "Previous entry" },
+    { key: "a", description: "Go to All feeds" },
+    { key: "f", description: "Go to Fresh" },
+    { key: "Shift+S", description: "Go to Starred" },
   ]},
   { category: "Actions", items: [
     { key: "o / Enter", description: "Open entry" },
-    { key: "m", description: "Toggle read/unread" },
+    { key: "m / u", description: "Toggle read/unread" },
     { key: "s", description: "Toggle starred" },
+    { key: "v", description: "Open original link" },
     { key: "r", description: "Refresh entries" },
   ]},
   { category: "Other", items: [
+    { key: "Ctrl+K", description: "Open command palette" },
     { key: "Escape", description: "Close/deselect entry" },
     { key: "?", description: "Show keyboard shortcuts" },
   ]},

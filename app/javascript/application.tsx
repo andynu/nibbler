@@ -6,6 +6,7 @@ import { EntryContent } from "@/components/EntryContent"
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog"
 import { SubscribeFeedDialog } from "@/components/SubscribeFeedDialog"
 import { EditFeedDialog } from "@/components/EditFeedDialog"
+import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
@@ -26,6 +27,7 @@ function App() {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
   const [showSubscribeDialog, setShowSubscribeDialog] = useState(false)
   const [editingFeed, setEditingFeed] = useState<Feed | null>(null)
+  const commandPalette = useCommandPalette()
 
   // Load feeds and categories on mount
   useEffect(() => {
@@ -396,6 +398,17 @@ function App() {
         categories={categories}
         onFeedUpdated={handleFeedUpdated}
         onFeedDeleted={handleFeedDeleted}
+      />
+      <CommandPalette
+        open={commandPalette.open}
+        onOpenChange={commandPalette.setOpen}
+        placeholder="Jump to feed or category..."
+        feeds={feeds}
+        categories={categories}
+        onSelectFeed={handleSelectFeed}
+        onSelectCategory={handleSelectCategory}
+        onSelectVirtualFeed={handleSelectVirtualFeed}
+        mode="navigation"
       />
     </div>
   )
