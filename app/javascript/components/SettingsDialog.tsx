@@ -8,6 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FeedOrganizer } from "@/components/FeedOrganizer"
 import { PreferencesPanel } from "@/components/PreferencesPanel"
+import { FilterManager } from "@/components/FilterManager"
 import { Feed, Category } from "@/lib/api"
 
 interface SettingsDialogProps {
@@ -58,10 +59,11 @@ export function SettingsDialog({
               onCategoriesChange={onCategoriesChange}
             />
           </TabsContent>
-          <TabsContent value="filters" className="flex-1">
-            <div className="p-4 text-muted-foreground">
-              Filter management coming soon...
-            </div>
+          <TabsContent
+            value="filters"
+            className="flex-1 overflow-hidden border rounded-md"
+          >
+            <FilterManager feeds={feeds} categories={categories} />
           </TabsContent>
           <TabsContent value="labels" className="flex-1">
             <div className="p-4 text-muted-foreground">

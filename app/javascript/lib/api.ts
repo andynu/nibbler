@@ -93,6 +93,89 @@ export interface Preferences {
   date_format: string
 }
 
+export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"
+export type FilterActionType = "delete" | "mark_read" | "star" | "tag" | "publish" | "score" | "label" | "stop" | "ignore_tag"
+
+export interface FilterRule {
+  id?: number
+  filter_type: number
+  filter_type_name: FilterRuleType
+  reg_exp: string
+  inverse: boolean
+  feed_id: number | null
+  category_id: number | null
+  cat_filter: boolean
+  match_on: string | null
+  _destroy?: boolean
+}
+
+export interface FilterAction {
+  id?: number
+  action_type: number
+  action_type_name: FilterActionType
+  action_param: string | null
+  _destroy?: boolean
+}
+
+export interface Filter {
+  id: number
+  title: string
+  enabled: boolean
+  match_any_rule: boolean
+  inverse: boolean
+  order_id: number
+  last_triggered: string | null
+  rules: FilterRule[]
+  actions: FilterAction[]
+}
+
+export interface FilterTestResult {
+  total_tested: number
+  matches: number
+  matched_articles: Array<{ id: number; title: string }>
+}
+
+export type FilterRuleCreateData = {
+  filter_type: number
+  reg_exp: string
+  inverse?: boolean
+  feed_id?: number | null
+  category_id?: number | null
+}
+
+export type FilterRuleUpdateData =
+  | { id?: number; filter_type: number; reg_exp: string; inverse?: boolean; feed_id?: number | null; category_id?: number | null }
+  | { id: number; _destroy: true }
+
+export type FilterActionCreateData = {
+  action_type: number
+  action_param?: string | null
+}
+
+export type FilterActionUpdateData =
+  | { id?: number; action_type: number; action_param?: string | null }
+  | { id: number; _destroy: true }
+
+export interface FilterCreateData {
+  title: string
+  enabled?: boolean
+  match_any_rule?: boolean
+  inverse?: boolean
+  order_id?: number
+  filter_rules_attributes?: FilterRuleCreateData[]
+  filter_actions_attributes?: FilterActionCreateData[]
+}
+
+export interface FilterUpdateData {
+  title?: string
+  enabled?: boolean
+  match_any_rule?: boolean
+  inverse?: boolean
+  order_id?: number
+  filter_rules_attributes?: FilterRuleUpdateData[]
+  filter_actions_attributes?: FilterActionUpdateData[]
+}
+
 export const api = {
   feeds: {
     list: () => request<Feed[]>("/feeds"),
@@ -158,5 +241,16 @@ export const api = {
     get: () => request<Preferences>("/preferences"),
     update: (data: Partial<Preferences>) =>
       request<Preferences>("/preferences", { method: "PATCH", body: JSON.stringify(data) }),
+  },
+
+  filters: {
+    list: () => request<Filter[]>("/filters"),
+    get: (id: number) => request<Filter>(`/filters/${id}`),
+    create: (data: { filter: FilterCreateData }) =>
+      request<Filter>("/filters", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: { filter: FilterUpdateData }) =>
+      request<Filter>(`/filters/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: number) => request<void>(`/filters/${id}`, { method: "DELETE" }),
+    test: (id: number) => request<FilterTestResult>(`/filters/${id}/test`, { method: "POST" }),
   },
 }
