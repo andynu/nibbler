@@ -19,6 +19,14 @@ gem "cssbundling-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 
+# RSS/Atom feed parsing
+gem "feedjira"
+# HTTP client with proper caching support
+gem "faraday"
+gem "faraday-follow_redirects"
+# OPML parsing
+gem "nokogiri"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 
