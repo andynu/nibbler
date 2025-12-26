@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Rss, Folder, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle } from "lucide-react"
+import { Rss, Folder, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Feed, Category } from "@/lib/api"
 
@@ -27,6 +27,7 @@ interface FeedSidebarProps {
   isRefreshing: boolean
   onSubscribe: () => void
   onEditFeed: (feed: Feed) => void
+  onSettings: () => void
 }
 
 export function FeedSidebar({
@@ -42,6 +43,7 @@ export function FeedSidebar({
   isRefreshing,
   onSubscribe,
   onEditFeed,
+  onSettings,
 }: FeedSidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
     new Set(categories.map((c) => c.id))
@@ -79,6 +81,9 @@ export function FeedSidebar({
           </Button>
           <Button variant="ghost" size="icon" onClick={onRefreshAll} disabled={isRefreshing} title="Refresh all feeds">
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onSettings} title="Settings">
+            <Cog className="h-4 w-4" />
           </Button>
         </div>
       </div>

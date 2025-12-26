@@ -7,6 +7,7 @@ import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog"
 import { SubscribeFeedDialog } from "@/components/SubscribeFeedDialog"
 import { EditFeedDialog } from "@/components/EditFeedDialog"
 import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
+import { SettingsDialog } from "@/components/SettingsDialog"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
@@ -27,6 +28,7 @@ function App() {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
   const [showSubscribeDialog, setShowSubscribeDialog] = useState(false)
   const [editingFeed, setEditingFeed] = useState<Feed | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
   const commandPalette = useCommandPalette()
 
   // Load feeds and categories on mount
@@ -355,6 +357,7 @@ function App() {
           isRefreshing={isRefreshing}
           onSubscribe={() => setShowSubscribeDialog(true)}
           onEditFeed={setEditingFeed}
+          onSettings={() => setShowSettings(true)}
         />
       </div>
       <div style={{ width: "320px", flexShrink: 0, height: "100%" }}>
@@ -409,6 +412,14 @@ function App() {
         onSelectCategory={handleSelectCategory}
         onSelectVirtualFeed={handleSelectVirtualFeed}
         mode="navigation"
+      />
+      <SettingsDialog
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        feeds={feeds}
+        categories={categories}
+        onFeedsChange={setFeeds}
+        onCategoriesChange={setCategories}
       />
     </div>
   )
