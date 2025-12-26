@@ -315,7 +315,7 @@ function App() {
       { key: "f", handler: handleKeyboardGoFresh, description: "Go to Fresh" },
       { key: "S", handler: handleKeyboardGoStarred, description: "Go to Starred", modifiers: { shift: true } },
       // Help
-      { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts" },
+      { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts", modifiers: { shift: true } },
     ],
     [
       handleKeyboardNext,
