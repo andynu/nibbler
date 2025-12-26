@@ -52,6 +52,14 @@ Rails.application.routes.draw do
 
       get :counters, to: "counters#index"
       get :search, to: "search#index"
+
+      # Authentication
+      scope :auth do
+        post :login, to: "sessions#create"
+        delete :logout, to: "sessions#destroy"
+        get :me, to: "sessions#show"
+        post :change_password, to: "sessions#change_password"
+      end
     end
   end
 
