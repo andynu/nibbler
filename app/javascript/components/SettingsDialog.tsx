@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FeedOrganizer } from "@/components/FeedOrganizer"
+import { PreferencesPanel } from "@/components/PreferencesPanel"
 import { Feed, Category } from "@/lib/api"
 
 interface SettingsDialogProps {
@@ -67,10 +68,8 @@ export function SettingsDialog({
               Label management coming soon...
             </div>
           </TabsContent>
-          <TabsContent value="preferences" className="flex-1">
-            <div className="p-4 text-muted-foreground">
-              User preferences coming soon...
-            </div>
+          <TabsContent value="preferences" className="flex-1 overflow-auto">
+            <PreferencesPanel />
           </TabsContent>
           <TabsContent value="account" className="flex-1">
             <div className="p-4 text-muted-foreground">

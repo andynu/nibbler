@@ -8,6 +8,7 @@ import { SubscribeFeedDialog } from "@/components/SubscribeFeedDialog"
 import { EditFeedDialog } from "@/components/EditFeedDialog"
 import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
 import { SettingsDialog } from "@/components/SettingsDialog"
+import { PreferencesProvider } from "@/contexts/PreferencesContext"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
@@ -429,6 +430,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("react-root")
   if (container) {
     const root = createRoot(container)
-    root.render(<App />)
+    root.render(
+      <PreferencesProvider>
+        <App />
+      </PreferencesProvider>
+    )
   }
 })

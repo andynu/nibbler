@@ -1,8 +1,10 @@
+import { useMemo } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePreferences } from "@/contexts/PreferencesContext"
 import type { Entry } from "@/lib/api"
 
 interface EntryContentProps {
@@ -16,6 +18,11 @@ interface EntryContentProps {
   isLoading: boolean
 }
 
+function stripImages(html: string): string {
+  // Remove img tags from HTML content
+  return html.replace(/<img[^>]*>/gi, "")
+}
+
 export function EntryContent({
   entry,
   onToggleRead,
@@ -26,6 +33,14 @@ export function EntryContent({
   hasNext,
   isLoading,
 }: EntryContentProps) {
+  const { preferences } = usePreferences()
+  const shouldStripImages = preferences.strip_images === "true"
+
+  const processedContent = useMemo(() => {
+    if (!entry?.content) return ""
+    return shouldStripImages ? stripImages(entry.content) : entry.content
+  }, [entry?.content, shouldStripImages])
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -146,7 +161,7 @@ export function EntryContent({
               [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
               [&_a]:text-primary [&_a]:underline
               [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
-            dangerouslySetInnerHTML={{ __html: entry.content || "" }}
+            dangerouslySetInnerHTML={{ __html: processedContent }}
           />
 
           {entry.note && (

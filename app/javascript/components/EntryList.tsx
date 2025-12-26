@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCheck, Star, Circle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePreferences } from "@/contexts/PreferencesContext"
 import type { Entry } from "@/lib/api"
 
 interface EntryListProps {
@@ -27,6 +28,8 @@ export function EntryList({
   isLoading,
   title,
 }: EntryListProps) {
+  const { preferences } = usePreferences()
+  const showContentPreview = preferences.show_content_preview === "true"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -79,6 +82,7 @@ export function EntryList({
                   onSelect={() => onSelectEntry(entry.id)}
                   onToggleRead={() => onToggleRead(entry.id)}
                   onToggleStarred={() => onToggleStarred(entry.id)}
+                  showContentPreview={showContentPreview}
                 />
               ))}
             </div>
@@ -95,9 +99,10 @@ interface EntryItemProps {
   onSelect: () => void
   onToggleRead: () => void
   onToggleStarred: () => void
+  showContentPreview: boolean
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred }: EntryItemProps) {
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, showContentPreview }: EntryItemProps) {
   const publishedDate = new Date(entry.published)
   const formattedDate = formatRelativeDate(publishedDate)
 
@@ -127,6 +132,11 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred 
           <div className={cn("text-sm leading-snug line-clamp-2", entry.unread ? "font-medium" : "text-muted-foreground")}>
             {entry.title}
           </div>
+          {showContentPreview && entry.content_preview && (
+            <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+              {entry.content_preview}
+            </div>
+          )}
           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
             {entry.feed_title && <span className="truncate max-w-[120px]">{entry.feed_title}</span>}
             <span>·</span>

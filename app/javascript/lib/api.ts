@@ -47,6 +47,7 @@ export interface Entry {
   starred: boolean
   score: number
   last_read: string | null
+  content_preview?: string | null
   content?: string
   note?: string
   labels?: Array<{
@@ -78,6 +79,11 @@ export interface PaginatedEntries {
     total: number
     total_pages: number
   }
+}
+
+export interface Preferences {
+  show_content_preview: string
+  strip_images: string
 }
 
 export const api = {
@@ -139,5 +145,11 @@ export const api = {
     update: (id: number, data: { category: Partial<Category> }) =>
       request<Category>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/categories/${id}`, { method: "DELETE" }),
+  },
+
+  preferences: {
+    get: () => request<Preferences>("/preferences"),
+    update: (data: Partial<Preferences>) =>
+      request<Preferences>("/preferences", { method: "PATCH", body: JSON.stringify(data) }),
   },
 }

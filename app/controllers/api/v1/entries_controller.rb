@@ -180,7 +180,8 @@ module Api
           unread: user_entry.unread,
           starred: user_entry.marked,
           score: user_entry.score,
-          last_read: user_entry.last_read
+          last_read: user_entry.last_read,
+          content_preview: content_preview(entry.content)
         }
 
         if full_content
@@ -191,6 +192,13 @@ module Api
         end
 
         json
+      end
+
+      def content_preview(content)
+        return nil if content.blank?
+        # Strip HTML tags and truncate to ~150 chars
+        text = ActionController::Base.helpers.strip_tags(content).squish
+        text.truncate(150)
       end
 
       # Lightweight JSON for headlines (uses select columns)

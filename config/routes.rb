@@ -52,6 +52,8 @@ Rails.application.routes.draw do
 
       get :counters, to: "counters#index"
       get :search, to: "search#index"
+      get :preferences, to: "preferences#index"
+      patch :preferences, to: "preferences#update"
 
       # Authentication
       scope :auth do
