@@ -137,7 +137,7 @@ class FeedUpdater
 
     if user_entry.nil?
       # Create user entry
-      UserEntry.create!(
+      user_entry = UserEntry.create!(
         entry: entry,
         feed: @feed,
         user: @feed.user,
@@ -145,6 +145,10 @@ class FeedUpdater
         unread: true,
         tag_cache: parsed_entry.categories.join(",")
       )
+
+      # Execute user's filters on the new entry
+      FilterExecutor.execute(user_entry)
+
       true # New entry for this user
     else
       false # Already had this entry
