@@ -72,6 +72,14 @@ export interface Category {
   children?: Category[]
 }
 
+export interface Label {
+  id: number
+  caption: string
+  fg_color: string
+  bg_color: string
+  entry_count: number
+}
+
 export interface PaginatedEntries {
   entries: Entry[]
   pagination: {
@@ -252,5 +260,22 @@ export const api = {
       request<Filter>(`/filters/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/filters/${id}`, { method: "DELETE" }),
     test: (id: number) => request<FilterTestResult>(`/filters/${id}/test`, { method: "POST" }),
+  },
+
+  labels: {
+    list: () => request<Label[]>("/labels"),
+    get: (id: number) => request<Label>(`/labels/${id}`),
+    create: (data: { label: { caption: string; fg_color?: string; bg_color?: string } }) =>
+      request<Label>("/labels", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: { label: { caption?: string; fg_color?: string; bg_color?: string } }) =>
+      request<Label>(`/labels/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: number) => request<void>(`/labels/${id}`, { method: "DELETE" }),
+  },
+
+  entryLabels: {
+    add: (entryId: number, labelId: number) =>
+      request<void>(`/entries/${entryId}/labels`, { method: "POST", body: JSON.stringify({ label_id: labelId }) }),
+    remove: (entryId: number, labelId: number) =>
+      request<void>(`/entries/${entryId}/labels/${labelId}`, { method: "DELETE" }),
   },
 }
