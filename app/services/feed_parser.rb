@@ -93,7 +93,8 @@ class FeedParser
   def extract_content(entry)
     # Prefer full content, fall back to summary
     content = entry.content.presence || entry.summary.presence || ""
-    content.strip
+    # Sanitize HTML to prevent XSS
+    ContentSanitizer.sanitize(content.strip)
   end
 
   def extract_categories(entry)
