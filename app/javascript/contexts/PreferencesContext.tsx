@@ -16,6 +16,7 @@ const defaultPreferences: Preferences = {
   default_view_mode: "adaptive",
   default_view_limit: "30",
   fresh_article_max_age: "24",
+  date_format: "relative",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)

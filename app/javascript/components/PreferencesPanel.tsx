@@ -43,6 +43,13 @@ const FRESH_AGE_OPTIONS = [
   { value: "168", label: "1 week" },
 ]
 
+const DATE_FORMAT_OPTIONS = [
+  { value: "relative", label: "Relative (2h ago)" },
+  { value: "short", label: "Short (Dec 26, 14:30)" },
+  { value: "long", label: "Long (Thu, Dec 26, 2024)" },
+  { value: "iso", label: "ISO (2024-12-26 14:30)" },
+]
+
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
 
@@ -89,6 +96,30 @@ export function PreferencesPanel() {
                 updatePreference("strip_images", checked ? "true" : "false")
               }
             />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="date_format">Date format</Label>
+              <p className="text-sm text-muted-foreground">
+                How dates are displayed in the article list
+              </p>
+            </div>
+            <Select
+              value={preferences.date_format}
+              onValueChange={(value) => updatePreference("date_format", value)}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DATE_FORMAT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

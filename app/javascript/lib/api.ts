@@ -90,6 +90,7 @@ export interface Preferences {
   default_view_mode: string
   default_view_limit: string
   fresh_article_max_age: string
+  date_format: string
 }
 
 export const api = {

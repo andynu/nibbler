@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCheck, Star, Circle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
+import { useDateFormat } from "@/hooks/useDateFormat"
 import type { Entry } from "@/lib/api"
 
 interface EntryListProps {
@@ -29,6 +30,7 @@ export function EntryList({
   title,
 }: EntryListProps) {
   const { preferences } = usePreferences()
+  const { formatListDate } = useDateFormat()
   const showContentPreview = preferences.show_content_preview === "true"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
@@ -83,6 +85,7 @@ export function EntryList({
                   onToggleRead={() => onToggleRead(entry.id)}
                   onToggleStarred={() => onToggleStarred(entry.id)}
                   showContentPreview={showContentPreview}
+                  formatDate={formatListDate}
                 />
               ))}
             </div>
@@ -100,11 +103,11 @@ interface EntryItemProps {
   onToggleRead: () => void
   onToggleStarred: () => void
   showContentPreview: boolean
+  formatDate: (date: Date | string) => string
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, showContentPreview }: EntryItemProps) {
-  const publishedDate = new Date(entry.published)
-  const formattedDate = formatRelativeDate(publishedDate)
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, showContentPreview, formatDate }: EntryItemProps) {
+  const formattedDate = formatDate(entry.published)
 
   return (
     <div
@@ -157,19 +160,4 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
       </div>
     </div>
   )
-}
-
-function formatRelativeDate(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return "now"
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays < 7) return `${diffDays}d`
-
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
