@@ -37,6 +37,8 @@ Rails.application.routes.draw do
           get :tree
         end
       end
+
+      get :counters, to: "counters#index"
     end
   end
 
