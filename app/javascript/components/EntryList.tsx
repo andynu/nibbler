@@ -68,7 +68,7 @@ export function EntryList({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div ref={listRef}>
           {isLoading ? (
             <div className="p-4 text-center text-muted-foreground">Loading...</div>

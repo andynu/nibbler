@@ -97,7 +97,7 @@ export function EntryContent({
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <article className="max-w-3xl mx-auto p-6">
           <header className="mb-6">
             <h1 className="text-2xl font-bold mb-2">
