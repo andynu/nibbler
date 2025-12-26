@@ -33,6 +33,9 @@ Rails.application.routes.draw do
       end
 
       resources :categories do
+        member do
+          patch :reorder
+        end
         collection do
           get :tree
         end
