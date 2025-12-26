@@ -51,6 +51,7 @@ Rails.application.routes.draw do
       end
 
       get :counters, to: "counters#index"
+      get :search, to: "search#index"
     end
   end
 

@@ -12,4 +12,28 @@ class Entry < ApplicationRecord
   validates :content_hash, presence: true
 
   scope :recent, -> { order(date_entered: :desc) }
+
+  # Full-text search using PostgreSQL tsvector
+  scope :search, ->(query) {
+    return none if query.blank?
+
+    sanitized = sanitize_sql_like(query)
+    where("tsvector_combined @@ plainto_tsquery('english', ?)", sanitized)
+      .order(Arel.sql("ts_rank(tsvector_combined, plainto_tsquery('english', #{connection.quote(sanitized)})) DESC"))
+  }
+
+  # Update tsvector when saving
+  before_save :update_tsvector
+
+  private
+
+  def update_tsvector
+    self.tsvector_combined = Entry.connection.execute(
+      Entry.sanitize_sql([
+        "SELECT to_tsvector('english', ?) || to_tsvector('english', ?)",
+        title.to_s,
+        ActionController::Base.helpers.strip_tags(content.to_s)
+      ])
+    ).first["to_tsvector"]
+  end
 end
