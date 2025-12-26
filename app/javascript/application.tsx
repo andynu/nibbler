@@ -232,18 +232,45 @@ function App() {
     setShowKeyboardShortcuts((prev) => !prev)
   }, [])
 
+  const handleKeyboardOpenOriginal = useCallback(() => {
+    if (selectedEntry?.link) {
+      window.open(selectedEntry.link, "_blank", "noopener,noreferrer")
+    }
+  }, [selectedEntry])
+
+  const handleKeyboardGoAll = useCallback(() => {
+    handleSelectVirtualFeed(null)
+  }, [])
+
+  const handleKeyboardGoFresh = useCallback(() => {
+    handleSelectVirtualFeed("fresh")
+  }, [])
+
+  const handleKeyboardGoStarred = useCallback(() => {
+    handleSelectVirtualFeed("starred")
+  }, [])
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
+      // Navigation
       { key: "j", handler: handleKeyboardNext, description: "Next entry" },
       { key: "k", handler: handleKeyboardPrevious, description: "Previous entry" },
       { key: "n", handler: handleKeyboardNext, description: "Next entry" },
       { key: "p", handler: handleKeyboardPrevious, description: "Previous entry" },
-      { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
-      { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Escape", handler: handleKeyboardClose, description: "Close/deselect entry" },
+      // Actions
+      { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
+      { key: "u", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
+      { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
+      { key: "v", handler: handleKeyboardOpenOriginal, description: "Open original link" },
       { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
+      // Go to views
+      { key: "a", handler: handleKeyboardGoAll, description: "Go to All" },
+      { key: "f", handler: handleKeyboardGoFresh, description: "Go to Fresh" },
+      { key: "S", handler: handleKeyboardGoStarred, description: "Go to Starred", modifiers: { shift: true } },
+      // Help
       { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts" },
     ],
     [
@@ -254,6 +281,10 @@ function App() {
       handleKeyboardOpen,
       handleKeyboardClose,
       handleKeyboardRefresh,
+      handleKeyboardOpenOriginal,
+      handleKeyboardGoAll,
+      handleKeyboardGoFresh,
+      handleKeyboardGoStarred,
       handleKeyboardHelp,
     ]
   )
