@@ -15,7 +15,7 @@ function App() {
 
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
-  const [showStarred, setShowStarred] = useState(false)
+  const [virtualFeed, setVirtualFeed] = useState<"starred" | "fresh" | "published" | null>(null)
 
   const [_isLoadingFeeds, setIsLoadingFeeds] = useState(true)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
@@ -31,7 +31,7 @@ function App() {
   // Load entries when selection changes
   useEffect(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, showStarred])
+  }, [selectedFeedId, selectedCategoryId, virtualFeed])
 
   const loadFeeds = async () => {
     setIsLoadingFeeds(true)
@@ -55,7 +55,7 @@ function App() {
       const result = await api.entries.list({
         feed_id: selectedFeedId || undefined,
         category_id: selectedCategoryId || undefined,
-        starred: showStarred || undefined,
+        view: virtualFeed || undefined,
         per_page: 100,
       })
       setEntries(result.entries)
@@ -91,17 +91,17 @@ function App() {
   const handleSelectFeed = (feedId: number | null) => {
     setSelectedFeedId(feedId)
     setSelectedCategoryId(null)
-    setShowStarred(false)
+    setVirtualFeed(null)
   }
 
   const handleSelectCategory = (categoryId: number | null) => {
     setSelectedCategoryId(categoryId)
     setSelectedFeedId(null)
-    setShowStarred(false)
+    setVirtualFeed(null)
   }
 
-  const handleToggleStarred = () => {
-    setShowStarred(!showStarred)
+  const handleSelectVirtualFeed = (feed: "starred" | "fresh" | "published" | null) => {
+    setVirtualFeed(feed)
     setSelectedFeedId(null)
     setSelectedCategoryId(null)
   }
@@ -226,7 +226,7 @@ function App() {
 
   const handleKeyboardRefresh = useCallback(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, showStarred])
+  }, [selectedFeedId, selectedCategoryId, virtualFeed])
 
   const handleKeyboardHelp = useCallback(() => {
     setShowKeyboardShortcuts((prev) => !prev)
@@ -261,7 +261,9 @@ function App() {
   useKeyboardCommands(keyboardCommands)
 
   const getListTitle = () => {
-    if (showStarred) return "Starred"
+    if (virtualFeed === "starred") return "Starred"
+    if (virtualFeed === "fresh") return "Fresh"
+    if (virtualFeed === "published") return "Published"
     if (selectedFeedId) {
       const feed = feeds.find((f) => f.id === selectedFeedId)
       return feed?.title || "Feed"
@@ -288,10 +290,10 @@ function App() {
           categories={categories}
           selectedFeedId={selectedFeedId}
           selectedCategoryId={selectedCategoryId}
-          showStarred={showStarred}
+          virtualFeed={virtualFeed}
           onSelectFeed={handleSelectFeed}
           onSelectCategory={handleSelectCategory}
-          onToggleStarred={handleToggleStarred}
+          onSelectVirtualFeed={handleSelectVirtualFeed}
           onRefreshAll={handleRefreshAll}
           isRefreshing={isRefreshing}
         />
