@@ -196,12 +196,27 @@ function App() {
     }
   }
 
+  // Keyboard action handlers
+  const handleKeyboardToggleRead = () => {
+    if (selectedEntry) {
+      handleToggleRead(selectedEntry.id)
+    }
+  }
+
+  const handleKeyboardToggleStarred = () => {
+    if (selectedEntry) {
+      handleToggleStarredEntry(selectedEntry.id)
+    }
+  }
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       { key: "j", handler: handleKeyboardNext, description: "Next entry" },
       { key: "k", handler: handleKeyboardPrevious, description: "Previous entry" },
+      { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
+      { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
     ],
-    [entries, currentIndex]
+    [entries, currentIndex, selectedEntry]
   )
 
   useKeyboardCommands(keyboardCommands)
