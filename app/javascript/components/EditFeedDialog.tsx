@@ -18,7 +18,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { api, Feed, Category } from "@/lib/api"
+import { usePreferences } from "@/contexts/PreferencesContext"
 import { Loader2, AlertCircle, RefreshCw, Trash2 } from "lucide-react"
+
+const UPDATE_INTERVAL_OPTIONS = [
+  { value: "0", label: "Use default" },
+  { value: "15", label: "Every 15 minutes" },
+  { value: "30", label: "Every 30 minutes" },
+  { value: "60", label: "Every hour" },
+  { value: "120", label: "Every 2 hours" },
+  { value: "360", label: "Every 6 hours" },
+  { value: "720", label: "Every 12 hours" },
+  { value: "1440", label: "Every 24 hours" },
+  { value: "10080", label: "Weekly" },
+]
 
 interface EditFeedDialogProps {
   feed: Feed | null
@@ -37,8 +50,10 @@ export function EditFeedDialog({
   onFeedUpdated,
   onFeedDeleted,
 }: EditFeedDialogProps) {
+  const { preferences } = usePreferences()
   const [title, setTitle] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
+  const [updateInterval, setUpdateInterval] = useState<string>("0")
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -49,6 +64,7 @@ export function EditFeedDialog({
     if (feed) {
       setTitle(feed.title)
       setCategoryId(feed.category_id ? String(feed.category_id) : "")
+      setUpdateInterval(String(feed.update_interval ?? 0))
       setError(null)
       setShowDeleteConfirm(false)
     }
@@ -66,6 +82,7 @@ export function EditFeedDialog({
         feed: {
           title,
           category_id: categoryId ? parseInt(categoryId, 10) : null,
+          update_interval: parseInt(updateInterval, 10),
         },
       })
       onFeedUpdated(updatedFeed)
@@ -75,6 +92,13 @@ export function EditFeedDialog({
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Get the label for the default interval from preferences
+  const getDefaultIntervalLabel = () => {
+    const defaultMinutes = preferences.default_update_interval
+    const option = UPDATE_INTERVAL_OPTIONS.find((o) => o.value === defaultMinutes)
+    return option ? option.label.replace("Every ", "") : `${defaultMinutes} minutes`
   }
 
   const handleRefresh = async () => {
@@ -158,6 +182,23 @@ export function EditFeedDialog({
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={String(category.id)}>
                       {category.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="updateInterval">Update interval</Label>
+              <Select value={updateInterval} onValueChange={setUpdateInterval}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {UPDATE_INTERVAL_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.value === "0"
+                        ? `Use default (${getDefaultIntervalLabel()})`
+                        : option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

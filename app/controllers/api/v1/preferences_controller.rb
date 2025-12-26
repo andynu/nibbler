@@ -25,13 +25,15 @@ module Api
         %w[
           show_content_preview
           strip_images
+          default_update_interval
         ]
       end
 
       def default_preferences
         {
           "show_content_preview" => "true",
-          "strip_images" => "false"
+          "strip_images" => "false",
+          "default_update_interval" => "30"
         }
       end
     end

@@ -11,6 +11,7 @@ interface PreferencesContextValue {
 const defaultPreferences: Preferences = {
   show_content_preview: "true",
   strip_images: "false",
+  default_update_interval: "30",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)

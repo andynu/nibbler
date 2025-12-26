@@ -32,6 +32,7 @@ export interface Feed {
   last_updated: string | null
   last_error: string | null
   unread_count: number
+  update_interval?: number
 }
 
 export interface Entry {
@@ -84,6 +85,7 @@ export interface PaginatedEntries {
 export interface Preferences {
   show_content_preview: string
   strip_images: string
+  default_update_interval: string
 }
 
 export const api = {

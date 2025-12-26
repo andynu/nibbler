@@ -25,5 +25,20 @@ class Feed < ApplicationRecord
 
   scope :visible, -> { where(hidden: false) }
   scope :ordered, -> { order(:order_id, :title) }
-  scope :needs_update, -> { where("last_updated IS NULL OR last_updated < ?", 30.minutes.ago) }
+
+  # Feeds that need updating based on their individual update_interval
+  # If update_interval is 0, use the provided default (in minutes)
+  scope :needs_update, ->(default_interval_minutes = 30) {
+    where("last_updated IS NULL OR (
+      CASE
+        WHEN update_interval > 0 THEN last_updated < datetime('now', '-' || update_interval || ' minutes')
+        ELSE last_updated < datetime('now', '-' || ? || ' minutes')
+      END
+    )", default_interval_minutes)
+  }
+
+  # Returns the effective update interval in minutes (respects per-feed override)
+  def effective_update_interval(default_interval_minutes = 30)
+    update_interval.positive? ? update_interval : default_interval_minutes
+  end
 end
