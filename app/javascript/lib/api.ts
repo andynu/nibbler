@@ -84,7 +84,7 @@ export const api = {
   feeds: {
     list: () => request<Feed[]>("/feeds"),
     get: (id: number) => request<Feed & { entries: Entry[] }>(`/feeds/${id}`),
-    create: (data: { feed: { title: string; feed_url: string; category_id?: number } }) =>
+    create: (data: { feed: { title?: string; feed_url: string; category_id?: number } }) =>
       request<Feed>("/feeds", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: { feed: Partial<Feed> }) =>
       request<Feed>(`/feeds/${id}`, { method: "PATCH", body: JSON.stringify(data) }),

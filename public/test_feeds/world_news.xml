@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>World News Roundup</title>
+    <link>http://localhost:3000/news</link>
+    <description>Daily international news coverage</description>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 26 Dec 2024 12:00:00 GMT</lastBuildDate>
+    <atom:link href="http://localhost:3000/test_feeds/world_news.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>International Climate Summit Reaches Historic Agreement</title>
+      <link>http://localhost:3000/news/climate-summit-2024</link>
+      <guid>world-news-001</guid>
+      <pubDate>Thu, 26 Dec 2024 11:00:00 GMT</pubDate>
+      <dc:creator>Global Affairs Desk</dc:creator>
+      <description><![CDATA[
+        <p>World leaders have reached a landmark agreement at the 2024 Climate Summit, committing to unprecedented emissions reductions and climate finance mechanisms.</p>
+        <h2>Key Provisions</h2>
+        <p>The agreement includes binding commitments from 195 nations:</p>
+        <ul>
+          <li>50% emissions reduction by 2035</li>
+          <li>$500 billion annual climate finance for developing nations</li>
+          <li>Phase-out of coal power by 2040</li>
+          <li>Protection for 30% of marine ecosystems</li>
+        </ul>
+        <p>Environmental groups have cautiously welcomed the deal while emphasizing the need for rapid implementation.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>Global Tech Leaders Form AI Safety Consortium</title>
+      <link>http://localhost:3000/news/ai-safety-consortium</link>
+      <guid>world-news-002</guid>
+      <pubDate>Wed, 25 Dec 2024 16:00:00 GMT</pubDate>
+      <dc:creator>Technology Correspondent</dc:creator>
+      <description><![CDATA[
+        <p>Major technology companies have announced the formation of an international consortium dedicated to ensuring the safe development of artificial intelligence systems.</p>
+        <p>The consortium will focus on:</p>
+        <ul>
+          <li>Developing shared safety standards</li>
+          <li>Creating evaluation frameworks for AI systems</li>
+          <li>Funding independent safety research</li>
+          <li>Coordinating with governments on regulation</li>
+        </ul>
+        <p>Initial funding of $10 billion has been committed by founding members, with additional contributions expected from governments and philanthropic organizations.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>Record-Breaking Renewable Energy Investment in 2024</title>
+      <link>http://localhost:3000/news/renewable-investment-2024</link>
+      <guid>world-news-003</guid>
+      <pubDate>Tue, 24 Dec 2024 08:00:00 GMT</pubDate>
+      <dc:creator>Energy Markets Reporter</dc:creator>
+      <description><![CDATA[
+        <p>Global investment in renewable energy has reached an all-time high in 2024, with over $1.7 trillion flowing into solar, wind, and battery storage projects.</p>
+        <h2>Regional Highlights</h2>
+        <p>Asia-Pacific led investment growth with $800 billion, followed by Europe at $450 billion and North America at $350 billion.</p>
+        <p>Solar photovoltaic installations alone accounted for 60% of new capacity additions, driven by continued cost reductions and supportive policies.</p>
+        <p>Analysts predict this trend will accelerate as countries work toward their climate commitments.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>Space Tourism Industry Marks Milestone Year</title>
+      <link>http://localhost:3000/news/space-tourism-milestone</link>
+      <guid>world-news-004</guid>
+      <pubDate>Mon, 23 Dec 2024 14:00:00 GMT</pubDate>
+      <dc:creator>Space Affairs Editor</dc:creator>
+      <description><![CDATA[
+        <p>The commercial space tourism industry has reached a significant milestone, with over 1,000 private citizens traveling to space in 2024.</p>
+        <p>Key developments include:</p>
+        <ul>
+          <li>First commercial space station module deployed</li>
+          <li>Ticket prices dropping below $100,000 for suborbital flights</li>
+          <li>Multiple successful orbital hotel stays</li>
+        </ul>
+        <p>Industry leaders predict space tourism could become a $50 billion market by 2030.</p>
+      ]]></description>
+    </item>
+  </channel>
+</rss>

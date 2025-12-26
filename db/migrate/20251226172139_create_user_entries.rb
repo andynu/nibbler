@@ -18,9 +18,7 @@ class CreateUserEntries < ActiveRecord::Migration[8.1]
       t.boolean :unread, null: false, default: true
     end
 
-    add_index :user_entries, :user_id
-    add_index :user_entries, :entry_id
-    add_index :user_entries, :feed_id
+    # user_id, entry_id, feed_id indexes created automatically by t.references
     add_index :user_entries, :unread
   end
 end

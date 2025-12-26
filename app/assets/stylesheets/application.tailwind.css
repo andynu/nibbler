@@ -27,7 +27,12 @@
   * {
     border-color: var(--color-border);
   }
-  body {
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
     background-color: var(--color-background);
     color: var(--color-foreground);
   }

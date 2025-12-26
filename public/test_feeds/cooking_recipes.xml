@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Home Kitchen Adventures</title>
+    <link>http://localhost:3000/cooking</link>
+    <description>Simple, delicious recipes for the home cook</description>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 26 Dec 2024 06:00:00 GMT</lastBuildDate>
+    <atom:link href="http://localhost:3000/test_feeds/cooking_recipes.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>Perfect Homemade Ramen from Scratch</title>
+      <link>http://localhost:3000/recipes/homemade-ramen</link>
+      <guid>cooking-001</guid>
+      <pubDate>Thu, 26 Dec 2024 05:00:00 GMT</pubDate>
+      <author>chef@example.com (Chef Tanaka)</author>
+      <description><![CDATA[
+        <p>Master the art of authentic ramen at home with this comprehensive guide to making every component from scratch.</p>
+        <h2>The Broth</h2>
+        <p>A rich tonkotsu broth requires patience but delivers incredible depth of flavor. You'll need:</p>
+        <ul>
+          <li>4 lbs pork bones</li>
+          <li>1 lb chicken backs</li>
+          <li>1 onion, halved</li>
+          <li>1 head garlic</li>
+          <li>2-inch piece of ginger</li>
+        </ul>
+        <p>Simmer for 12-18 hours, occasionally skimming and adding water as needed. The result should be creamy and opaque.</p>
+        <h2>The Tare</h2>
+        <p>Combine soy sauce, mirin, and sake with dried mushrooms for a concentrated seasoning base that brings everything together.</p>
+        <h2>The Noodles</h2>
+        <p>Fresh alkaline noodles with a springy texture are essential. The key is using kansui (alkaline mineral water) in the dough.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>Quick Weeknight Pasta: Cacio e Pepe</title>
+      <link>http://localhost:3000/recipes/cacio-e-pepe</link>
+      <guid>cooking-002</guid>
+      <pubDate>Wed, 25 Dec 2024 18:00:00 GMT</pubDate>
+      <author>maria@example.com (Maria Romano)</author>
+      <description><![CDATA[
+        <p>With just four ingredients, cacio e pepe is deceptively simple yet requires perfect technique to achieve that silky, cheese-coated pasta.</p>
+        <h2>Ingredients</h2>
+        <ul>
+          <li>400g spaghetti or tonnarelli</li>
+          <li>200g Pecorino Romano, finely grated</li>
+          <li>2 tbsp freshly ground black pepper</li>
+          <li>Pasta water (starchy!)</li>
+        </ul>
+        <h2>The Technique</h2>
+        <p>The secret is creating an emulsion between the cheese and pasta water. Work quickly off the heat, adding water gradually while tossing constantly. The result should coat the pasta without clumping.</p>
+        <p><strong>Pro tip:</strong> Toast the pepper in a dry pan to release its aromatic oils before adding the pasta.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>The Ultimate Chocolate Chip Cookies</title>
+      <link>http://localhost:3000/recipes/chocolate-chip-cookies</link>
+      <guid>cooking-003</guid>
+      <pubDate>Tue, 24 Dec 2024 10:00:00 GMT</pubDate>
+      <author>baker@example.com (Sarah's Bakery)</author>
+      <description><![CDATA[
+        <p>After testing over 50 variations, here's the definitive chocolate chip cookie recipe that balances chewy centers with crispy edges.</p>
+        <h2>The Secrets</h2>
+        <ul>
+          <li><strong>Brown butter:</strong> Adds nutty, caramel notes</li>
+          <li><strong>Resting the dough:</strong> 24-72 hours develops complex flavors</li>
+          <li><strong>Mixed chocolates:</strong> Combine chips with chopped bars</li>
+          <li><strong>Flaky salt finish:</strong> Elevates every bite</li>
+        </ul>
+        <h2>Baking Tips</h2>
+        <p>Pull cookies from the oven when the edges are set but centers look underdone. They'll continue cooking on the hot pan and set up perfectly as they cool.</p>
+      ]]></description>
+    </item>
+  </channel>
+</rss>

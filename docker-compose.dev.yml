@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ttrb_postgres
+    environment:
+      POSTGRES_USER: ttrb
+      POSTGRES_PASSWORD: ttrb_dev
+      POSTGRES_DB: ttrb_development
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ttrb -d ttrb_development"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

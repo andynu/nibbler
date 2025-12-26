@@ -102,6 +102,68 @@ namespace :feeds do
     CachedFeedFetcher.clear_cache!
   end
 
+  desc "Seed test feeds from public/test_feeds"
+  task seed_test_feeds: :environment do
+    user = User.find_by(login: "admin")
+    unless user
+      puts "Creating admin user..."
+      user = User.create!(
+        login: "admin",
+        email: "admin@example.com",
+        full_name: "Administrator",
+        access_level: 10,
+        pwd_hash: BCrypt::Password.create("admin")
+      )
+    end
+
+    base_url = ENV.fetch("TEST_FEED_BASE_URL", "http://localhost:3000")
+
+    test_feeds = [
+      {
+        category: "Technology",
+        feeds: [
+          { title: "Tech Insights Blog", file: "tech_blog.xml" }
+        ]
+      },
+      {
+        category: "Science",
+        feeds: [
+          { title: "Science Daily Digest", file: "science_daily.xml" }
+        ]
+      },
+      {
+        category: "News",
+        feeds: [
+          { title: "World News Roundup", file: "world_news.xml" }
+        ]
+      },
+      {
+        category: "Lifestyle",
+        feeds: [
+          { title: "Home Kitchen Adventures", file: "cooking_recipes.xml" }
+        ]
+      }
+    ]
+
+    puts "Seeding test feeds for user: #{user.login}"
+
+    test_feeds.each do |group|
+      category = user.categories.find_or_create_by!(title: group[:category])
+      puts "  Category: #{category.title}"
+
+      group[:feeds].each do |feed_data|
+        feed_url = "#{base_url}/test_feeds/#{feed_data[:file]}"
+        feed = user.feeds.find_or_initialize_by(feed_url: feed_url)
+        feed.title = feed_data[:title]
+        feed.category = category
+        feed.save!
+        puts "    Feed: #{feed.title} (#{feed_url})"
+      end
+    end
+
+    puts "\nDone! Now run: rake feeds:update_all to fetch entries"
+  end
+
   desc "Show feed update stats"
   task stats: :environment do
     puts "Feed Statistics:"

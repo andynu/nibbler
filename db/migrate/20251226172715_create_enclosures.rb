@@ -10,6 +10,6 @@ class CreateEnclosures < ActiveRecord::Migration[8.1]
       t.integer :height, null: false, default: 0
     end
 
-    add_index :enclosures, :entry_id
+    # entry_id index created automatically by t.references
   end
 end

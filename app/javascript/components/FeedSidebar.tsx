@@ -2,7 +2,13 @@ import { useState, useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Rss, Folder, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Rss, Folder, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Feed, Category } from "@/lib/api"
 
@@ -19,6 +25,8 @@ interface FeedSidebarProps {
   onSelectVirtualFeed: (feed: VirtualFeed) => void
   onRefreshAll: () => void
   isRefreshing: boolean
+  onSubscribe: () => void
+  onEditFeed: (feed: Feed) => void
 }
 
 export function FeedSidebar({
@@ -32,6 +40,8 @@ export function FeedSidebar({
   onSelectVirtualFeed,
   onRefreshAll,
   isRefreshing,
+  onSubscribe,
+  onEditFeed,
 }: FeedSidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
     new Set(categories.map((c) => c.id))
@@ -63,9 +73,14 @@ export function FeedSidebar({
           <Rss className="h-5 w-5" />
           <span className="font-semibold">TTRB</span>
         </div>
-        <Button variant="ghost" size="icon" onClick={onRefreshAll} disabled={isRefreshing}>
-          <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={onSubscribe} title="Subscribe to feed">
+            <Plus className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onRefreshAll} disabled={isRefreshing} title="Refresh all feeds">
+            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
@@ -127,6 +142,7 @@ export function FeedSidebar({
               onToggle={() => toggleCategory(category.id)}
               onSelectFeed={onSelectFeed}
               onSelectCategory={onSelectCategory}
+              onEditFeed={onEditFeed}
             />
           ))}
 
@@ -139,6 +155,7 @@ export function FeedSidebar({
                   feed={feed}
                   isSelected={selectedFeedId === feed.id}
                   onSelect={() => onSelectFeed(feed.id)}
+                  onEdit={() => onEditFeed(feed)}
                 />
               ))}
             </>
@@ -158,6 +175,7 @@ interface CategoryItemProps {
   onToggle: () => void
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
+  onEditFeed: (feed: Feed) => void
 }
 
 function CategoryItem({
@@ -169,6 +187,7 @@ function CategoryItem({
   onToggle,
   onSelectFeed,
   onSelectCategory,
+  onEditFeed,
 }: CategoryItemProps) {
   const unreadCount = feeds.reduce((sum, f) => sum + f.unread_count, 0)
 
@@ -199,6 +218,7 @@ function CategoryItem({
               feed={feed}
               isSelected={selectedFeedId === feed.id}
               onSelect={() => onSelectFeed(feed.id)}
+              onEdit={() => onEditFeed(feed)}
             />
           ))}
         </div>
@@ -211,22 +231,45 @@ interface FeedItemProps {
   feed: Feed
   isSelected: boolean
   onSelect: () => void
+  onEdit: () => void
 }
 
-function FeedItem({ feed, isSelected, onSelect }: FeedItemProps) {
+function FeedItem({ feed, isSelected, onSelect, onEdit }: FeedItemProps) {
   return (
-    <Button
-      variant="ghost"
-      className={cn("w-full justify-start gap-2 h-8", isSelected && "bg-accent")}
-      onClick={onSelect}
-    >
-      {feed.icon_url ? (
-        <img src={feed.icon_url} className="h-4 w-4" alt="" />
-      ) : (
-        <Rss className="h-4 w-4 text-muted-foreground" />
-      )}
-      <span className="flex-1 text-left truncate">{feed.title}</span>
-      {feed.unread_count > 0 && <Badge variant="secondary">{feed.unread_count}</Badge>}
-    </Button>
+    <div className="group flex items-center">
+      <Button
+        variant="ghost"
+        className={cn("flex-1 justify-start gap-2 h-8", isSelected && "bg-accent")}
+        onClick={onSelect}
+      >
+        {feed.icon_url ? (
+          <img src={feed.icon_url} className="h-4 w-4" alt="" />
+        ) : (
+          <Rss className="h-4 w-4 text-muted-foreground" />
+        )}
+        <span className="flex-1 text-left truncate">{feed.title}</span>
+        {feed.last_error && (
+          <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+        )}
+        {feed.unread_count > 0 && <Badge variant="secondary">{feed.unread_count}</Badge>}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onEdit}>
+            <Settings className="mr-2 h-4 w-4" />
+            Edit Feed
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }

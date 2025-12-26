@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tech Insights Blog</title>
+    <link>http://localhost:3000/test_feeds/tech_blog.xml</link>
+    <description>Latest insights on software development and technology</description>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 26 Dec 2024 10:00:00 GMT</lastBuildDate>
+    <atom:link href="http://localhost:3000/test_feeds/tech_blog.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>Understanding Modern JavaScript Bundlers</title>
+      <link>http://localhost:3000/articles/js-bundlers</link>
+      <guid>tech-blog-001</guid>
+      <pubDate>Thu, 26 Dec 2024 09:00:00 GMT</pubDate>
+      <author>alice@example.com (Alice Chen)</author>
+      <description><![CDATA[
+        <p>JavaScript bundlers have evolved significantly over the past decade. From the early days of Browserify to modern tools like esbuild and Vite, the landscape has changed dramatically.</p>
+        <h2>The Rise of esbuild</h2>
+        <p>Written in Go, esbuild brought unprecedented speed to the bundling process. Its ability to process thousands of modules in milliseconds changed developer expectations forever.</p>
+        <p>Key features include:</p>
+        <ul>
+          <li>Extreme speed through parallelization</li>
+          <li>Built-in TypeScript support</li>
+          <li>Tree shaking out of the box</li>
+          <li>Source map generation</li>
+        </ul>
+        <p>The impact on development workflows has been transformative, enabling near-instant hot module replacement and faster CI/CD pipelines.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>Rails 8: What's New and Exciting</title>
+      <link>http://localhost:3000/articles/rails-8-features</link>
+      <guid>tech-blog-002</guid>
+      <pubDate>Wed, 25 Dec 2024 14:30:00 GMT</pubDate>
+      <author>bob@example.com (Bob Martinez)</author>
+      <description><![CDATA[
+        <p>Rails 8 continues the framework's tradition of developer happiness with several exciting new features.</p>
+        <h2>Solid Queue Integration</h2>
+        <p>Background job processing gets a major upgrade with Solid Queue, a database-backed Active Job backend that eliminates the need for Redis in many applications.</p>
+        <h2>Authentication Generator</h2>
+        <p>The new authentication generator provides a solid foundation for user authentication without requiring external gems. It includes:</p>
+        <ul>
+          <li>Session-based authentication</li>
+          <li>Password reset flows</li>
+          <li>Email verification</li>
+        </ul>
+        <p>These additions make Rails an even more complete solution for building web applications.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>Building Type-Safe APIs with TypeScript</title>
+      <link>http://localhost:3000/articles/typescript-apis</link>
+      <guid>tech-blog-003</guid>
+      <pubDate>Tue, 24 Dec 2024 11:00:00 GMT</pubDate>
+      <author>carol@example.com (Carol Wu)</author>
+      <description><![CDATA[
+        <p>Type safety in API development prevents entire categories of bugs before they reach production. Here's how to leverage TypeScript effectively.</p>
+        <h2>Defining Your API Contract</h2>
+        <p>Start by defining interfaces that represent your API responses:</p>
+        <pre><code>interface User {
+  id: number;
+  name: string;
+  email: string;
+  createdAt: string;
+}</code></pre>
+        <p>These interfaces serve as documentation and compile-time checks, ensuring consistency between your frontend and backend.</p>
+      ]]></description>
+    </item>
+  </channel>
+</rss>

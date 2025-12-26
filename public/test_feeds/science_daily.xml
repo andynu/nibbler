@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Science Daily Digest</title>
+  <link href="http://localhost:3000/test_feeds/science_daily.xml" rel="self"/>
+  <link href="http://localhost:3000/science"/>
+  <id>urn:uuid:science-daily-feed</id>
+  <updated>2024-12-26T08:00:00Z</updated>
+  <subtitle>Breaking discoveries in science and technology</subtitle>
+
+  <entry>
+    <title>New Breakthrough in Quantum Computing Stability</title>
+    <link href="http://localhost:3000/science/quantum-stability"/>
+    <id>science-daily-001</id>
+    <updated>2024-12-26T07:30:00Z</updated>
+    <author>
+      <name>Dr. Sarah Johnson</name>
+    </author>
+    <content type="html"><![CDATA[
+      <p>Researchers at MIT have achieved a significant breakthrough in maintaining quantum coherence at higher temperatures, potentially paving the way for more practical quantum computers.</p>
+      <h3>The Challenge of Decoherence</h3>
+      <p>Quantum computers rely on qubits that exist in superposition states. However, these delicate states are easily disrupted by environmental noise, a phenomenon known as decoherence.</p>
+      <p>The new technique uses a novel error-correction method that:</p>
+      <ul>
+        <li>Reduces error rates by 99.7%</li>
+        <li>Operates at temperatures up to 1 Kelvin</li>
+        <li>Scales to thousands of qubits</li>
+      </ul>
+      <blockquote>
+        <p>"This represents a paradigm shift in how we approach quantum error correction," said lead researcher Dr. Chen.</p>
+      </blockquote>
+    ]]></content>
+  </entry>
+
+  <entry>
+    <title>Mars Rover Discovers Evidence of Ancient River System</title>
+    <link href="http://localhost:3000/science/mars-river"/>
+    <id>science-daily-002</id>
+    <updated>2024-12-25T15:00:00Z</updated>
+    <author>
+      <name>NASA JPL Team</name>
+    </author>
+    <content type="html"><![CDATA[
+      <p>NASA's Perseverance rover has uncovered compelling evidence of an extensive ancient river system in Jezero Crater, suggesting Mars once had a complex hydrological cycle.</p>
+      <p>Analysis of sedimentary rock layers reveals:</p>
+      <ul>
+        <li>Multiple flooding events over millions of years</li>
+        <li>Evidence of organic compounds in the sediment</li>
+        <li>Mineral deposits consistent with standing water</li>
+      </ul>
+      <p>These findings strengthen the case for past habitability on Mars and guide the selection of samples for eventual return to Earth.</p>
+      <figure>
+        <img src="http://localhost:3000/images/mars-river.jpg" alt="Sedimentary layers in Jezero Crater"/>
+        <figcaption>Layered sedimentary deposits visible in the crater wall</figcaption>
+      </figure>
+    ]]></content>
+  </entry>
+
+  <entry>
+    <title>Gene Therapy Shows Promise for Inherited Blindness</title>
+    <link href="http://localhost:3000/science/gene-therapy-vision"/>
+    <id>science-daily-003</id>
+    <updated>2024-12-24T09:00:00Z</updated>
+    <author>
+      <name>Medical Research Institute</name>
+    </author>
+    <content type="html"><![CDATA[
+      <p>A new gene therapy treatment has restored partial vision in patients with Leber congenital amaurosis, a rare inherited condition causing severe vision loss from birth.</p>
+      <h3>How It Works</h3>
+      <p>The treatment delivers a functional copy of the RPE65 gene directly to retinal cells using a modified adeno-associated virus (AAV) vector.</p>
+      <p>Clinical trial results show:</p>
+      <ul>
+        <li>93% of patients showed measurable improvement</li>
+        <li>Effects persisted for at least 3 years</li>
+        <li>Minimal side effects reported</li>
+      </ul>
+      <p>This success opens doors for treating other forms of inherited retinal diseases affecting millions worldwide.</p>
+    ]]></content>
+  </entry>
+</feed>

@@ -4,6 +4,8 @@ import { FeedSidebar } from "@/components/FeedSidebar"
 import { EntryList } from "@/components/EntryList"
 import { EntryContent } from "@/components/EntryContent"
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog"
+import { SubscribeFeedDialog } from "@/components/SubscribeFeedDialog"
+import { EditFeedDialog } from "@/components/EditFeedDialog"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
@@ -22,6 +24,8 @@ function App() {
   const [isLoadingEntry, setIsLoadingEntry] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
+  const [showSubscribeDialog, setShowSubscribeDialog] = useState(false)
+  const [editingFeed, setEditingFeed] = useState<Feed | null>(null)
 
   // Load feeds and categories on mount
   useEffect(() => {
@@ -158,6 +162,26 @@ function App() {
       loadFeeds() // Refresh unread counts
     } catch (error) {
       console.error("Failed to mark all read:", error)
+    }
+  }
+
+  const handleFeedCreated = (feed: Feed) => {
+    setFeeds((prev) => [...prev, feed])
+    // Select the new feed
+    handleSelectFeed(feed.id)
+  }
+
+  const handleFeedUpdated = (updatedFeed: Feed) => {
+    setFeeds((prev) =>
+      prev.map((f) => (f.id === updatedFeed.id ? updatedFeed : f))
+    )
+  }
+
+  const handleFeedDeleted = (feedId: number) => {
+    setFeeds((prev) => prev.filter((f) => f.id !== feedId))
+    // If the deleted feed was selected, clear selection
+    if (selectedFeedId === feedId) {
+      handleSelectFeed(null)
     }
   }
 
@@ -327,6 +351,8 @@ function App() {
           onSelectVirtualFeed={handleSelectVirtualFeed}
           onRefreshAll={handleRefreshAll}
           isRefreshing={isRefreshing}
+          onSubscribe={() => setShowSubscribeDialog(true)}
+          onEditFeed={setEditingFeed}
         />
       </div>
       <div style={{ width: "320px", flexShrink: 0, height: "100%" }}>
@@ -356,6 +382,20 @@ function App() {
       <KeyboardShortcutsDialog
         open={showKeyboardShortcuts}
         onOpenChange={setShowKeyboardShortcuts}
+      />
+      <SubscribeFeedDialog
+        open={showSubscribeDialog}
+        onOpenChange={setShowSubscribeDialog}
+        categories={categories}
+        onFeedCreated={handleFeedCreated}
+      />
+      <EditFeedDialog
+        feed={editingFeed}
+        open={editingFeed !== null}
+        onOpenChange={(open) => !open && setEditingFeed(null)}
+        categories={categories}
+        onFeedUpdated={handleFeedUpdated}
+        onFeedDeleted={handleFeedDeleted}
       />
     </div>
   )

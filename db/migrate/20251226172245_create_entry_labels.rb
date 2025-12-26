@@ -5,7 +5,6 @@ class CreateEntryLabels < ActiveRecord::Migration[8.1]
       t.references :entry, null: false, foreign_key: { on_delete: :cascade }
     end
 
-    add_index :entry_labels, :entry_id
-    add_index :entry_labels, :label_id
+    # entry_id, label_id indexes created automatically by t.references
   end
 end

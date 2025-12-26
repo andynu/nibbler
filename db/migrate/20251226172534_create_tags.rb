@@ -6,7 +6,6 @@ class CreateTags < ActiveRecord::Migration[8.1]
       t.references :user_entry, null: false, foreign_key: { on_delete: :cascade }
     end
 
-    add_index :tags, :user_id
-    add_index :tags, :user_entry_id
+    # user_id, user_entry_id indexes created automatically by t.references
   end
 end
