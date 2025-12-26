@@ -230,6 +230,8 @@ function App() {
     () => [
       { key: "j", handler: handleKeyboardNext, description: "Next entry" },
       { key: "k", handler: handleKeyboardPrevious, description: "Previous entry" },
+      { key: "n", handler: handleKeyboardNext, description: "Next entry" },
+      { key: "p", handler: handleKeyboardPrevious, description: "Previous entry" },
       { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
