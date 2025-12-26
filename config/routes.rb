@@ -30,7 +30,10 @@ Rails.application.routes.draw do
           get :headlines
           post :mark_all_read
         end
+        resources :labels, only: [:create, :destroy], controller: "entry_labels"
       end
+
+      resources :labels
 
       resources :categories do
         member do
