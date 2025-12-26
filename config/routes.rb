@@ -35,6 +35,12 @@ Rails.application.routes.draw do
 
       resources :labels
 
+      resources :filters do
+        member do
+          post :test
+        end
+      end
+
       resources :categories do
         member do
           patch :reorder
