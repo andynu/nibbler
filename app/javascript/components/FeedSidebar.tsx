@@ -6,11 +6,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Rss, Folder, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog } from "lucide-react"
+import { Rss, Folder, FolderOpen, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 import type { Feed, Category } from "@/lib/api"
+import { CategoryDialog } from "@/components/CategoryDialog"
 
 type VirtualFeed = "starred" | "fresh" | "published" | null
 
@@ -28,6 +31,7 @@ interface FeedSidebarProps {
   onSubscribe: () => void
   onEditFeed: (feed: Feed) => void
   onSettings: () => void
+  onCategoriesChange: (categories: Category[]) => void
 }
 
 export function FeedSidebar({
@@ -44,10 +48,13 @@ export function FeedSidebar({
   onSubscribe,
   onEditFeed,
   onSettings,
+  onCategoriesChange,
 }: FeedSidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
     new Set(categories.map((c) => c.id))
   )
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
 
   useEffect(() => {
     setExpandedCategories(new Set(categories.map((c) => c.id)))
@@ -68,6 +75,34 @@ export function FeedSidebar({
   const uncategorizedFeeds = feeds.filter((f) => !f.category_id)
   const totalUnread = feeds.reduce((sum, f) => sum + f.unread_count, 0)
 
+  const handleCategoryCreated = (category: Category) => {
+    onCategoriesChange([...categories, category])
+  }
+
+  const handleCategoryUpdated = (updated: Category) => {
+    onCategoriesChange(categories.map((c) => (c.id === updated.id ? updated : c)))
+    setEditingCategory(null)
+  }
+
+  const handleDeleteCategory = async (category: Category) => {
+    const feedCount = feeds.filter((f) => f.category_id === category.id).length
+    const msg = feedCount > 0
+      ? `Delete "${category.title}"? Its ${feedCount} feed(s) will become uncategorized.`
+      : `Delete "${category.title}"?`
+
+    if (!confirm(msg)) return
+
+    try {
+      await api.categories.delete(category.id)
+      onCategoriesChange(categories.filter((c) => c.id !== category.id))
+      if (selectedCategoryId === category.id) {
+        onSelectCategory(null)
+      }
+    } catch (error) {
+      console.error("Failed to delete category:", error)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col border-r border-border bg-muted/30">
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
@@ -76,9 +111,23 @@ export function FeedSidebar({
           <span className="font-semibold">TTRB</span>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={onSubscribe} title="Subscribe to feed">
-            <Plus className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" title="Add...">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onSubscribe}>
+                <Rss className="mr-2 h-4 w-4" />
+                Subscribe to Feed
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowCategoryDialog(true)}>
+                <FolderPlus className="mr-2 h-4 w-4" />
+                New Category
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="ghost" size="icon" onClick={onRefreshAll} disabled={isRefreshing} title="Refresh all feeds">
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
           </Button>
@@ -148,6 +197,8 @@ export function FeedSidebar({
               onSelectFeed={onSelectFeed}
               onSelectCategory={onSelectCategory}
               onEditFeed={onEditFeed}
+              onEditCategory={setEditingCategory}
+              onDeleteCategory={handleDeleteCategory}
             />
           ))}
 
@@ -167,6 +218,20 @@ export function FeedSidebar({
           )}
         </div>
       </ScrollArea>
+
+      <CategoryDialog
+        open={showCategoryDialog || editingCategory !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowCategoryDialog(false)
+            setEditingCategory(null)
+          }
+        }}
+        category={editingCategory}
+        categories={categories}
+        onCategoryCreated={handleCategoryCreated}
+        onCategoryUpdated={handleCategoryUpdated}
+      />
     </div>
   )
 }
@@ -181,6 +246,8 @@ interface CategoryItemProps {
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
   onEditFeed: (feed: Feed) => void
+  onEditCategory: (category: Category) => void
+  onDeleteCategory: (category: Category) => void
 }
 
 function CategoryItem({
@@ -193,11 +260,13 @@ function CategoryItem({
   onSelectFeed,
   onSelectCategory,
   onEditFeed,
+  onEditCategory,
+  onDeleteCategory,
 }: CategoryItemProps) {
   const unreadCount = feeds.reduce((sum, f) => sum + f.unread_count, 0)
 
   return (
-    <div>
+    <div className="group/category">
       <div className="flex items-center">
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onToggle}>
           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -210,10 +279,39 @@ function CategoryItem({
           )}
           onClick={() => onSelectCategory(category.id)}
         >
-          <Folder className="h-4 w-4" />
+          {isExpanded ? (
+            <FolderOpen className="h-4 w-4" />
+          ) : (
+            <Folder className="h-4 w-4" />
+          )}
           <span className="flex-1 text-left truncate">{category.title}</span>
           {unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 opacity-0 group-hover/category:opacity-100 shrink-0"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEditCategory(category)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDeleteCategory(category)}
+              className="text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {isExpanded && (
         <div className="ml-6">
