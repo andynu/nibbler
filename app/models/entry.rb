@@ -1,3 +1,16 @@
+# Represents an individual article or post from an RSS/Atom feed.
+#
+# Entries are the core content units in the feed reader. They are shared across
+# users (via UserEntry join records) to avoid duplicating article content when
+# multiple users subscribe to the same feed.
+#
+# Each entry has a globally unique GUID from the source feed and a content_hash
+# for detecting updates. PostgreSQL full-text search is supported via a tsvector
+# column that indexes title and content.
+#
+# @see UserEntry for per-user read state and interaction
+# @see Enclosure for attached media (audio, video, images)
+# @see Label for user-applied classification
 class Entry < ApplicationRecord
   has_many :user_entries, dependent: :destroy
   has_many :users, through: :user_entries

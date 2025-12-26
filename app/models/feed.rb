@@ -1,3 +1,16 @@
+# Represents an RSS or Atom feed subscription.
+#
+# Feeds are the source of articles (entries) in the system. Each feed belongs to
+# a user and optionally to a category for organization. Feeds support hierarchical
+# structure through parent_feed relationships.
+#
+# The feed_url is unique per user, allowing different users to subscribe to the
+# same feed independently. Feeds track their last update time to support polling
+# for new content.
+#
+# @see Entry for individual articles from this feed
+# @see Category for feed organization
+# @see UserEntry for the per-user view of entries from this feed
 class Feed < ApplicationRecord
   belongs_to :user
   belongs_to :category, optional: true

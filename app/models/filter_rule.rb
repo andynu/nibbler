@@ -1,3 +1,15 @@
+# Represents a matching condition within a filter.
+#
+# FilterRules define what articles a filter applies to using regex patterns.
+# Each rule specifies a field to match (title, content, link, author, or tag)
+# and a regular expression. Rules can be inverted via the `inverse` flag.
+#
+# Rules can optionally be scoped to specific feeds or categories, allowing
+# targeted filtering. Multiple rules in a filter are combined (all must match
+# for the filter to trigger).
+#
+# @see Filter for the parent automation rule
+# @see FilterAction for what happens when rules match
 class FilterRule < ApplicationRecord
   belongs_to :filter
   belongs_to :feed, optional: true
