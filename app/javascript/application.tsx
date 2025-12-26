@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { FeedSidebar } from "@/components/FeedSidebar"
 import { EntryList } from "@/components/EntryList"
 import { EntryContent } from "@/components/EntryContent"
+import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
@@ -20,6 +21,7 @@ function App() {
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
   const [isLoadingEntry, setIsLoadingEntry] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
 
   // Load feeds and categories on mount
   useEffect(() => {
@@ -226,6 +228,10 @@ function App() {
     loadEntries()
   }
 
+  const handleKeyboardHelp = () => {
+    setShowKeyboardShortcuts((prev) => !prev)
+  }
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       { key: "j", handler: handleKeyboardNext, description: "Next entry" },
@@ -238,6 +244,7 @@ function App() {
       { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Escape", handler: handleKeyboardClose, description: "Close/deselect entry" },
       { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
+      { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts" },
     ],
     [entries, currentIndex, selectedEntry]
   )
@@ -304,6 +311,10 @@ function App() {
           isLoading={isLoadingEntry}
         />
       </div>
+      <KeyboardShortcutsDialog
+        open={showKeyboardShortcuts}
+        onOpenChange={setShowKeyboardShortcuts}
+      />
     </div>
   )
 }
