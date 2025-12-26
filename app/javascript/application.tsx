@@ -209,12 +209,28 @@ function App() {
     }
   }
 
+  const handleKeyboardOpen = () => {
+    if (selectedEntry) {
+      loadEntry(selectedEntry.id)
+    } else if (entries.length > 0) {
+      // If no entry selected, open first one
+      loadEntry(entries[0].id)
+    }
+  }
+
+  const handleKeyboardClose = () => {
+    setSelectedEntry(null)
+  }
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       { key: "j", handler: handleKeyboardNext, description: "Next entry" },
       { key: "k", handler: handleKeyboardPrevious, description: "Previous entry" },
       { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
+      { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
+      { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
+      { key: "Escape", handler: handleKeyboardClose, description: "Close/deselect entry" },
     ],
     [entries, currentIndex, selectedEntry]
   )
