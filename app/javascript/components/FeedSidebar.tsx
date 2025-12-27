@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Rss, Folder, FolderOpen, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
+import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -408,20 +408,25 @@ function CategoryItem({
   return (
     <div className="group/category">
       <div className="flex items-center">
-        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onToggle}>
-          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </Button>
         <Button
           variant="ghost"
-          className="flex-1 justify-start gap-2 h-8"
+          className="flex-1 justify-start gap-2 h-8 pl-2"
           style={getButtonStyle()}
           onClick={() => onSelectCategory(category.id)}
         >
-          {isExpanded ? (
-            <FolderOpen className="h-4 w-4" />
-          ) : (
-            <Folder className="h-4 w-4" />
-          )}
+          <span
+            className="shrink-0 cursor-pointer hover:opacity-70"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle()
+            }}
+          >
+            {isExpanded ? (
+              <FolderOpen className="h-4 w-4" />
+            ) : (
+              <Folder className="h-4 w-4" />
+            )}
+          </span>
           <span className="flex-1 text-left truncate">{category.title}</span>
           {unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
         </Button>
