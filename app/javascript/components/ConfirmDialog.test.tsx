@@ -100,4 +100,40 @@ describe('ConfirmDialog', () => {
 
     expect(screen.queryByText('Hidden Dialog')).not.toBeInTheDocument();
   });
+
+  it('calls onOpenChange(false) after confirm', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    const onConfirm = vi.fn();
+
+    render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        title="Delete"
+        description="Sure?"
+        onConfirm={onConfirm}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onConfirm).toHaveBeenCalledOnce();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('applies destructive variant to confirm button', () => {
+    render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={() => {}}
+        title="Delete"
+        description="This cannot be undone"
+        onConfirm={() => {}}
+        variant="destructive"
+      />
+    );
+
+    const confirmButton = screen.getByRole('button', { name: 'Confirm' });
+    expect(confirmButton).toHaveClass('bg-destructive');
+  });
 });
