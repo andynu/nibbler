@@ -1,4 +1,5 @@
-import { test, expect, Page } from "@playwright/test"
+import { test, expect } from "@playwright/test"
+import { FeedsPage, SettingsPage } from "./pages"
 
 /**
  * Settings and preferences E2E tests.
@@ -6,212 +7,210 @@ import { test, expect, Page } from "@playwright/test"
  * Tests the settings dialog and user preferences that affect application behavior.
  */
 
-// Helper to wait for app to be ready
-async function waitForAppReady(page: Page) {
-  await page.goto("/")
-  // Wait for Nibbler branding to confirm app is fully loaded
-  await expect(page.getByText("Nibbler")).toBeVisible({ timeout: 10000 })
-}
-
-// Helper to open settings dialog
-async function openSettings(page: Page) {
-  const settingsButton = page
-    .getByRole("button", { name: /settings|cog/i })
-    .first()
-  await settingsButton.click()
-  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 2000 })
-}
-
 test.describe("Opening Settings", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("settings button opens dialog", async ({ page }) => {
-    await openSettings(page)
+  test("settings button opens dialog", async () => {
+    await feedsPage.openSettings()
 
-    await expect(page.getByRole("dialog")).toBeVisible()
+    await expect(settingsPage.dialog).toBeVisible()
   })
 
-  test("dialog has Settings title", async ({ page }) => {
-    await openSettings(page)
+  test("dialog has Settings title", async () => {
+    await feedsPage.openSettings()
 
-    await expect(page.getByText("Settings")).toBeVisible()
+    await expect(settingsPage.title).toBeVisible()
   })
 
-  test("dialog has tabbed interface", async ({ page }) => {
-    await openSettings(page)
+  test("dialog has tabbed interface", async () => {
+    await feedsPage.openSettings()
 
-    await expect(page.getByRole("tablist")).toBeVisible()
+    await expect(settingsPage.tabList).toBeVisible()
   })
 
-  test("Escape closes dialog", async ({ page }) => {
-    await openSettings(page)
+  test("Escape closes dialog", async () => {
+    await feedsPage.openSettings()
 
-    await page.keyboard.press("Escape")
+    await settingsPage.close()
 
-    await expect(page.getByRole("dialog")).not.toBeVisible()
+    await expect(settingsPage.dialog).not.toBeVisible()
   })
 
-  test("has Feeds tab", async ({ page }) => {
-    await openSettings(page)
+  test("has Feeds tab", async () => {
+    await feedsPage.openSettings()
 
-    await expect(page.getByRole("tab", { name: /feeds/i })).toBeVisible()
+    await expect(settingsPage.feedsTab).toBeVisible()
   })
 
-  test("has Preferences tab", async ({ page }) => {
-    await openSettings(page)
+  test("has Preferences tab", async () => {
+    await feedsPage.openSettings()
 
-    await expect(page.getByRole("tab", { name: /preferences/i })).toBeVisible()
+    await expect(settingsPage.preferencesTab).toBeVisible()
   })
 
-  test("has Filters tab", async ({ page }) => {
-    await openSettings(page)
+  test("has Filters tab", async () => {
+    await feedsPage.openSettings()
 
-    await expect(page.getByRole("tab", { name: /filters/i })).toBeVisible()
+    await expect(settingsPage.filtersTab).toBeVisible()
   })
 
-  test("has Labels tab", async ({ page }) => {
-    await openSettings(page)
+  test("has Labels tab", async () => {
+    await feedsPage.openSettings()
 
-    await expect(page.getByRole("tab", { name: /labels/i })).toBeVisible()
+    await expect(settingsPage.labelsTab).toBeVisible()
   })
 })
 
 test.describe("Tab Navigation", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("can switch to Feeds tab", async ({ page }) => {
-    await openSettings(page)
+  test("can switch to Feeds tab", async () => {
+    await feedsPage.openSettings()
 
-    await page.getByRole("tab", { name: /feeds/i }).click()
+    await settingsPage.goToFeedsTab()
 
-    await expect(page.getByRole("tab", { name: /feeds/i })).toHaveAttribute(
-      "data-state",
-      "active"
-    )
+    await expect(settingsPage.feedsTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Preferences tab", async ({ page }) => {
-    await openSettings(page)
+  test("can switch to Preferences tab", async () => {
+    await feedsPage.openSettings()
 
-    await page.getByRole("tab", { name: /preferences/i }).click()
+    await settingsPage.goToPreferencesTab()
 
-    await expect(
-      page.getByRole("tab", { name: /preferences/i })
-    ).toHaveAttribute("data-state", "active")
+    await expect(settingsPage.preferencesTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Filters tab", async ({ page }) => {
-    await openSettings(page)
+  test("can switch to Filters tab", async () => {
+    await feedsPage.openSettings()
 
-    await page.getByRole("tab", { name: /filters/i }).click()
+    await settingsPage.goToFiltersTab()
 
-    await expect(page.getByRole("tab", { name: /filters/i })).toHaveAttribute(
-      "data-state",
-      "active"
-    )
+    await expect(settingsPage.filtersTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Labels tab", async ({ page }) => {
-    await openSettings(page)
+  test("can switch to Labels tab", async () => {
+    await feedsPage.openSettings()
 
-    await page.getByRole("tab", { name: /labels/i }).click()
+    await settingsPage.goToLabelsTab()
 
-    await expect(page.getByRole("tab", { name: /labels/i })).toHaveAttribute(
-      "data-state",
-      "active"
-    )
+    await expect(settingsPage.labelsTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Import/Export tab", async ({ page }) => {
-    await openSettings(page)
+  test("can switch to Import/Export tab", async () => {
+    await feedsPage.openSettings()
 
-    await page.getByRole("tab", { name: /import|export/i }).click()
+    await settingsPage.goToImportExportTab()
 
-    await expect(
-      page.getByRole("tab", { name: /import|export/i })
-    ).toHaveAttribute("data-state", "active")
+    await expect(settingsPage.importExportTab).toHaveAttribute("data-state", "active")
   })
 })
 
 test.describe("Preferences Tab - Article Display", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
   test("shows Appearance section", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Appearance")).toBeVisible()
   })
 
   test("shows Article Display section", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Article Display")).toBeVisible()
   })
 
-  test("shows content preview toggle", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+  test("shows content preview toggle", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
-    await expect(
-      page.getByRole("switch", { name: /content preview/i })
-    ).toBeVisible()
+    const toggle = await settingsPage.getContentPreviewToggle()
+    await expect(toggle).toBeVisible()
   })
 
-  test("shows strip images toggle", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+  test("shows strip images toggle", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
-    await expect(
-      page.getByRole("switch", { name: /images/i }).first()
-    ).toBeVisible()
+    const toggle = await settingsPage.getStripImagesToggle()
+    await expect(toggle).toBeVisible()
   })
 })
 
 test.describe("Preferences Tab - Reading Behavior", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
   test("shows Reading Behavior section", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Reading Behavior")).toBeVisible()
   })
 
-  test("shows confirm mark all read toggle", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+  test("shows confirm mark all read toggle", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
-    await expect(
-      page.getByRole("switch", { name: /confirm|mark.*read/i }).first()
-    ).toBeVisible()
+    const toggle = await settingsPage.getConfirmMarkAllReadToggle()
+    await expect(toggle).toBeVisible()
   })
 
   test("shows articles per page selector", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText(/articles per page/i)).toBeVisible()
   })
 })
 
 test.describe("Preferences Tab - Data Management", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
   test("shows Data Management section", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Data Management")).toBeVisible()
   })
@@ -257,81 +256,108 @@ test.describe("Preferences API", () => {
 })
 
 test.describe("Feeds Tab", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("feeds tab shows feed organizer", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /feeds/i }).click()
+  test("feeds tab shows feed organizer", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToFeedsTab()
 
     // Should show feed organizer content (the tab panel)
-    await expect(page.getByRole("tab", { name: /feeds/i })).toHaveAttribute("data-state", "active")
+    await expect(settingsPage.feedsTab).toHaveAttribute("data-state", "active")
   })
 
-  test("is the default tab", async ({ page }) => {
-    await openSettings(page)
+  test("is the default tab", async () => {
+    await feedsPage.openSettings()
 
     // Feeds tab should be active by default
-    await expect(page.getByRole("tab", { name: /feeds/i })).toHaveAttribute(
-      "data-state",
-      "active"
-    )
+    await expect(settingsPage.feedsTab).toHaveAttribute("data-state", "active")
   })
 })
 
 test.describe("Filters Tab", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("filters tab shows filter content", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /filters/i }).click()
+  test("filters tab shows filter content", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToFiltersTab()
 
     // Should show filter management content (tab should be active)
-    await expect(page.getByRole("tab", { name: /filters/i })).toHaveAttribute("data-state", "active")
+    await expect(settingsPage.filtersTab).toHaveAttribute("data-state", "active")
   })
 })
 
 test.describe("Labels Tab", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("labels tab shows label content", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /labels/i }).click()
+  test("labels tab shows label content", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToLabelsTab()
 
     // Should show label management content (tab should be active)
-    await expect(page.getByRole("tab", { name: /labels/i })).toHaveAttribute("data-state", "active")
+    await expect(settingsPage.labelsTab).toHaveAttribute("data-state", "active")
   })
 })
 
 test.describe("Import/Export Tab", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("import/export tab shows OPML options", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /import|export/i }).click()
+  test("import/export tab shows OPML options", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToImportExportTab()
 
     // Should show import/export content (tab should be active)
-    await expect(page.getByRole("tab", { name: /import|export/i })).toHaveAttribute("data-state", "active")
+    await expect(settingsPage.importExportTab).toHaveAttribute("data-state", "active")
   })
 })
 
 test.describe("Preference Toggle Interaction", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("clicking toggle changes its state", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+  test("clicking toggle changes its state", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
-    const toggle = page.getByRole("switch", { name: /content preview/i })
+    const toggle = await settingsPage.getContentPreviewToggle()
     const initialState = await toggle.isChecked()
 
     await toggle.click()
@@ -345,26 +371,39 @@ test.describe("Preference Toggle Interaction", () => {
 })
 
 test.describe("Theme Selection", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
-  test("shows theme selector", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+  test("shows theme selector", async () => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
-    await expect(page.getByText("Theme")).toBeVisible()
+    const themeText = await settingsPage.getThemeText()
+    await expect(themeText).toBeVisible()
   })
 })
 
 test.describe("Accent Color", () => {
+  let feedsPage: FeedsPage
+  let settingsPage: SettingsPage
+
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
+    feedsPage = new FeedsPage(page)
+    settingsPage = new SettingsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
   })
 
   test("shows accent color control", async ({ page }) => {
-    await openSettings(page)
-    await page.getByRole("tab", { name: /preferences/i }).click()
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Accent color", { exact: true })).toBeVisible()
   })
