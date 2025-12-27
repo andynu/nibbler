@@ -71,8 +71,8 @@ describe("EntryContent", () => {
 
       render(<EntryContent {...defaultProps} entry={entry} />)
 
-      const buttons = screen.getAllByRole("button")
-      expect(buttons.length).toBeGreaterThanOrEqual(4) // prev, next, read, star
+      expect(screen.getByRole("button", { name: /previous entry/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /next entry/i })).toBeInTheDocument()
     })
 
     it("previous button is disabled when hasPrevious is false", () => {
@@ -82,10 +82,7 @@ describe("EntryContent", () => {
         <EntryContent {...defaultProps} entry={entry} hasPrevious={false} />
       )
 
-      // Find the button with ChevronLeft icon (first button)
-      const buttons = screen.getAllByRole("button")
-      const prevButton = buttons[0]
-      expect(prevButton).toBeDisabled()
+      expect(screen.getByRole("button", { name: /previous entry/i })).toBeDisabled()
     })
 
     it("next button is disabled when hasNext is false", () => {
@@ -93,10 +90,7 @@ describe("EntryContent", () => {
 
       render(<EntryContent {...defaultProps} entry={entry} hasNext={false} />)
 
-      // Find the button with ChevronRight icon (second button)
-      const buttons = screen.getAllByRole("button")
-      const nextButton = buttons[1]
-      expect(nextButton).toBeDisabled()
+      expect(screen.getByRole("button", { name: /next entry/i })).toBeDisabled()
     })
 
     it("shows read/unread toggle button", () => {
@@ -275,8 +269,7 @@ describe("EntryContent", () => {
         />
       )
 
-      const buttons = screen.getAllByRole("button")
-      await user.click(buttons[0]) // First button is previous
+      await user.click(screen.getByRole("button", { name: /previous entry/i }))
 
       expect(onPrevious).toHaveBeenCalledOnce()
     })
@@ -290,8 +283,7 @@ describe("EntryContent", () => {
         <EntryContent {...defaultProps} entry={entry} onNext={onNext} />
       )
 
-      const buttons = screen.getAllByRole("button")
-      await user.click(buttons[1]) // Second button is next
+      await user.click(screen.getByRole("button", { name: /next entry/i }))
 
       expect(onNext).toHaveBeenCalledOnce()
     })
@@ -309,16 +301,9 @@ describe("EntryContent", () => {
         />
       )
 
-      // Find the button with Circle icon
-      const buttons = screen.getAllByRole("button")
-      const readButton = buttons.find((btn) =>
-        btn.querySelector("svg.lucide-circle")
-      )
+      await user.click(screen.getByRole("button", { name: /mark as read/i }))
 
-      if (readButton) {
-        await user.click(readButton)
-        expect(onToggleRead).toHaveBeenCalledOnce()
-      }
+      expect(onToggleRead).toHaveBeenCalledOnce()
     })
 
     it("star toggle calls onToggleStarred", async () => {
@@ -334,16 +319,9 @@ describe("EntryContent", () => {
         />
       )
 
-      // Find the button with Star icon
-      const buttons = screen.getAllByRole("button")
-      const starButton = buttons.find((btn) =>
-        btn.querySelector("svg.lucide-star")
-      )
+      await user.click(screen.getByRole("button", { name: /add star/i }))
 
-      if (starButton) {
-        await user.click(starButton)
-        expect(onToggleStarred).toHaveBeenCalledOnce()
-      }
+      expect(onToggleStarred).toHaveBeenCalledOnce()
     })
   })
 

@@ -74,10 +74,10 @@ export function EntryContent({
     <div className="h-full flex flex-col">
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={onPrevious} disabled={!hasPrevious}>
+          <Button variant="ghost" size="icon" onClick={onPrevious} disabled={!hasPrevious} aria-label="Previous entry">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onNext} disabled={!hasNext}>
+          <Button variant="ghost" size="icon" onClick={onNext} disabled={!hasNext} aria-label="Next entry">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
