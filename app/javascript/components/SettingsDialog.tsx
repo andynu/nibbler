@@ -11,6 +11,7 @@ import { PreferencesPanel } from "@/components/PreferencesPanel"
 import { FilterManager } from "@/components/FilterManager"
 import { LabelManager } from "@/components/LabelManager"
 import { OpmlPanel } from "@/components/OpmlPanel"
+import { ToolsPanel } from "@/components/ToolsPanel"
 import { Feed, Category, api } from "@/lib/api"
 
 interface SettingsDialogProps {
@@ -43,11 +44,12 @@ export function SettingsDialog({
           onValueChange={setActiveTab}
           className="flex-1 flex flex-col overflow-hidden"
         >
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="feeds">Feeds</TabsTrigger>
             <TabsTrigger value="filters">Filters</TabsTrigger>
             <TabsTrigger value="labels">Labels</TabsTrigger>
             <TabsTrigger value="opml">Import/Export</TabsTrigger>
+            <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="preferences">Preferences</TabsTrigger>
             <TabsTrigger value="account">Account</TabsTrigger>
           </TabsList>
@@ -88,6 +90,9 @@ export function SettingsDialog({
                 onCategoriesChange(categoriesData)
               }}
             />
+          </TabsContent>
+          <TabsContent value="tools" className="flex-1 overflow-auto border rounded-md">
+            <ToolsPanel />
           </TabsContent>
           <TabsContent value="preferences" className="flex-1 overflow-auto">
             <PreferencesPanel />

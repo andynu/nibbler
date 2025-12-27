@@ -30,6 +30,7 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
   const [showSubscribeDialog, setShowSubscribeDialog] = useState(false)
+  const [subscribeInitialUrl, setSubscribeInitialUrl] = useState<string | undefined>()
   const [editingFeed, setEditingFeed] = useState<Feed | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
@@ -39,6 +40,18 @@ function App() {
   // Load feeds and categories on mount
   useEffect(() => {
     loadFeeds()
+  }, [])
+
+  // Check for subscribe URL parameter on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const subscribeUrl = params.get("subscribe")
+    if (subscribeUrl) {
+      setSubscribeInitialUrl(subscribeUrl)
+      setShowSubscribeDialog(true)
+      // Clear the URL parameter without reloading
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
   }, [])
 
   // Load entries when selection changes
@@ -432,9 +445,13 @@ function App() {
       />
       <SubscribeFeedDialog
         open={showSubscribeDialog}
-        onOpenChange={setShowSubscribeDialog}
+        onOpenChange={(open) => {
+          setShowSubscribeDialog(open)
+          if (!open) setSubscribeInitialUrl(undefined)
+        }}
         categories={categories}
         onFeedCreated={handleFeedCreated}
+        initialUrl={subscribeInitialUrl}
       />
       <EditFeedDialog
         feed={editingFeed}

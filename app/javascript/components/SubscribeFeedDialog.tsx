@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,6 +25,7 @@ interface SubscribeFeedDialogProps {
   onOpenChange: (open: boolean) => void
   categories: Category[]
   onFeedCreated: (feed: Feed) => void
+  initialUrl?: string
 }
 
 export function SubscribeFeedDialog({
@@ -32,8 +33,15 @@ export function SubscribeFeedDialog({
   onOpenChange,
   categories,
   onFeedCreated,
+  initialUrl,
 }: SubscribeFeedDialogProps) {
-  const [feedUrl, setFeedUrl] = useState("")
+  const [feedUrl, setFeedUrl] = useState(initialUrl || "")
+
+  useEffect(() => {
+    if (open && initialUrl) {
+      setFeedUrl(initialUrl)
+    }
+  }, [open, initialUrl])
   const [title, setTitle] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
