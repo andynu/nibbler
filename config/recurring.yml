@@ -14,6 +14,10 @@ default: &default
     class: UpdateFeedsJob
     queue: default
     schedule: every 5 minutes
+  purge_articles:
+    class: PurgeArticlesJob
+    queue: default
+    schedule: at 3am every day
 
 development:
   <<: *default

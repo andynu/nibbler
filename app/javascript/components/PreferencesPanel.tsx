@@ -50,6 +50,17 @@ const DATE_FORMAT_OPTIONS = [
   { value: "iso", label: "ISO (2024-12-26 14:30)" },
 ]
 
+const PURGE_DAYS_OPTIONS = [
+  { value: "7", label: "7 days" },
+  { value: "14", label: "14 days" },
+  { value: "30", label: "30 days" },
+  { value: "60", label: "60 days" },
+  { value: "90", label: "90 days" },
+  { value: "180", label: "180 days" },
+  { value: "365", label: "1 year" },
+  { value: "0", label: "Never" },
+]
+
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
 
@@ -242,6 +253,53 @@ export function PreferencesPanel() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-medium mb-4">Data Management</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="purge_old_days">Purge old articles</Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically remove old articles after this many days.
+                Starred and published articles are never purged.
+              </p>
+            </div>
+            <Select
+              value={preferences.purge_old_days}
+              onValueChange={(value) => updatePreference("purge_old_days", value)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PURGE_DAYS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="purge_unread_articles">Purge unread articles</Label>
+              <p className="text-sm text-muted-foreground">
+                Also purge articles that haven't been read yet
+              </p>
+            </div>
+            <Switch
+              id="purge_unread_articles"
+              checked={preferences.purge_unread_articles === "true"}
+              onCheckedChange={(checked) =>
+                updatePreference("purge_unread_articles", checked ? "true" : "false")
+              }
+              disabled={preferences.purge_old_days === "0"}
+            />
           </div>
         </div>
       </div>

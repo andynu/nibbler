@@ -34,6 +34,8 @@ module Api
           hide_read_feeds
           hide_read_shows_special
           feeds_sort_by_unread
+          purge_old_days
+          purge_unread_articles
         ]
       end
 
@@ -49,7 +51,9 @@ module Api
           "date_format" => "relative",
           "hide_read_feeds" => "false",
           "hide_read_shows_special" => "true",
-          "feeds_sort_by_unread" => "false"
+          "feeds_sort_by_unread" => "false",
+          "purge_old_days" => "60",
+          "purge_unread_articles" => "false"
         }
       end
     end
