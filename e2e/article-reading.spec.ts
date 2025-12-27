@@ -28,8 +28,8 @@ test.describe("Browse Articles", () => {
       const feedButton = page.getByRole("button", { name: feeds[0].title })
       if ((await feedButton.count()) > 0) {
         await feedButton.click()
-        // Entry list should be visible (even if empty)
-        await page.waitForTimeout(500)
+        // Wait for feed button to confirm click registered
+        await expect(feedButton).toBeVisible()
       }
     }
   })
@@ -39,7 +39,7 @@ test.describe("Browse Articles", () => {
     const allButton = page.getByRole("button", { name: /all|feeds/i }).first()
     if ((await allButton.count()) > 0) {
       await allButton.click()
-      await page.waitForTimeout(500)
+      await expect(allButton).toBeVisible()
     }
   })
 
@@ -47,7 +47,7 @@ test.describe("Browse Articles", () => {
     const freshButton = page.getByRole("button", { name: /fresh/i }).first()
     if ((await freshButton.count()) > 0) {
       await freshButton.click()
-      await page.waitForTimeout(500)
+      await expect(freshButton).toBeVisible()
     }
   })
 
@@ -55,7 +55,7 @@ test.describe("Browse Articles", () => {
     const starredButton = page.getByRole("button", { name: /starred/i }).first()
     if ((await starredButton.count()) > 0) {
       await starredButton.click()
-      await page.waitForTimeout(500)
+      await expect(starredButton).toBeVisible()
     }
   })
 })

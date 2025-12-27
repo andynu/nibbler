@@ -9,8 +9,8 @@ import { test, expect, Page } from "@playwright/test"
 // Helper to wait for app to be ready
 async function waitForAppReady(page: Page) {
   await page.goto("/")
-  await page.waitForSelector("button", { timeout: 10000 })
-  await page.waitForTimeout(500)
+  // Wait for TTRB branding to confirm app is fully loaded
+  await expect(page.getByText("TTRB")).toBeVisible({ timeout: 10000 })
 }
 
 // Helper to open settings dialog
@@ -265,8 +265,8 @@ test.describe("Feeds Tab", () => {
     await openSettings(page)
     await page.getByRole("tab", { name: /feeds/i }).click()
 
-    // Should show some content related to feeds
-    await page.waitForTimeout(500)
+    // Should show feed organizer content (the tab panel)
+    await expect(page.getByRole("tab", { name: /feeds/i })).toHaveAttribute("data-state", "active")
   })
 
   test("is the default tab", async ({ page }) => {
@@ -289,8 +289,8 @@ test.describe("Filters Tab", () => {
     await openSettings(page)
     await page.getByRole("tab", { name: /filters/i }).click()
 
-    // Should show filter management content
-    await page.waitForTimeout(500)
+    // Should show filter management content (tab should be active)
+    await expect(page.getByRole("tab", { name: /filters/i })).toHaveAttribute("data-state", "active")
   })
 })
 
@@ -303,8 +303,8 @@ test.describe("Labels Tab", () => {
     await openSettings(page)
     await page.getByRole("tab", { name: /labels/i }).click()
 
-    // Should show label management content
-    await page.waitForTimeout(500)
+    // Should show label management content (tab should be active)
+    await expect(page.getByRole("tab", { name: /labels/i })).toHaveAttribute("data-state", "active")
   })
 })
 
@@ -317,8 +317,8 @@ test.describe("Import/Export Tab", () => {
     await openSettings(page)
     await page.getByRole("tab", { name: /import|export/i }).click()
 
-    // Should show import/export content
-    await page.waitForTimeout(500)
+    // Should show import/export content (tab should be active)
+    await expect(page.getByRole("tab", { name: /import|export/i })).toHaveAttribute("data-state", "active")
   })
 })
 

@@ -18,13 +18,8 @@ test.describe("App authentication (auto-auth in dev/test)", () => {
     // App should load the main react UI
     await expect(page.locator("#react-root")).toBeVisible()
 
-    // Should show the feed reader interface, not a login page
-    // Wait for React to mount and render content
-    await page.waitForTimeout(1000)
-
-    // The sidebar should be visible (indicating authenticated view)
-    const body = page.locator("body")
-    await expect(body).toBeVisible()
+    // Wait for app to fully load - TTRB branding in sidebar indicates authenticated view
+    await expect(page.getByText("TTRB")).toBeVisible()
   })
 
   test("API requests work when auto-authenticated", async ({ page }) => {
