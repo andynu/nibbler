@@ -10,7 +10,8 @@ import { FeedOrganizer } from "@/components/FeedOrganizer"
 import { PreferencesPanel } from "@/components/PreferencesPanel"
 import { FilterManager } from "@/components/FilterManager"
 import { LabelManager } from "@/components/LabelManager"
-import { Feed, Category } from "@/lib/api"
+import { OpmlPanel } from "@/components/OpmlPanel"
+import { Feed, Category, api } from "@/lib/api"
 
 interface SettingsDialogProps {
   open: boolean
@@ -42,10 +43,11 @@ export function SettingsDialog({
           onValueChange={setActiveTab}
           className="flex-1 flex flex-col overflow-hidden"
         >
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="feeds">Feeds & Categories</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="feeds">Feeds</TabsTrigger>
             <TabsTrigger value="filters">Filters</TabsTrigger>
             <TabsTrigger value="labels">Labels</TabsTrigger>
+            <TabsTrigger value="opml">Import/Export</TabsTrigger>
             <TabsTrigger value="preferences">Preferences</TabsTrigger>
             <TabsTrigger value="account">Account</TabsTrigger>
           </TabsList>
@@ -71,6 +73,21 @@ export function SettingsDialog({
             className="flex-1 overflow-hidden border rounded-md"
           >
             <LabelManager />
+          </TabsContent>
+          <TabsContent
+            value="opml"
+            className="flex-1 overflow-auto border rounded-md"
+          >
+            <OpmlPanel
+              onImportComplete={async () => {
+                const [feedsData, categoriesData] = await Promise.all([
+                  api.feeds.list(),
+                  api.categories.list(),
+                ])
+                onFeedsChange(feedsData)
+                onCategoriesChange(categoriesData)
+              }}
+            />
           </TabsContent>
           <TabsContent value="preferences" className="flex-1 overflow-auto">
             <PreferencesPanel />

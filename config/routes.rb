@@ -55,6 +55,13 @@ Rails.application.routes.draw do
       get :preferences, to: "preferences#index"
       patch :preferences, to: "preferences#update"
 
+      # OPML import/export
+      scope :opml do
+        post :import, to: "opml#import"
+        post :preview, to: "opml#preview"
+        get :export, to: "opml#export"
+      end
+
       # Authentication
       scope :auth do
         post :login, to: "sessions#create"

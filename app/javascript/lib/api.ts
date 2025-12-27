@@ -292,4 +292,53 @@ export const api = {
     remove: (entryId: number, labelId: number) =>
       request<void>(`/entries/${entryId}/labels/${labelId}`, { method: "DELETE" }),
   },
+
+  opml: {
+    preview: async (file: File) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await fetch(`${API_BASE}/opml/preview`, {
+        method: "POST",
+        body: formData,
+      })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || `HTTP ${response.status}`)
+      }
+      return response.json() as Promise<{
+        feeds: Array<{
+          title: string
+          feed_url: string
+          site_url: string
+          category_path: string
+          exists: boolean
+        }>
+        total: number
+        new_feeds: number
+        existing_feeds: number
+        errors: string[]
+      }>
+    },
+    import: async (file: File) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await fetch(`${API_BASE}/opml/import`, {
+        method: "POST",
+        body: formData,
+      })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || `HTTP ${response.status}`)
+      }
+      return response.json() as Promise<{
+        success: boolean
+        summary: string
+        feeds_created: number
+        feeds_skipped: number
+        categories_created: number
+        errors?: string[]
+      }>
+    },
+    exportUrl: () => `${API_BASE}/opml/export`,
+  },
 }
