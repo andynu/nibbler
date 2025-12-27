@@ -25,23 +25,21 @@ test.describe("Feed Sidebar", () => {
   })
 
   test("Fresh view is accessible", async ({ page }) => {
-    // Click on Fresh
+    // Click on Fresh - this should always exist in the sidebar
     const freshButton = page.getByRole("button", { name: /fresh/i }).first()
-    if ((await freshButton.count()) > 0) {
-      await freshButton.click()
-      // Wait for the view to update - Fresh button should be highlighted
-      await expect(freshButton).toBeVisible()
-    }
+    await expect(freshButton).toBeVisible()
+    await freshButton.click()
+    // Fresh button should remain visible after click
+    await expect(freshButton).toBeVisible()
   })
 
   test("Starred view is accessible", async ({ page }) => {
-    // Click on Starred
+    // Click on Starred - this should always exist in the sidebar
     const starredButton = page.getByRole("button", { name: /starred/i }).first()
-    if ((await starredButton.count()) > 0) {
-      await starredButton.click()
-      // Wait for the view to update - Starred button should be highlighted
-      await expect(starredButton).toBeVisible()
-    }
+    await expect(starredButton).toBeVisible()
+    await starredButton.click()
+    // Starred button should remain visible after click
+    await expect(starredButton).toBeVisible()
   })
 
   test("clicking a feed loads its entries", async ({ page }) => {
@@ -49,16 +47,15 @@ test.describe("Feed Sidebar", () => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    if (feeds.length > 0) {
-      const firstFeed = feeds[0]
-      // Find and click the feed in sidebar
-      const feedButton = page.getByRole("button", { name: firstFeed.title })
-      if ((await feedButton.count()) > 0) {
-        await feedButton.click()
-        // Wait for the feed button to be visible (confirming UI updated)
-        await expect(feedButton).toBeVisible()
-      }
-    }
+    test.skip(feeds.length === 0, "No feeds available in database")
+
+    const firstFeed = feeds[0]
+    // Find and click the feed in sidebar
+    const feedButton = page.getByRole("button", { name: firstFeed.title })
+    await expect(feedButton).toBeVisible()
+    await feedButton.click()
+    // Feed button should remain visible after click
+    await expect(feedButton).toBeVisible()
   })
 })
 
@@ -68,63 +65,55 @@ test.describe("Subscribe to Feed Dialog", () => {
   })
 
   test("subscribe button opens dialog", async ({ page }) => {
-    // Find the subscribe/add button
-    const addButton = page
-      .getByRole("button", { name: /subscribe|add feed|\+/i })
-      .first()
-    if ((await addButton.count()) > 0) {
-      await addButton.click()
+    // Find the subscribe/add button - should always exist
+    const addButton = page.getByRole("button", { name: /add\.\.\./i })
+    await expect(addButton).toBeVisible()
+    await addButton.click()
 
-      // Dialog should appear
-      const dialog = page.getByRole("dialog")
-      await expect(dialog).toBeVisible({ timeout: 5000 })
-    }
+    // Click Subscribe to Feed from dropdown
+    await page.getByText("Subscribe to Feed").click()
+
+    // Dialog should appear
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible({ timeout: 5000 })
   })
 
   test("dialog has URL input field", async ({ page }) => {
-    const addButton = page
-      .getByRole("button", { name: /subscribe|add feed|\+/i })
-      .first()
-    if ((await addButton.count()) > 0) {
-      await addButton.click()
+    const addButton = page.getByRole("button", { name: /add\.\.\./i })
+    await expect(addButton).toBeVisible()
+    await addButton.click()
+    await page.getByText("Subscribe to Feed").click()
 
-      // Should have a URL/address input
-      const urlInput = page.getByRole("textbox").first()
-      await expect(urlInput).toBeVisible()
-    }
+    // Should have a URL/address input
+    const urlInput = page.getByRole("textbox").first()
+    await expect(urlInput).toBeVisible()
   })
 
   test("cancel button closes dialog", async ({ page }) => {
-    const addButton = page
-      .getByRole("button", { name: /subscribe|add feed|\+/i })
-      .first()
-    if ((await addButton.count()) > 0) {
-      await addButton.click()
+    const addButton = page.getByRole("button", { name: /add\.\.\./i })
+    await expect(addButton).toBeVisible()
+    await addButton.click()
+    await page.getByText("Subscribe to Feed").click()
 
-      const dialog = page.getByRole("dialog")
-      await expect(dialog).toBeVisible()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible()
 
-      // Press escape or click cancel
-      await page.keyboard.press("Escape")
-      await expect(dialog).not.toBeVisible({ timeout: 2000 })
-    }
+    // Press escape to close
+    await page.keyboard.press("Escape")
+    await expect(dialog).not.toBeVisible({ timeout: 2000 })
   })
 
   test("subscribe button is disabled without URL", async ({ page }) => {
-    const addButton = page
-      .getByRole("button", { name: /subscribe|add feed|\+/i })
-      .first()
-    if ((await addButton.count()) > 0) {
-      await addButton.click()
+    const addButton = page.getByRole("button", { name: /add\.\.\./i })
+    await expect(addButton).toBeVisible()
+    await addButton.click()
+    await page.getByText("Subscribe to Feed").click()
 
-      // Find submit button in dialog
-      const submitButton = page
-        .getByRole("dialog")
-        .getByRole("button", { name: /subscribe/i })
-      if ((await submitButton.count()) > 0) {
-        await expect(submitButton).toBeDisabled()
-      }
-    }
+    // Find submit button in dialog - should be disabled without URL
+    const submitButton = page
+      .getByRole("dialog")
+      .getByRole("button", { name: /subscribe/i })
+    await expect(submitButton).toBeDisabled()
   })
 })
 
@@ -149,15 +138,15 @@ test.describe("Feed API operations", () => {
     const listResponse = await page.request.get("/api/v1/feeds")
     const feeds = await listResponse.json()
 
-    if (feeds.length > 0) {
-      const feedId = feeds[0].id
-      const detailResponse = await page.request.get(`/api/v1/feeds/${feedId}`)
-      expect(detailResponse.ok()).toBe(true)
+    test.skip(feeds.length === 0, "No feeds available in database")
 
-      const feed = await detailResponse.json()
-      expect(feed.id).toBe(feedId)
-      expect(feed.title).toBeDefined()
-    }
+    const feedId = feeds[0].id
+    const detailResponse = await page.request.get(`/api/v1/feeds/${feedId}`)
+    expect(detailResponse.ok()).toBe(true)
+
+    const feed = await detailResponse.json()
+    expect(feed.id).toBe(feedId)
+    expect(feed.title).toBeDefined()
   })
 
   test("can refresh all feeds via API", async ({ page }) => {
@@ -234,31 +223,23 @@ test.describe("Settings Dialog - Feeds Tab", () => {
   })
 
   test("settings button opens dialog", async ({ page }) => {
-    // Find settings button (gear icon or settings text)
-    const settingsButton = page
-      .getByRole("button", { name: /settings|cog/i })
-      .first()
-    if ((await settingsButton.count()) > 0) {
-      await settingsButton.click()
+    // Find settings button - should always exist
+    const settingsButton = page.getByRole("button", { name: /settings/i })
+    await expect(settingsButton).toBeVisible()
+    await settingsButton.click()
 
-      const dialog = page.getByRole("dialog")
-      await expect(dialog).toBeVisible({ timeout: 5000 })
-    }
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible({ timeout: 5000 })
   })
 
   test("feeds tab is available in settings", async ({ page }) => {
-    const settingsButton = page
-      .getByRole("button", { name: /settings|cog/i })
-      .first()
-    if ((await settingsButton.count()) > 0) {
-      await settingsButton.click()
+    const settingsButton = page.getByRole("button", { name: /settings/i })
+    await expect(settingsButton).toBeVisible()
+    await settingsButton.click()
 
-      // Look for Feeds tab
-      const feedsTab = page.getByRole("tab", { name: /feeds/i })
-      if ((await feedsTab.count()) > 0) {
-        await expect(feedsTab).toBeVisible()
-      }
-    }
+    // Feeds tab should be available in settings dialog
+    const feedsTab = page.getByRole("tab", { name: /feeds/i })
+    await expect(feedsTab).toBeVisible()
   })
 })
 
@@ -274,11 +255,10 @@ test.describe("Refresh functionality", () => {
 
   test("refresh button can be clicked", async ({ page }) => {
     const refreshButton = page.getByRole("button", { name: /refresh/i }).first()
-    if ((await refreshButton.count()) > 0) {
-      // Click and wait for button to remain visible (confirms no error)
-      await refreshButton.click()
-      await expect(refreshButton).toBeVisible()
-    }
+    await expect(refreshButton).toBeVisible()
+    // Click and wait for button to remain visible (confirms no error)
+    await refreshButton.click()
+    await expect(refreshButton).toBeVisible()
   })
 })
 

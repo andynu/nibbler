@@ -23,40 +23,38 @@ test.describe("Browse Articles", () => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    if (feeds.length > 0) {
-      // Click on first feed
-      const feedButton = page.getByRole("button", { name: feeds[0].title })
-      if ((await feedButton.count()) > 0) {
-        await feedButton.click()
-        // Wait for feed button to confirm click registered
-        await expect(feedButton).toBeVisible()
-      }
-    }
+    test.skip(feeds.length === 0, "No feeds available in database")
+
+    // Click on first feed
+    const feedButton = page.getByRole("button", { name: feeds[0].title })
+    await expect(feedButton).toBeVisible()
+    await feedButton.click()
+    // Feed button should remain visible after click
+    await expect(feedButton).toBeVisible()
   })
 
   test("shows all articles in All view", async ({ page }) => {
-    // Click on "All feeds" or similar
-    const allButton = page.getByRole("button", { name: /all|feeds/i }).first()
-    if ((await allButton.count()) > 0) {
-      await allButton.click()
-      await expect(allButton).toBeVisible()
-    }
+    // Click on "All Feeds" - should always exist
+    const allButton = page.getByRole("button", { name: /all feeds/i }).first()
+    await expect(allButton).toBeVisible()
+    await allButton.click()
+    await expect(allButton).toBeVisible()
   })
 
   test("shows fresh articles in Fresh view", async ({ page }) => {
+    // Fresh button should always exist
     const freshButton = page.getByRole("button", { name: /fresh/i }).first()
-    if ((await freshButton.count()) > 0) {
-      await freshButton.click()
-      await expect(freshButton).toBeVisible()
-    }
+    await expect(freshButton).toBeVisible()
+    await freshButton.click()
+    await expect(freshButton).toBeVisible()
   })
 
   test("shows starred articles in Starred view", async ({ page }) => {
+    // Starred button should always exist
     const starredButton = page.getByRole("button", { name: /starred/i }).first()
-    if ((await starredButton.count()) > 0) {
-      await starredButton.click()
-      await expect(starredButton).toBeVisible()
-    }
+    await expect(starredButton).toBeVisible()
+    await starredButton.click()
+    await expect(starredButton).toBeVisible()
   })
 })
 

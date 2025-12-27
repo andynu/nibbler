@@ -215,42 +215,36 @@ test.describe("Input Focus Handling", () => {
   })
 
   test("shortcuts disabled when typing in input", async ({ page }) => {
-    // Open subscribe dialog which has an input
-    const addButton = page
-      .getByRole("button", { name: /subscribe|add feed|\+/i })
-      .first()
+    // Open subscribe dialog via add menu
+    const addButton = page.getByRole("button", { name: /add\.\.\./i })
+    await expect(addButton).toBeVisible()
+    await addButton.click()
+    await page.getByText("Subscribe to Feed").click()
+    await expect(page.getByRole("dialog")).toBeVisible()
 
-    if ((await addButton.count()) > 0) {
-      await addButton.click()
-      await expect(page.getByRole("dialog")).toBeVisible()
+    // Find the input and type
+    const input = page.getByRole("textbox").first()
+    await input.fill("j")
 
-      // Find the input and type
-      const input = page.getByRole("textbox").first()
-      await input.fill("j")
-
-      // The 'j' should be in the input, not triggering navigation
-      await expect(input).toHaveValue("j")
-    }
+    // The 'j' should be in the input, not triggering navigation
+    await expect(input).toHaveValue("j")
   })
 
   test("shortcuts work after closing dialog", async ({ page }) => {
     // Open and close a dialog
-    const addButton = page
-      .getByRole("button", { name: /subscribe|add feed|\+/i })
-      .first()
+    const addButton = page.getByRole("button", { name: /add\.\.\./i })
+    await expect(addButton).toBeVisible()
+    await addButton.click()
+    await page.getByText("Subscribe to Feed").click()
+    await expect(page.getByRole("dialog")).toBeVisible()
 
-    if ((await addButton.count()) > 0) {
-      await addButton.click()
-      await expect(page.getByRole("dialog")).toBeVisible()
+    // Close dialog
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("dialog")).not.toBeVisible()
 
-      // Close dialog
-      await page.keyboard.press("Escape")
-      await expect(page.getByRole("dialog")).not.toBeVisible()
-
-      // Shortcuts should work again
-      await page.keyboard.press("j")
-      await waitForStable(page)
-    }
+    // Shortcuts should work again
+    await page.keyboard.press("j")
+    await waitForStable(page)
   })
 })
 

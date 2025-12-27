@@ -103,9 +103,7 @@ test.describe("Search and Filter", () => {
     // Should still find Fresh (case-insensitive)
     // Fresh is a virtual feed that should always exist
     const freshOption = page.getByRole("option", { name: /fresh/i })
-    if ((await freshOption.count()) > 0) {
-      await expect(freshOption).toBeVisible()
-    }
+    await expect(freshOption).toBeVisible()
   })
 
   test("clears search when reopened", async ({ page }) => {
@@ -244,31 +242,30 @@ test.describe("Feed Selection", () => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    if (feeds.length > 0) {
-      await openPalette(page)
+    test.skip(feeds.length === 0, "No feeds available in database")
 
-      const feedOption = page.getByRole("option", { name: feeds[0].title })
-      if ((await feedOption.count()) > 0) {
-        await feedOption.click()
-        await expect(page.getByRole("dialog")).not.toBeVisible()
-      }
-    }
+    await openPalette(page)
+
+    const feedOption = page.getByRole("option", { name: feeds[0].title })
+    await expect(feedOption).toBeVisible()
+    await feedOption.click()
+    await expect(page.getByRole("dialog")).not.toBeVisible()
   })
 
   test("feed selection via keyboard", async ({ page }) => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    if (feeds.length > 0) {
-      await openPalette(page)
+    test.skip(feeds.length === 0, "No feeds available in database")
 
-      // Type part of feed name to filter
-      const input = page.getByRole("combobox")
-      await input.fill(feeds[0].title.substring(0, 3))
+    await openPalette(page)
 
-      await page.keyboard.press("Enter")
-      await expect(page.getByRole("dialog")).not.toBeVisible()
-    }
+    // Type part of feed name to filter
+    const input = page.getByRole("combobox")
+    await input.fill(feeds[0].title.substring(0, 3))
+
+    await page.keyboard.press("Enter")
+    await expect(page.getByRole("dialog")).not.toBeVisible()
   })
 })
 
@@ -281,27 +278,26 @@ test.describe("Category Selection", () => {
     const response = await page.request.get("/api/v1/categories")
     const categories = await response.json()
 
-    if (categories.length > 0) {
-      await openPalette(page)
-      await expect(page.getByText("Categories")).toBeVisible()
-    }
+    test.skip(categories.length === 0, "No categories available in database")
+
+    await openPalette(page)
+    await expect(page.getByText("Categories")).toBeVisible()
   })
 
   test("clicking category closes palette", async ({ page }) => {
     const response = await page.request.get("/api/v1/categories")
     const categories = await response.json()
 
-    if (categories.length > 0) {
-      await openPalette(page)
+    test.skip(categories.length === 0, "No categories available in database")
 
-      const categoryOption = page.getByRole("option", {
-        name: categories[0].title,
-      })
-      if ((await categoryOption.count()) > 0) {
-        await categoryOption.click()
-        await expect(page.getByRole("dialog")).not.toBeVisible()
-      }
-    }
+    await openPalette(page)
+
+    const categoryOption = page.getByRole("option", {
+      name: categories[0].title,
+    })
+    await expect(categoryOption).toBeVisible()
+    await categoryOption.click()
+    await expect(page.getByRole("dialog")).not.toBeVisible()
   })
 })
 
