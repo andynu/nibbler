@@ -3,6 +3,9 @@
 class UpdateFeedJob < ApplicationJob
   queue_as :default
 
+  # Delay between feed fetches (seconds) to avoid overwhelming servers
+  INTER_REQUEST_DELAY = 1.5
+
   # Retry with exponential backoff on network errors
   retry_on StandardError, wait: :polynomially_longer, attempts: 3
 
@@ -20,5 +23,8 @@ class UpdateFeedJob < ApplicationJob
     else
       Rails.logger.warn "Failed to update feed #{feed.id} (#{feed.title}): #{result.error}"
     end
+  ensure
+    # Throttle to avoid overwhelming servers with rapid requests
+    sleep(INTER_REQUEST_DELAY) if INTER_REQUEST_DELAY.positive?
   end
 end
