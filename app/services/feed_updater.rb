@@ -74,6 +74,10 @@ class FeedUpdater
       last_successful_update: Time.current,
       last_error: ""
     )
+
+    # Update next poll time even when not modified
+    @feed.update_polling_stats!(0)
+
     UpdateResult.new(feed: @feed, status: :not_modified)
   end
 
@@ -94,6 +98,9 @@ class FeedUpdater
         end
       end
     end
+
+    # Update adaptive polling statistics
+    @feed.update_polling_stats!(new_count)
 
     UpdateResult.new(feed: @feed, new_entries_count: new_count, status: :ok)
   rescue StandardError => e

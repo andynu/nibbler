@@ -71,8 +71,10 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_220158) do
     t.string "auth_login", default: "", null: false
     t.text "auth_pass", default: "", null: false
     t.boolean "auth_pass_encrypted", default: false, null: false
+    t.float "avg_posts_per_day", default: 0.0, null: false
     t.boolean "cache_content", default: false, null: false
     t.boolean "cache_images", default: false, null: false
+    t.integer "calculated_interval_seconds"
     t.bigint "category_id"
     t.integer "consecutive_failures", default: 0, null: false
     t.string "etag", default: "", null: false
@@ -87,12 +89,14 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_220158) do
     t.boolean "include_in_digest", default: true, null: false
     t.text "last_error", default: "", null: false
     t.string "last_modified", default: "", null: false
+    t.datetime "last_new_entry_at"
     t.datetime "last_successful_update"
     t.datetime "last_unconditional"
     t.datetime "last_update_started"
     t.datetime "last_updated"
     t.datetime "last_viewed"
     t.boolean "mark_unread_on_update", default: false, null: false
+    t.datetime "next_poll_at"
     t.integer "order_id", default: 0, null: false
     t.bigint "parent_feed_id"
     t.boolean "private", default: false, null: false
@@ -110,6 +114,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_220158) do
     t.string "view_settings", default: "", null: false
     t.index ["category_id"], name: "index_feeds_on_category_id"
     t.index ["feed_url", "user_id"], name: "index_feeds_on_feed_url_and_user_id", unique: true
+    t.index ["next_poll_at"], name: "index_feeds_on_next_poll_at"
     t.index ["parent_feed_id"], name: "index_feeds_on_parent_feed_id"
     t.index ["user_id"], name: "index_feeds_on_user_id"
   end

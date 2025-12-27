@@ -1,0 +1,26 @@
+high_frequency:
+  user: one
+  title: High Frequency Feed
+  feed_url: https://example.com/high.rss
+  avg_posts_per_day: 10.0
+  last_new_entry_at: <%= 1.hour.ago.to_fs(:db) %>
+
+low_frequency:
+  user: one
+  title: Low Frequency Feed
+  feed_url: https://example.com/low.rss
+  avg_posts_per_day: 0.1
+  last_new_entry_at: <%= 1.week.ago.to_fs(:db) %>
+
+new_feed:
+  user: one
+  title: New Feed
+  feed_url: https://example.com/new.rss
+  avg_posts_per_day: 0.0
+
+manual_override:
+  user: one
+  title: Manual Override Feed
+  feed_url: https://example.com/manual.rss
+  update_interval: 60
+  avg_posts_per_day: 5.0
