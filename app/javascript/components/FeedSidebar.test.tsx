@@ -54,6 +54,8 @@ describe("FeedSidebar", () => {
     onEditFeed: vi.fn(),
     onSettings: vi.fn(),
     onCategoriesChange: vi.fn(),
+    onFeedsChange: vi.fn(),
+    onFeedUpdated: vi.fn(),
   }
 
   beforeEach(() => {

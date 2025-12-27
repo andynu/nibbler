@@ -10,6 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
 import {
   Tooltip,
@@ -40,6 +47,8 @@ interface FeedSidebarProps {
   onEditFeed: (feed: Feed) => void
   onSettings: () => void
   onCategoriesChange: (categories: Category[]) => void
+  onFeedsChange: (feeds: Feed[]) => void
+  onFeedUpdated?: (feed: Feed) => void
 }
 
 export function FeedSidebar({
@@ -57,6 +66,8 @@ export function FeedSidebar({
   onEditFeed,
   onSettings,
   onCategoriesChange,
+  onFeedsChange,
+  onFeedUpdated,
 }: FeedSidebarProps) {
   const { preferences, updatePreference } = usePreferences()
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
@@ -64,6 +75,7 @@ export function FeedSidebar({
   )
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
 
   // Local override for hide read feeds (toggle in UI)
   const [hideReadOverride, setHideReadOverride] = useState<boolean | null>(null)
@@ -149,6 +161,36 @@ export function FeedSidebar({
       }
     } catch (error) {
       console.error("Failed to delete category:", error)
+    }
+  }
+
+  const handleRefreshFeed = async (feed: Feed) => {
+    if (refreshingFeedId !== null) return // Already refreshing another feed
+
+    setRefreshingFeedId(feed.id)
+    try {
+      const result = await api.feeds.refresh(feed.id)
+      if (result.feed) {
+        onFeedUpdated?.(result.feed)
+      }
+    } catch (error) {
+      console.error("Failed to refresh feed:", error)
+    } finally {
+      setRefreshingFeedId(null)
+    }
+  }
+
+  const handleUnsubscribeFeed = async (feed: Feed) => {
+    if (!confirm(`Unsubscribe from "${feed.title}"? This will remove all entries from this feed.`)) return
+
+    try {
+      await api.feeds.delete(feed.id)
+      onFeedsChange(feeds.filter((f) => f.id !== feed.id))
+      if (selectedFeedId === feed.id) {
+        onSelectFeed(null)
+      }
+    } catch (error) {
+      console.error("Failed to unsubscribe:", error)
     }
   }
 
@@ -325,11 +367,14 @@ export function FeedSidebar({
                 expandedCategories={expandedCategories}
                 selectedFeedId={selectedFeedId}
                 selectedCategoryId={selectedCategoryId}
+                refreshingFeedId={refreshingFeedId}
                 onToggle={() => toggleCategory(category.id)}
                 onToggleCategory={toggleCategory}
                 onSelectFeed={onSelectFeed}
                 onSelectCategory={onSelectCategory}
                 onEditFeed={onEditFeed}
+                onRefreshFeed={handleRefreshFeed}
+                onUnsubscribeFeed={handleUnsubscribeFeed}
                 onEditCategory={setEditingCategory}
                 onDeleteCategory={handleDeleteCategory}
                 hideReadFeeds={hideReadFeeds}
@@ -348,6 +393,9 @@ export function FeedSidebar({
                   isSelected={selectedFeedId === feed.id}
                   onSelect={() => onSelectFeed(feed.id)}
                   onEdit={() => onEditFeed(feed)}
+                  onRefresh={() => handleRefreshFeed(feed)}
+                  onUnsubscribe={() => handleUnsubscribeFeed(feed)}
+                  isRefreshing={refreshingFeedId === feed.id}
                 />
               ))}
             </>
@@ -384,11 +432,14 @@ interface CategoryItemProps {
   expandedCategories: Set<number>
   selectedFeedId: number | null
   selectedCategoryId: number | null
+  refreshingFeedId: number | null
   onToggle: () => void
   onToggleCategory: (categoryId: number) => void
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
   onEditFeed: (feed: Feed) => void
+  onRefreshFeed: (feed: Feed) => void
+  onUnsubscribeFeed: (feed: Feed) => void
   onEditCategory: (category: Category) => void
   onDeleteCategory: (category: Category) => void
   hideReadFeeds: boolean
@@ -407,11 +458,14 @@ function CategoryItem({
   expandedCategories,
   selectedFeedId,
   selectedCategoryId,
+  refreshingFeedId,
   onToggle,
   onToggleCategory,
   onSelectFeed,
   onSelectCategory,
   onEditFeed,
+  onRefreshFeed,
+  onUnsubscribeFeed,
   onEditCategory,
   onDeleteCategory,
   hideReadFeeds,
@@ -532,6 +586,9 @@ function CategoryItem({
                 isSelected={selectedFeedId === feed.id}
                 onSelect={() => onSelectFeed(feed.id)}
                 onEdit={() => onEditFeed(feed)}
+                onRefresh={() => onRefreshFeed(feed)}
+                onUnsubscribe={() => onUnsubscribeFeed(feed)}
+                isRefreshing={refreshingFeedId === feed.id}
               />
             ))}
           </div>
@@ -560,11 +617,14 @@ function CategoryItem({
                 expandedCategories={expandedCategories}
                 selectedFeedId={selectedFeedId}
                 selectedCategoryId={selectedCategoryId}
+                refreshingFeedId={refreshingFeedId}
                 onToggle={() => onToggleCategory(childCategory.id)}
                 onToggleCategory={onToggleCategory}
                 onSelectFeed={onSelectFeed}
                 onSelectCategory={onSelectCategory}
                 onEditFeed={onEditFeed}
+                onRefreshFeed={onRefreshFeed}
+                onUnsubscribeFeed={onUnsubscribeFeed}
                 onEditCategory={onEditCategory}
                 onDeleteCategory={onDeleteCategory}
                 hideReadFeeds={hideReadFeeds}
@@ -583,58 +643,92 @@ interface FeedItemProps {
   isSelected: boolean
   onSelect: () => void
   onEdit: () => void
+  onRefresh: () => void
+  onUnsubscribe: () => void
+  isRefreshing?: boolean
 }
 
-function FeedItem({ feed, isSelected, onSelect, onEdit }: FeedItemProps) {
+function FeedItem({ feed, isSelected, onSelect, onEdit, onRefresh, onUnsubscribe, isRefreshing }: FeedItemProps) {
   return (
-    <div className="group flex items-center">
-      <Button
-        variant="ghost"
-        className="flex-1 justify-start gap-2 h-8"
-        style={isSelected ? {
-          backgroundColor: "var(--color-accent-primary-dark)",
-          color: "white",
-        } : undefined}
-        onClick={onSelect}
-      >
-        {feed.icon_url ? (
-          <img src={feed.icon_url} className="h-4 w-4" alt="" />
-        ) : (
-          <Rss className="h-4 w-4 text-muted-foreground" />
-        )}
-        <span className="flex-1 text-left truncate">{feed.title}</span>
-        {feed.last_error && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <AlertCircle className="h-3 w-3 text-destructive shrink-0 cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs">
-                <p className="font-medium">Update Error</p>
-                <p className="text-xs opacity-90">{feed.last_error}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-        {feed.unread_count > 0 && <Badge variant="secondary">{feed.unread_count}</Badge>}
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className="group flex items-center">
           <Button
             variant="ghost"
-            size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
+            className="flex-1 justify-start gap-2 h-8"
+            style={isSelected ? {
+              backgroundColor: "var(--color-accent-primary-dark)",
+              color: "white",
+            } : undefined}
+            onClick={onSelect}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            {feed.icon_url ? (
+              <img src={feed.icon_url} className="h-4 w-4" alt="" />
+            ) : (
+              <Rss className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="flex-1 text-left truncate">{feed.title}</span>
+            {isRefreshing && (
+              <RefreshCw className="h-3 w-3 animate-spin shrink-0" />
+            )}
+            {!isRefreshing && feed.last_error && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertCircle className="h-3 w-3 text-destructive shrink-0 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs">
+                    <p className="font-medium">Update Error</p>
+                    <p className="text-xs opacity-90">{feed.last_error}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {feed.unread_count > 0 && <Badge variant="secondary">{feed.unread_count}</Badge>}
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onEdit}>
-            <Settings className="mr-2 h-4 w-4" />
-            Edit Feed
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onRefresh} disabled={isRefreshing}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Sync Now
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onEdit}>
+                <Settings className="mr-2 h-4 w-4" />
+                Edit Feed
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onUnsubscribe} className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Unsubscribe
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={onRefresh} disabled={isRefreshing}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Sync Now
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onEdit}>
+          <Settings className="mr-2 h-4 w-4" />
+          Edit Feed...
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={onUnsubscribe} variant="destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Unsubscribe
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

@@ -470,6 +470,8 @@ function App() {
           onEditFeed={setEditingFeed}
           onSettings={() => setShowSettings(true)}
           onCategoriesChange={setCategories}
+          onFeedsChange={setFeeds}
+          onFeedUpdated={handleFeedUpdated}
         />
       </div>
       <div style={{ width: "320px", flexShrink: 0, height: "100%" }}>
