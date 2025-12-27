@@ -113,6 +113,17 @@ export function FeedSidebar({
   const totalUnread = feeds.reduce((sum, f) => sum + f.unread_count, 0)
   const feedsWithErrors = feeds.filter((f) => f.last_error)
 
+  // Build tree structure: only render root categories (no parent)
+  const rootCategories = categories.filter((c) => !c.parent_id)
+  const childrenByParent = new Map<number, Category[]>()
+  categories.forEach((c) => {
+    if (c.parent_id) {
+      const children = childrenByParent.get(c.parent_id) || []
+      children.push(c)
+      childrenByParent.set(c.parent_id, children)
+    }
+  })
+
   const handleCategoryCreated = (category: Category) => {
     onCategoriesChange([...categories, category])
   }
@@ -290,26 +301,39 @@ export function FeedSidebar({
 
           <div className="h-px bg-border my-2" />
 
-          {categories.map((category) => {
+          {rootCategories.map((category) => {
             const categoryFeeds = filterAndSortFeeds(
               feeds.filter((f) => f.category_id === category.id)
             )
-            // Hide empty categories when hiding read feeds
-            if (hideReadFeeds && categoryFeeds.length === 0) return null
+            const childCategories = childrenByParent.get(category.id) || []
+            // Hide empty categories when hiding read feeds (only if no children with unread)
+            const hasUnreadChildren = childCategories.some((child) =>
+              feeds.some((f) => f.category_id === child.id && f.unread_count > 0)
+            )
+            if (hideReadFeeds && categoryFeeds.length === 0 && !hasUnreadChildren) return null
             return (
               <CategoryItem
                 key={category.id}
                 category={category}
                 feeds={categoryFeeds}
+                childCategories={childCategories}
+                allCategories={categories}
+                allFeeds={feeds}
+                childrenByParent={childrenByParent}
+                depth={0}
                 isExpanded={expandedCategories.has(category.id)}
+                expandedCategories={expandedCategories}
                 selectedFeedId={selectedFeedId}
                 selectedCategoryId={selectedCategoryId}
                 onToggle={() => toggleCategory(category.id)}
+                onToggleCategory={toggleCategory}
                 onSelectFeed={onSelectFeed}
                 onSelectCategory={onSelectCategory}
                 onEditFeed={onEditFeed}
                 onEditCategory={setEditingCategory}
                 onDeleteCategory={handleDeleteCategory}
+                hideReadFeeds={hideReadFeeds}
+                filterAndSortFeeds={filterAndSortFeeds}
               />
             )
           })}
@@ -351,34 +375,72 @@ export function FeedSidebar({
 interface CategoryItemProps {
   category: Category
   feeds: Feed[]
+  childCategories: Category[]
+  allCategories: Category[]
+  allFeeds: Feed[]
+  childrenByParent: Map<number, Category[]>
+  depth: number
   isExpanded: boolean
+  expandedCategories: Set<number>
   selectedFeedId: number | null
   selectedCategoryId: number | null
   onToggle: () => void
+  onToggleCategory: (categoryId: number) => void
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
   onEditFeed: (feed: Feed) => void
   onEditCategory: (category: Category) => void
   onDeleteCategory: (category: Category) => void
+  hideReadFeeds: boolean
+  filterAndSortFeeds: (feeds: Feed[]) => Feed[]
 }
 
 function CategoryItem({
   category,
   feeds,
+  childCategories,
+  allCategories,
+  allFeeds,
+  childrenByParent,
+  depth,
   isExpanded,
+  expandedCategories,
   selectedFeedId,
   selectedCategoryId,
   onToggle,
+  onToggleCategory,
   onSelectFeed,
   onSelectCategory,
   onEditFeed,
   onEditCategory,
   onDeleteCategory,
+  hideReadFeeds,
+  filterAndSortFeeds,
 }: CategoryItemProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
-  const unreadCount = feeds.reduce((sum, f) => sum + f.unread_count, 0)
-  const hasSelectedChild = selectedFeedId !== null && feeds.some((f) => f.id === selectedFeedId)
+
+  // Calculate unread count including all descendants
+  const getDescendantUnreadCount = (cat: Category): number => {
+    const directFeeds = allFeeds.filter((f) => f.category_id === cat.id)
+    const directUnread = directFeeds.reduce((sum, f) => sum + f.unread_count, 0)
+    const children = childrenByParent.get(cat.id) || []
+    const childUnread = children.reduce((sum, child) => sum + getDescendantUnreadCount(child), 0)
+    return directUnread + childUnread
+  }
+
+  const unreadCount = getDescendantUnreadCount(category)
+
+  // Check if any descendant feed is selected
+  const hasSelectedDescendant = (cat: Category): boolean => {
+    if (selectedFeedId !== null && allFeeds.some((f) => f.category_id === cat.id && f.id === selectedFeedId)) {
+      return true
+    }
+    const children = childrenByParent.get(cat.id) || []
+    return children.some((child) => hasSelectedDescendant(child))
+  }
+
+  const hasSelectedChild = hasSelectedDescendant(category)
   const isSelected = selectedCategoryId === category.id
 
   // Determine button style based on selection state
@@ -405,13 +467,16 @@ function CategoryItem({
     return undefined
   }
 
+  // Indentation based on depth
+  const paddingLeft = depth * 16 + 8 // 8px base + 16px per depth level
+
   return (
     <div className="group/category">
       <div className="flex items-center">
         <Button
           variant="ghost"
-          className="flex-1 justify-start gap-2 h-8 pl-2"
-          style={getButtonStyle()}
+          className="flex-1 justify-start gap-2 h-8"
+          style={{ ...getButtonStyle(), paddingLeft: `${paddingLeft}px` }}
           onClick={() => onSelectCategory(category.id)}
         >
           <span
@@ -457,17 +522,57 @@ function CategoryItem({
         </DropdownMenu>
       </div>
       {isExpanded && (
-        <div className="ml-6">
-          {feeds.map((feed) => (
-            <FeedItem
-              key={feed.id}
-              feed={feed}
-              isSelected={selectedFeedId === feed.id}
-              onSelect={() => onSelectFeed(feed.id)}
-              onEdit={() => onEditFeed(feed)}
-            />
-          ))}
-        </div>
+        <>
+          {/* Render feeds in this category */}
+          <div style={{ marginLeft: `${(depth + 1) * 16 + 8}px` }}>
+            {feeds.map((feed) => (
+              <FeedItem
+                key={feed.id}
+                feed={feed}
+                isSelected={selectedFeedId === feed.id}
+                onSelect={() => onSelectFeed(feed.id)}
+                onEdit={() => onEditFeed(feed)}
+              />
+            ))}
+          </div>
+          {/* Render child categories recursively */}
+          {childCategories.map((childCategory) => {
+            const childFeeds = filterAndSortFeeds(
+              allFeeds.filter((f) => f.category_id === childCategory.id)
+            )
+            const grandChildren = childrenByParent.get(childCategory.id) || []
+            // Hide empty child categories when hiding read feeds
+            const hasUnreadDescendants = grandChildren.some((gc) =>
+              allFeeds.some((f) => f.category_id === gc.id && f.unread_count > 0)
+            )
+            if (hideReadFeeds && childFeeds.length === 0 && !hasUnreadDescendants) return null
+            return (
+              <CategoryItem
+                key={childCategory.id}
+                category={childCategory}
+                feeds={childFeeds}
+                childCategories={grandChildren}
+                allCategories={allCategories}
+                allFeeds={allFeeds}
+                childrenByParent={childrenByParent}
+                depth={depth + 1}
+                isExpanded={expandedCategories.has(childCategory.id)}
+                expandedCategories={expandedCategories}
+                selectedFeedId={selectedFeedId}
+                selectedCategoryId={selectedCategoryId}
+                onToggle={() => onToggleCategory(childCategory.id)}
+                onToggleCategory={onToggleCategory}
+                onSelectFeed={onSelectFeed}
+                onSelectCategory={onSelectCategory}
+                onEditFeed={onEditFeed}
+                onEditCategory={onEditCategory}
+                onDeleteCategory={onDeleteCategory}
+                hideReadFeeds={hideReadFeeds}
+                filterAndSortFeeds={filterAndSortFeeds}
+              />
+            )
+          })}
+        </>
       )}
     </div>
   )
