@@ -147,10 +147,10 @@ export function FeedSidebar({
           <Rss className="h-5 w-5" />
           <span className="font-semibold">TTRB</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" title="Add...">
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="Add...">
                 <Plus className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -168,6 +168,7 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
             onClick={toggleHideRead}
             title={hideReadFeeds ? "Show all feeds" : "Hide read feeds"}
           >
@@ -176,16 +177,23 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
+            className={cn("h-8 w-8", sortByUnread && "text-primary")}
             onClick={toggleSortByUnread}
             title={sortByUnread ? "Sort alphabetically" : "Sort by unread count"}
-            className={cn(sortByUnread && "text-primary")}
           >
             <ArrowUpDown className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onRefreshAll} disabled={isRefreshing} title="Refresh all feeds">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onRefreshAll}
+            disabled={isRefreshing}
+            title="Refresh all feeds"
+          >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onSettings} title="Settings">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSettings} title="Settings">
             <Cog className="h-4 w-4" />
           </Button>
         </div>
