@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
+import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import type { Entry } from "@/lib/api"
 
 interface EntryContentProps {
@@ -146,6 +147,10 @@ export function EntryContent({
               </div>
             )}
           </header>
+
+          {entry.enclosures && entry.enclosures.length > 0 && (
+            <EnclosurePlayer enclosures={entry.enclosures} />
+          )}
 
           <div
             className="prose prose-sm max-w-none

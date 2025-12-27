@@ -189,6 +189,7 @@ module Api
           json[:note] = user_entry.note
           json[:labels] = entry.labels.map { |l| { id: l.id, caption: l.caption, fg_color: l.fg_color, bg_color: l.bg_color } }
           json[:tags] = user_entry.tags.pluck(:tag_name)
+          json[:enclosures] = entry.enclosures.map { |e| enclosure_json(e) }
         end
 
         json
@@ -223,6 +224,18 @@ module Api
         pref = current_user.user_preferences.find_by(pref_name: "fresh_article_max_age")
         hours = pref&.value&.to_i || 24
         hours.hours.ago
+      end
+
+      def enclosure_json(enclosure)
+        {
+          id: enclosure.id,
+          content_url: enclosure.content_url,
+          content_type: enclosure.content_type,
+          title: enclosure.title,
+          duration: enclosure.duration,
+          width: enclosure.width,
+          height: enclosure.height
+        }
       end
     end
   end

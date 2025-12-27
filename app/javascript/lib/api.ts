@@ -35,6 +35,16 @@ export interface Feed {
   update_interval?: number
 }
 
+export interface Enclosure {
+  id: number
+  content_url: string
+  content_type: string
+  title: string
+  duration: string
+  width: number
+  height: number
+}
+
 export interface Entry {
   id: number
   entry_id: number
@@ -58,6 +68,7 @@ export interface Entry {
     bg_color: string
   }>
   tags?: string[]
+  enclosures?: Enclosure[]
 }
 
 export interface Category {
