@@ -56,8 +56,9 @@ class FeedFetcher
         req.headers["If-Modified-Since"] = @feed.last_modified
       end
 
-      # We store ETag in a new column - for now use last_modified field
-      # TODO: Add etag column to feeds table
+      if @feed.etag.present?
+        req.headers["If-None-Match"] = @feed.etag
+      end
     end
   end
 

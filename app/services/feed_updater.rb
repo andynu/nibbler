@@ -99,6 +99,10 @@ class FeedUpdater
       updates[:last_modified] = fetch_result.last_modified
     end
 
+    if fetch_result.etag.present?
+      updates[:etag] = fetch_result.etag
+    end
+
     @feed.update!(updates)
   end
 
