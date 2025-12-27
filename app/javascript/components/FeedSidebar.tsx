@@ -10,6 +10,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Rss, Folder, FolderOpen, ChevronRight, ChevronDown, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import type { Feed, Category } from "@/lib/api"
@@ -104,6 +110,7 @@ export function FeedSidebar({
 
   const uncategorizedFeeds = filterAndSortFeeds(feeds.filter((f) => !f.category_id))
   const totalUnread = feeds.reduce((sum, f) => sum + f.unread_count, 0)
+  const feedsWithErrors = feeds.filter((f) => f.last_error)
 
   const handleCategoryCreated = (category: Category) => {
     onCategoriesChange([...categories, category])
@@ -229,6 +236,35 @@ export function FeedSidebar({
             <Send className="h-4 w-4" />
             <span className="flex-1 text-left">Published</span>
           </Button>
+
+          {feedsWithErrors.length > 0 && (
+            <>
+              <div className="h-px bg-border my-2" />
+              <div className="mb-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 text-destructive text-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{feedsWithErrors.length} feed{feedsWithErrors.length !== 1 ? 's' : ''} with errors</span>
+                </div>
+                <div className="space-y-0.5">
+                  {feedsWithErrors.map((feed) => (
+                    <Button
+                      key={feed.id}
+                      variant="ghost"
+                      className="w-full justify-start gap-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => onEditFeed(feed)}
+                    >
+                      {feed.icon_url ? (
+                        <img src={feed.icon_url} className="h-3 w-3" alt="" />
+                      ) : (
+                        <Rss className="h-3 w-3" />
+                      )}
+                      <span className="flex-1 text-left truncate">{feed.title}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="h-px bg-border my-2" />
 
@@ -406,7 +442,17 @@ function FeedItem({ feed, isSelected, onSelect, onEdit }: FeedItemProps) {
         )}
         <span className="flex-1 text-left truncate">{feed.title}</span>
         {feed.last_error && (
-          <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertCircle className="h-3 w-3 text-destructive shrink-0 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <p className="font-medium">Update Error</p>
+                <p className="text-xs opacity-90">{feed.last_error}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
         {feed.unread_count > 0 && <Badge variant="secondary">{feed.unread_count}</Badge>}
       </Button>
