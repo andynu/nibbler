@@ -8,7 +8,7 @@ class OpmlExporter
     builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
       xml.opml(version: "2.0") do
         xml.head do
-          xml.title "#{@user.login}'s TTRB Subscriptions"
+          xml.title "#{@user.login}'s Nibbler Subscriptions"
           xml.dateCreated Time.current.rfc2822
         end
         xml.body do

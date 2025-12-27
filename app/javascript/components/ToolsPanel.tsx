@@ -14,7 +14,7 @@ export function ToolsPanel() {
   // Bookmarklet that:
   // 1. Tries to find RSS/Atom link tags in the page
   // 2. Falls back to current page URL
-  // 3. Opens TTRB subscribe dialog with the feed URL
+  // 3. Opens Nibbler subscribe dialog with the feed URL
   const bookmarkletCode = `javascript:(function(){
   var feedUrl = null;
   var links = document.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"], link[rel="alternate"][type*="rss"], link[rel="alternate"][type*="atom"]');
@@ -76,7 +76,7 @@ export function ToolsPanel() {
               onClick={(e) => e.preventDefault()}
               draggable
             >
-              Subscribe to TTRB
+              Subscribe to Nibbler
             </a>
             <span className="text-sm text-muted-foreground">
               Drag to your bookmarks bar
@@ -112,7 +112,7 @@ export function ToolsPanel() {
               <li>Detects RSS/Atom feed links in the current page</li>
               <li>If multiple feeds are found, prompts you to choose</li>
               <li>If no feed is detected, uses the current page URL</li>
-              <li>Opens TTRB with the subscribe dialog pre-filled</li>
+              <li>Opens Nibbler with the subscribe dialog pre-filled</li>
             </ul>
           </div>
         </CardContent>

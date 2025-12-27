@@ -67,10 +67,10 @@ describe("FeedSidebar", () => {
   })
 
   describe("header and branding", () => {
-    it("shows TTRB branding", () => {
+    it("shows Nibbler branding", () => {
       render(<FeedSidebar {...defaultProps} />)
 
-      expect(screen.getByText("TTRB")).toBeInTheDocument()
+      expect(screen.getByText("Nibbler")).toBeInTheDocument()
     })
 
     it("shows refresh button", () => {

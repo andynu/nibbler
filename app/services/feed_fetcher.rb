@@ -31,7 +31,7 @@ class FeedFetcher
     end
   end
 
-  USER_AGENT = "TTRB/1.0 (+https://github.com/yourname/ttrb)".freeze
+  USER_AGENT = "Nibbler/1.0 (+https://github.com/andyjakubowski/nibbler)".freeze
   DEFAULT_TIMEOUT = 30
 
   def initialize(feed)

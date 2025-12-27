@@ -18,8 +18,8 @@ test.describe("App authentication (auto-auth in dev/test)", () => {
     // App should load the main react UI
     await expect(page.getByTestId("app-root")).toBeVisible()
 
-    // Wait for app to fully load - TTRB branding in sidebar indicates authenticated view
-    await expect(page.getByText("TTRB")).toBeVisible()
+    // Wait for app to fully load - Nibbler branding in sidebar indicates authenticated view
+    await expect(page.getByText("Nibbler")).toBeVisible()
   })
 
   test("API requests work when auto-authenticated", async ({ page }) => {

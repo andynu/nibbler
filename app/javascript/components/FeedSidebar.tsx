@@ -363,7 +363,7 @@ export function FeedSidebar({
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <Rss className="h-5 w-5" />
-          <span className="font-semibold">TTRB</span>
+          <span className="font-semibold">Nibbler</span>
         </div>
         <div className="flex items-center gap-0.5">
           <DropdownMenu>

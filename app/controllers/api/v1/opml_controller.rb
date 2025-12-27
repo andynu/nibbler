@@ -68,7 +68,7 @@ module Api
         opml_content = exporter.export
 
         send_data opml_content,
-          filename: "ttrb-subscriptions-#{Date.current.iso8601}.opml",
+          filename: "nibbler-subscriptions-#{Date.current.iso8601}.opml",
           type: "application/xml",
           disposition: "attachment"
       end

@@ -1,8 +1,8 @@
-# TTRB Project Guidelines
+# Nibbler Project Guidelines
 
 ## Project Overview
 
-TTRB is a modern RSS reader built with Rails 8.1 (backend) and React 19 + TypeScript (frontend). It uses esbuild for bundling, shadcn/ui components (Radix primitives), and Tailwind CSS for styling.
+Nibbler is a modern RSS reader built with Rails 8.1 (backend) and React 19 + TypeScript (frontend). It uses esbuild for bundling, shadcn/ui components (Radix primitives), and Tailwind CSS for styling.
 
 ## Tech Stack
 

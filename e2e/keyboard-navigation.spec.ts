@@ -9,8 +9,8 @@ import { test, expect, Page } from "@playwright/test"
 // Helper to wait for app to be ready
 async function waitForAppReady(page: Page) {
   await page.goto("/")
-  // Wait for TTRB branding to confirm app is fully loaded
-  await expect(page.getByText("TTRB")).toBeVisible({ timeout: 10000 })
+  // Wait for Nibbler branding to confirm app is fully loaded
+  await expect(page.getByText("Nibbler")).toBeVisible({ timeout: 10000 })
 }
 
 // Helper to confirm UI is stable after keyboard action
