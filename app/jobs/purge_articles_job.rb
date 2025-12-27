@@ -1,5 +1,5 @@
 # Scheduler job that purges old articles based on user preferences.
-# Runs daily via Solid Queue recurring tasks.
+# Runs daily at 3am via GoodJob cron.
 #
 # For each user with purging enabled (purge_old_days > 0):
 # - Removes user_entries older than their purge_old_days setting

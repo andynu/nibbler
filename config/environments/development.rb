@@ -52,6 +52,12 @@ Rails.application.configure do
   # Highlight code that enqueued background job in logs.
   config.active_job.verbose_enqueue_logs = true
 
+  # Use GoodJob in external mode for development (run via bin/jobs or bin/dev)
+  config.active_job.queue_adapter = :good_job
+  config.good_job.execution_mode = :external
+  config.good_job.enable_cron = true
+  config.good_job.smaller_number_is_higher_priority = true
+
   # Highlight code that triggered redirect in logs.
   config.action_dispatch.verbose_redirect_logs = true
 

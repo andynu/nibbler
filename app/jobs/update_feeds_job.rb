@@ -1,5 +1,5 @@
 # Scheduler job that enqueues UpdateFeedJob for feeds that need updating
-# Runs periodically via Solid Queue recurring tasks
+# Runs every 5 minutes via GoodJob cron
 class UpdateFeedsJob < ApplicationJob
   queue_as :default
 
