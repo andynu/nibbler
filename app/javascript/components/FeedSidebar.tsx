@@ -555,6 +555,7 @@ function CategoryItem({
               variant="ghost"
               size="icon"
               className="h-7 w-7 opacity-0 group-hover/category:opacity-100 shrink-0"
+              aria-label={`${category.title} menu`}
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
@@ -692,6 +693,7 @@ function FeedItem({ feed, isSelected, onSelect, onEdit, onRefresh, onUnsubscribe
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
+                aria-label={`${feed.title} menu`}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>

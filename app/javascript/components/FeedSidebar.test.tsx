@@ -470,16 +470,9 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} categories={categories} />)
 
-      // Hover over category to show menu button, then click it
-      const categoryRow = screen.getByText("My Tech Category").closest(".group\\/category")
-      const buttons = within(categoryRow!).getAllByRole("button")
-      // Find the menu button (with ellipsis icon)
-      const menuButton = buttons.find(btn => btn.querySelector("svg.lucide-ellipsis"))
+      await user.click(screen.getByRole("button", { name: /my tech category menu/i }))
 
-      if (menuButton) {
-        await user.click(menuButton)
-        expect(screen.getByText("Rename")).toBeInTheDocument()
-      }
+      expect(screen.getByText("Rename")).toBeInTheDocument()
     })
 
     it("shows delete option in category menu", async () => {
@@ -488,14 +481,9 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} categories={categories} />)
 
-      const categoryRow = screen.getByText("My Tech Category").closest(".group\\/category")
-      const buttons = within(categoryRow!).getAllByRole("button")
-      const menuButton = buttons.find(btn => btn.querySelector("svg.lucide-ellipsis"))
+      await user.click(screen.getByRole("button", { name: /my tech category menu/i }))
 
-      if (menuButton) {
-        await user.click(menuButton)
-        expect(screen.getByText("Delete")).toBeInTheDocument()
-      }
+      expect(screen.getByText("Delete")).toBeInTheDocument()
     })
   })
 
@@ -506,15 +494,9 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} feeds={feeds} />)
 
-      // Find feed row and its menu button
-      const feedRow = screen.getByText("My Feed").closest(".group")
-      const menuButtons = within(feedRow!).getAllByRole("button")
-      const menuButton = menuButtons.find(btn => btn.querySelector("svg.lucide-more-horizontal"))
+      await user.click(screen.getByRole("button", { name: /my feed menu/i }))
 
-      if (menuButton) {
-        await user.click(menuButton)
-        expect(screen.getByText("Edit Feed")).toBeInTheDocument()
-      }
+      expect(screen.getByText("Edit Feed")).toBeInTheDocument()
     })
 
     it("clicking Edit Feed calls onEditFeed", async () => {
@@ -526,16 +508,10 @@ describe("FeedSidebar", () => {
         <FeedSidebar {...defaultProps} feeds={feeds} onEditFeed={onEditFeed} />
       )
 
-      const feedRow = screen.getByText("My Feed").closest(".group")
-      const menuButtons = within(feedRow!).getAllByRole("button")
-      const menuButton = menuButtons.find(btn => btn.querySelector("svg.lucide-more-horizontal"))
+      await user.click(screen.getByRole("button", { name: /my feed menu/i }))
+      await user.click(screen.getByText("Edit Feed"))
 
-      if (menuButton) {
-        await user.click(menuButton)
-        await user.click(screen.getByText("Edit Feed"))
-
-        expect(onEditFeed).toHaveBeenCalledWith(feeds[0])
-      }
+      expect(onEditFeed).toHaveBeenCalledWith(feeds[0])
     })
   })
 

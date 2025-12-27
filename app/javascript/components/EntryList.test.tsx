@@ -220,18 +220,11 @@ describe("EntryList", () => {
         />
       )
 
-      // Find the read indicator button (Circle icon)
-      const buttons = screen.getAllByRole("button")
-      const readButton = buttons.find((btn) =>
-        btn.querySelector("svg.lucide-circle")
-      )
+      await user.click(screen.getByRole("button", { name: /mark as read/i }))
 
-      if (readButton) {
-        await user.click(readButton)
-        expect(onToggleRead).toHaveBeenCalledWith(1)
-        // Should not propagate to select
-        expect(onSelectEntry).not.toHaveBeenCalled()
-      }
+      expect(onToggleRead).toHaveBeenCalledWith(1)
+      // Should not propagate to select
+      expect(onSelectEntry).not.toHaveBeenCalled()
     })
 
     it("clicking star icon calls onToggleStarred", async () => {
@@ -249,18 +242,11 @@ describe("EntryList", () => {
         />
       )
 
-      // Find the star button
-      const buttons = screen.getAllByRole("button")
-      const starButton = buttons.find((btn) =>
-        btn.querySelector("svg.lucide-star")
-      )
+      await user.click(screen.getByRole("button", { name: /add star/i }))
 
-      if (starButton) {
-        await user.click(starButton)
-        expect(onToggleStarred).toHaveBeenCalledWith(1)
-        // Should not propagate to select
-        expect(onSelectEntry).not.toHaveBeenCalled()
-      }
+      expect(onToggleStarred).toHaveBeenCalledWith(1)
+      // Should not propagate to select
+      expect(onSelectEntry).not.toHaveBeenCalled()
     })
 
     it("Mark read button calls onMarkAllRead", async () => {

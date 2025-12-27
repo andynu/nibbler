@@ -130,6 +130,7 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
             e.stopPropagation()
             onToggleRead()
           }}
+          aria-label={entry.unread ? "Mark as read" : "Mark as unread"}
         >
           <Circle
             className="h-3 w-3"
@@ -160,6 +161,7 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
             e.stopPropagation()
             onToggleStarred()
           }}
+          aria-label={entry.starred ? "Remove star" : "Add star"}
         >
           <Star
             className="h-4 w-4"
