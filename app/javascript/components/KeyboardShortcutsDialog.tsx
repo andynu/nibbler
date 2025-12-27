@@ -15,6 +15,8 @@ const shortcuts = [
   { category: "Navigation", items: [
     { key: "j / n", description: "Next entry" },
     { key: "k / p", description: "Previous entry" },
+    { key: "Shift+J", description: "Next category" },
+    { key: "Shift+K", description: "Previous category" },
     { key: "Ctrl+F", description: "Page down content" },
     { key: "Ctrl+B", description: "Page up content" },
     { key: "a", description: "Go to All feeds" },

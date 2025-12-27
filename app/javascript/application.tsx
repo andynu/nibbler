@@ -257,6 +257,59 @@ function App() {
     }
   }, [entries, currentIndex])
 
+  // Helper to get category_id for an entry via its feed
+  const getCategoryForEntry = useCallback(
+    (entry: Entry): number | null => {
+      const feed = feeds.find((f) => f.id === entry.feed_id)
+      return feed?.category_id ?? null
+    },
+    [feeds]
+  )
+
+  const handleKeyboardNextCategory = useCallback(() => {
+    if (entries.length === 0) return
+    const startIndex = currentIndex === -1 ? 0 : currentIndex
+    const currentCategory = getCategoryForEntry(entries[startIndex])
+
+    // Find next entry with a different category
+    for (let i = startIndex + 1; i < entries.length; i++) {
+      if (getCategoryForEntry(entries[i]) !== currentCategory) {
+        loadEntry(entries[i].id)
+        return
+      }
+    }
+    // No different category found - stay at current position
+  }, [entries, currentIndex, getCategoryForEntry])
+
+  const handleKeyboardPreviousCategory = useCallback(() => {
+    if (entries.length === 0) return
+    const startIndex = currentIndex === -1 ? entries.length - 1 : currentIndex
+    const currentCategory = getCategoryForEntry(entries[startIndex])
+
+    // Find previous entry with a different category, then go to the first entry of that category
+    let targetCategory: number | null | undefined = undefined
+    let firstOfTargetCategory = -1
+
+    for (let i = startIndex - 1; i >= 0; i--) {
+      const entryCategory = getCategoryForEntry(entries[i])
+      if (targetCategory === undefined && entryCategory !== currentCategory) {
+        // Found a different category
+        targetCategory = entryCategory
+        firstOfTargetCategory = i
+      } else if (targetCategory !== undefined && entryCategory === targetCategory) {
+        // Still in the target category, update first index
+        firstOfTargetCategory = i
+      } else if (targetCategory !== undefined && entryCategory !== targetCategory) {
+        // We've passed through the target category, stop
+        break
+      }
+    }
+
+    if (firstOfTargetCategory >= 0) {
+      loadEntry(entries[firstOfTargetCategory].id)
+    }
+  }, [entries, currentIndex, getCategoryForEntry])
+
   // Keyboard action handlers
   const handleKeyboardToggleRead = useCallback(() => {
     if (selectedEntry) {
@@ -332,6 +385,8 @@ function App() {
       // Navigation
       { key: "j", handler: handleKeyboardNext, description: "Next entry" },
       { key: "k", handler: handleKeyboardPrevious, description: "Previous entry" },
+      { key: "J", handler: handleKeyboardNextCategory, description: "Next category", modifiers: { shift: true } },
+      { key: "K", handler: handleKeyboardPreviousCategory, description: "Previous category", modifiers: { shift: true } },
       { key: "n", handler: handleKeyboardNext, description: "Next entry" },
       { key: "p", handler: handleKeyboardPrevious, description: "Previous entry" },
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
@@ -356,6 +411,8 @@ function App() {
     [
       handleKeyboardNext,
       handleKeyboardPrevious,
+      handleKeyboardNextCategory,
+      handleKeyboardPreviousCategory,
       handleKeyboardToggleRead,
       handleKeyboardToggleStarred,
       handleKeyboardOpen,
