@@ -14,7 +14,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -90,10 +89,26 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
     matches: number
     total: number
   } | null>(null)
+  const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [availableLabels, setAvailableLabels] = useState<Array<{ id: number; caption: string }>>([])
 
   useEffect(() => {
     loadFilters()
+    loadTagsAndLabels()
   }, [])
+
+  const loadTagsAndLabels = async () => {
+    try {
+      const [tagsData, labelsData] = await Promise.all([
+        api.tags.list(),
+        api.labels.list(),
+      ])
+      setAvailableTags(tagsData.tags)
+      setAvailableLabels(labelsData.map((l) => ({ id: l.id, caption: l.caption })))
+    } catch (error) {
+      console.error("Failed to load tags/labels:", error)
+    }
+  }
 
   const loadFilters = async () => {
     try {
@@ -283,6 +298,8 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
         filter={editingFilter}
         feeds={feeds}
         categories={categories}
+        availableTags={availableTags}
+        availableLabels={availableLabels}
         onSave={async (data) => {
           if (editingFilter) {
             const updated = await api.filters.update(editingFilter.id, {
@@ -323,6 +340,8 @@ interface FilterEditorDialogProps {
   filter: Filter | null
   feeds: Feed[]
   categories: Category[]
+  availableTags: string[]
+  availableLabels: Array<{ id: number; caption: string }>
   onSave: (data: FilterUpdateData) => Promise<void>
 }
 
@@ -332,6 +351,8 @@ function FilterEditorDialog({
   filter,
   feeds,
   categories,
+  availableTags,
+  availableLabels,
   onSave,
 }: FilterEditorDialogProps) {
   const [form, setForm] = useState<FilterFormData>({
@@ -513,10 +534,6 @@ function FilterEditorDialog({
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const actionNeedsParam = (actionType: number) => {
-    return ACTION_TYPES.find((t) => t.value === actionType)?.hasParam || false
   }
 
   // Use a custom dialog content without overlay since we're nested inside Settings dialog
@@ -763,7 +780,51 @@ function FilterEditorDialog({
                     </SelectContent>
                   </Select>
 
-                  {actionNeedsParam(action.action_type) && (
+                  {/* Tag action - show input with datalist for autocomplete */}
+                  {action.action_type === 4 && (
+                    <>
+                      <Input
+                        className="flex-1"
+                        value={action.action_param}
+                        onChange={(e) =>
+                          handleUpdateAction(index, {
+                            action_param: e.target.value,
+                          })
+                        }
+                        placeholder="Tag name (type to create or select)"
+                        list={`tag-suggestions-${index}`}
+                      />
+                      <datalist id={`tag-suggestions-${index}`}>
+                        {availableTags.map((tag) => (
+                          <option key={tag} value={tag} />
+                        ))}
+                      </datalist>
+                    </>
+                  )}
+
+                  {/* Label action - show select from available labels */}
+                  {action.action_type === 7 && (
+                    <Select
+                      value={action.action_param || ""}
+                      onValueChange={(value) =>
+                        handleUpdateAction(index, { action_param: value })
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a label" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableLabels.map((label) => (
+                          <SelectItem key={label.id} value={String(label.id)}>
+                            {label.caption}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {/* Score action - show number input */}
+                  {action.action_type === 6 && (
                     <Input
                       className="flex-1"
                       value={action.action_param}
@@ -772,11 +833,7 @@ function FilterEditorDialog({
                           action_param: e.target.value,
                         })
                       }
-                      placeholder={
-                        action.action_type === 6
-                          ? "Score adjustment (e.g., +5 or -10)"
-                          : "Value"
-                      }
+                      placeholder="Score adjustment (e.g., +5 or -10)"
                     />
                   )}
 

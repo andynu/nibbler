@@ -280,6 +280,10 @@ export const api = {
     test: (id: number) => request<FilterTestResult>(`/filters/${id}/test`, { method: "POST" }),
   },
 
+  tags: {
+    list: () => request<{ tags: string[] }>("/tags"),
+  },
+
   labels: {
     list: () => request<Label[]>("/labels"),
     get: (id: number) => request<Label>(`/labels/${id}`),

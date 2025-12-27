@@ -34,6 +34,7 @@ Rails.application.routes.draw do
       end
 
       resources :labels
+      resources :tags, only: [:index]
 
       resources :filters do
         member do
