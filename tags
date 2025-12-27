@@ -1,0 +1,327 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+ActionDispatch	test/test_helper.rb	/^class ActionDispatch::IntegrationTest$/;"	c
+ActiveSupport	test/test_helper.rb	/^class ActiveSupport::TestCase$/;"	c
+AddBackoffToFeeds	db/migrate/20251227180119_add_backoff_to_feeds.rb	/^class AddBackoffToFeeds < ActiveRecord::Migration[8.1]$/;"	c
+AddEtagToFeeds	db/migrate/20251227170119_add_etag_to_feeds.rb	/^class AddEtagToFeeds < ActiveRecord::Migration[8.1]$/;"	c
+Api	app/controllers/api/v1/base_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/categories_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/counters_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/entries_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/entry_labels_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/feeds_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/filters_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/labels_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/opml_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/preferences_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/search_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/sessions_controller.rb	/^module Api$/;"	m
+Api	app/controllers/api/v1/tags_controller.rb	/^module Api$/;"	m
+Api	test/controllers/api/v1/opml_controller_test.rb	/^class Api::V1::OpmlControllerTest < ActionDispatch::IntegrationTest$/;"	c
+Application	config/application.rb	/^  class Application < Rails::Application$/;"	c	class:Ttrb
+ApplicationController	app/controllers/application_controller.rb	/^class ApplicationController < ActionController::Base$/;"	c
+ApplicationHelper	app/helpers/application_helper.rb	/^module ApplicationHelper$/;"	m
+ApplicationJob	app/jobs/application_job.rb	/^class ApplicationJob < ActiveJob::Base$/;"	c
+ApplicationMailer	app/mailers/application_mailer.rb	/^class ApplicationMailer < ActionMailer::Base$/;"	c
+ApplicationRecord	app/models/application_record.rb	/^class ApplicationRecord < ActiveRecord::Base$/;"	c
+BaseController	app/controllers/api/v1/base_controller.rb	/^    class BaseController < ApplicationController$/;"	c	class:Api.V1
+CachedFeedFetcher	app/services/cached_feed_fetcher.rb	/^class CachedFeedFetcher$/;"	c
+CategoriesController	app/controllers/api/v1/categories_controller.rb	/^    class CategoriesController < BaseController$/;"	c	class:Api.V1
+Category	app/models/category.rb	/^class Category < ApplicationRecord$/;"	c
+ContentSanitizer	app/services/content_sanitizer.rb	/^class ContentSanitizer$/;"	c
+CountersController	app/controllers/api/v1/counters_controller.rb	/^    class CountersController < BaseController$/;"	c	class:Api.V1
+CreateCategories	db/migrate/20251226171827_create_categories.rb	/^class CreateCategories < ActiveRecord::Migration[8.1]$/;"	c
+CreateEnclosures	db/migrate/20251226172715_create_enclosures.rb	/^class CreateEnclosures < ActiveRecord::Migration[8.1]$/;"	c
+CreateEntries	db/migrate/20251226171957_create_entries.rb	/^class CreateEntries < ActiveRecord::Migration[8.1]$/;"	c
+CreateEntryLabels	db/migrate/20251226172245_create_entry_labels.rb	/^class CreateEntryLabels < ActiveRecord::Migration[8.1]$/;"	c
+CreateFeeds	db/migrate/20251226171913_create_feeds.rb	/^class CreateFeeds < ActiveRecord::Migration[8.1]$/;"	c
+CreateFilterActions	db/migrate/20251226172907_create_filter_actions.rb	/^class CreateFilterActions < ActiveRecord::Migration[8.1]$/;"	c
+CreateFilterRules	db/migrate/20251226172842_create_filter_rules.rb	/^class CreateFilterRules < ActiveRecord::Migration[8.1]$/;"	c
+CreateFilters	db/migrate/20251226172809_create_filters.rb	/^class CreateFilters < ActiveRecord::Migration[8.1]$/;"	c
+CreateLabels	db/migrate/20251226172219_create_labels.rb	/^class CreateLabels < ActiveRecord::Migration[8.1]$/;"	c
+CreateTags	db/migrate/20251226172534_create_tags.rb	/^class CreateTags < ActiveRecord::Migration[8.1]$/;"	c
+CreateUserEntries	db/migrate/20251226172139_create_user_entries.rb	/^class CreateUserEntries < ActiveRecord::Migration[8.1]$/;"	c
+CreateUserPreferences	db/migrate/20251226173006_create_user_preferences.rb	/^class CreateUserPreferences < ActiveRecord::Migration[8.1]$/;"	c
+CreateUsers	db/migrate/20251226171732_create_users.rb	/^class CreateUsers < ActiveRecord::Migration[8.1]$/;"	c
+DomainThrottler	app/services/domain_throttler.rb	/^class DomainThrottler$/;"	c
+Enclosure	app/models/enclosure.rb	/^class Enclosure < ApplicationRecord$/;"	c
+EntriesController	app/controllers/api/v1/entries_controller.rb	/^    class EntriesController < BaseController$/;"	c	class:Api.V1
+Entry	app/models/entry.rb	/^class Entry < ApplicationRecord$/;"	c
+EntryLabel	app/models/entry_label.rb	/^class EntryLabel < ApplicationRecord$/;"	c
+EntryLabelsController	app/controllers/api/v1/entry_labels_controller.rb	/^    class EntryLabelsController < BaseController$/;"	c	class:Api.V1
+Feed	app/models/feed.rb	/^class Feed < ApplicationRecord$/;"	c
+FeedFetcher	app/services/feed_fetcher.rb	/^class FeedFetcher$/;"	c
+FeedParser	app/services/feed_parser.rb	/^class FeedParser$/;"	c
+FeedUpdater	app/services/feed_updater.rb	/^class FeedUpdater$/;"	c
+FeedsController	app/controllers/api/v1/feeds_controller.rb	/^    class FeedsController < BaseController$/;"	c	class:Api.V1
+FetchResult	app/services/feed_fetcher.rb	/^  class FetchResult$/;"	c	class:FeedFetcher
+Filter	app/models/filter.rb	/^class Filter < ApplicationRecord$/;"	c
+FilterAction	app/models/filter_action.rb	/^class FilterAction < ApplicationRecord$/;"	c
+FilterExecutor	app/services/filter_executor.rb	/^class FilterExecutor$/;"	c
+FilterRule	app/models/filter_rule.rb	/^class FilterRule < ApplicationRecord$/;"	c
+FiltersController	app/controllers/api/v1/filters_controller.rb	/^    class FiltersController < BaseController$/;"	c	class:Api.V1
+GithubStatusChecks	.kamal/hooks/pre-deploy.sample	/^class GithubStatusChecks$/;"	c
+HomeController	app/controllers/home_controller.rb	/^class HomeController < ApplicationController$/;"	c
+HomeHelper	app/helpers/home_helper.rb	/^module HomeHelper$/;"	m
+ImportResult	app/services/opml_importer.rb	/^  class ImportResult$/;"	c	class:OpmlImporter
+Label	app/models/label.rb	/^class Label < ApplicationRecord$/;"	c
+LabelsController	app/controllers/api/v1/labels_controller.rb	/^    class LabelsController < BaseController$/;"	c	class:Api.V1
+OpmlController	app/controllers/api/v1/opml_controller.rb	/^    class OpmlController < BaseController$/;"	c	class:Api.V1
+OpmlExporter	app/services/opml_exporter.rb	/^class OpmlExporter$/;"	c
+OpmlImporter	app/services/opml_importer.rb	/^class OpmlImporter$/;"	c
+OpmlImporterTest	test/services/opml_importer_test.rb	/^class OpmlImporterTest < ActiveSupport::TestCase$/;"	c
+ParseResult	app/services/feed_parser.rb	/^  class ParseResult$/;"	c	class:FeedParser
+PreferencesController	app/controllers/api/v1/preferences_controller.rb	/^    class PreferencesController < BaseController$/;"	c	class:Api.V1
+PurgeArticlesJob	app/jobs/purge_articles_job.rb	/^class PurgeArticlesJob < ApplicationJob$/;"	c
+SearchController	app/controllers/api/v1/search_controller.rb	/^    class SearchController < BaseController$/;"	c	class:Api.V1
+SessionsController	app/controllers/api/v1/sessions_controller.rb	/^    class SessionsController < ApplicationController$/;"	c	class:Api.V1
+Tag	app/models/tag.rb	/^class Tag < ApplicationRecord$/;"	c
+TagsController	app/controllers/api/v1/tags_controller.rb	/^    class TagsController < BaseController$/;"	c	class:Api.V1
+Ttrb	config/application.rb	/^module Ttrb$/;"	m
+UpdateFeedJob	app/jobs/update_feed_job.rb	/^class UpdateFeedJob < ApplicationJob$/;"	c
+UpdateFeedsJob	app/jobs/update_feeds_job.rb	/^class UpdateFeedsJob < ApplicationJob$/;"	c
+UpdateResult	app/services/feed_updater.rb	/^  class UpdateResult$/;"	c	class:FeedUpdater
+User	app/models/user.rb	/^class User < ApplicationRecord$/;"	c
+UserEntry	app/models/user_entry.rb	/^class UserEntry < ApplicationRecord$/;"	c
+UserPreference	app/models/user_preference.rb	/^class UserPreference < ApplicationRecord$/;"	c
+V1	app/controllers/api/v1/base_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/categories_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/counters_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/entries_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/entry_labels_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/feeds_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/filters_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/labels_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/opml_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/preferences_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/search_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/sessions_controller.rb	/^  module V1$/;"	m	class:Api
+V1	app/controllers/api/v1/tags_controller.rb	/^  module V1$/;"	m	class:Api
+action_json	app/controllers/api/v1/filters_controller.rb	/^      def action_json(action)$/;"	f	class:Api.V1.FiltersController
+add_error	app/services/opml_importer.rb	/^    def add_error(message)$/;"	f	class:OpmlImporter.ImportResult
+add_feed	app/services/opml_importer.rb	/^    def add_feed(feed)$/;"	f	class:OpmlImporter.ImportResult
+admin?	app/models/user.rb	/^  def admin?$/;"	f	class:User
+allowed_iframe?	app/services/content_sanitizer.rb	/^  def allowed_iframe?(src)$/;"	f	class:ContentSanitizer
+allowed_preference_keys	app/controllers/api/v1/preferences_controller.rb	/^      def allowed_preference_keys$/;"	f	class:Api.V1.PreferencesController
+apply_backoff!	app/models/feed.rb	/^  def apply_backoff!(server_retry_after = nil)$/;"	f	class:Feed
+audio?	app/models/enclosure.rb	/^  def audio?$/;"	f	class:Enclosure
+authenticate	app/models/user.rb	/^  def self.authenticate(login, password)$/;"	F	class:User
+authenticate_password	app/models/user.rb	/^  def authenticate_password(password)$/;"	f	class:User
+build_article_hash	app/services/filter_executor.rb	/^  def build_article_hash$/;"	f	class:FilterExecutor
+cache_key	app/services/cached_feed_fetcher.rb	/^  def cache_key$/;"	f	class:CachedFeedFetcher
+cache_key	app/services/domain_throttler.rb	/^    def cache_key(domain)$/;"	f	class:DomainThrottler
+cache_path	app/services/cached_feed_fetcher.rb	/^  def cache_path$/;"	f	class:CachedFeedFetcher
+cache_valid?	app/services/cached_feed_fetcher.rb	/^  def cache_valid?(cache_file, metadata_file)$/;"	f	class:CachedFeedFetcher
+category_json	app/controllers/api/v1/categories_controller.rb	/^      def category_json(category, include_feeds: false)$/;"	f	class:Api.V1.CategoriesController
+category_params	app/controllers/api/v1/categories_controller.rb	/^      def category_params$/;"	f	class:Api.V1.CategoriesController
+category_tree_json	app/controllers/api/v1/categories_controller.rb	/^      def category_tree_json(category)$/;"	f	class:Api.V1.CategoriesController
+change	db/migrate/20251226171732_create_users.rb	/^  def change$/;"	f	class:CreateUsers
+change	db/migrate/20251226171827_create_categories.rb	/^  def change$/;"	f	class:CreateCategories
+change	db/migrate/20251226171913_create_feeds.rb	/^  def change$/;"	f	class:CreateFeeds
+change	db/migrate/20251226171957_create_entries.rb	/^  def change$/;"	f	class:CreateEntries
+change	db/migrate/20251226172139_create_user_entries.rb	/^  def change$/;"	f	class:CreateUserEntries
+change	db/migrate/20251226172219_create_labels.rb	/^  def change$/;"	f	class:CreateLabels
+change	db/migrate/20251226172245_create_entry_labels.rb	/^  def change$/;"	f	class:CreateEntryLabels
+change	db/migrate/20251226172534_create_tags.rb	/^  def change$/;"	f	class:CreateTags
+change	db/migrate/20251226172715_create_enclosures.rb	/^  def change$/;"	f	class:CreateEnclosures
+change	db/migrate/20251226172809_create_filters.rb	/^  def change$/;"	f	class:CreateFilters
+change	db/migrate/20251226172842_create_filter_rules.rb	/^  def change$/;"	f	class:CreateFilterRules
+change	db/migrate/20251226172907_create_filter_actions.rb	/^  def change$/;"	f	class:CreateFilterActions
+change	db/migrate/20251226173006_create_user_preferences.rb	/^  def change$/;"	f	class:CreateUserPreferences
+change	db/migrate/20251227170119_add_etag_to_feeds.rb	/^  def change$/;"	f	class:AddEtagToFeeds
+change	db/migrate/20251227180119_add_backoff_to_feeds.rb	/^  def change$/;"	f	class:AddBackoffToFeeds
+change_password	app/controllers/api/v1/sessions_controller.rb	/^      def change_password$/;"	f	class:Api.V1.SessionsController
+cleanup_orphaned_entries	app/jobs/purge_articles_job.rb	/^  def cleanup_orphaned_entries$/;"	f	class:PurgeArticlesJob
+clear_cache	app/services/cached_feed_fetcher.rb	/^  def self.clear_cache!$/;"	F	class:CachedFeedFetcher
+complete_count	.kamal/hooks/pre-deploy.sample	/^  def complete_count$/;"	f	class:GithubStatusChecks
+connection	app/services/feed_fetcher.rb	/^  def connection$/;"	f	class:FeedFetcher
+content_preview	app/controllers/api/v1/entries_controller.rb	/^      def content_preview(content)$/;"	f	class:Api.V1.EntriesController
+create	app/controllers/api/v1/categories_controller.rb	/^      def create$/;"	f	class:Api.V1.CategoriesController
+create	app/controllers/api/v1/entry_labels_controller.rb	/^      def create$/;"	f	class:Api.V1.EntryLabelsController
+create	app/controllers/api/v1/feeds_controller.rb	/^      def create$/;"	f	class:Api.V1.FeedsController
+create	app/controllers/api/v1/filters_controller.rb	/^      def create$/;"	f	class:Api.V1.FiltersController
+create	app/controllers/api/v1/labels_controller.rb	/^      def create$/;"	f	class:Api.V1.LabelsController
+create	app/controllers/api/v1/sessions_controller.rb	/^      def create$/;"	f	class:Api.V1.SessionsController
+create_entry	app/services/feed_updater.rb	/^  def create_entry(parsed_entry)$/;"	f	class:FeedUpdater
+current_status	.kamal/hooks/pre-deploy.sample	/^  def current_status$/;"	f	class:GithubStatusChecks
+current_user	app/controllers/api/v1/base_controller.rb	/^      def current_user$/;"	f	class:Api.V1.BaseController
+current_user	app/controllers/api/v1/sessions_controller.rb	/^      def current_user$/;"	f	class:Api.V1.SessionsController
+custom_scrubber	app/services/content_sanitizer.rb	/^  def custom_scrubber$/;"	f	class:ContentSanitizer
+default_preferences	app/controllers/api/v1/preferences_controller.rb	/^      def default_preferences$/;"	f	class:Api.V1.PreferencesController
+destroy	app/controllers/api/v1/categories_controller.rb	/^      def destroy$/;"	f	class:Api.V1.CategoriesController
+destroy	app/controllers/api/v1/entry_labels_controller.rb	/^      def destroy$/;"	f	class:Api.V1.EntryLabelsController
+destroy	app/controllers/api/v1/feeds_controller.rb	/^      def destroy$/;"	f	class:Api.V1.FeedsController
+destroy	app/controllers/api/v1/filters_controller.rb	/^      def destroy$/;"	f	class:Api.V1.FiltersController
+destroy	app/controllers/api/v1/labels_controller.rb	/^      def destroy$/;"	f	class:Api.V1.LabelsController
+destroy	app/controllers/api/v1/sessions_controller.rb	/^      def destroy$/;"	f	class:Api.V1.SessionsController
+effective_update_interval	app/models/feed.rb	/^  def effective_update_interval(default_interval_minutes = 30)$/;"	f	class:Feed
+enclosure_json	app/controllers/api/v1/entries_controller.rb	/^      def enclosure_json(enclosure)$/;"	f	class:Api.V1.EntriesController
+ensure_cache_dir	app/services/cached_feed_fetcher.rb	/^  def ensure_cache_dir$/;"	f	class:CachedFeedFetcher
+error?	app/services/feed_fetcher.rb	/^    def error?$/;"	f	class:FeedFetcher.FetchResult
+execute	app/services/filter_executor.rb	/^  def execute$/;"	f	class:FilterExecutor
+execute	app/services/filter_executor.rb	/^  def self.execute(user_entry)$/;"	F	class:FilterExecutor
+execute_actions	app/services/filter_executor.rb	/^  def execute_actions(filter)$/;"	f	class:FilterExecutor
+exit_with_error	.kamal/hooks/pre-deploy.sample	/^def exit_with_error(message)$/;"	f
+export	app/controllers/api/v1/opml_controller.rb	/^      def export$/;"	f	class:Api.V1.OpmlController
+export	app/services/opml_exporter.rb	/^  def export$/;"	f	class:OpmlExporter
+export_categories	app/services/opml_exporter.rb	/^  def export_categories(xml)$/;"	f
+export_category	app/services/opml_exporter.rb	/^  def export_category(xml, category)$/;"	f
+export_feed	app/services/opml_exporter.rb	/^  def export_feed(xml, feed)$/;"	f
+export_uncategorized_feeds	app/services/opml_exporter.rb	/^  def export_uncategorized_feeds(xml)$/;"	f
+extract_categories	app/services/feed_parser.rb	/^  def extract_categories(entry)$/;"	f	class:FeedParser
+extract_content	app/services/feed_parser.rb	/^  def extract_content(entry)$/;"	f	class:FeedParser
+extract_domain	app/services/domain_throttler.rb	/^    def extract_domain(url)$/;"	f	class:DomainThrottler
+extract_enclosures	app/services/feed_parser.rb	/^  def extract_enclosures(entry)$/;"	f	class:FeedParser
+extract_guid	app/services/feed_parser.rb	/^  def extract_guid(entry)$/;"	f	class:FeedParser
+extract_site_url	app/services/feed_parser.rb	/^  def extract_site_url(parsed)$/;"	f	class:FeedParser
+feed_json	app/controllers/api/v1/feeds_controller.rb	/^      def feed_json(feed, include_entries: false)$/;"	f	class:Api.V1.FeedsController
+feed_params	app/controllers/api/v1/feeds_controller.rb	/^      def feed_params$/;"	f	class:Api.V1.FeedsController
+feeds_to_update	app/jobs/update_feeds_job.rb	/^  def feeds_to_update$/;"	f	class:UpdateFeedsJob
+fetch	app/services/cached_feed_fetcher.rb	/^  def fetch(force: false)$/;"	f	class:CachedFeedFetcher
+fetch	app/services/feed_fetcher.rb	/^  def fetch$/;"	f	class:FeedFetcher
+filter_by_category	app/controllers/api/v1/search_controller.rb	/^      def filter_by_category(scope)$/;"	f	class:Api.V1.SearchController
+filter_by_feed	app/controllers/api/v1/search_controller.rb	/^      def filter_by_feed(scope)$/;"	f	class:Api.V1.SearchController
+filter_json	app/controllers/api/v1/filters_controller.rb	/^      def filter_json(filter)$/;"	f	class:Api.V1.FiltersController
+filter_matches?	app/controllers/api/v1/filters_controller.rb	/^      def filter_matches?(article)$/;"	f	class:Api.V1.FiltersController
+filter_params	app/controllers/api/v1/filters_controller.rb	/^      def filter_params$/;"	f	class:Api.V1.FiltersController
+find_or_create_category	app/services/opml_importer.rb	/^  def find_or_create_category(path, result)$/;"	f
+first_status_url	.kamal/hooks/pre-deploy.sample	/^  def first_status_url$/;"	f	class:GithubStatusChecks
+fixture_file_upload_from_string	test/controllers/api/v1/opml_controller_test.rb	/^  def fixture_file_upload_from_string(content, content_type)$/;"	f
+fresh_article_cutoff	app/controllers/api/v1/entries_controller.rb	/^      def fresh_article_cutoff$/;"	f	class:Api.V1.EntriesController
+generate_snippet	app/controllers/api/v1/search_controller.rb	/^      def generate_snippet(entry, query)$/;"	f	class:Api.V1.SearchController
+github_repo_from_remote_url	.kamal/hooks/pre-deploy.sample	/^    def github_repo_from_remote_url$/;"	f	class:GithubStatusChecks
+handle_error	app/services/feed_updater.rb	/^  def handle_error(error)$/;"	f	class:FeedUpdater
+handle_not_modified	app/services/feed_updater.rb	/^  def handle_not_modified$/;"	f	class:FeedUpdater
+handle_rate_limited	app/services/feed_updater.rb	/^  def handle_rate_limited(fetch_result)$/;"	f	class:FeedUpdater
+handle_response	app/services/feed_fetcher.rb	/^  def handle_response(response)$/;"	f	class:FeedFetcher
+headline_json	app/controllers/api/v1/entries_controller.rb	/^      def headline_json(ue)$/;"	f	class:Api.V1.EntriesController
+headlines	app/controllers/api/v1/entries_controller.rb	/^      def headlines$/;"	f	class:Api.V1.EntriesController
+image?	app/models/enclosure.rb	/^  def image?$/;"	f	class:Enclosure
+import	app/controllers/api/v1/opml_controller.rb	/^      def import$/;"	f	class:Api.V1.OpmlController
+import	app/services/opml_importer.rb	/^  def import$/;"	f
+import_feed	app/services/opml_importer.rb	/^  def import_feed(outline, category_path, result)$/;"	f
+in_backoff?	app/models/feed.rb	/^  def in_backoff?$/;"	f	class:Feed
+increment_categories	app/services/opml_importer.rb	/^    def increment_categories$/;"	f	class:OpmlImporter.ImportResult
+increment_created	app/services/opml_importer.rb	/^    def increment_created$/;"	f	class:OpmlImporter.ImportResult
+increment_skipped	app/services/opml_importer.rb	/^    def increment_skipped$/;"	f	class:OpmlImporter.ImportResult
+index	app/controllers/api/v1/categories_controller.rb	/^      def index$/;"	f	class:Api.V1.CategoriesController
+index	app/controllers/api/v1/counters_controller.rb	/^      def index$/;"	f	class:Api.V1.CountersController
+index	app/controllers/api/v1/entries_controller.rb	/^      def index$/;"	f	class:Api.V1.EntriesController
+index	app/controllers/api/v1/feeds_controller.rb	/^      def index$/;"	f	class:Api.V1.FeedsController
+index	app/controllers/api/v1/filters_controller.rb	/^      def index$/;"	f	class:Api.V1.FiltersController
+index	app/controllers/api/v1/labels_controller.rb	/^      def index$/;"	f	class:Api.V1.LabelsController
+index	app/controllers/api/v1/preferences_controller.rb	/^      def index$/;"	f	class:Api.V1.PreferencesController
+index	app/controllers/api/v1/search_controller.rb	/^      def index$/;"	f	class:Api.V1.SearchController
+index	app/controllers/api/v1/tags_controller.rb	/^      def index$/;"	f	class:Api.V1.TagsController
+index	app/controllers/home_controller.rb	/^  def index$/;"	f	class:HomeController
+initialize	.kamal/hooks/pre-deploy.sample	/^  def initialize$/;"	f	class:GithubStatusChecks
+initialize	app/services/cached_feed_fetcher.rb	/^  def initialize(feed)$/;"	f	class:CachedFeedFetcher
+initialize	app/services/content_sanitizer.rb	/^  def initialize(html)$/;"	f	class:ContentSanitizer
+initialize	app/services/feed_fetcher.rb	/^    def initialize(status:, body: nil, etag: nil, last_modified: nil, content_type: nil, error: nil, retry_after: nil)$/;"	f	class:FeedFetcher.FetchResult
+initialize	app/services/feed_fetcher.rb	/^  def initialize(feed)$/;"	f	class:FeedFetcher
+initialize	app/services/feed_parser.rb	/^    def initialize(title: nil, site_url: nil, entries: [], error: nil)$/;"	f	class:FeedParser.ParseResult
+initialize	app/services/feed_parser.rb	/^  def initialize(content, feed_url:)$/;"	f	class:FeedParser
+initialize	app/services/feed_updater.rb	/^    def initialize(feed:, new_entries_count: 0, status:, error: nil)$/;"	f	class:FeedUpdater.UpdateResult
+initialize	app/services/feed_updater.rb	/^  def initialize(feed)$/;"	f	class:FeedUpdater
+initialize	app/services/filter_executor.rb	/^  def initialize(user_entry)$/;"	f	class:FilterExecutor
+initialize	app/services/opml_exporter.rb	/^  def initialize(user)$/;"	f	class:OpmlExporter
+initialize	app/services/opml_importer.rb	/^    def initialize$/;"	f	class:OpmlImporter.ImportResult
+initialize	app/services/opml_importer.rb	/^  def initialize(user, opml_content)$/;"	f	class:OpmlImporter
+label_json	app/controllers/api/v1/labels_controller.rb	/^      def label_json(label)$/;"	f	class:Api.V1.LabelsController
+label_params	app/controllers/api/v1/labels_controller.rb	/^      def label_params$/;"	f	class:Api.V1.LabelsController
+load_from_cache	app/services/cached_feed_fetcher.rb	/^  def load_from_cache(cache_file, metadata_file)$/;"	f	class:CachedFeedFetcher
+login_rate_limited?	app/controllers/api/v1/sessions_controller.rb	/^      def login_rate_limited?(login)$/;"	f	class:Api.V1.SessionsController
+make_request	app/services/feed_fetcher.rb	/^  def make_request$/;"	f	class:FeedFetcher
+mark_all_read	app/controllers/api/v1/entries_controller.rb	/^      def mark_all_read$/;"	f	class:Api.V1.EntriesController
+mark_read!	app/models/user_entry.rb	/^  def mark_read!$/;"	f	class:UserEntry
+mark_unread!	app/models/user_entry.rb	/^  def mark_unread!$/;"	f	class:UserEntry
+matches?	app/models/filter_rule.rb	/^  def matches?(article)$/;"	f	class:FilterRule
+matches_filter?	app/services/filter_executor.rb	/^  def matches_filter?(filter, article)$/;"	f	class:FilterExecutor
+metadata_path	app/services/cached_feed_fetcher.rb	/^  def metadata_path$/;"	f	class:CachedFeedFetcher
+normalize_entry	app/services/feed_parser.rb	/^  def normalize_entry(entry)$/;"	f	class:FeedParser
+not_modified?	app/services/feed_fetcher.rb	/^    def not_modified?$/;"	f	class:FeedFetcher.FetchResult
+parse	app/services/feed_parser.rb	/^  def parse$/;"	f	class:FeedParser
+parse	app/services/opml_importer.rb	/^  def parse$/;"	f	class:OpmlImporter
+parse_feed	app/services/opml_importer.rb	/^  def parse_feed(outline, category_path, result)$/;"	f
+parse_outline	app/services/opml_importer.rb	/^  def parse_outline(outline, category_path, result)$/;"	f
+parse_retry_after	app/services/feed_fetcher.rb	/^  def parse_retry_after(header)$/;"	f	class:FeedFetcher
+password=	app/models/user.rb	/^  def password=(new_password)$/;"	f	class:User
+perform	app/jobs/purge_articles_job.rb	/^  def perform$/;"	f	class:PurgeArticlesJob
+perform	app/jobs/update_feed_job.rb	/^  def perform(feed_id)$/;"	f	class:UpdateFeedJob
+perform	app/jobs/update_feeds_job.rb	/^  def perform$/;"	f	class:UpdateFeedsJob
+preview	app/controllers/api/v1/opml_controller.rb	/^      def preview$/;"	f	class:Api.V1.OpmlController
+process_entries	app/services/feed_updater.rb	/^  def process_entries(parse_result, fetch_result)$/;"	f	class:FeedUpdater
+process_outline	app/services/opml_importer.rb	/^  def process_outline(outline, category_path, result)$/;"	f
+purge_for_user	app/jobs/purge_articles_job.rb	/^  def purge_for_user(user)$/;"	f	class:PurgeArticlesJob
+rate_limited?	app/services/feed_fetcher.rb	/^    def rate_limited?$/;"	f	class:FeedFetcher.FetchResult
+rate_limited?	app/services/feed_updater.rb	/^    def rate_limited?$/;"	f	class:FeedUpdater.UpdateResult
+record	app/services/domain_throttler.rb	/^    def record(url)$/;"	f	class:DomainThrottler
+record_failed_attempt	app/controllers/api/v1/sessions_controller.rb	/^      def record_failed_attempt(login)$/;"	f	class:Api.V1.SessionsController
+refresh	app/controllers/api/v1/feeds_controller.rb	/^      def refresh$/;"	f	class:Api.V1.FeedsController
+refresh!	.kamal/hooks/pre-deploy.sample	/^  def refresh!$/;"	f	class:GithubStatusChecks
+refresh_all	app/controllers/api/v1/feeds_controller.rb	/^      def refresh_all$/;"	f	class:Api.V1.FeedsController
+render_empty_results	app/controllers/api/v1/search_controller.rb	/^      def render_empty_results$/;"	f	class:Api.V1.SearchController
+reorder	app/controllers/api/v1/categories_controller.rb	/^      def reorder$/;"	f	class:Api.V1.CategoriesController
+require_auth	app/controllers/api/v1/base_controller.rb	/^      def require_auth$/;"	f	class:Api.V1.BaseController
+require_auth	app/controllers/api/v1/sessions_controller.rb	/^      def require_auth$/;"	f	class:Api.V1.SessionsController
+reset_backoff!	app/models/feed.rb	/^  def reset_backoff!$/;"	f	class:Feed
+reset_session_token	app/controllers/api/v1/sessions_controller.rb	/^      def reset_session_token$/;"	f	class:Api.V1.SessionsController
+rule_json	app/controllers/api/v1/filters_controller.rb	/^      def rule_json(rule)$/;"	f	class:Api.V1.FiltersController
+rule_matches?	app/services/filter_executor.rb	/^  def rule_matches?(rule, article)$/;"	f	class:FilterExecutor
+sanitize	app/services/content_sanitizer.rb	/^  def sanitize$/;"	f	class:ContentSanitizer
+sanitize	app/services/content_sanitizer.rb	/^  def self.sanitize(html)$/;"	F	class:ContentSanitizer
+sanitize_url_attribute	app/services/content_sanitizer.rb	/^  def sanitize_url_attribute(node, attr_name)$/;"	f	class:ContentSanitizer
+save_to_cache	app/services/cached_feed_fetcher.rb	/^  def save_to_cache(cache_file, metadata_file, result)$/;"	f	class:CachedFeedFetcher
+search_result_json	app/controllers/api/v1/search_controller.rb	/^      def search_result_json(user_entry)$/;"	f	class:Api.V1.SearchController
+search_user_entries	app/controllers/api/v1/search_controller.rb	/^      def search_user_entries$/;"	f	class:Api.V1.SearchController
+set_category	app/controllers/api/v1/categories_controller.rb	/^      def set_category$/;"	f	class:Api.V1.CategoriesController
+set_feed	app/controllers/api/v1/feeds_controller.rb	/^      def set_feed$/;"	f	class:Api.V1.FeedsController
+set_filter	app/controllers/api/v1/filters_controller.rb	/^      def set_filter$/;"	f	class:Api.V1.FiltersController
+set_label	app/controllers/api/v1/labels_controller.rb	/^      def set_label$/;"	f	class:Api.V1.LabelsController
+set_user_entry	app/controllers/api/v1/entries_controller.rb	/^      def set_user_entry$/;"	f	class:Api.V1.EntriesController
+set_user_entry	app/controllers/api/v1/entry_labels_controller.rb	/^      def set_user_entry$/;"	f	class:Api.V1.EntryLabelsController
+setup	test/controllers/api/v1/opml_controller_test.rb	/^  def setup$/;"	f	class:Api
+setup	test/services/opml_importer_test.rb	/^  def setup$/;"	f	class:OpmlImporterTest
+show	app/controllers/api/v1/categories_controller.rb	/^      def show$/;"	f	class:Api.V1.CategoriesController
+show	app/controllers/api/v1/entries_controller.rb	/^      def show$/;"	f	class:Api.V1.EntriesController
+show	app/controllers/api/v1/feeds_controller.rb	/^      def show$/;"	f	class:Api.V1.FeedsController
+show	app/controllers/api/v1/filters_controller.rb	/^      def show$/;"	f	class:Api.V1.FiltersController
+show	app/controllers/api/v1/labels_controller.rb	/^      def show$/;"	f	class:Api.V1.LabelsController
+show	app/controllers/api/v1/sessions_controller.rb	/^      def show$/;"	f	class:Api.V1.SessionsController
+sign_in	test/test_helper.rb	/^  def sign_in(user)$/;"	f	class:ActionDispatch
+sign_in_as	test/test_helper.rb	/^  def sign_in_as(user)$/;"	f	class:ActionDispatch
+state	.kamal/hooks/pre-deploy.sample	/^  def state$/;"	f	class:GithubStatusChecks
+success?	app/services/feed_fetcher.rb	/^    def success?$/;"	f	class:FeedFetcher.FetchResult
+success?	app/services/feed_parser.rb	/^    def success?$/;"	f	class:FeedParser.ParseResult
+success?	app/services/feed_updater.rb	/^    def success?$/;"	f	class:FeedUpdater.UpdateResult
+success?	app/services/opml_importer.rb	/^    def success?$/;"	f	class:OpmlImporter.ImportResult
+summary	app/services/opml_importer.rb	/^    def summary$/;"	f	class:OpmlImporter.ImportResult
+system!	bin/setup	/^def system!(*args)$/;"	f
+test	app/controllers/api/v1/filters_controller.rb	/^      def test$/;"	f	class:Api.V1.FiltersController
+test_articles	app/controllers/api/v1/filters_controller.rb	/^      def test_articles$/;"	f	class:Api.V1.FiltersController
+toggle_published!	app/models/user_entry.rb	/^  def toggle_published!$/;"	f	class:UserEntry
+toggle_read	app/controllers/api/v1/entries_controller.rb	/^      def toggle_read$/;"	f	class:Api.V1.EntriesController
+toggle_starred	app/controllers/api/v1/entries_controller.rb	/^      def toggle_starred$/;"	f	class:Api.V1.EntriesController
+toggle_starred!	app/models/user_entry.rb	/^  def toggle_starred!$/;"	f	class:UserEntry
+total_count	.kamal/hooks/pre-deploy.sample	/^  def total_count$/;"	f	class:GithubStatusChecks
+tree	app/controllers/api/v1/categories_controller.rb	/^      def tree$/;"	f	class:Api.V1.CategoriesController
+update	app/controllers/api/v1/categories_controller.rb	/^      def update$/;"	f	class:Api.V1.CategoriesController
+update	app/controllers/api/v1/entries_controller.rb	/^      def update$/;"	f	class:Api.V1.EntriesController
+update	app/controllers/api/v1/feeds_controller.rb	/^      def update$/;"	f	class:Api.V1.FeedsController
+update	app/controllers/api/v1/filters_controller.rb	/^      def update$/;"	f	class:Api.V1.FiltersController
+update	app/controllers/api/v1/labels_controller.rb	/^      def update$/;"	f	class:Api.V1.LabelsController
+update	app/controllers/api/v1/preferences_controller.rb	/^      def update$/;"	f	class:Api.V1.PreferencesController
+update	app/services/feed_updater.rb	/^  def update$/;"	f	class:FeedUpdater
+update_feed_metadata	app/services/feed_updater.rb	/^  def update_feed_metadata(parse_result, fetch_result)$/;"	f	class:FeedUpdater
+update_tsvector	app/models/entry.rb	/^  def update_tsvector$/;"	f	class:Entry
+user_entry_json	app/controllers/api/v1/entries_controller.rb	/^      def user_entry_json(user_entry, full_content: false)$/;"	f	class:Api.V1.EntriesController
+user_entry_json	app/controllers/api/v1/feeds_controller.rb	/^      def user_entry_json(user_entry)$/;"	f	class:Api.V1.FeedsController
+user_entry_params	app/controllers/api/v1/entries_controller.rb	/^      def user_entry_params$/;"	f	class:Api.V1.EntriesController
+user_json	app/controllers/api/v1/sessions_controller.rb	/^      def user_json(user)$/;"	f	class:Api.V1.SessionsController
+users_to_purge	app/jobs/purge_articles_job.rb	/^  def users_to_purge$/;"	f	class:PurgeArticlesJob
+video?	app/models/enclosure.rb	/^  def video?$/;"	f	class:Enclosure
+wait_for	app/services/domain_throttler.rb	/^    def wait_for(url)$/;"	f	class:DomainThrottler

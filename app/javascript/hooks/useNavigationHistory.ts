@@ -132,10 +132,10 @@ export function useNavigationHistory(handlers: NavigationHandlers) {
 
   const changeSettingsTab = useCallback(
     (tab: string) => {
-      // Replace state for tab changes within settings (not new history entry)
-      replaceState({ type: "dialog", dialog: "settings", settingsTab: tab })
+      // Push state for tab changes to enable back navigation between tabs
+      pushState({ type: "dialog", dialog: "settings", settingsTab: tab })
     },
-    [replaceState]
+    [pushState]
   )
 
   const openSubscribe = useCallback(() => {

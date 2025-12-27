@@ -132,18 +132,24 @@ describe("useNavigationHistory", () => {
       )
     })
 
-    it("changeSettingsTab replaces state instead of pushing", () => {
+    it("changeSettingsTab pushes state to enable back navigation between tabs", () => {
       const { result } = renderHook(() => useNavigationHistory(mockHandlers))
+
+      // First open settings (this pushes initial state)
+      act(() => {
+        result.current.openSettings()
+      })
+
+      pushStateSpy.mockClear()
 
       act(() => {
         result.current.changeSettingsTab("filters")
       })
 
-      expect(replaceStateSpy).toHaveBeenCalledWith(
+      expect(pushStateSpy).toHaveBeenCalledWith(
         { type: "dialog", dialog: "settings", settingsTab: "filters" },
         ""
       )
-      expect(pushStateSpy).not.toHaveBeenCalled()
     })
 
     it("openSubscribe pushes subscribe dialog state", () => {
