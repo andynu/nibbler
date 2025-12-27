@@ -560,6 +560,8 @@ function SortableItem({
       )}
       onClick={onSelect}
       onDoubleClick={onToggle}
+      role="option"
+      aria-selected={isSelected}
     >
       <button
         className="touch-none opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"

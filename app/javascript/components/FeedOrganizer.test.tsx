@@ -155,9 +155,9 @@ describe("FeedOrganizer", () => {
 
       await user.click(screen.getByText("Clickable Feed"))
 
-      // The item should have accent background when selected
-      const item = screen.getByText("Clickable Feed").closest(".cursor-pointer")
-      expect(item).toHaveClass("bg-accent")
+      // The item should be marked as selected via aria-selected
+      const item = screen.getByRole("option", { name: /clickable feed/i })
+      expect(item).toHaveAttribute("aria-selected", "true")
     })
   })
 
