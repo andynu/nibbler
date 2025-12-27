@@ -205,7 +205,7 @@ export function FeedSidebar({
             variant="ghost"
             className="w-full justify-start gap-2 mb-1"
             style={!selectedFeedId && !selectedCategoryId && !virtualFeed ? {
-              backgroundColor: "var(--color-accent-primary)",
+              backgroundColor: "var(--color-accent-primary-dark)",
               color: "white",
             } : undefined}
             onClick={() => {
@@ -223,7 +223,7 @@ export function FeedSidebar({
             variant="ghost"
             className="w-full justify-start gap-2 mb-1"
             style={virtualFeed === "fresh" ? {
-              backgroundColor: "var(--color-accent-primary)",
+              backgroundColor: "var(--color-accent-primary-dark)",
               color: "white",
             } : undefined}
             onClick={() => onSelectVirtualFeed("fresh")}
@@ -236,7 +236,7 @@ export function FeedSidebar({
             variant="ghost"
             className="w-full justify-start gap-2 mb-1"
             style={virtualFeed === "starred" ? {
-              backgroundColor: "var(--color-accent-primary)",
+              backgroundColor: "var(--color-accent-primary-dark)",
               color: "white",
             } : undefined}
             onClick={() => onSelectVirtualFeed("starred")}
@@ -249,7 +249,7 @@ export function FeedSidebar({
             variant="ghost"
             className="w-full justify-start gap-2 mb-1"
             style={virtualFeed === "published" ? {
-              backgroundColor: "var(--color-accent-primary)",
+              backgroundColor: "var(--color-accent-primary-dark)",
               color: "white",
             } : undefined}
             onClick={() => onSelectVirtualFeed("published")}
@@ -382,7 +382,7 @@ function CategoryItem({
   const getButtonStyle = () => {
     if (isSelected) {
       return {
-        backgroundColor: "var(--color-accent-primary)",
+        backgroundColor: "var(--color-accent-primary-dark)",
         color: "white",
       }
     }
@@ -472,7 +472,7 @@ function FeedItem({ feed, isSelected, onSelect, onEdit }: FeedItemProps) {
         variant="ghost"
         className="flex-1 justify-start gap-2 h-8"
         style={isSelected ? {
-          backgroundColor: "var(--color-accent-primary)",
+          backgroundColor: "var(--color-accent-primary-dark)",
           color: "white",
         } : undefined}
         onClick={onSelect}

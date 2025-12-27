@@ -114,10 +114,13 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
       data-entry-id={entry.id}
       className={cn(
         "p-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors",
-        isSelected && "bg-accent ring-2 ring-ring ring-offset-1 ring-offset-background",
+        isSelected && "bg-accent ring-2 ring-offset-1 ring-offset-background",
         entry.unread && "border-l-2"
       )}
-      style={entry.unread ? { borderLeftColor: "var(--color-accent-secondary)" } : undefined}
+      style={{
+        ...(entry.unread ? { borderLeftColor: "var(--color-accent-secondary)" } : {}),
+        ...(isSelected ? { "--tw-ring-color": "var(--color-accent-primary)" } as React.CSSProperties : {}),
+      }}
       onClick={onSelect}
     >
       <div className="flex items-start gap-2">
