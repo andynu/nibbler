@@ -119,6 +119,7 @@ export function LabelManager() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setEditingLabel(label)}
+                    aria-label={`Edit ${label.caption}`}
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
@@ -126,6 +127,7 @@ export function LabelManager() {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDelete(label.id)}
+                    aria-label={`Delete ${label.caption}`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

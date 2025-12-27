@@ -47,7 +47,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const audio = document.querySelector("audio")
+      const audio = screen.getByTestId("audio-player")
       expect(audio).toBeInTheDocument()
       expect(audio).toHaveAttribute("src", "https://example.com/podcast.mp3")
     })
@@ -57,8 +57,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const audio = document.querySelector("audio")
-      expect(audio).toHaveAttribute("controls")
+      expect(screen.getByTestId("audio-player")).toHaveAttribute("controls")
     })
 
     it("sets preload to metadata", () => {
@@ -66,8 +65,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const audio = document.querySelector("audio")
-      expect(audio).toHaveAttribute("preload", "metadata")
+      expect(screen.getByTestId("audio-player")).toHaveAttribute("preload", "metadata")
     })
 
     it("shows title when available", () => {
@@ -118,7 +116,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      expect(document.querySelector("audio")).toBeInTheDocument()
+      expect(screen.getByTestId("audio-player")).toBeInTheDocument()
     })
 
     it("supports audio/wav content type", () => {
@@ -126,7 +124,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      expect(document.querySelector("audio")).toBeInTheDocument()
+      expect(screen.getByTestId("audio-player")).toBeInTheDocument()
     })
   })
 
@@ -139,7 +137,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const video = document.querySelector("video")
+      const video = screen.getByTestId("video-player")
       expect(video).toBeInTheDocument()
       expect(video).toHaveAttribute("src", "https://example.com/video.mp4")
     })
@@ -149,8 +147,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const video = document.querySelector("video")
-      expect(video).toHaveAttribute("controls")
+      expect(screen.getByTestId("video-player")).toHaveAttribute("controls")
     })
 
     it("sets preload to metadata", () => {
@@ -158,8 +155,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const video = document.querySelector("video")
-      expect(video).toHaveAttribute("preload", "metadata")
+      expect(screen.getByTestId("video-player")).toHaveAttribute("preload", "metadata")
     })
 
     it("sets width when available", () => {
@@ -171,8 +167,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const video = document.querySelector("video")
-      expect(video).toHaveAttribute("width", "1920")
+      expect(screen.getByTestId("video-player")).toHaveAttribute("width", "1920")
     })
 
     it("sets height when available", () => {
@@ -184,8 +179,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const video = document.querySelector("video")
-      expect(video).toHaveAttribute("height", "1080")
+      expect(screen.getByTestId("video-player")).toHaveAttribute("height", "1080")
     })
 
     it("shows title when available", () => {
@@ -215,7 +209,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      expect(document.querySelector("video")).toBeInTheDocument()
+      expect(screen.getByTestId("video-player")).toBeInTheDocument()
     })
 
     it("supports video/ogg content type", () => {
@@ -223,7 +217,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      expect(document.querySelector("video")).toBeInTheDocument()
+      expect(screen.getByTestId("video-player")).toBeInTheDocument()
     })
   })
 
@@ -353,8 +347,8 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={enclosures} />)
 
-      expect(document.querySelector("audio")).toBeInTheDocument()
-      expect(document.querySelector("video")).toBeInTheDocument()
+      expect(screen.getByTestId("audio-player")).toBeInTheDocument()
+      expect(screen.getByTestId("video-player")).toBeInTheDocument()
     })
   })
 
@@ -440,7 +434,7 @@ describe("EnclosurePlayer", () => {
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
       // Should render without crashing
-      expect(document.querySelector("audio")).toBeInTheDocument()
+      expect(screen.getByTestId("audio-player")).toBeInTheDocument()
     })
   })
 })

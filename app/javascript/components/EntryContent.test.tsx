@@ -104,9 +104,7 @@ describe("EntryContent", () => {
 
       render(<EntryContent {...defaultProps} entry={entry} />)
 
-      // Circle icon for read indicator
-      const circleIcon = document.querySelector("svg.lucide-circle")
-      expect(circleIcon).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /mark as read/i })).toBeInTheDocument()
     })
 
     it("shows star toggle button", () => {
@@ -114,9 +112,7 @@ describe("EntryContent", () => {
 
       render(<EntryContent {...defaultProps} entry={entry} />)
 
-      // Star icon
-      const starIcon = document.querySelector("svg.lucide-star")
-      expect(starIcon).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /add star/i })).toBeInTheDocument()
     })
 
     it("shows external link button", () => {
@@ -124,9 +120,7 @@ describe("EntryContent", () => {
 
       render(<EntryContent {...defaultProps} entry={entry} />)
 
-      // External link icon
-      const linkIcon = document.querySelector("svg.lucide-external-link")
-      expect(linkIcon).toBeInTheDocument()
+      expect(screen.getByRole("link", { name: /open in new tab/i })).toBeInTheDocument()
     })
   })
 

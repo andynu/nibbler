@@ -207,8 +207,7 @@ describe("FilterManager", () => {
       render(<FilterManager {...defaultProps} />)
 
       await waitFor(() => {
-        const editButton = document.querySelector("svg.lucide-pencil")
-        expect(editButton).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /edit test filter/i })).toBeInTheDocument()
       })
     })
 
@@ -218,8 +217,7 @@ describe("FilterManager", () => {
       render(<FilterManager {...defaultProps} />)
 
       await waitFor(() => {
-        const deleteButton = document.querySelector("svg.lucide-trash-2")
-        expect(deleteButton).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /delete test filter/i })).toBeInTheDocument()
       })
     })
 
@@ -229,8 +227,7 @@ describe("FilterManager", () => {
       render(<FilterManager {...defaultProps} />)
 
       await waitFor(() => {
-        const testButton = document.querySelector("svg.lucide-play")
-        expect(testButton).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /test test filter/i })).toBeInTheDocument()
       })
     })
   })
@@ -262,11 +259,8 @@ describe("FilterManager", () => {
 
       render(<FilterManager {...defaultProps} />)
 
-      await waitFor(() => {
-        expect(screen.getByTitle("Test filter")).toBeInTheDocument()
-      })
-
-      await user.click(screen.getByTitle("Test filter"))
+      const testButton = await screen.findByRole("button", { name: /test test filter/i })
+      await user.click(testButton)
 
       expect(mockApiFiltersTest).toHaveBeenCalledWith(1)
     })
@@ -278,11 +272,8 @@ describe("FilterManager", () => {
 
       render(<FilterManager {...defaultProps} />)
 
-      await waitFor(() => {
-        expect(screen.getByTitle("Test filter")).toBeInTheDocument()
-      })
-
-      await user.click(screen.getByTitle("Test filter"))
+      const testButton = await screen.findByRole("button", { name: /test test filter/i })
+      await user.click(testButton)
 
       await waitFor(() => {
         expect(screen.getByText("5/100 matched")).toBeInTheDocument()
@@ -297,11 +288,7 @@ describe("FilterManager", () => {
 
       render(<FilterManager {...defaultProps} />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-trash-2")).toBeInTheDocument()
-      })
-
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = await screen.findByRole("button", { name: /delete test filter/i })
       await user.click(deleteButton)
 
       expect(window.confirm).toHaveBeenCalledWith(
@@ -315,11 +302,7 @@ describe("FilterManager", () => {
 
       render(<FilterManager {...defaultProps} />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-trash-2")).toBeInTheDocument()
-      })
-
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = await screen.findByRole("button", { name: /delete test filter/i })
       await user.click(deleteButton)
 
       expect(mockApiFiltersDelete).toHaveBeenCalledWith(1)
@@ -332,11 +315,7 @@ describe("FilterManager", () => {
 
       render(<FilterManager {...defaultProps} />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-trash-2")).toBeInTheDocument()
-      })
-
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = await screen.findByRole("button", { name: /delete test filter/i })
       await user.click(deleteButton)
 
       expect(mockApiFiltersDelete).not.toHaveBeenCalled()
@@ -344,40 +323,35 @@ describe("FilterManager", () => {
   })
 
   describe("New Filter button", () => {
-    it("clicking New Filter sets creating state", async () => {
+    it("clicking New Filter opens create dialog", async () => {
       const user = userEvent.setup()
       mockApiFiltersList.mockResolvedValue([])
 
       render(<FilterManager {...defaultProps} />)
 
+      await user.click(await screen.findByRole("button", { name: /new filter/i }))
+
+      // Create dialog should open
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /new filter/i })).toBeInTheDocument()
+        expect(screen.getByRole("heading", { name: /create filter/i })).toBeInTheDocument()
       })
-
-      // Just verify we can click the button without error
-      await user.click(screen.getByRole("button", { name: /new filter/i }))
-
-      // The dialog opening is tested by verifying state change occurred
-      // (no error thrown means button click worked)
     })
   })
 
   describe("edit filter button", () => {
-    it("clicking edit button sets editing state", async () => {
+    it("clicking edit button opens edit dialog", async () => {
       const user = userEvent.setup()
       mockApiFiltersList.mockResolvedValue([testFilter])
 
       render(<FilterManager {...defaultProps} />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-pencil")).toBeInTheDocument()
-      })
-
-      // Just verify we can click the button without error
-      const editButton = document.querySelector("svg.lucide-pencil")!.closest("button")!
+      const editButton = await screen.findByRole("button", { name: /edit test filter/i })
       await user.click(editButton)
 
-      // No error thrown means button click worked
+      // Edit dialog should open
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: /edit filter/i })).toBeInTheDocument()
+      })
     })
   })
 })

@@ -82,7 +82,12 @@ export function EntryContent({
           </Button>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={onToggleRead}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleRead}
+            aria-label={entry.unread ? "Mark as read" : "Mark as unread"}
+          >
             <Circle
               className="h-4 w-4"
               style={entry.unread ? {
@@ -91,7 +96,12 @@ export function EntryContent({
               } : undefined}
             />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onToggleStarred}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleStarred}
+            aria-label={entry.starred ? "Remove star" : "Add star"}
+          >
             <Star
               className="h-4 w-4"
               style={entry.starred ? {
@@ -101,7 +111,12 @@ export function EntryContent({
             />
           </Button>
           <Button variant="ghost" size="icon" asChild>
-            <a href={entry.link} target="_blank" rel="noopener noreferrer">
+            <a
+              href={entry.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open in new tab"
+            >
               <ExternalLink className="h-4 w-4" />
             </a>
           </Button>

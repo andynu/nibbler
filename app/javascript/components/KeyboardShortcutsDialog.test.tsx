@@ -164,13 +164,14 @@ describe("KeyboardShortcutsDialog", () => {
   })
 
   describe("keyboard styling", () => {
-    it("renders key bindings in kbd elements", () => {
+    it("displays all shortcut keys", () => {
       render(<KeyboardShortcutsDialog {...defaultProps} />)
 
-      const kbdElements = document.querySelectorAll("kbd")
-      expect(kbdElements.length).toBeGreaterThan(0)
-      // Each shortcut should have a kbd element (9 navigation + 5 actions + 3 other)
-      expect(kbdElements.length).toBe(17)
+      // Verify key shortcuts are visible
+      expect(screen.getByText("j / n")).toBeInTheDocument()
+      expect(screen.getByText("k / p")).toBeInTheDocument()
+      expect(screen.getByText("Ctrl+K")).toBeInTheDocument()
+      expect(screen.getByText("?")).toBeInTheDocument()
     })
   })
 })

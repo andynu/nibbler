@@ -53,6 +53,7 @@ function AudioPlayer({ enclosure }: { enclosure: Enclosure }) {
         preload="metadata"
         className="w-full h-10"
         src={enclosure.content_url}
+        data-testid="audio-player"
       >
         <a href={enclosure.content_url}>Download audio</a>
       </audio>
@@ -86,6 +87,7 @@ function VideoPlayer({ enclosure }: { enclosure: Enclosure }) {
         src={enclosure.content_url}
         width={enclosure.width || undefined}
         height={enclosure.height || undefined}
+        data-testid="video-player"
       >
         <a href={enclosure.content_url}>Download video</a>
       </video>

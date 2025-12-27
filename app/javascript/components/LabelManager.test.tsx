@@ -147,8 +147,7 @@ describe("LabelManager", () => {
       render(<LabelManager />)
 
       await waitFor(() => {
-        const editButton = document.querySelector("svg.lucide-pencil")
-        expect(editButton).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /edit important/i })).toBeInTheDocument()
       })
     })
 
@@ -158,8 +157,7 @@ describe("LabelManager", () => {
       render(<LabelManager />)
 
       await waitFor(() => {
-        const deleteButton = document.querySelector("svg.lucide-trash-2")
-        expect(deleteButton).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /delete important/i })).toBeInTheDocument()
       })
     })
 
@@ -199,11 +197,7 @@ describe("LabelManager", () => {
 
       render(<LabelManager />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-trash-2")).toBeInTheDocument()
-      })
-
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = await screen.findByRole("button", { name: /delete important/i })
       await user.click(deleteButton)
 
       expect(window.confirm).toHaveBeenCalledWith(
@@ -218,11 +212,7 @@ describe("LabelManager", () => {
 
       render(<LabelManager />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-trash-2")).toBeInTheDocument()
-      })
-
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = await screen.findByRole("button", { name: /delete important/i })
       await user.click(deleteButton)
 
       expect(window.confirm).toHaveBeenCalledWith('Delete "Important"?')
@@ -234,11 +224,7 @@ describe("LabelManager", () => {
 
       render(<LabelManager />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-trash-2")).toBeInTheDocument()
-      })
-
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = await screen.findByRole("button", { name: /delete important/i })
       await user.click(deleteButton)
 
       expect(mockApiLabelsDelete).toHaveBeenCalledWith(1)
@@ -251,11 +237,7 @@ describe("LabelManager", () => {
 
       render(<LabelManager />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-trash-2")).toBeInTheDocument()
-      })
-
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = await screen.findByRole("button", { name: /delete important/i })
       await user.click(deleteButton)
 
       expect(mockApiLabelsDelete).not.toHaveBeenCalled()
@@ -271,7 +253,7 @@ describe("LabelManager", () => {
         expect(screen.getByText("Important")).toBeInTheDocument()
       })
 
-      const deleteButton = document.querySelector("svg.lucide-trash-2")!.closest("button")!
+      const deleteButton = screen.getByRole("button", { name: /delete important/i })
       await user.click(deleteButton)
 
       await waitFor(() => {
@@ -306,15 +288,13 @@ describe("LabelManager", () => {
 
       render(<LabelManager />)
 
-      await waitFor(() => {
-        expect(document.querySelector("svg.lucide-pencil")).toBeInTheDocument()
-      })
-
-      // Just verify we can click the button without error
-      const editButton = document.querySelector("svg.lucide-pencil")!.closest("button")!
+      const editButton = await screen.findByRole("button", { name: /edit important/i })
       await user.click(editButton)
 
-      // No error thrown means button click worked
+      // Edit dialog should open
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: /edit label/i })).toBeInTheDocument()
+      })
     })
   })
 })

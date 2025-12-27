@@ -258,12 +258,13 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
                   <Switch
                     checked={filter.enabled}
                     onCheckedChange={() => handleToggleEnabled(filter)}
+                    aria-label={`Toggle ${filter.title}`}
                   />
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleTest(filter.id)}
-                    title="Test filter"
+                    aria-label={`Test ${filter.title}`}
                   >
                     <Play className="w-4 h-4" />
                   </Button>
@@ -271,6 +272,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => setEditingFilter(filter)}
+                    aria-label={`Edit ${filter.title}`}
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
@@ -278,6 +280,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDelete(filter.id)}
+                    aria-label={`Delete ${filter.title}`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
