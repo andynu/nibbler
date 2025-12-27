@@ -203,10 +203,11 @@ export function FeedSidebar({
         <div className="p-2">
           <Button
             variant="ghost"
-            className={cn(
-              "w-full justify-start gap-2 mb-1",
-              !selectedFeedId && !selectedCategoryId && !virtualFeed && "bg-accent"
-            )}
+            className="w-full justify-start gap-2 mb-1"
+            style={!selectedFeedId && !selectedCategoryId && !virtualFeed ? {
+              backgroundColor: "var(--color-accent-primary)",
+              color: "white",
+            } : undefined}
             onClick={() => {
               onSelectFeed(null)
               onSelectCategory(null)
@@ -220,7 +221,11 @@ export function FeedSidebar({
 
           <Button
             variant="ghost"
-            className={cn("w-full justify-start gap-2 mb-1", virtualFeed === "fresh" && "bg-accent")}
+            className="w-full justify-start gap-2 mb-1"
+            style={virtualFeed === "fresh" ? {
+              backgroundColor: "var(--color-accent-primary)",
+              color: "white",
+            } : undefined}
             onClick={() => onSelectVirtualFeed("fresh")}
           >
             <Clock className="h-4 w-4" />
@@ -229,16 +234,24 @@ export function FeedSidebar({
 
           <Button
             variant="ghost"
-            className={cn("w-full justify-start gap-2 mb-1", virtualFeed === "starred" && "bg-accent")}
+            className="w-full justify-start gap-2 mb-1"
+            style={virtualFeed === "starred" ? {
+              backgroundColor: "var(--color-accent-primary)",
+              color: "white",
+            } : undefined}
             onClick={() => onSelectVirtualFeed("starred")}
           >
-            <Star className="h-4 w-4" />
+            <Star className="h-4 w-4" style={{ color: "var(--color-accent-secondary)" }} />
             <span className="flex-1 text-left">Starred</span>
           </Button>
 
           <Button
             variant="ghost"
-            className={cn("w-full justify-start gap-2 mb-1", virtualFeed === "published" && "bg-accent")}
+            className="w-full justify-start gap-2 mb-1"
+            style={virtualFeed === "published" ? {
+              backgroundColor: "var(--color-accent-primary)",
+              color: "white",
+            } : undefined}
             onClick={() => onSelectVirtualFeed("published")}
           >
             <Send className="h-4 w-4" />
@@ -362,6 +375,25 @@ function CategoryItem({
   onDeleteCategory,
 }: CategoryItemProps) {
   const unreadCount = feeds.reduce((sum, f) => sum + f.unread_count, 0)
+  const hasSelectedChild = selectedFeedId !== null && feeds.some((f) => f.id === selectedFeedId)
+  const isSelected = selectedCategoryId === category.id
+
+  // Determine button style based on selection state
+  const getButtonStyle = () => {
+    if (isSelected) {
+      return {
+        backgroundColor: "var(--color-accent-primary)",
+        color: "white",
+      }
+    }
+    if (hasSelectedChild) {
+      return {
+        backgroundColor: "var(--color-accent-primary-light)",
+        color: "var(--color-accent-primary-dark)",
+      }
+    }
+    return undefined
+  }
 
   return (
     <div className="group/category">
@@ -371,10 +403,8 @@ function CategoryItem({
         </Button>
         <Button
           variant="ghost"
-          className={cn(
-            "flex-1 justify-start gap-2 h-8",
-            selectedCategoryId === category.id && "bg-accent"
-          )}
+          className="flex-1 justify-start gap-2 h-8"
+          style={getButtonStyle()}
           onClick={() => onSelectCategory(category.id)}
         >
           {isExpanded ? (
@@ -440,7 +470,11 @@ function FeedItem({ feed, isSelected, onSelect, onEdit }: FeedItemProps) {
     <div className="group flex items-center">
       <Button
         variant="ghost"
-        className={cn("flex-1 justify-start gap-2 h-8", isSelected && "bg-accent")}
+        className="flex-1 justify-start gap-2 h-8"
+        style={isSelected ? {
+          backgroundColor: "var(--color-accent-primary)",
+          color: "white",
+        } : undefined}
         onClick={onSelect}
       >
         {feed.icon_url ? (

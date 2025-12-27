@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
 import { api, Preferences } from "@/lib/api"
+import { applyAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
 
 interface PreferencesContextValue {
   preferences: Preferences
@@ -23,6 +24,7 @@ const defaultPreferences: Preferences = {
   purge_old_days: "60",
   purge_unread_articles: "false",
   theme: "system",
+  accent_hue: "210",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
@@ -39,8 +41,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.preferences.get()
       setPreferences(data)
+      // Apply accent colors when preferences are loaded
+      const hue = parseInt(data.accent_hue, 10) || DEFAULT_ACCENT_HUE
+      applyAccentColors(hue)
     } catch (error) {
       console.error("Failed to load preferences:", error)
+      // Apply default accent colors on error
+      applyAccentColors(DEFAULT_ACCENT_HUE)
     } finally {
       setIsLoading(false)
     }

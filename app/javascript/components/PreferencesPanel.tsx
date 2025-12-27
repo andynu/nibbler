@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useTheme } from "@/contexts/ThemeContext"
+import { applyAccentColors, generateAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
 
 const UPDATE_INTERVAL_OPTIONS = [
   { value: "15", label: "Every 15 minutes" },
@@ -107,6 +108,49 @@ export function PreferencesPanel() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="accent_hue">Accent color</Label>
+              <p className="text-sm text-muted-foreground">
+                Choose the accent color for highlights and icons
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                id="accent_hue"
+                min="0"
+                max="360"
+                value={preferences.accent_hue || DEFAULT_ACCENT_HUE}
+                onChange={(e) => {
+                  const hue = parseInt(e.target.value, 10)
+                  applyAccentColors(hue)
+                  updatePreference("accent_hue", String(hue))
+                }}
+                className="w-32 h-2 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right,
+                    hsl(0, 70%, 50%),
+                    hsl(60, 70%, 50%),
+                    hsl(120, 70%, 50%),
+                    hsl(180, 70%, 50%),
+                    hsl(240, 70%, 50%),
+                    hsl(300, 70%, 50%),
+                    hsl(360, 70%, 50%)
+                  )`,
+                }}
+              />
+              <div
+                className="w-8 h-8 rounded-md border"
+                style={{
+                  backgroundColor: generateAccentColors(
+                    parseInt(preferences.accent_hue || String(DEFAULT_ACCENT_HUE), 10)
+                  ).primary,
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>

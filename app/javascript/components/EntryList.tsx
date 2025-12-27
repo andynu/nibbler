@@ -115,8 +115,9 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
       className={cn(
         "p-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors",
         isSelected && "bg-accent ring-2 ring-ring ring-offset-1 ring-offset-background",
-        entry.unread && "border-l-2 border-l-primary"
+        entry.unread && "border-l-2"
       )}
+      style={entry.unread ? { borderLeftColor: "var(--color-accent-secondary)" } : undefined}
       onClick={onSelect}
     >
       <div className="flex items-start gap-2">
@@ -128,7 +129,11 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
           }}
         >
           <Circle
-            className={cn("h-3 w-3", entry.unread ? "fill-primary text-primary" : "text-muted-foreground")}
+            className="h-3 w-3"
+            style={entry.unread ? {
+              fill: "var(--color-accent-secondary)",
+              color: "var(--color-accent-secondary)",
+            } : undefined}
           />
         </button>
         <div className="flex-1 min-w-0">
@@ -154,7 +159,11 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
           }}
         >
           <Star
-            className={cn("h-4 w-4", entry.starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")}
+            className="h-4 w-4"
+            style={entry.starred ? {
+              fill: "var(--color-accent-secondary)",
+              color: "var(--color-accent-secondary)",
+            } : undefined}
           />
         </button>
       </div>

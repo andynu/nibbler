@@ -84,12 +84,20 @@ export function EntryContent({
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" onClick={onToggleRead}>
             <Circle
-              className={cn("h-4 w-4", entry.unread ? "fill-primary text-primary" : "text-muted-foreground")}
+              className="h-4 w-4"
+              style={entry.unread ? {
+                fill: "var(--color-accent-secondary)",
+                color: "var(--color-accent-secondary)",
+              } : undefined}
             />
           </Button>
           <Button variant="ghost" size="icon" onClick={onToggleStarred}>
             <Star
-              className={cn("h-4 w-4", entry.starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")}
+              className="h-4 w-4"
+              style={entry.starred ? {
+                fill: "var(--color-accent-secondary)",
+                color: "var(--color-accent-secondary)",
+              } : undefined}
             />
           </Button>
           <Button variant="ghost" size="icon" asChild>

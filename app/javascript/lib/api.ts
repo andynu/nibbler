@@ -116,6 +116,7 @@ export interface Preferences {
   purge_old_days: string
   purge_unread_articles: string
   theme: string
+  accent_hue: string
 }
 
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"
