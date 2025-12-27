@@ -16,7 +16,13 @@ class UpdateFeedJob < ApplicationJob
     # Skip if already being updated (prevent concurrent updates)
     return if feed.last_update_started && feed.last_update_started > 5.minutes.ago
 
+    # Wait for domain throttle before making request
+    DomainThrottler.wait_for(feed.feed_url)
+
     result = FeedUpdater.new(feed).update
+
+    # Record request time for domain throttling
+    DomainThrottler.record(feed.feed_url)
 
     if result.success?
       Rails.logger.info "Updated feed #{feed.id} (#{feed.title}): #{result.new_entries_count} new entries"
