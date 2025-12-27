@@ -263,7 +263,7 @@ describe("LabelManager", () => {
   })
 
   describe("New Label button", () => {
-    it("clicking New Label sets creating state", async () => {
+    it("clicking New Label opens create label dialog", async () => {
       const user = userEvent.setup()
       mockApiLabelsList.mockResolvedValue([])
 
@@ -273,11 +273,12 @@ describe("LabelManager", () => {
         expect(screen.getByRole("button", { name: /new label/i })).toBeInTheDocument()
       })
 
-      // Just verify we can click the button without error
       await user.click(screen.getByRole("button", { name: /new label/i }))
 
-      // The dialog opening is tested by verifying state change occurred
-      // (no error thrown means button click worked)
+      // Create Label dialog should open
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: /create label/i })).toBeInTheDocument()
+      })
     })
   })
 
