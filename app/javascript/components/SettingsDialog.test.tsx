@@ -1,9 +1,24 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import React from "react"
+import React, { useState } from "react"
 import { SettingsDialog } from "./SettingsDialog"
 import { mockFeed, mockCategory, mockPreferences } from "../../../test/fixtures/data"
+
+// Wrapper component to provide controlled tab state for testing
+function SettingsDialogWrapper(props: React.ComponentProps<typeof SettingsDialog>) {
+  const [activeTab, setActiveTab] = useState(props.activeTab ?? "feeds")
+  return (
+    <SettingsDialog
+      {...props}
+      activeTab={activeTab}
+      onTabChange={(tab) => {
+        setActiveTab(tab)
+        props.onTabChange?.(tab)
+      }}
+    />
+  )
+}
 
 // Mock all sub-components
 vi.mock("@/components/FeedOrganizer", () => ({
@@ -78,14 +93,14 @@ describe("SettingsDialog", () => {
 
   describe("tab navigation", () => {
     it("default tab is Feeds", () => {
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       expect(screen.getByTestId("feed-organizer")).toBeInTheDocument()
     })
 
     it("clicking Filters tab shows FilterManager", async () => {
       const user = userEvent.setup()
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       await user.click(screen.getByRole("tab", { name: /filters/i }))
 
@@ -94,7 +109,7 @@ describe("SettingsDialog", () => {
 
     it("clicking Labels tab shows LabelManager", async () => {
       const user = userEvent.setup()
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       await user.click(screen.getByRole("tab", { name: /labels/i }))
 
@@ -103,7 +118,7 @@ describe("SettingsDialog", () => {
 
     it("clicking Import/Export tab shows OpmlPanel", async () => {
       const user = userEvent.setup()
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       await user.click(screen.getByRole("tab", { name: /import\/export/i }))
 
@@ -112,7 +127,7 @@ describe("SettingsDialog", () => {
 
     it("clicking Tools tab shows ToolsPanel", async () => {
       const user = userEvent.setup()
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       await user.click(screen.getByRole("tab", { name: /tools/i }))
 
@@ -121,7 +136,7 @@ describe("SettingsDialog", () => {
 
     it("clicking Preferences tab shows PreferencesPanel", async () => {
       const user = userEvent.setup()
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       await user.click(screen.getByRole("tab", { name: /preferences/i }))
 
@@ -130,7 +145,7 @@ describe("SettingsDialog", () => {
 
     it("clicking Account tab shows coming soon message", async () => {
       const user = userEvent.setup()
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       await user.click(screen.getByRole("tab", { name: /account/i }))
 
@@ -139,7 +154,7 @@ describe("SettingsDialog", () => {
 
     it("selected tab has correct state", async () => {
       const user = userEvent.setup()
-      render(<SettingsDialog {...defaultProps} />)
+      render(<SettingsDialogWrapper {...defaultProps} />)
 
       const filtersTab = screen.getByRole("tab", { name: /filters/i })
       await user.click(filtersTab)

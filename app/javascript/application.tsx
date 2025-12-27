@@ -13,6 +13,7 @@ import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesConte
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
+import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 
 function App() {
   const { preferences, updatePreference } = usePreferences()
@@ -34,9 +35,40 @@ function App() {
   const [subscribeInitialUrl, setSubscribeInitialUrl] = useState<string | undefined>()
   const [editingFeed, setEditingFeed] = useState<Feed | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [settingsTab, setSettingsTab] = useState("feeds")
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
   const commandPalette = useCommandPalette()
   const contentScrollRef = useRef<HTMLDivElement>(null)
+
+  // Navigation history for back button support
+  const navigationHistory = useNavigationHistory({
+    onSelectFeed: (feedId) => {
+      setSelectedFeedId(feedId)
+      if (feedId !== null) {
+        setSelectedCategoryId(null)
+        setVirtualFeed(null)
+      }
+    },
+    onSelectCategory: (categoryId) => {
+      setSelectedCategoryId(categoryId)
+      if (categoryId !== null) {
+        setSelectedFeedId(null)
+        setVirtualFeed(null)
+      }
+    },
+    onSelectVirtualFeed: (feed) => {
+      setVirtualFeed(feed)
+      if (feed !== null) {
+        setSelectedFeedId(null)
+        setSelectedCategoryId(null)
+      }
+    },
+    onShowSettings: (show, tab) => {
+      setShowSettings(show)
+      if (tab) setSettingsTab(tab)
+    },
+    onShowSubscribe: setShowSubscribeDialog,
+  })
 
   // Load feeds and categories on mount
   useEffect(() => {
@@ -120,18 +152,33 @@ function App() {
     setSelectedFeedId(feedId)
     setSelectedCategoryId(null)
     setVirtualFeed(null)
+    if (feedId !== null) {
+      navigationHistory.navigateToFeed(feedId)
+    } else {
+      navigationHistory.navigateToRoot()
+    }
   }
 
   const handleSelectCategory = (categoryId: number | null) => {
     setSelectedCategoryId(categoryId)
     setSelectedFeedId(null)
     setVirtualFeed(null)
+    if (categoryId !== null) {
+      navigationHistory.navigateToCategory(categoryId)
+    } else {
+      navigationHistory.navigateToRoot()
+    }
   }
 
   const handleSelectVirtualFeed = (feed: "starred" | "fresh" | "published" | null) => {
     setVirtualFeed(feed)
     setSelectedFeedId(null)
     setSelectedCategoryId(null)
+    if (feed !== null) {
+      navigationHistory.navigateToVirtualFeed(feed)
+    } else {
+      navigationHistory.navigateToRoot()
+    }
   }
 
   const handleRefreshAll = async () => {
@@ -474,9 +521,15 @@ function App() {
           onSelectVirtualFeed={handleSelectVirtualFeed}
           onRefreshAll={handleRefreshAll}
           isRefreshing={isRefreshing}
-          onSubscribe={() => setShowSubscribeDialog(true)}
+          onSubscribe={() => {
+            setShowSubscribeDialog(true)
+            navigationHistory.openSubscribe()
+          }}
           onEditFeed={setEditingFeed}
-          onSettings={() => setShowSettings(true)}
+          onSettings={() => {
+            setShowSettings(true)
+            navigationHistory.openSettings()
+          }}
           onCategoriesChange={setCategories}
           onFeedsChange={setFeeds}
           onFeedUpdated={handleFeedUpdated}
@@ -516,8 +569,13 @@ function App() {
       <SubscribeFeedDialog
         open={showSubscribeDialog}
         onOpenChange={(open) => {
-          setShowSubscribeDialog(open)
-          if (!open) setSubscribeInitialUrl(undefined)
+          if (!open && showSubscribeDialog) {
+            // Closing - use history back instead of direct state change
+            navigationHistory.closeDialogViaHistory()
+            setSubscribeInitialUrl(undefined)
+          } else {
+            setShowSubscribeDialog(open)
+          }
         }}
         categories={categories}
         onFeedCreated={handleFeedCreated}
@@ -544,7 +602,19 @@ function App() {
       />
       <SettingsDialog
         open={showSettings}
-        onOpenChange={setShowSettings}
+        onOpenChange={(open) => {
+          if (!open && showSettings) {
+            // Closing - use history back instead of direct state change
+            navigationHistory.closeDialogViaHistory()
+          } else {
+            setShowSettings(open)
+          }
+        }}
+        activeTab={settingsTab}
+        onTabChange={(tab) => {
+          setSettingsTab(tab)
+          navigationHistory.changeSettingsTab(tab)
+        }}
         feeds={feeds}
         categories={categories}
         onFeedsChange={setFeeds}

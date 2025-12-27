@@ -1,4 +1,3 @@
-import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -17,6 +16,8 @@ import { Feed, Category, api } from "@/lib/api"
 interface SettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  activeTab?: string
+  onTabChange?: (tab: string) => void
   feeds: Feed[]
   categories: Category[]
   onFeedsChange: (feeds: Feed[]) => void
@@ -26,12 +27,13 @@ interface SettingsDialogProps {
 export function SettingsDialog({
   open,
   onOpenChange,
+  activeTab = "feeds",
+  onTabChange,
   feeds,
   categories,
   onFeedsChange,
   onCategoriesChange,
 }: SettingsDialogProps) {
-  const [activeTab, setActiveTab] = useState("feeds")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -41,7 +43,7 @@ export function SettingsDialog({
         </DialogHeader>
         <Tabs
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={onTabChange}
           className="flex-1 flex flex-col overflow-hidden"
         >
           <TabsList className="grid w-full grid-cols-7">
