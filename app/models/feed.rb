@@ -41,4 +41,34 @@ class Feed < ApplicationRecord
   def effective_update_interval(default_interval_minutes = 30)
     update_interval.positive? ? update_interval : default_interval_minutes
   end
+
+  # Exponential backoff delays: 5min, 15min, 1hr, 4hr, 24hr (capped)
+  BACKOFF_DELAYS = [5.minutes, 15.minutes, 1.hour, 4.hours, 24.hours].freeze
+
+  # Apply exponential backoff, optionally using server's Retry-After
+  def apply_backoff!(server_retry_after = nil)
+    self.consecutive_failures += 1
+    delay = BACKOFF_DELAYS[[consecutive_failures - 1, BACKOFF_DELAYS.length - 1].min]
+
+    # Prefer server's Retry-After if provided and reasonable (under 48 hours)
+    if server_retry_after.present? && server_retry_after < 48.hours.from_now
+      self.retry_after = server_retry_after
+    else
+      self.retry_after = Time.current + delay
+    end
+
+    save!
+  end
+
+  # Reset backoff after successful fetch
+  def reset_backoff!
+    return if consecutive_failures.zero? && retry_after.nil?
+
+    update!(consecutive_failures: 0, retry_after: nil)
+  end
+
+  # Whether the feed is currently in backoff period
+  def in_backoff?
+    retry_after.present? && retry_after > Time.current
+  end
 end

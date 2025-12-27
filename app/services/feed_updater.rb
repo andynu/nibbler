@@ -14,6 +14,10 @@ class FeedUpdater
     def success?
       status == :ok || status == :not_modified
     end
+
+    def rate_limited?
+      status == :rate_limited
+    end
   end
 
   # Set to true to use disk cache (avoids hammering live feeds during dev)
@@ -28,6 +32,10 @@ class FeedUpdater
 
     fetcher = use_cache ? CachedFeedFetcher.new(@feed) : FeedFetcher.new(@feed)
     fetch_result = fetcher.fetch
+
+    if fetch_result.rate_limited?
+      return handle_rate_limited(fetch_result)
+    end
 
     if fetch_result.error?
       return handle_error(fetch_result.error)
@@ -53,7 +61,14 @@ class FeedUpdater
     UpdateResult.new(feed: @feed, status: :error, error: error)
   end
 
+  def handle_rate_limited(fetch_result)
+    @feed.apply_backoff!(fetch_result.retry_after)
+    @feed.update!(last_error: fetch_result.error)
+    UpdateResult.new(feed: @feed, status: :rate_limited, error: fetch_result.error)
+  end
+
   def handle_not_modified
+    @feed.reset_backoff!
     @feed.update!(
       last_updated: Time.current,
       last_successful_update: Time.current,
@@ -66,6 +81,9 @@ class FeedUpdater
     new_count = 0
 
     ActiveRecord::Base.transaction do
+      # Reset backoff on successful fetch
+      @feed.reset_backoff!
+
       # Update feed metadata if changed
       update_feed_metadata(parse_result, fetch_result)
 

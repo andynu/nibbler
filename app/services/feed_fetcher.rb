@@ -2,15 +2,16 @@
 # Uses ETag and Last-Modified headers to avoid unnecessary downloads
 class FeedFetcher
   class FetchResult
-    attr_reader :status, :body, :etag, :last_modified, :content_type, :error
+    attr_reader :status, :body, :etag, :last_modified, :content_type, :error, :retry_after
 
-    def initialize(status:, body: nil, etag: nil, last_modified: nil, content_type: nil, error: nil)
+    def initialize(status:, body: nil, etag: nil, last_modified: nil, content_type: nil, error: nil, retry_after: nil)
       @status = status
       @body = body
       @etag = etag
       @last_modified = last_modified
       @content_type = content_type
       @error = error
+      @retry_after = retry_after
     end
 
     def success?
@@ -19,6 +20,10 @@ class FeedFetcher
 
     def not_modified?
       status == :not_modified
+    end
+
+    def rate_limited?
+      status == :rate_limited
     end
 
     def error?
@@ -86,7 +91,11 @@ class FeedFetcher
     when 410
       FetchResult.new(status: :error, error: "Feed gone (410)")
     when 429
-      FetchResult.new(status: :error, error: "Rate limited - too many requests")
+      FetchResult.new(
+        status: :rate_limited,
+        error: "Rate limited - too many requests",
+        retry_after: parse_retry_after(response.headers["retry-after"])
+      )
     when 500..599
       FetchResult.new(status: :error, error: "Server error (#{response.status})")
     else
@@ -105,5 +114,20 @@ class FeedFetcher
       # Use net/http adapter
       f.adapter Faraday.default_adapter
     end
+  end
+
+  # Parse Retry-After header (RFC 7231)
+  # Can be either seconds (integer) or HTTP-date
+  def parse_retry_after(header)
+    return nil if header.blank?
+
+    # Try parsing as integer (seconds)
+    seconds = Integer(header, exception: false)
+    return Time.current + seconds.seconds if seconds
+
+    # Try parsing as HTTP-date
+    Time.httpdate(header)
+  rescue ArgumentError
+    nil
   end
 end

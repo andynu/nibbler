@@ -16,6 +16,12 @@ class UpdateFeedJob < ApplicationJob
     # Skip if already being updated (prevent concurrent updates)
     return if feed.last_update_started && feed.last_update_started > 5.minutes.ago
 
+    # Skip if feed is in backoff period (rate limited)
+    if feed.in_backoff?
+      Rails.logger.info "Skipping feed #{feed.id} (#{feed.title}): in backoff until #{feed.retry_after}"
+      return
+    end
+
     # Wait for domain throttle before making request
     DomainThrottler.wait_for(feed.feed_url)
 
@@ -26,6 +32,8 @@ class UpdateFeedJob < ApplicationJob
 
     if result.success?
       Rails.logger.info "Updated feed #{feed.id} (#{feed.title}): #{result.new_entries_count} new entries"
+    elsif result.rate_limited?
+      Rails.logger.warn "Rate limited on feed #{feed.id} (#{feed.title}): backoff until #{feed.retry_after}"
     else
       Rails.logger.warn "Failed to update feed #{feed.id} (#{feed.title}): #{result.error}"
     end

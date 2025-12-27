@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_27_170119) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_27_180119) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -74,6 +74,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_170119) do
     t.boolean "cache_content", default: false, null: false
     t.boolean "cache_images", default: false, null: false
     t.bigint "category_id"
+    t.integer "consecutive_failures", default: 0, null: false
     t.string "etag", default: "", null: false
     t.string "favicon_avg_color"
     t.boolean "favicon_is_custom"
@@ -97,6 +98,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_170119) do
     t.boolean "private", default: false, null: false
     t.integer "pubsub_state", default: 0, null: false
     t.integer "purge_interval", default: 0, null: false
+    t.datetime "retry_after"
     t.boolean "rtl_content", default: false, null: false
     t.string "site_url", default: "", null: false
     t.boolean "strip_images", default: false, null: false
