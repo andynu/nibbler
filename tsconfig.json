@@ -18,7 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./app/javascript/*"]
-    }
+    },
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["app/javascript/**/*"]
+  "include": ["app/javascript/**/*", "test/**/*"]
 }

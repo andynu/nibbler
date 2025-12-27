@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { createRoot } from "react-dom/client"
 import { FeedSidebar } from "@/components/FeedSidebar"
 import { EntryList } from "@/components/EntryList"
@@ -34,6 +34,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
   const commandPalette = useCommandPalette()
+  const contentScrollRef = useRef<HTMLDivElement>(null)
 
   // Load feeds and categories on mount
   useEffect(() => {
@@ -294,6 +295,24 @@ function App() {
     handleSelectVirtualFeed("starred")
   }, [])
 
+  const handleContentPageDown = useCallback(() => {
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollBy({
+        top: contentScrollRef.current.clientHeight * 0.9,
+        behavior: "smooth",
+      })
+    }
+  }, [])
+
+  const handleContentPageUp = useCallback(() => {
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollBy({
+        top: -contentScrollRef.current.clientHeight * 0.9,
+        behavior: "smooth",
+      })
+    }
+  }, [])
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       // Navigation
@@ -314,6 +333,9 @@ function App() {
       { key: "a", handler: handleKeyboardGoAll, description: "Go to All" },
       { key: "f", handler: handleKeyboardGoFresh, description: "Go to Fresh" },
       { key: "S", handler: handleKeyboardGoStarred, description: "Go to Starred", modifiers: { shift: true } },
+      // Content scrolling
+      { key: "f", handler: handleContentPageDown, description: "Page down content", modifiers: { ctrl: true } },
+      { key: "b", handler: handleContentPageUp, description: "Page up content", modifiers: { ctrl: true } },
       // Help
       { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts", modifiers: { shift: true } },
     ],
@@ -330,6 +352,8 @@ function App() {
       handleKeyboardGoFresh,
       handleKeyboardGoStarred,
       handleKeyboardHelp,
+      handleContentPageDown,
+      handleContentPageUp,
     ]
   )
 
@@ -399,6 +423,7 @@ function App() {
           hasPrevious={currentIndex > 0}
           hasNext={currentIndex < entries.length - 1}
           isLoading={isLoadingEntry}
+          scrollViewportRef={contentScrollRef}
         />
       </div>
       <KeyboardShortcutsDialog
