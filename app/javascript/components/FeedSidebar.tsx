@@ -17,7 +17,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
+import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -49,6 +49,8 @@ interface FeedSidebarProps {
   onCategoriesChange: (categories: Category[]) => void
   onFeedsChange: (feeds: Feed[]) => void
   onFeedUpdated?: (feed: Feed) => void
+  isCollapsed: boolean
+  onToggleCollapse: () => void
 }
 
 export function FeedSidebar({
@@ -68,6 +70,8 @@ export function FeedSidebar({
   onCategoriesChange,
   onFeedsChange,
   onFeedUpdated,
+  isCollapsed,
+  onToggleCollapse,
 }: FeedSidebarProps) {
   const { preferences, updatePreference } = usePreferences()
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
@@ -194,6 +198,166 @@ export function FeedSidebar({
     }
   }
 
+  // Collapsed view - just icons
+  if (isCollapsed) {
+    return (
+      <TooltipProvider delayDuration={0}>
+        <div className="h-full flex flex-col border-r border-border bg-muted/30">
+          <div className="h-12 px-1 flex items-center justify-center border-b border-border shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onToggleCollapse}
+                  aria-label="Expand sidebar"
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar (b)</TooltipContent>
+            </Tooltip>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center gap-1 p-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  style={!selectedFeedId && !selectedCategoryId && !virtualFeed ? {
+                    backgroundColor: "var(--color-accent-primary-dark)",
+                    color: "white",
+                  } : undefined}
+                  onClick={() => {
+                    onSelectFeed(null)
+                    onSelectCategory(null)
+                    onSelectVirtualFeed(null)
+                  }}
+                  aria-label="All Feeds"
+                >
+                  <Rss className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                All Feeds {totalUnread > 0 && `(${totalUnread})`}
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  style={virtualFeed === "fresh" ? {
+                    backgroundColor: "var(--color-accent-primary-dark)",
+                    color: "white",
+                  } : undefined}
+                  onClick={() => onSelectVirtualFeed("fresh")}
+                  aria-label="Fresh"
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Fresh</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  style={virtualFeed === "starred" ? {
+                    backgroundColor: "var(--color-accent-primary-dark)",
+                    color: "white",
+                  } : undefined}
+                  onClick={() => onSelectVirtualFeed("starred")}
+                  aria-label="Starred"
+                >
+                  <Star className="h-4 w-4" style={{ color: "var(--color-accent-secondary)" }} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Starred</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  style={virtualFeed === "published" ? {
+                    backgroundColor: "var(--color-accent-primary-dark)",
+                    color: "white",
+                  } : undefined}
+                  onClick={() => onSelectVirtualFeed("published")}
+                  aria-label="Published"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Published</TooltipContent>
+            </Tooltip>
+
+            <div className="h-px bg-border my-1 w-full" />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onRefreshAll}
+                  disabled={isRefreshing}
+                  aria-label="Refresh all feeds"
+                >
+                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Refresh all feeds (r)</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onSubscribe}
+                  aria-label="Subscribe to feed"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Subscribe to feed</TooltipContent>
+            </Tooltip>
+
+            <div className="flex-1" />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onSettings}
+                  aria-label="Settings"
+                >
+                  <Cog className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Settings</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      </TooltipProvider>
+    )
+  }
+
   return (
     <div className="h-full flex flex-col border-r border-border bg-muted/30">
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
@@ -246,6 +410,15 @@ export function FeedSidebar({
             aria-label="Refresh all feeds"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onToggleCollapse}
+            aria-label="Collapse sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSettings} aria-label="Settings">
             <Cog className="h-4 w-4" />

@@ -15,7 +15,7 @@ import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
 function App() {
-  const { preferences } = usePreferences()
+  const { preferences, updatePreference } = usePreferences()
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
@@ -380,6 +380,11 @@ function App() {
     }
   }, [])
 
+  const handleToggleSidebar = useCallback(() => {
+    const newValue = preferences.sidebar_collapsed === "true" ? "false" : "true"
+    updatePreference("sidebar_collapsed", newValue)
+  }, [preferences.sidebar_collapsed, updatePreference])
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       // Navigation
@@ -405,6 +410,8 @@ function App() {
       // Content scrolling
       { key: "f", handler: handleContentPageDown, description: "Page down content", modifiers: { ctrl: true } },
       { key: "b", handler: handleContentPageUp, description: "Page up content", modifiers: { ctrl: true } },
+      // Sidebar
+      { key: "b", handler: handleToggleSidebar, description: "Toggle sidebar" },
       // Help
       { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts", modifiers: { shift: true } },
     ],
@@ -425,6 +432,7 @@ function App() {
       handleKeyboardHelp,
       handleContentPageDown,
       handleContentPageUp,
+      handleToggleSidebar,
     ]
   )
 
@@ -454,7 +462,7 @@ function App() {
         overflow: "hidden",
       }}
     >
-      <div style={{ width: "240px", flexShrink: 0, height: "100%" }}>
+      <div style={{ width: preferences.sidebar_collapsed === "true" ? "48px" : "240px", flexShrink: 0, height: "100%", transition: "width 150ms ease-out" }}>
         <FeedSidebar
           feeds={feeds}
           categories={categories}
@@ -472,6 +480,8 @@ function App() {
           onCategoriesChange={setCategories}
           onFeedsChange={setFeeds}
           onFeedUpdated={handleFeedUpdated}
+          isCollapsed={preferences.sidebar_collapsed === "true"}
+          onToggleCollapse={handleToggleSidebar}
         />
       </div>
       <div style={{ width: "320px", flexShrink: 0, height: "100%" }}>

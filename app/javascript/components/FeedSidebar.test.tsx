@@ -56,6 +56,8 @@ describe("FeedSidebar", () => {
     onCategoriesChange: vi.fn(),
     onFeedsChange: vi.fn(),
     onFeedUpdated: vi.fn(),
+    isCollapsed: false,
+    onToggleCollapse: vi.fn(),
   }
 
   beforeEach(() => {

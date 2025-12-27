@@ -117,6 +117,7 @@ export interface Preferences {
   purge_unread_articles: string
   theme: string
   accent_hue: string
+  sidebar_collapsed: string
 }
 
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"

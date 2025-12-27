@@ -25,6 +25,7 @@ const defaultPreferences: Preferences = {
   purge_unread_articles: "false",
   theme: "system",
   accent_hue: "210",
+  sidebar_collapsed: "false",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
