@@ -74,13 +74,13 @@ describe("FeedSidebar", () => {
     it("shows refresh button", () => {
       render(<FeedSidebar {...defaultProps} />)
 
-      expect(screen.getByTitle("Refresh all feeds")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /refresh all feeds/i })).toBeInTheDocument()
     })
 
     it("shows settings button", () => {
       render(<FeedSidebar {...defaultProps} />)
 
-      expect(screen.getByTitle("Settings")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument()
     })
 
     it("clicking refresh calls onRefreshAll", async () => {
@@ -89,7 +89,7 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} onRefreshAll={onRefreshAll} />)
 
-      await user.click(screen.getByTitle("Refresh all feeds"))
+      await user.click(screen.getByRole("button", { name: /refresh all feeds/i }))
 
       expect(onRefreshAll).toHaveBeenCalledOnce()
     })
@@ -97,7 +97,7 @@ describe("FeedSidebar", () => {
     it("refresh button shows spinning animation when refreshing", () => {
       render(<FeedSidebar {...defaultProps} isRefreshing={true} />)
 
-      const refreshButton = screen.getByTitle("Refresh all feeds")
+      const refreshButton = screen.getByRole("button", { name: /refresh all feeds/i })
       expect(refreshButton).toBeDisabled()
     })
 
@@ -107,7 +107,7 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} onSettings={onSettings} />)
 
-      await user.click(screen.getByTitle("Settings"))
+      await user.click(screen.getByRole("button", { name: /settings/i }))
 
       expect(onSettings).toHaveBeenCalledOnce()
     })
@@ -372,7 +372,7 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} />)
 
-      await user.click(screen.getByTitle("Add..."))
+      await user.click(screen.getByRole("button", { name: /add\.\.\./i }))
 
       expect(screen.getByText("Subscribe to Feed")).toBeInTheDocument()
       expect(screen.getByText("New Category")).toBeInTheDocument()
@@ -384,7 +384,7 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} onSubscribe={onSubscribe} />)
 
-      await user.click(screen.getByTitle("Add..."))
+      await user.click(screen.getByRole("button", { name: /add\.\.\./i }))
       await user.click(screen.getByText("Subscribe to Feed"))
 
       expect(onSubscribe).toHaveBeenCalledOnce()
@@ -397,7 +397,7 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} />)
 
-      await user.click(screen.getByTitle("Hide read feeds"))
+      await user.click(screen.getByRole("button", { name: /hide read feeds/i }))
 
       expect(mockUpdatePreference).toHaveBeenCalledWith("hide_read_feeds", "true")
     })
@@ -438,7 +438,7 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} />)
 
-      await user.click(screen.getByTitle("Sort by unread count"))
+      await user.click(screen.getByRole("button", { name: /sort by unread count/i }))
 
       expect(mockUpdatePreference).toHaveBeenCalledWith(
         "feeds_sort_by_unread",

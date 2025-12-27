@@ -43,7 +43,7 @@ function AudioPlayer({ enclosure }: { enclosure: Enclosure }) {
           <span className="text-xs text-muted-foreground">{duration}</span>
         )}
         <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-          <a href={enclosure.content_url} download title="Download">
+          <a href={enclosure.content_url} download aria-label="Download">
             <Download className="h-4 w-4" />
           </a>
         </Button>
@@ -75,7 +75,7 @@ function VideoPlayer({ enclosure }: { enclosure: Enclosure }) {
           <span className="text-xs text-muted-foreground">{duration}</span>
         )}
         <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-          <a href={enclosure.content_url} download title="Download">
+          <a href={enclosure.content_url} download aria-label="Download">
             <Download className="h-4 w-4" />
           </a>
         </Button>
@@ -104,12 +104,12 @@ function ImageDisplay({ enclosure }: { enclosure: Enclosure }) {
           {enclosure.title || "Image"}
         </span>
         <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-          <a href={enclosure.content_url} target="_blank" rel="noopener noreferrer" title="Open full size">
+          <a href={enclosure.content_url} target="_blank" rel="noopener noreferrer" aria-label="Open full size">
             <ExternalLink className="h-4 w-4" />
           </a>
         </Button>
         <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-          <a href={enclosure.content_url} download title="Download">
+          <a href={enclosure.content_url} download aria-label="Download">
             <Download className="h-4 w-4" />
           </a>
         </Button>

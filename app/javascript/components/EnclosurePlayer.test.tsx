@@ -106,9 +106,11 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const downloadLink = screen.getByTitle("Download")
-      expect(downloadLink).toHaveAttribute("href", enclosure.content_url)
-      expect(downloadLink).toHaveAttribute("download")
+      // There are two download links - the button and fallback inside audio element
+      const downloadLinks = screen.getAllByRole("link", { name: /download/i })
+      const downloadButton = downloadLinks.find(link => link.getAttribute("aria-label") === "Download")
+      expect(downloadButton).toHaveAttribute("href", enclosure.content_url)
+      expect(downloadButton).toHaveAttribute("download")
     })
 
     it("supports audio/ogg content type", () => {
@@ -273,7 +275,7 @@ describe("EnclosurePlayer", () => {
 
       render(<EnclosurePlayer enclosures={[enclosure]} />)
 
-      const openLink = screen.getByTitle("Open full size")
+      const openLink = screen.getByRole("link", { name: /open full size/i })
       expect(openLink).toHaveAttribute("href", "https://example.com/image.png")
       expect(openLink).toHaveAttribute("target", "_blank")
     })

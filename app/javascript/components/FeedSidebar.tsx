@@ -204,7 +204,7 @@ export function FeedSidebar({
         <div className="flex items-center gap-0.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" title="Add...">
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Add...">
                 <Plus className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -224,7 +224,7 @@ export function FeedSidebar({
             size="icon"
             className="h-8 w-8"
             onClick={toggleHideRead}
-            title={hideReadFeeds ? "Show all feeds" : "Hide read feeds"}
+            aria-label={hideReadFeeds ? "Show all feeds" : "Hide read feeds"}
           >
             {hideReadFeeds ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
@@ -233,7 +233,7 @@ export function FeedSidebar({
             size="icon"
             className={cn("h-8 w-8", sortByUnread && "text-primary")}
             onClick={toggleSortByUnread}
-            title={sortByUnread ? "Sort alphabetically" : "Sort by unread count"}
+            aria-label={sortByUnread ? "Sort alphabetically" : "Sort by unread count"}
           >
             <ArrowUpDown className="h-4 w-4" />
           </Button>
@@ -243,11 +243,11 @@ export function FeedSidebar({
             className="h-8 w-8"
             onClick={onRefreshAll}
             disabled={isRefreshing}
-            title="Refresh all feeds"
+            aria-label="Refresh all feeds"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSettings} title="Settings">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSettings} aria-label="Settings">
             <Cog className="h-4 w-4" />
           </Button>
         </div>
