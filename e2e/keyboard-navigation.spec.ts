@@ -9,9 +9,14 @@ import { test, expect, Page } from "@playwright/test"
 // Helper to wait for app to be ready
 async function waitForAppReady(page: Page) {
   await page.goto("/")
-  await page.waitForSelector("button", { timeout: 10000 })
-  // Give React time to mount and attach event handlers
-  await page.waitForTimeout(500)
+  // Wait for TTRB branding to confirm app is fully loaded
+  await expect(page.getByText("TTRB")).toBeVisible({ timeout: 10000 })
+}
+
+// Helper to confirm UI is stable after keyboard action
+async function waitForStable(page: Page) {
+  // Just confirm body is still visible - no crash occurred
+  await expect(page.locator("body")).toBeVisible()
 }
 
 test.describe("Article Navigation (j/k)", () => {
@@ -23,31 +28,31 @@ test.describe("Article Navigation (j/k)", () => {
     // Press j - should either select an entry or do nothing if no entries
     await page.keyboard.press("j")
     // No error should occur
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("k key is recognized", async ({ page }) => {
     // Press k - should either select an entry or do nothing if no entries
     await page.keyboard.press("k")
     // No error should occur
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("n key works as alias for j", async ({ page }) => {
     await page.keyboard.press("n")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("p key works as alias for k", async ({ page }) => {
     await page.keyboard.press("p")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("j then k navigates back and forth", async ({ page }) => {
     await page.keyboard.press("j")
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("k")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 })
 
@@ -58,48 +63,48 @@ test.describe("Article Actions", () => {
 
   test("o key is recognized", async ({ page }) => {
     await page.keyboard.press("o")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("Enter key is recognized", async ({ page }) => {
     // First select something with j
     await page.keyboard.press("j")
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("Enter")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("Escape key deselects", async ({ page }) => {
     await page.keyboard.press("j")
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("Escape")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("m key toggles read status", async ({ page }) => {
     await page.keyboard.press("j")
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("m")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("u key works as alias for m", async ({ page }) => {
     await page.keyboard.press("j")
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("u")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("s key toggles starred", async ({ page }) => {
     await page.keyboard.press("j")
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("s")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("r key refreshes", async ({ page }) => {
     await page.keyboard.press("r")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 })
 
@@ -110,17 +115,17 @@ test.describe("View Navigation", () => {
 
   test("a key navigates to All view", async ({ page }) => {
     await page.keyboard.press("a")
-    await page.waitForTimeout(300)
+    await waitForStable(page)
   })
 
   test("f key navigates to Fresh view", async ({ page }) => {
     await page.keyboard.press("f")
-    await page.waitForTimeout(300)
+    await waitForStable(page)
   })
 
   test("Shift+S navigates to Starred view", async ({ page }) => {
     await page.keyboard.press("Shift+S")
-    await page.waitForTimeout(300)
+    await waitForStable(page)
   })
 })
 
@@ -244,7 +249,7 @@ test.describe("Input Focus Handling", () => {
 
       // Shortcuts should work again
       await page.keyboard.press("j")
-      await page.waitForTimeout(200)
+      await waitForStable(page)
     }
   })
 })
@@ -256,12 +261,12 @@ test.describe("Category Navigation (Shift+J/K)", () => {
 
   test("Shift+J navigates to next category", async ({ page }) => {
     await page.keyboard.press("Shift+J")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("Shift+K navigates to previous category", async ({ page }) => {
     await page.keyboard.press("Shift+K")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 })
 
@@ -275,7 +280,7 @@ test.describe("Rapid Key Sequences", () => {
     await page.keyboard.press("j")
     await page.keyboard.press("j")
     await page.keyboard.press("j")
-    await page.waitForTimeout(300)
+    await waitForStable(page)
   })
 
   test("handles rapid k key presses", async ({ page }) => {
@@ -283,7 +288,7 @@ test.describe("Rapid Key Sequences", () => {
     await page.keyboard.press("k")
     await page.keyboard.press("k")
     await page.keyboard.press("k")
-    await page.waitForTimeout(300)
+    await waitForStable(page)
   })
 
   test("handles alternating j and k", async ({ page }) => {
@@ -292,7 +297,7 @@ test.describe("Rapid Key Sequences", () => {
     await page.keyboard.press("k")
     await page.keyboard.press("j")
     await page.keyboard.press("k")
-    await page.waitForTimeout(300)
+    await waitForStable(page)
   })
 })
 
@@ -303,15 +308,15 @@ test.describe("Content Scrolling (Ctrl+F/B)", () => {
 
   test("Ctrl+F scrolls content down", async ({ page }) => {
     await page.keyboard.press("j") // Select an entry first
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("Control+f")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 
   test("Ctrl+B scrolls content up", async ({ page }) => {
     await page.keyboard.press("j") // Select an entry first
-    await page.waitForTimeout(100)
+    await waitForStable(page)
     await page.keyboard.press("Control+b")
-    await page.waitForTimeout(200)
+    await waitForStable(page)
   })
 })

@@ -9,8 +9,8 @@ import { test, expect, Page } from "@playwright/test"
 // Helper to wait for app to be ready
 async function waitForAppReady(page: Page) {
   await page.goto("/")
-  await page.waitForSelector("button", { timeout: 10000 })
-  await page.waitForTimeout(500)
+  // Wait for TTRB branding to confirm app is fully loaded
+  await expect(page.getByText("TTRB")).toBeVisible({ timeout: 10000 })
 }
 
 // Helper to open command palette
@@ -133,7 +133,8 @@ test.describe("Keyboard Navigation", () => {
     await openPalette(page)
 
     await page.keyboard.press("ArrowDown")
-    await page.waitForTimeout(100)
+    // Confirm dialog is still visible (no crash)
+    await expect(page.getByRole("dialog")).toBeVisible()
   })
 
   test("Arrow Up moves selection", async ({ page }) => {
@@ -142,7 +143,8 @@ test.describe("Keyboard Navigation", () => {
     await page.keyboard.press("ArrowDown")
     await page.keyboard.press("ArrowDown")
     await page.keyboard.press("ArrowUp")
-    await page.waitForTimeout(100)
+    // Confirm dialog is still visible (no crash)
+    await expect(page.getByRole("dialog")).toBeVisible()
   })
 
   test("Enter selects current option", async ({ page }) => {
@@ -327,8 +329,8 @@ test.describe("Edge Cases", () => {
     // Special regex characters that shouldn't break anything
     await input.fill("test+query")
 
-    await page.waitForTimeout(200)
-    // Should not crash
+    // Should not crash - dialog still visible
+    await expect(page.getByRole("dialog")).toBeVisible()
   })
 
   test("handles rapid typing", async ({ page }) => {
@@ -337,7 +339,6 @@ test.describe("Edge Cases", () => {
     const input = page.getByRole("combobox")
     await input.fill("abcdefghij")
 
-    await page.waitForTimeout(200)
     await expect(input).toHaveValue("abcdefghij")
   })
 
