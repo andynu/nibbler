@@ -21,3 +21,14 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => false,
   }),
 });
+
+// Mock ResizeObserver for radix-ui/scroll-area
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.ResizeObserver = ResizeObserverMock;
+
+// Mock Element.scrollIntoView
+Element.prototype.scrollIntoView = () => {};
