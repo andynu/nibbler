@@ -46,11 +46,7 @@ export async function getCurrentUser(page: Page) {
 export async function waitForAppLoad(page: Page) {
   await page.goto("/")
   // The app should load and show the main UI
-  await expect(page.locator("#react-root")).toBeVisible()
-  // Wait for React to mount and load initial data
-  await page.waitForSelector('[data-testid="feed-sidebar"], .sidebar, nav', {
-    timeout: 10000,
-  }).catch(() => {
-    // If no sidebar yet, at least wait for content
-  })
+  await expect(page.getByTestId("app-root")).toBeVisible()
+  // Wait for React to mount - app should show buttons when loaded
+  await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
 }

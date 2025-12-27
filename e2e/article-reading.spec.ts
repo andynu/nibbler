@@ -220,13 +220,11 @@ test.describe("Article Content Display", () => {
     // 1. Sidebar with feeds
     // 2. Entry list
     // 3. Content area
-    // Just verify the app rendered by checking for buttons/divs
-    const appContainer = page.locator("#react-root")
-    await expect(appContainer).toBeVisible({ timeout: 5000 })
+    // Just verify the app rendered by checking the app root
+    await expect(page.getByTestId("app-root")).toBeVisible({ timeout: 5000 })
 
     // Check that some buttons exist (indicating UI is rendered)
-    const buttons = page.locator("button")
-    await expect(buttons.first()).toBeVisible()
+    await expect(page.getByRole("button").first()).toBeVisible()
   })
 })
 

@@ -16,7 +16,7 @@ test.describe("App authentication (auto-auth in dev/test)", () => {
     await page.goto("/")
 
     // App should load the main react UI
-    await expect(page.locator("#react-root")).toBeVisible()
+    await expect(page.getByTestId("app-root")).toBeVisible()
 
     // Wait for app to fully load - TTRB branding in sidebar indicates authenticated view
     await expect(page.getByText("TTRB")).toBeVisible()

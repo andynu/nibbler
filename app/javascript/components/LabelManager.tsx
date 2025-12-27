@@ -98,6 +98,7 @@ export function LabelManager() {
               <div
                 key={label.id}
                 className="p-4 flex items-center justify-between hover:bg-muted/50"
+                data-testid="label-row"
               >
                 <div className="flex items-center gap-3">
                   <Badge
@@ -261,6 +262,8 @@ function LabelEditorDialog({
                   }}
                   onClick={() => handlePresetClick(preset)}
                   type="button"
+                  data-testid="color-preset"
+                  aria-label={`Color preset ${idx + 1}`}
                 />
               ))}
             </div>

@@ -202,6 +202,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
               <div
                 key={filter.id}
                 className="p-4 flex items-start gap-4 hover:bg-muted/50"
+                data-testid="filter-row"
               >
                 <div className="pt-1 text-muted-foreground cursor-move">
                   <GripVertical className="w-4 h-4" />

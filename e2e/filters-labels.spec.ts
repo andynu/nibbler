@@ -285,8 +285,8 @@ test.describe("Filter List Operations", () => {
   test("filter appears in list with toggle and buttons", async ({ page }) => {
     await goToFiltersTab(page)
 
-    // Find the filter row using specific text match
-    const filterRow = page.locator(".divide-y > div").filter({
+    // Find the filter row by testid and text
+    const filterRow = page.getByTestId("filter-row").filter({
       hasText: testFilterTitle,
     })
 
@@ -299,7 +299,7 @@ test.describe("Filter List Operations", () => {
   test("can toggle filter enabled state", async ({ page }) => {
     await goToFiltersTab(page)
 
-    const filterRow = page.locator(".divide-y > div").filter({
+    const filterRow = page.getByTestId("filter-row").filter({
       hasText: testFilterTitle,
     })
     const toggle = filterRow.getByRole("switch")
@@ -318,7 +318,7 @@ test.describe("Filter List Operations", () => {
   test("can delete filter with confirmation", async ({ page }) => {
     await goToFiltersTab(page)
 
-    const filterRow = page.locator(".divide-y > div").filter({
+    const filterRow = page.getByTestId("filter-row").filter({
       hasText: testFilterTitle,
     })
 
@@ -482,16 +482,11 @@ test.describe("Label List Operations", () => {
   test("label appears in list with styled badge", async ({ page }) => {
     await goToLabelsTab(page)
 
-    // Find the label by its text in a badge
-    const labelBadge = page.locator(".inline-flex").filter({
+    // Find the label row by testid and text
+    const labelRow = page.getByTestId("label-row").filter({
       hasText: testLabelCaption,
     })
-    await expect(labelBadge).toBeVisible()
-
-    // Find the parent row that contains the badge
-    const labelRow = page.locator(".divide-y > div").filter({
-      hasText: testLabelCaption,
-    })
+    await expect(labelRow).toBeVisible()
 
     // Should show article count
     await expect(labelRow.getByText(/article/i)).toBeVisible()
@@ -502,7 +497,7 @@ test.describe("Label List Operations", () => {
   test("can edit label", async ({ page }) => {
     await goToLabelsTab(page)
 
-    const labelRow = page.locator(".divide-y > div").filter({
+    const labelRow = page.getByTestId("label-row").filter({
       hasText: testLabelCaption,
     })
 
@@ -528,7 +523,7 @@ test.describe("Label List Operations", () => {
   test("can delete label with confirmation", async ({ page }) => {
     await goToLabelsTab(page)
 
-    const labelRow = page.locator(".divide-y > div").filter({
+    const labelRow = page.getByTestId("label-row").filter({
       hasText: testLabelCaption,
     })
 
@@ -650,9 +645,8 @@ test.describe("Label Form Elements", () => {
     await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
 
     // Click a color preset button
-    const colorButtons = page.locator('button[class*="w-8 h-8 rounded-md border"]')
-    const firstPreset = colorButtons.first()
-    await firstPreset.click()
+    const colorPresets = page.getByTestId("color-preset")
+    await colorPresets.first().click()
 
     // The background color should have changed (clicking preset should update the form)
     // We just verify it didn't throw an error
@@ -702,7 +696,7 @@ test.describe("Filter Test Feature", () => {
   test("test button shows match results", async ({ page }) => {
     await goToFiltersTab(page)
 
-    const filterRow = page.locator('[class*="hover:bg"]').filter({
+    const filterRow = page.getByTestId("filter-row").filter({
       hasText: "E2E Test Filter",
     })
 

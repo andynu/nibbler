@@ -10,8 +10,8 @@ import { test, expect, Page } from "@playwright/test"
 // Helper to wait for app to be ready
 async function waitForAppReady(page: Page) {
   await page.goto("/")
-  // Wait for the sidebar to render (indicates app is loaded)
-  await page.waitForSelector("button", { timeout: 10000 })
+  // Wait for the app to render with interactive buttons
+  await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
 }
 
 test.describe("Feed Sidebar", () => {
@@ -21,8 +21,7 @@ test.describe("Feed Sidebar", () => {
 
   test("sidebar shows virtual feeds section", async ({ page }) => {
     // The app should render - look for any buttons indicating the UI is loaded
-    const anyButton = page.locator("button").first()
-    await expect(anyButton).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
   })
 
   test("Fresh view is accessible", async ({ page }) => {
