@@ -40,8 +40,8 @@ test.describe("Network Error Handling", () => {
     const feedItem = page.locator('[data-testid="feed-item"]').first()
     if (await feedItem.isVisible({ timeout: 2000 }).catch(() => false)) {
       await feedItem.click()
-      // Should handle error gracefully - page shouldn't crash
-      await expect(page.locator("body")).toBeVisible()
+      // App should remain interactive after error
+      await expect(page.getByRole("button").first()).toBeEnabled()
     }
   })
 
@@ -109,8 +109,8 @@ test.describe("API Error Responses", () => {
 
     await page.goto("/")
 
-    // App should still render without crashing
-    await expect(page.locator("body")).toBeVisible()
+    // App should still render and remain interactive
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
   })
 
   test("handles 404 error gracefully", async ({ page }) => {
@@ -128,8 +128,8 @@ test.describe("API Error Responses", () => {
     // Try to navigate to a non-existent entry
     await page.goto("/#entry/999999")
 
-    // Should handle gracefully
-    await expect(page.locator("body")).toBeVisible()
+    // App should remain interactive after 404
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
   test("handles malformed JSON response", async ({ page }) => {
@@ -144,8 +144,8 @@ test.describe("API Error Responses", () => {
 
     await page.goto("/")
 
-    // App should handle parse error gracefully
-    await expect(page.locator("body")).toBeVisible()
+    // App should remain interactive despite parse error
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
   })
 
   test("handles empty array response", async ({ page }) => {
@@ -160,8 +160,8 @@ test.describe("API Error Responses", () => {
 
     await page.goto("/")
 
-    // App should show empty state or similar
-    await expect(page.locator("body")).toBeVisible()
+    // App should show sidebar and remain interactive with empty data
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
   })
 })
 
@@ -397,8 +397,8 @@ test.describe("Concurrent Actions", () => {
       await button.click({ timeout: 5000 }).catch(() => {})
     }
 
-    // App should handle without errors
-    await expect(page.locator("body")).toBeVisible()
+    // App should remain interactive after rapid clicks
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
   test("handles concurrent API requests", async ({ page }) => {
@@ -409,8 +409,8 @@ test.describe("Concurrent Actions", () => {
     await page.keyboard.press("j") // Navigate
     await page.keyboard.press("o") // Open
 
-    // App should handle concurrent requests
-    await expect(page.locator("body")).toBeVisible()
+    // App should remain interactive during concurrent requests
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 })
 
@@ -511,8 +511,7 @@ test.describe("Browser Edge Cases", () => {
     // Refresh
     await page.reload()
 
-    // App should handle missing storage gracefully
-    await expect(page.locator("body")).toBeVisible()
+    // App should remain interactive after storage clear
     await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
   })
 
@@ -522,8 +521,8 @@ test.describe("Browser Edge Cases", () => {
     // Clear session storage
     await page.evaluate(() => sessionStorage.clear())
 
-    // App should continue to function
-    await expect(page.locator("body")).toBeVisible()
+    // App should remain interactive after storage clear
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 })
 
@@ -541,8 +540,8 @@ test.describe("Timeout Handling", () => {
 
     await page.goto("/")
 
-    // Page should be usable even while waiting
-    await expect(page.locator("body")).toBeVisible()
+    // UI should remain visible and interactive while waiting
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
   })
 
   test("UI remains responsive during long operations", async ({ page }) => {
