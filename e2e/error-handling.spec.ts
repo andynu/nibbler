@@ -11,7 +11,8 @@ import { test, expect, Page } from "@playwright/test"
 async function waitForAppReady(page: Page) {
   await page.goto("/")
   await page.waitForSelector("button", { timeout: 10000 })
-  await page.waitForTimeout(500)
+  // Wait for initial render to stabilize
+  await expect(page.getByRole("button").first()).toBeEnabled()
 }
 
 // =============================================================================
@@ -59,10 +60,8 @@ test.describe("Network Error Handling", () => {
       (await page.locator('[class*="animate-spin"]').isVisible({ timeout: 3000 }).catch(() => false)) ||
       (await page.locator('[class*="loading"]').isVisible({ timeout: 3000 }).catch(() => false))
 
-    // Loading should be visible at some point during the delay
-    // If not, at least the app should eventually load
-    await page.waitForTimeout(3000)
-    await expect(page.locator("body")).toBeVisible()
+    // App should eventually load after the delay
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
   })
 
   test("handles going offline", async ({ page, context }) => {
@@ -74,9 +73,8 @@ test.describe("Network Error Handling", () => {
     // Try to refresh or load new content
     await page.keyboard.press("r") // Common refresh shortcut
 
-    // Should handle offline gracefully
-    await page.waitForTimeout(1000)
-    await expect(page.locator("body")).toBeVisible()
+    // Should handle offline gracefully - app remains usable
+    await expect(page.getByRole("button").first()).toBeVisible()
 
     // Go back online
     await context.setOffline(false)
@@ -85,16 +83,11 @@ test.describe("Network Error Handling", () => {
   test("recovers after coming back online", async ({ page, context }) => {
     await waitForAppReady(page)
 
-    // Go offline
+    // Go offline then back online
     await context.setOffline(true)
-    await page.waitForTimeout(500)
-
-    // Go back online
     await context.setOffline(false)
-    await page.waitForTimeout(500)
 
     // App should still be functional
-    await expect(page.locator("body")).toBeVisible()
     await expect(page.getByRole("button").first()).toBeEnabled()
   })
 })
@@ -186,10 +179,8 @@ test.describe("Empty States", () => {
     const starredNav = page.getByText("Starred")
     if (await starredNav.isVisible().catch(() => false)) {
       await starredNav.click()
-      await page.waitForTimeout(500)
-
-      // Should show some content area (even if empty) - check for body since main may not exist
-      await expect(page.locator("body")).toBeVisible()
+      // Wait for navigation to complete - app should remain responsive
+      await expect(page.getByRole("button").first()).toBeEnabled()
     }
   })
 
@@ -200,15 +191,12 @@ test.describe("Empty States", () => {
 
     // Open command palette and search
     await page.keyboard.press("Meta+k")
-    await page.waitForTimeout(300)
 
     const searchInput = page.getByPlaceholder(/search|type/i)
     if (await searchInput.isVisible().catch(() => false)) {
       await searchInput.fill("zzz-nonexistent-query-xyz")
-      await page.waitForTimeout(500)
-
-      // Should show no results or similar
-      await expect(page.locator("body")).toBeVisible()
+      // App should remain responsive after search
+      await expect(page.getByRole("button").first()).toBeEnabled()
     }
   })
 
@@ -223,10 +211,8 @@ test.describe("Empty States", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(1000)
-
-    // Should show empty state without crashing
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should render without crashing
+    await page.waitForLoadState("networkidle")
   })
 })
 
@@ -253,10 +239,8 @@ test.describe("Data Edge Cases", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(1000)
-
-    // Should render without crashing
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should render with minimal data
+    await page.waitForLoadState("networkidle")
   })
 
   test("handles entries with null values", async ({ page }) => {
@@ -279,10 +263,8 @@ test.describe("Data Edge Cases", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(1000)
-
-    // Should handle nulls gracefully
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should handle nulls gracefully
+    await page.waitForLoadState("networkidle")
   })
 
   test("handles special characters in content", async ({ page }) => {
@@ -303,10 +285,8 @@ test.describe("Data Edge Cases", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(2000)
-
-    // Should render safely
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should render special characters safely
+    await page.waitForLoadState("networkidle")
   })
 
   test("handles very long titles", async ({ page }) => {
@@ -330,10 +310,8 @@ test.describe("Data Edge Cases", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(1000)
-
-    // Should not break layout
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should render long titles without breaking layout
+    await page.waitForLoadState("networkidle")
   })
 
   test("handles unicode and RTL text", async ({ page }) => {
@@ -353,10 +331,8 @@ test.describe("Data Edge Cases", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(1000)
-
-    // Should render unicode correctly
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should render unicode correctly
+    await page.waitForLoadState("networkidle")
   })
 
   test("handles dates in various formats", async ({ page }) => {
@@ -388,10 +364,8 @@ test.describe("Data Edge Cases", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(1000)
-
-    // Should handle various date formats
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should handle various date formats
+    await page.waitForLoadState("networkidle")
   })
 })
 
@@ -403,14 +377,12 @@ test.describe("Concurrent Actions", () => {
   test("handles rapid keyboard navigation", async ({ page }) => {
     await waitForAppReady(page)
 
-    // Rapid keyboard presses
+    // Rapid keyboard presses - Playwright auto-waits for key events
     for (let i = 0; i < 10; i++) {
       await page.keyboard.press("j") // Navigate down
-      await page.waitForTimeout(50)
     }
 
     // App should still be responsive
-    await expect(page.locator("body")).toBeVisible()
     await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
@@ -463,9 +435,8 @@ test.describe("Form Validation", () => {
         const submitButton = page.getByRole("button", { name: /subscribe|add/i })
         await submitButton.click()
 
-        // Should show validation error or not proceed
-        await page.waitForTimeout(500)
-        await expect(page.locator("body")).toBeVisible()
+        // App should remain functional after validation
+        await expect(page.getByRole("button").first()).toBeEnabled()
       }
     }
   })
@@ -486,14 +457,13 @@ test.describe("Form Validation", () => {
     const numberInput = page.locator('input[type="number"]').first()
     if (await numberInput.isVisible().catch(() => false)) {
       await numberInput.fill("-999")
-      await page.waitForTimeout(300)
     }
 
     // Close settings
     await page.keyboard.press("Escape")
 
     // App should handle gracefully
-    await expect(page.locator("body")).toBeVisible()
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 })
 
@@ -519,19 +489,17 @@ test.describe("Browser Edge Cases", () => {
     const firstFeed = page.locator('[data-testid="feed-item"]').first()
     if (await firstFeed.isVisible().catch(() => false)) {
       await firstFeed.click()
-      await page.waitForTimeout(500)
+      // Wait for navigation to complete
+      await expect(page.getByRole("button").first()).toBeEnabled()
 
       // Go back
       await page.goBack()
-      await page.waitForTimeout(500)
+      await expect(page.getByRole("button").first()).toBeEnabled()
 
       // Go forward
       await page.goForward()
-      await page.waitForTimeout(500)
+      await expect(page.getByRole("button").first()).toBeEnabled()
     }
-
-    // App should handle navigation
-    await expect(page.locator("body")).toBeVisible()
   })
 
   test("handles local storage clearing", async ({ page }) => {
@@ -585,13 +553,14 @@ test.describe("Timeout Handling", () => {
     })
 
     await page.goto("/")
-    await page.waitForTimeout(1000)
+    // Wait for initial UI to be interactive
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
 
     // UI should still respond to interactions
     await page.keyboard.press("Tab")
     await page.keyboard.press("Tab")
 
-    await expect(page.locator("body")).toBeVisible()
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 })
 
@@ -619,10 +588,8 @@ test.describe("Resource Limits", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(2000)
-
-    // App should handle large lists (likely with virtualization)
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should handle large lists
+    await page.waitForLoadState("networkidle")
   })
 
   test("handles large entry content", async ({ page }) => {
@@ -645,10 +612,8 @@ test.describe("Resource Limits", () => {
     )
 
     await page.goto("/")
-    await page.waitForTimeout(2000)
-
-    // Should render without crashing
-    await expect(page.locator("body")).toBeVisible()
+    // Wait for page to load - app should render large content
+    await page.waitForLoadState("networkidle")
   })
 })
 
@@ -671,7 +636,8 @@ test.describe("Console Error Monitoring", () => {
     })
 
     await page.goto("/")
-    await page.waitForTimeout(3000)
+    // Wait for app to fully load before checking errors
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
 
     // Filter out known acceptable errors (e.g., favicon 404)
     const significantErrors = consoleErrors.filter(
@@ -701,7 +667,8 @@ test.describe("Console Error Monitoring", () => {
     await page.keyboard.press("k")
     await page.keyboard.press("o")
 
-    await page.waitForTimeout(1000)
+    // Wait for any async operations to complete
+    await expect(page.getByRole("button").first()).toBeEnabled()
 
     expect(rejections).toHaveLength(0)
   })

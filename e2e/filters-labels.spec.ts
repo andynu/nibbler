@@ -11,7 +11,8 @@ import { test, expect, Page } from "@playwright/test"
 async function waitForAppReady(page: Page) {
   await page.goto("/")
   await page.waitForSelector("button", { timeout: 10000 })
-  await page.waitForTimeout(500)
+  // Wait for initial render to stabilize
+  await expect(page.getByRole("button").first()).toBeEnabled()
 }
 
 // Helper to open settings dialog
@@ -209,7 +210,6 @@ test.describe("Filters Tab UI", () => {
 
     // Open dialog
     await page.getByRole("button", { name: /new filter/i }).click()
-    await page.waitForTimeout(500) // Wait for dialog animation
 
     // Find the input by ID since it's in a nested dialog context
     const filterNameInput = page.locator("#filter-title")
@@ -228,7 +228,6 @@ test.describe("Filters Tab UI", () => {
 
     // Open dialog
     await page.getByRole("button", { name: /new filter/i }).click()
-    await page.waitForTimeout(500) // Wait for dialog animation
 
     // Fill form using specific selectors
     const filterNameInput = page.locator("#filter-title")
@@ -245,8 +244,7 @@ test.describe("Filters Tab UI", () => {
     // Wait for dialog to close (settings dialog should still be open)
     await expect(page.locator("#filter-title")).not.toBeVisible({ timeout: 5000 })
 
-    // Verify in list - wait a bit for the list to refresh
-    await page.waitForTimeout(500)
+    // Verify in list
     await expect(page.getByText(filterTitle)).toBeVisible({ timeout: 5000 })
 
     // Cleanup
@@ -433,7 +431,9 @@ test.describe("Labels Tab UI", () => {
 
     // Open dialog
     await page.getByRole("button", { name: /new label/i }).click()
-    await page.waitForTimeout(300) // Wait for dialog animation
+
+    // Wait for label name input to be visible
+    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
 
     // Fill form
     await page.getByLabel(/label name/i).fill(labelCaption)
@@ -562,10 +562,9 @@ test.describe("Filter Form Elements", () => {
     // Skipped: Flaky due to nested dialog behavior - filter dialog inside Settings dialog has timing issues
     await goToFiltersTab(page)
     await page.getByRole("button", { name: /new filter/i }).click()
-    await page.waitForTimeout(500)
 
     // Check for main form elements
-    await expect(page.locator("#filter-title")).toBeVisible()
+    await expect(page.locator("#filter-title")).toBeVisible({ timeout: 5000 })
     await expect(page.getByRole("button", { name: /add rule/i })).toBeVisible()
     await expect(page.getByRole("button", { name: /add action/i })).toBeVisible()
     await expect(page.getByRole("button", { name: /cancel/i })).toBeVisible()
@@ -576,7 +575,6 @@ test.describe("Filter Form Elements", () => {
     // Skipped: This test is flaky due to dialog state and element timing issues
     await goToFiltersTab(page)
     await page.getByRole("button", { name: /new filter/i }).click()
-    await page.waitForTimeout(500)
 
     // Wait for dialog to be visible
     await expect(page.locator("#filter-title")).toBeVisible({ timeout: 5000 })
@@ -589,7 +587,6 @@ test.describe("Filter Form Elements", () => {
 
     // Add another rule
     await page.getByRole("button", { name: /add rule/i }).click()
-    await page.waitForTimeout(300)
     await expect(patternInputs).toHaveCount(initialCount + 1)
 
     // Remove the last rule by clicking the X button within its rule container
@@ -598,7 +595,6 @@ test.describe("Filter Form Elements", () => {
     const lastRuleContainer = ruleContainers.last()
     const removeButton = lastRuleContainer.locator("button").filter({ has: page.locator('svg') }).first()
     await removeButton.click()
-    await page.waitForTimeout(300)
     await expect(patternInputs).toHaveCount(initialCount)
   })
 
@@ -606,7 +602,9 @@ test.describe("Filter Form Elements", () => {
     // Skipped: Flaky due to nested dialog behavior - depends on filter dialog opening successfully
     await goToFiltersTab(page)
     await page.getByRole("button", { name: /new filter/i }).click()
-    await page.waitForTimeout(300)
+
+    // Wait for dialog to be visible
+    await expect(page.locator("#filter-title")).toBeVisible({ timeout: 5000 })
 
     // Set up dialog handler for validation alert
     let alertShown = false
@@ -634,10 +632,9 @@ test.describe("Label Form Elements", () => {
   test("label dialog has all form elements", async ({ page }) => {
     await goToLabelsTab(page)
     await page.getByRole("button", { name: /new label/i }).click()
-    await page.waitForTimeout(300)
 
     // Check for main form elements
-    await expect(page.getByLabel(/label name/i)).toBeVisible()
+    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
     await expect(page.getByText(/preview/i)).toBeVisible()
     await expect(page.getByText(/color presets/i)).toBeVisible()
     await expect(page.getByLabel(/background/i)).toBeVisible()
@@ -648,7 +645,9 @@ test.describe("Label Form Elements", () => {
   test("color presets update the colors", async ({ page }) => {
     await goToLabelsTab(page)
     await page.getByRole("button", { name: /new label/i }).click()
-    await page.waitForTimeout(300)
+
+    // Wait for dialog to be visible
+    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
 
     // Click a color preset button
     const colorButtons = page.locator('button[class*="w-8 h-8 rounded-md border"]')
@@ -662,7 +661,9 @@ test.describe("Label Form Elements", () => {
   test("validation prevents empty label creation", async ({ page }) => {
     await goToLabelsTab(page)
     await page.getByRole("button", { name: /new label/i }).click()
-    await page.waitForTimeout(300)
+
+    // Wait for dialog to be visible
+    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
 
     // Set up dialog handler for validation alert
     let alertShown = false
