@@ -1,5 +1,4 @@
-import { test, expect } from "@playwright/test"
-import { FeedsPage, SettingsPage } from "./pages"
+import { test, expect } from "./fixtures"
 
 /**
  * Settings and preferences E2E tests.
@@ -8,35 +7,29 @@ import { FeedsPage, SettingsPage } from "./pages"
  */
 
 test.describe("Opening Settings", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("settings button opens dialog", async () => {
+  test("settings button opens dialog", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await expect(settingsPage.dialog).toBeVisible()
   })
 
-  test("dialog has Settings title", async () => {
+  test("dialog has Settings title", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await expect(settingsPage.title).toBeVisible()
   })
 
-  test("dialog has tabbed interface", async () => {
+  test("dialog has tabbed interface", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await expect(settingsPage.tabList).toBeVisible()
   })
 
-  test("Escape closes dialog", async () => {
+  test("Escape closes dialog", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await settingsPage.close()
@@ -44,25 +37,25 @@ test.describe("Opening Settings", () => {
     await expect(settingsPage.dialog).not.toBeVisible()
   })
 
-  test("has Feeds tab", async () => {
+  test("has Feeds tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await expect(settingsPage.feedsTab).toBeVisible()
   })
 
-  test("has Preferences tab", async () => {
+  test("has Preferences tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await expect(settingsPage.preferencesTab).toBeVisible()
   })
 
-  test("has Filters tab", async () => {
+  test("has Filters tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await expect(settingsPage.filtersTab).toBeVisible()
   })
 
-  test("has Labels tab", async () => {
+  test("has Labels tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await expect(settingsPage.labelsTab).toBeVisible()
@@ -70,17 +63,11 @@ test.describe("Opening Settings", () => {
 })
 
 test.describe("Tab Navigation", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("can switch to Feeds tab", async () => {
+  test("can switch to Feeds tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await settingsPage.goToFeedsTab()
@@ -88,7 +75,7 @@ test.describe("Tab Navigation", () => {
     await expect(settingsPage.feedsTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Preferences tab", async () => {
+  test("can switch to Preferences tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await settingsPage.goToPreferencesTab()
@@ -96,7 +83,7 @@ test.describe("Tab Navigation", () => {
     await expect(settingsPage.preferencesTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Filters tab", async () => {
+  test("can switch to Filters tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await settingsPage.goToFiltersTab()
@@ -104,7 +91,7 @@ test.describe("Tab Navigation", () => {
     await expect(settingsPage.filtersTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Labels tab", async () => {
+  test("can switch to Labels tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await settingsPage.goToLabelsTab()
@@ -112,7 +99,7 @@ test.describe("Tab Navigation", () => {
     await expect(settingsPage.labelsTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Import/Export tab", async () => {
+  test("can switch to Import/Export tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     await settingsPage.goToImportExportTab()
@@ -122,31 +109,25 @@ test.describe("Tab Navigation", () => {
 })
 
 test.describe("Preferences Tab - Article Display", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("shows Appearance section", async ({ page }) => {
+  test("shows Appearance section", async ({ feedsPage, settingsPage, page }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Appearance")).toBeVisible()
   })
 
-  test("shows Article Display section", async ({ page }) => {
+  test("shows Article Display section", async ({ feedsPage, settingsPage, page }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Article Display")).toBeVisible()
   })
 
-  test("shows content preview toggle", async () => {
+  test("shows content preview toggle", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
@@ -154,7 +135,7 @@ test.describe("Preferences Tab - Article Display", () => {
     await expect(toggle).toBeVisible()
   })
 
-  test("shows strip images toggle", async () => {
+  test("shows strip images toggle", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
@@ -164,24 +145,18 @@ test.describe("Preferences Tab - Article Display", () => {
 })
 
 test.describe("Preferences Tab - Reading Behavior", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("shows Reading Behavior section", async ({ page }) => {
+  test("shows Reading Behavior section", async ({ feedsPage, settingsPage, page }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
     await expect(page.getByText("Reading Behavior")).toBeVisible()
   })
 
-  test("shows confirm mark all read toggle", async () => {
+  test("shows confirm mark all read toggle", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
@@ -189,7 +164,7 @@ test.describe("Preferences Tab - Reading Behavior", () => {
     await expect(toggle).toBeVisible()
   })
 
-  test("shows articles per page selector", async ({ page }) => {
+  test("shows articles per page selector", async ({ feedsPage, settingsPage, page }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
@@ -198,17 +173,11 @@ test.describe("Preferences Tab - Reading Behavior", () => {
 })
 
 test.describe("Preferences Tab - Data Management", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("shows Data Management section", async ({ page }) => {
+  test("shows Data Management section", async ({ feedsPage, settingsPage, page }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
@@ -256,17 +225,11 @@ test.describe("Preferences API", () => {
 })
 
 test.describe("Feeds Tab", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("feeds tab shows feed organizer", async () => {
+  test("feeds tab shows feed organizer", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToFeedsTab()
 
@@ -274,7 +237,7 @@ test.describe("Feeds Tab", () => {
     await expect(settingsPage.feedsTab).toHaveAttribute("data-state", "active")
   })
 
-  test("is the default tab", async () => {
+  test("is the default tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
     // Feeds tab should be active by default
@@ -283,17 +246,11 @@ test.describe("Feeds Tab", () => {
 })
 
 test.describe("Filters Tab", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("filters tab shows filter content", async () => {
+  test("filters tab shows filter content", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToFiltersTab()
 
@@ -303,17 +260,11 @@ test.describe("Filters Tab", () => {
 })
 
 test.describe("Labels Tab", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("labels tab shows label content", async () => {
+  test("labels tab shows label content", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToLabelsTab()
 
@@ -323,17 +274,11 @@ test.describe("Labels Tab", () => {
 })
 
 test.describe("Import/Export Tab", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("import/export tab shows OPML options", async () => {
+  test("import/export tab shows OPML options", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToImportExportTab()
 
@@ -343,17 +288,11 @@ test.describe("Import/Export Tab", () => {
 })
 
 test.describe("Preference Toggle Interaction", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("clicking toggle changes its state", async () => {
+  test("clicking toggle changes its state", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
@@ -371,17 +310,11 @@ test.describe("Preference Toggle Interaction", () => {
 })
 
 test.describe("Theme Selection", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("shows theme selector", async () => {
+  test("shows theme selector", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
@@ -391,17 +324,11 @@ test.describe("Theme Selection", () => {
 })
 
 test.describe("Accent Color", () => {
-  let feedsPage: FeedsPage
-  let settingsPage: SettingsPage
-
-  test.beforeEach(async ({ page }) => {
-    feedsPage = new FeedsPage(page)
-    settingsPage = new SettingsPage(page)
-    await feedsPage.goto()
+  test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("shows accent color control", async ({ page }) => {
+  test("shows accent color control", async ({ feedsPage, settingsPage, page }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
