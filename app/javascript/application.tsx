@@ -10,6 +10,7 @@ import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
 import { SettingsDialog } from "@/components/SettingsDialog"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesContext"
+import { ThemeProvider } from "@/contexts/ThemeContext"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 
@@ -498,7 +499,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const root = createRoot(container)
     root.render(
       <PreferencesProvider>
-        <App />
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
       </PreferencesProvider>
     )
   }

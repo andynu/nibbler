@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { usePreferences } from "@/contexts/PreferencesContext"
+import { useTheme } from "@/contexts/ThemeContext"
 
 const UPDATE_INTERVAL_OPTIONS = [
   { value: "15", label: "Every 15 minutes" },
@@ -61,8 +62,15 @@ const PURGE_DAYS_OPTIONS = [
   { value: "0", label: "Never" },
 ]
 
+const THEME_OPTIONS = [
+  { value: "system", label: "System (auto)" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+]
+
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
+  const { theme, setTheme } = useTheme()
 
   if (isLoading) {
     return (
@@ -74,6 +82,35 @@ export function PreferencesPanel() {
 
   return (
     <div className="p-4 space-y-6">
+      <div>
+        <h3 className="text-lg font-medium mb-4">Appearance</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="theme">Theme</Label>
+              <p className="text-sm text-muted-foreground">
+                Choose light, dark, or follow your system settings
+              </p>
+            </div>
+            <Select
+              value={theme}
+              onValueChange={(value) => setTheme(value as "light" | "dark" | "system")}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {THEME_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       <div>
         <h3 className="text-lg font-medium mb-4">Article Display</h3>
         <div className="space-y-4">

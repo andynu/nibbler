@@ -113,6 +113,9 @@ export interface Preferences {
   hide_read_feeds: string
   hide_read_shows_special: string
   feeds_sort_by_unread: string
+  purge_old_days: string
+  purge_unread_articles: string
+  theme: string
 }
 
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"
