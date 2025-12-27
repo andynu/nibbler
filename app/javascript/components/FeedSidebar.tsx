@@ -387,9 +387,10 @@ function CategoryItem({
       }
     }
     if (hasSelectedChild) {
+      // Subtle highlight for parent folder when child feed is selected
       return {
-        backgroundColor: "var(--color-accent-primary-light)",
-        color: "var(--color-accent-primary-dark)",
+        backgroundColor: "var(--color-accent-primary-darker)",
+        color: "var(--color-accent-primary-light)",
       }
     }
     return undefined

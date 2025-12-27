@@ -25,6 +25,7 @@
   --color-accent-primary: hsl(210, 70%, 50%);
   --color-accent-primary-light: hsl(210, 60%, 70%);
   --color-accent-primary-dark: hsl(210, 75%, 35%);
+  --color-accent-primary-darker: hsl(210, 50%, 20%);
   --color-accent-secondary: hsl(30, 70%, 50%);
   --color-accent-secondary-light: hsl(30, 60%, 70%);
   --color-accent-secondary-dark: hsl(30, 75%, 35%);
