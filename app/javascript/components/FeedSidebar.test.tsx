@@ -453,7 +453,7 @@ describe("FeedSidebar", () => {
     it("selected feed has accent background", () => {
       const feeds = [mockFeed({ id: 5, title: "Selected Feed" })]
 
-      const { container } = render(
+      render(
         <FeedSidebar {...defaultProps} feeds={feeds} selectedFeedId={5} />
       )
 
