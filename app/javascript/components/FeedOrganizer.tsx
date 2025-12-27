@@ -10,6 +10,7 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from "@dnd-kit/core"
+import { snapCenterToCursor } from "@dnd-kit/modifiers"
 import {
   SortableContext,
   sortableKeyboardCoordinates,
@@ -461,7 +462,7 @@ export function FeedOrganizer({
             </div>
           </SortableContext>
 
-          <DragOverlay>
+          <DragOverlay modifiers={[snapCenterToCursor]}>
             {activeId && (
               <div className="flex items-center gap-2 px-3 py-2 bg-background border rounded-md shadow-lg">
                 {activeId.startsWith("category-") ? (
