@@ -442,7 +442,10 @@ export function FeedSidebar({
             }}
           >
             <Rss className="h-4 w-4" />
-            <span className="flex-1 text-left">All Feeds</span>
+            <span className={cn(
+              "flex-1 text-left",
+              totalUnread > 0 ? "font-medium" : "text-muted-foreground"
+            )}>All Feeds</span>
             {totalUnread > 0 && <Badge variant="secondary">{totalUnread}</Badge>}
           </Button>
 
@@ -456,7 +459,10 @@ export function FeedSidebar({
             onClick={() => onSelectVirtualFeed("fresh")}
           >
             <Clock className="h-4 w-4" />
-            <span className="flex-1 text-left">Fresh</span>
+            <span className={cn(
+              "flex-1 text-left",
+              totalUnread > 0 ? "font-medium" : "text-muted-foreground"
+            )}>Fresh</span>
           </Button>
 
           <Button
@@ -719,7 +725,10 @@ function CategoryItem({
               <Folder className="h-4 w-4" />
             )}
           </span>
-          <span className="flex-1 text-left truncate">{category.title}</span>
+          <span className={cn(
+            "flex-1 text-left truncate",
+            unreadCount > 0 ? "font-medium" : "text-muted-foreground"
+          )}>{category.title}</span>
           {unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
         </Button>
         <DropdownMenu>
@@ -841,7 +850,10 @@ function FeedItem({ feed, isSelected, onSelect, onEdit, onRefresh, onUnsubscribe
             ) : (
               <Rss className="h-4 w-4 text-muted-foreground" />
             )}
-            <span className="flex-1 text-left truncate">{feed.title}</span>
+            <span className={cn(
+              "flex-1 text-left truncate",
+              feed.unread_count > 0 ? "font-medium" : "text-muted-foreground"
+            )}>{feed.title}</span>
             {isRefreshing && (
               <RefreshCw className="h-3 w-3 animate-spin shrink-0" />
             )}
