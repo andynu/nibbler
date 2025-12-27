@@ -112,6 +112,9 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
   return (
     <div
       data-entry-id={entry.id}
+      data-unread={entry.unread}
+      role="option"
+      aria-selected={isSelected}
       className={cn(
         "p-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors",
         isSelected && "bg-accent ring-2 ring-offset-1 ring-offset-background",

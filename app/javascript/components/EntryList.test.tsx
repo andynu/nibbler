@@ -147,42 +147,44 @@ describe("EntryList", () => {
   })
 
   describe("entry states", () => {
-    it("unread entries have left border indicator", () => {
+    it("unread entries are marked as unread", () => {
       const entries = [mockEntry({ id: 1, unread: true })]
 
       render(<EntryList {...defaultProps} entries={entries} />)
 
-      const entryElement = screen.getByText("Test Entry").closest("[data-entry-id]")
-      expect(entryElement).toHaveClass("border-l-2")
+      const entryElement = screen.getByRole("option", { name: /test entry/i })
+      expect(entryElement).toHaveAttribute("data-unread", "true")
     })
 
-    it("unread entries have bold title", () => {
-      const entries = [mockEntry({ id: 1, unread: true })]
-
-      render(<EntryList {...defaultProps} entries={entries} />)
-
-      const titleElement = screen.getByText("Test Entry")
-      expect(titleElement).toHaveClass("font-medium")
-    })
-
-    it("read entries have muted text", () => {
+    it("read entries are marked as read", () => {
       const entries = [mockEntry({ id: 1, unread: false })]
 
       render(<EntryList {...defaultProps} entries={entries} />)
 
-      const titleElement = screen.getByText("Test Entry")
-      expect(titleElement).toHaveClass("text-muted-foreground")
+      const entryElement = screen.getByRole("option", { name: /test entry/i })
+      expect(entryElement).toHaveAttribute("data-unread", "false")
     })
 
-    it("selected entry has accent background", () => {
+    it("selected entry is marked as selected", () => {
       const entries = [mockEntry({ id: 1 })]
 
       render(
         <EntryList {...defaultProps} entries={entries} selectedEntryId={1} />
       )
 
-      const entryElement = screen.getByText("Test Entry").closest("[data-entry-id]")
-      expect(entryElement).toHaveClass("bg-accent")
+      const entryElement = screen.getByRole("option", { name: /test entry/i })
+      expect(entryElement).toHaveAttribute("aria-selected", "true")
+    })
+
+    it("unselected entry is marked as not selected", () => {
+      const entries = [mockEntry({ id: 1 })]
+
+      render(
+        <EntryList {...defaultProps} entries={entries} selectedEntryId={null} />
+      )
+
+      const entryElement = screen.getByRole("option", { name: /test entry/i })
+      expect(entryElement).toHaveAttribute("aria-selected", "false")
     })
   })
 
