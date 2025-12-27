@@ -50,6 +50,32 @@ class OpmlImporter
     @category_cache = {}
   end
 
+  # Parse OPML content without creating any database records
+  # Returns ImportResult with parsed feeds (no categories/feeds created/skipped counts)
+  def parse
+    result = ImportResult.new
+
+    doc = Nokogiri::XML(@opml_content)
+    body = doc.at_xpath("//body")
+
+    if body.nil?
+      result.add_error("Invalid OPML: no body element found")
+      return result
+    end
+
+    # Process top-level outlines (parse only, no database writes)
+    body.xpath("./outline").each do |outline|
+      parse_outline(outline, [], result)
+    end
+
+    result
+  rescue Nokogiri::XML::SyntaxError => e
+    result = ImportResult.new
+    result.add_error("Invalid XML: #{e.message}")
+    result
+  end
+
+  # Import OPML content, creating feeds and categories in the database
   def import
     result = ImportResult.new
 
@@ -75,6 +101,38 @@ class OpmlImporter
 
   private
 
+  # Parse-only methods (no database writes)
+  def parse_outline(outline, category_path, result)
+    xml_url = outline["xmlUrl"]
+
+    if xml_url.present?
+      # This is a feed - just record it without creating
+      parse_feed(outline, category_path, result)
+    else
+      # This is a category - recurse into children
+      category_name = outline["title"] || outline["text"] || "Unnamed"
+      new_path = category_path + [category_name]
+
+      outline.xpath("./outline").each do |child|
+        parse_outline(child, new_path, result)
+      end
+    end
+  end
+
+  def parse_feed(outline, category_path, result)
+    feed_url = outline["xmlUrl"]
+    title = outline["title"] || outline["text"] || feed_url
+    site_url = outline["htmlUrl"] || ""
+
+    result.add_feed(ImportedFeed.new(
+      title: title,
+      feed_url: feed_url,
+      site_url: site_url,
+      category_path: category_path
+    ))
+  end
+
+  # Import methods (create database records)
   def process_outline(outline, category_path, result)
     # Check if this is a feed or a category
     xml_url = outline["xmlUrl"]

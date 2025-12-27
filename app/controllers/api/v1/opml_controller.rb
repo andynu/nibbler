@@ -37,7 +37,7 @@ module Api
 
         opml_content = params[:file].read
         importer = OpmlImporter.new(current_user, opml_content)
-        result = importer.import
+        result = importer.parse  # Parse only - do not import!
 
         existing_urls = current_user.feeds.pluck(:feed_url).to_set
 

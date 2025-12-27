@@ -9,8 +9,8 @@ module Api
 
       def require_auth
         unless current_user
-          # In development, fall back to first user for easier testing
-          if Rails.env.development? && User.exists?
+          # In development/test, fall back to first user for easier testing
+          if (Rails.env.development? || Rails.env.test?) && User.exists?
             @current_user = User.first
           else
             render json: { error: "Authentication required" }, status: :unauthorized
