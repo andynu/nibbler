@@ -57,7 +57,7 @@ export function SubscribeFeedDialog({
         feed: {
           feed_url: feedUrl,
           title: title || undefined,
-          category_id: categoryId ? parseInt(categoryId, 10) : undefined,
+          category_id: categoryId && categoryId !== "none" ? parseInt(categoryId, 10) : undefined,
         },
       })
       onFeedCreated(feed)
@@ -117,7 +117,7 @@ export function SubscribeFeedDialog({
                   <SelectValue placeholder="No category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No category</SelectItem>
+                  <SelectItem value="none">No category</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={String(category.id)}>
                       {category.title}

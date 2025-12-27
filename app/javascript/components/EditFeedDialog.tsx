@@ -63,7 +63,7 @@ export function EditFeedDialog({
   useEffect(() => {
     if (feed) {
       setTitle(feed.title)
-      setCategoryId(feed.category_id ? String(feed.category_id) : "")
+      setCategoryId(feed.category_id ? String(feed.category_id) : "none")
       setUpdateInterval(String(feed.update_interval ?? 0))
       setError(null)
       setShowDeleteConfirm(false)
@@ -81,7 +81,7 @@ export function EditFeedDialog({
       const updatedFeed = await api.feeds.update(feed.id, {
         feed: {
           title,
-          category_id: categoryId ? parseInt(categoryId, 10) : null,
+          category_id: categoryId && categoryId !== "none" ? parseInt(categoryId, 10) : null,
           update_interval: parseInt(updateInterval, 10),
         },
       })
@@ -178,7 +178,7 @@ export function EditFeedDialog({
                   <SelectValue placeholder="No category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No category</SelectItem>
+                  <SelectItem value="none">No category</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={String(category.id)}>
                       {category.title}
