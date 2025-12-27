@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useTheme } from "@/contexts/ThemeContext"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -374,6 +375,8 @@ function CategoryItem({
   onEditCategory,
   onDeleteCategory,
 }: CategoryItemProps) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
   const unreadCount = feeds.reduce((sum, f) => sum + f.unread_count, 0)
   const hasSelectedChild = selectedFeedId !== null && feeds.some((f) => f.id === selectedFeedId)
   const isSelected = selectedCategoryId === category.id
@@ -388,10 +391,16 @@ function CategoryItem({
     }
     if (hasSelectedChild) {
       // Subtle highlight for parent folder when child feed is selected
-      return {
-        backgroundColor: "var(--color-accent-primary-darker)",
-        color: "var(--color-accent-primary-light)",
-      }
+      // Use darker variant in dark mode, lighter variant in light mode
+      return isDark
+        ? {
+            backgroundColor: "var(--color-accent-primary-darker)",
+            color: "var(--color-accent-primary-light)",
+          }
+        : {
+            backgroundColor: "var(--color-accent-primary-lighter)",
+            color: "var(--color-accent-primary-dark)",
+          }
     }
     return undefined
   }

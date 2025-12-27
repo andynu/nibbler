@@ -23,6 +23,7 @@
   --radius: 0.5rem;
   /* User-configurable accent colors (set via JS) */
   --color-accent-primary: hsl(210, 70%, 50%);
+  --color-accent-primary-lighter: hsl(210, 40%, 92%);
   --color-accent-primary-light: hsl(210, 60%, 70%);
   --color-accent-primary-dark: hsl(210, 75%, 35%);
   --color-accent-primary-darker: hsl(210, 50%, 20%);

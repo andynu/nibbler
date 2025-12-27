@@ -3,6 +3,7 @@
 
 interface AccentColors {
   primary: string
+  primaryLighter: string
   primaryLight: string
   primaryDark: string
   primaryDarker: string
@@ -22,6 +23,7 @@ export function generateAccentColors(hue: number): AccentColors {
 
   // Primary colors - using the selected hue
   const primary = `hsl(${h}, 70%, 50%)`
+  const primaryLighter = `hsl(${h}, 40%, 92%)` // Very subtle, for light mode parent highlights
   const primaryLight = `hsl(${h}, 60%, 70%)`
   const primaryDark = `hsl(${h}, 75%, 35%)`
   const primaryDarker = `hsl(${h}, 50%, 20%)` // Very subtle, for dark mode parent highlights
@@ -34,6 +36,7 @@ export function generateAccentColors(hue: number): AccentColors {
 
   return {
     primary,
+    primaryLighter,
     primaryLight,
     primaryDark,
     primaryDarker,
@@ -52,6 +55,7 @@ export function applyAccentColors(hue: number): void {
   const root = document.documentElement
 
   root.style.setProperty("--color-accent-primary", colors.primary)
+  root.style.setProperty("--color-accent-primary-lighter", colors.primaryLighter)
   root.style.setProperty("--color-accent-primary-light", colors.primaryLight)
   root.style.setProperty("--color-accent-primary-dark", colors.primaryDark)
   root.style.setProperty("--color-accent-primary-darker", colors.primaryDarker)
