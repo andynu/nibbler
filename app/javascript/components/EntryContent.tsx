@@ -9,6 +9,8 @@ import { usePreferences } from "@/contexts/PreferencesContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
 import { TagEditor } from "@/components/TagEditor"
+import { TtsPlayer } from "@/components/TtsPlayer"
+import { useTtsPlayer } from "@/hooks/useTtsPlayer"
 import type { Entry } from "@/lib/api"
 
 interface EntryContentProps {
@@ -60,11 +62,16 @@ export function EntryContent({
   const [isSavingNote, setIsSavingNote] = useState(false)
   const [iframeError, setIframeError] = useState(false)
 
+  // TTS player hook
+  const ttsPlayer = useTtsPlayer()
+
   // Reset state when entry changes
   useEffect(() => {
     setIsEditingNote(false)
     setNoteText(entry?.note || "")
     setIframeError(false)
+    // Stop TTS when switching entries
+    ttsPlayer.stop()
   }, [entry?.id])
 
   const handleStartEditNote = () => {
@@ -286,6 +293,20 @@ export function EntryContent({
                 />
               </div>
             )}
+            {/* TTS Player */}
+            <div className="mt-3">
+              <TtsPlayer
+                state={ttsPlayer.state}
+                currentTime={ttsPlayer.currentTime}
+                duration={ttsPlayer.duration}
+                onPlay={ttsPlayer.play}
+                onPause={ttsPlayer.pause}
+                onStop={ttsPlayer.stop}
+                onSeek={ttsPlayer.seek}
+                onRequestAudio={() => ttsPlayer.requestAudio(entry.id)}
+                error={ttsPlayer.error}
+              />
+            </div>
           </header>
 
           {entry.enclosures && entry.enclosures.length > 0 && (

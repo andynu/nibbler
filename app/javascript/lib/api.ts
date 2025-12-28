@@ -217,6 +217,19 @@ export interface FilterTestResult {
   matched_articles: Array<{ id: number; title: string }>
 }
 
+export interface WordTimestamp {
+  word: string
+  start: number
+  end: number
+}
+
+export interface AudioResponse {
+  status: "ready" | "generating"
+  audio_url?: string
+  duration?: number
+  timestamps?: WordTimestamp[]
+}
+
 export type FilterRuleCreateData = {
   filter_type: number
   reg_exp: string
@@ -317,6 +330,8 @@ export const api = {
         method: "POST",
         body: JSON.stringify(params || {}),
       }),
+    audio: (id: number) =>
+      request<AudioResponse>(`/entries/${id}/audio`),
   },
 
   categories: {
