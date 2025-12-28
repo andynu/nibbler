@@ -58,13 +58,53 @@ CommandInput.displayName = CommandPrimitive.Input.displayName
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.List
-    ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const internalRef = React.useRef<HTMLDivElement>(null)
+  const combinedRef = React.useMemo(() => {
+    return (node: HTMLDivElement | null) => {
+      internalRef.current = node
+      if (typeof ref === "function") {
+        ref(node)
+      } else if (ref) {
+        ref.current = node
+      }
+    }
+  }, [ref])
+
+  // Scroll selected item into view when selection changes
+  React.useEffect(() => {
+    const listElement = internalRef.current
+    if (!listElement) return
+
+    const observer = new MutationObserver(() => {
+      const selectedItem = listElement.querySelector("[data-selected=true]")
+      if (selectedItem) {
+        selectedItem.scrollIntoView({ block: "nearest" })
+      }
+    })
+
+    observer.observe(listElement, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-selected"],
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <CommandPrimitive.List
+      ref={combinedRef}
+      className={cn(
+        "max-h-[300px] overflow-y-auto overflow-x-hidden",
+        // Scroll padding ensures selected items near edges remain visible
+        "scroll-pt-2 scroll-pb-2",
+        className
+      )}
+      {...props}
+    />
+  )
+})
 
 CommandList.displayName = CommandPrimitive.List.displayName
 
