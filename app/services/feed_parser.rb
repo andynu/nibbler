@@ -71,9 +71,9 @@ class FeedParser
     ParsedEntry.new(
       guid: extract_guid(entry),
       title: entry.title&.strip || "(untitled)",
-      link: entry.url || entry.link,
+      link: extract_link(entry),
       content: extract_content(entry),
-      author: entry.author,
+      author: entry.respond_to?(:author) ? entry.author : nil,
       published: entry.published,
       updated: entry.updated || entry.published,
       categories: extract_categories(entry),
@@ -81,20 +81,37 @@ class FeedParser
     )
   end
 
+  def extract_link(entry)
+    # Try common URL methods - not all feed item types have all methods
+    return entry.url if entry.respond_to?(:url) && entry.url.present?
+    return entry.link if entry.respond_to?(:link) && entry.link.present?
+    # For podcasts, fall back to enclosure URL
+    return entry.enclosure_url if entry.respond_to?(:enclosure_url) && entry.enclosure_url.present?
+
+    nil
+  end
+
   def extract_guid(entry)
     # Prefer explicit ID, fall back to URL, then generate from content
     entry.entry_id.presence ||
-      entry.id.presence ||
-      entry.url.presence ||
-      entry.link.presence ||
+      (entry.respond_to?(:id) ? entry.id.presence : nil) ||
+      (entry.respond_to?(:url) ? entry.url.presence : nil) ||
+      (entry.respond_to?(:link) ? entry.link.presence : nil) ||
       Digest::SHA1.hexdigest("#{entry.title}#{entry.published}")
   end
 
   def extract_content(entry)
     # Prefer full content, fall back to summary
     content = entry.content.presence || entry.summary.presence || ""
+    # Unwrap double-encoded CDATA (malformed but common in feeds)
+    content = unwrap_cdata(content)
     # Sanitize HTML to prevent XSS
     ContentSanitizer.sanitize(content.strip)
+  end
+
+  def unwrap_cdata(text)
+    # Handle double-encoded CDATA: &lt;![CDATA[...]]&gt; or <![CDATA[...]]>
+    text.gsub(/\A\s*<!\[CDATA\[(.*)\]\]>\s*\z/m, '\1')
   end
 
   def extract_categories(entry)
