@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCheck, Star, Circle } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
@@ -158,22 +158,34 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
             <span className="whitespace-nowrap">{formattedDate}</span>
           </div>
         </div>
-        <button
-          className="p-0.5 hover:bg-background rounded shrink-0"
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleStarred()
-          }}
-          aria-label={entry.starred ? "Remove star" : "Add star"}
-        >
-          <Star
-            className="h-4 w-4"
-            style={entry.starred ? {
-              fill: "var(--color-accent-secondary)",
-              color: "var(--color-accent-secondary)",
-            } : undefined}
-          />
-        </button>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {entry.note && (
+            <span className="p-0.5" aria-label="Has note">
+              <StickyNote
+                className="h-4 w-4"
+                style={{
+                  color: "var(--color-accent-secondary)",
+                }}
+              />
+            </span>
+          )}
+          <button
+            className="p-0.5 hover:bg-background rounded"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleStarred()
+            }}
+            aria-label={entry.starred ? "Remove star" : "Add star"}
+          >
+            <Star
+              className="h-4 w-4"
+              style={entry.starred ? {
+                fill: "var(--color-accent-secondary)",
+                color: "var(--color-accent-secondary)",
+              } : undefined}
+            />
+          </button>
+        </div>
       </div>
     </div>
   )

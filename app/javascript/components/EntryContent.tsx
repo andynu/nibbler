@@ -1,8 +1,9 @@
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
@@ -18,6 +19,7 @@ interface EntryContentProps {
   hasNext: boolean
   isLoading: boolean
   scrollViewportRef?: React.RefObject<HTMLDivElement | null>
+  onUpdateNote?: (note: string) => Promise<void>
 }
 
 function stripImages(html: string): string {
@@ -35,9 +37,40 @@ export function EntryContent({
   hasNext,
   isLoading,
   scrollViewportRef,
+  onUpdateNote,
 }: EntryContentProps) {
   const { preferences } = usePreferences()
   const shouldStripImages = preferences.strip_images === "true"
+  const [isEditingNote, setIsEditingNote] = useState(false)
+  const [noteText, setNoteText] = useState("")
+  const [isSavingNote, setIsSavingNote] = useState(false)
+
+  // Reset note editing state when entry changes
+  useEffect(() => {
+    setIsEditingNote(false)
+    setNoteText(entry?.note || "")
+  }, [entry?.id])
+
+  const handleStartEditNote = () => {
+    setNoteText(entry?.note || "")
+    setIsEditingNote(true)
+  }
+
+  const handleCancelNote = () => {
+    setNoteText(entry?.note || "")
+    setIsEditingNote(false)
+  }
+
+  const handleSaveNote = async () => {
+    if (!onUpdateNote) return
+    setIsSavingNote(true)
+    try {
+      await onUpdateNote(noteText)
+      setIsEditingNote(false)
+    } finally {
+      setIsSavingNote(false)
+    }
+  }
 
   const processedContent = useMemo(() => {
     if (!entry?.content) return ""
@@ -110,6 +143,21 @@ export function EntryContent({
               } : undefined}
             />
           </Button>
+          {onUpdateNote && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleStartEditNote}
+              aria-label={entry.note ? "Edit note" : "Add note"}
+            >
+              <StickyNote
+                className="h-4 w-4"
+                style={entry.note ? {
+                  color: "var(--color-accent-secondary)",
+                } : undefined}
+              />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" asChild>
             <a
               href={entry.link}
@@ -194,10 +242,57 @@ export function EntryContent({
             dangerouslySetInnerHTML={{ __html: processedContent }}
           />
 
-          {entry.note && (
+          {(entry.note || isEditingNote) && (
             <div className="mt-6 p-4 bg-muted rounded-md">
-              <div className="text-sm font-medium mb-1">Note</div>
-              <div className="text-sm">{entry.note}</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium flex items-center gap-1">
+                  <StickyNote className="h-4 w-4" />
+                  Note
+                </div>
+                {!isEditingNote && onUpdateNote && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleStartEditNote}
+                    className="h-6 text-xs"
+                  >
+                    Edit
+                  </Button>
+                )}
+              </div>
+              {isEditingNote ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Add a note about this article..."
+                    className="min-h-[100px]"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelNote}
+                      disabled={isSavingNote}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleSaveNote}
+                      disabled={isSavingNote}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      {isSavingNote ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm whitespace-pre-wrap">{entry.note}</div>
+              )}
             </div>
           )}
         </article>

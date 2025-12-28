@@ -223,6 +223,20 @@ function App() {
     }
   }
 
+  const handleUpdateNote = async (note: string) => {
+    if (!selectedEntry) return
+    try {
+      await api.entries.update(selectedEntry.id, { entry: { note } })
+      setEntries((prev) =>
+        prev.map((e) => (e.id === selectedEntry.id ? { ...e, note } : e))
+      )
+      setSelectedEntry({ ...selectedEntry, note })
+    } catch (error) {
+      console.error("Failed to update note:", error)
+      throw error // Re-throw so the UI can handle it
+    }
+  }
+
   const doMarkAllRead = async () => {
     try {
       await api.entries.markAllRead({
@@ -560,6 +574,7 @@ function App() {
           hasNext={currentIndex < entries.length - 1}
           isLoading={isLoadingEntry}
           scrollViewportRef={contentScrollRef}
+          onUpdateNote={handleUpdateNote}
         />
       </div>
       <KeyboardShortcutsDialog
