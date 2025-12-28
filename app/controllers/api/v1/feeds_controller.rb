@@ -1,7 +1,7 @@
 module Api
   module V1
     class FeedsController < BaseController
-      before_action :set_feed, only: [:show, :update, :destroy, :refresh]
+      before_action :set_feed, only: [ :show, :update, :destroy, :refresh ]
 
       # GET /api/v1/feeds
       def index

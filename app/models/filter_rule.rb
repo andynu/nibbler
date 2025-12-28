@@ -31,21 +31,21 @@ class FilterRule < ApplicationRecord
   def matches?(article)
     regex = Regexp.new(reg_exp, Regexp::IGNORECASE)
     result = case filter_type
-             when FILTER_TYPES[:title]
+    when FILTER_TYPES[:title]
                regex.match?(article[:title].to_s)
-             when FILTER_TYPES[:content]
+    when FILTER_TYPES[:content]
                regex.match?(article[:content].to_s)
-             when FILTER_TYPES[:both]
+    when FILTER_TYPES[:both]
                regex.match?(article[:title].to_s) || regex.match?(article[:content].to_s)
-             when FILTER_TYPES[:link]
+    when FILTER_TYPES[:link]
                regex.match?(article[:link].to_s)
-             when FILTER_TYPES[:author]
+    when FILTER_TYPES[:author]
                regex.match?(article[:author].to_s)
-             when FILTER_TYPES[:tag]
+    when FILTER_TYPES[:tag]
                article[:tags]&.any? { |t| regex.match?(t) }
-             else
+    else
                false
-             end
+    end
     inverse ? !result : result
   rescue RegexpError
     false

@@ -21,7 +21,7 @@ Rails.application.routes.draw do
         end
       end
 
-      resources :entries, only: [:index, :show, :update] do
+      resources :entries, only: [ :index, :show, :update ] do
         member do
           post :toggle_read
           post :toggle_starred
@@ -30,11 +30,11 @@ Rails.application.routes.draw do
           get :headlines
           post :mark_all_read
         end
-        resources :labels, only: [:create, :destroy], controller: "entry_labels"
+        resources :labels, only: [ :create, :destroy ], controller: "entry_labels"
       end
 
       resources :labels
-      resources :tags, only: [:index]
+      resources :tags, only: [ :index ]
 
       resources :filters do
         member do

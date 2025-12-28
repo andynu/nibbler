@@ -43,7 +43,7 @@ class Feed < ApplicationRecord
   end
 
   # Exponential backoff delays: 5min, 15min, 1hr, 4hr, 24hr (capped)
-  BACKOFF_DELAYS = [5.minutes, 15.minutes, 1.hour, 4.hours, 24.hours].freeze
+  BACKOFF_DELAYS = [ 5.minutes, 15.minutes, 1.hour, 4.hours, 24.hours ].freeze
 
   # Adaptive polling interval bounds (in seconds)
   MIN_POLL_INTERVAL = 5.minutes.to_i
@@ -56,7 +56,7 @@ class Feed < ApplicationRecord
   # Apply exponential backoff, optionally using server's Retry-After
   def apply_backoff!(server_retry_after = nil)
     self.consecutive_failures += 1
-    delay = BACKOFF_DELAYS[[consecutive_failures - 1, BACKOFF_DELAYS.length - 1].min]
+    delay = BACKOFF_DELAYS[[ consecutive_failures - 1, BACKOFF_DELAYS.length - 1 ].min]
 
     # Prefer server's Retry-After if provided and reasonable (under 48 hours)
     if server_retry_after.present? && server_retry_after < 48.hours.from_now

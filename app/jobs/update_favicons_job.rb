@@ -15,8 +15,8 @@ class UpdateFaviconsJob < ApplicationJob
   private
 
   def feeds_needing_update
-    Feed.where(favicon_is_custom: [false, nil])
+    Feed.where(favicon_is_custom: [ false, nil ])
         .where("favicon_last_checked IS NULL OR favicon_last_checked < ?", REFRESH_INTERVAL.ago)
-        .where.not(site_url: [nil, ""])
+        .where.not(site_url: [ nil, "" ])
   end
 end

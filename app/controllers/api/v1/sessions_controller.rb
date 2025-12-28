@@ -2,7 +2,7 @@ module Api
   module V1
     class SessionsController < ApplicationController
       skip_forgery_protection
-      before_action :require_auth, only: [:show, :destroy, :change_password]
+      before_action :require_auth, only: [ :show, :destroy, :change_password ]
 
       # POST /api/v1/auth/login
       def create

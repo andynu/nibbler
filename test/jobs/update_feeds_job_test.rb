@@ -22,7 +22,7 @@ class UpdateFeedsJobTest < ActiveJob::TestCase
     @feed_ready.update!(next_poll_at: 1.minute.ago)
     @feed_not_ready.update!(next_poll_at: 1.hour.from_now)
 
-    assert_enqueued_with(job: UpdateFeedJob, args: [@feed_ready.id]) do
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
       UpdateFeedsJob.perform_now
     end
   end
@@ -42,7 +42,7 @@ class UpdateFeedsJobTest < ActiveJob::TestCase
     # Mark other feed as already polled to exclude it
     @feed_not_ready.update!(next_poll_at: 1.hour.from_now)
 
-    assert_enqueued_with(job: UpdateFeedJob, args: [@feed_ready.id]) do
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
       UpdateFeedsJob.perform_now
     end
   end

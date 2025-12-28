@@ -42,6 +42,6 @@ class CreateFeeds < ActiveRecord::Migration[8.1]
     end
 
     # user_id and category_id indexes created automatically by t.references
-    add_index :feeds, [:feed_url, :user_id], unique: true
+    add_index :feeds, [ :feed_url, :user_id ], unique: true
   end
 end

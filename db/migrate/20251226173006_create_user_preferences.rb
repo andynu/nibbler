@@ -8,6 +8,6 @@ class CreateUserPreferences < ActiveRecord::Migration[8.1]
 
     # user_id index created automatically by t.references
     add_index :user_preferences, :pref_name
-    add_index :user_preferences, [:pref_name, :user_id], unique: true
+    add_index :user_preferences, [ :pref_name, :user_id ], unique: true
   end
 end

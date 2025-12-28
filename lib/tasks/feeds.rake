@@ -1,6 +1,6 @@
 namespace :feeds do
   desc "Import feeds from OPML file"
-  task :import_opml, [:file, :user_login] => :environment do |_t, args|
+  task :import_opml, [ :file, :user_login ] => :environment do |_t, args|
     file_path = args[:file]
     user_login = args[:user_login] || "admin"
 
@@ -31,7 +31,7 @@ namespace :feeds do
   end
 
   desc "Update a single feed"
-  task :update, [:feed_id] => :environment do |_t, args|
+  task :update, [ :feed_id ] => :environment do |_t, args|
     feed = Feed.find(args[:feed_id])
     puts "Updating feed: #{feed.title} (#{feed.feed_url})"
 
@@ -45,7 +45,7 @@ namespace :feeds do
   end
 
   desc "Update all feeds for a user"
-  task :update_all, [:user_login] => :environment do |_t, args|
+  task :update_all, [ :user_login ] => :environment do |_t, args|
     user_login = args[:user_login] || "admin"
     user = User.find_by!(login: user_login)
 
@@ -69,7 +69,7 @@ namespace :feeds do
   end
 
   desc "List feeds for a user"
-  task :list, [:user_login] => :environment do |_t, args|
+  task :list, [ :user_login ] => :environment do |_t, args|
     user_login = args[:user_login] || "admin"
     user = User.find_by!(login: user_login)
 
@@ -82,7 +82,7 @@ namespace :feeds do
   end
 
   desc "Export feeds to OPML"
-  task :export_opml, [:user_login, :output_file] => :environment do |_t, args|
+  task :export_opml, [ :user_login, :output_file ] => :environment do |_t, args|
     user_login = args[:user_login] || "admin"
     output_file = args[:output_file]
 

@@ -1,7 +1,7 @@
 module Api
   module V1
     class EntriesController < BaseController
-      before_action :set_user_entry, only: [:show, :update, :toggle_read, :toggle_starred]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred ]
 
       # GET /api/v1/entries
       def index
@@ -49,7 +49,7 @@ module Api
 
         # Pagination
         page = (params[:page] || 1).to_i
-        per_page = [(params[:per_page] || 50).to_i, 100].min
+        per_page = [ (params[:per_page] || 50).to_i, 100 ].min
         offset = (page - 1) * per_page
 
         total = @user_entries.count
@@ -138,7 +138,7 @@ module Api
 
         # Pagination
         page = (params[:page] || 1).to_i
-        per_page = [(params[:per_page] || 100).to_i, 500].min
+        per_page = [ (params[:per_page] || 100).to_i, 500 ].min
         offset = (page - 1) * per_page
 
         total = @user_entries.count

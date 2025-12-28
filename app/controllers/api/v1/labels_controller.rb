@@ -1,7 +1,7 @@
 module Api
   module V1
     class LabelsController < BaseController
-      before_action :set_label, only: [:show, :update, :destroy]
+      before_action :set_label, only: [ :show, :update, :destroy ]
 
       # GET /api/v1/labels
       def index

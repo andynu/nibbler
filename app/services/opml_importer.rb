@@ -111,7 +111,7 @@ class OpmlImporter
     else
       # This is a category - recurse into children
       category_name = outline["title"] || outline["text"] || "Unnamed"
-      new_path = category_path + [category_name]
+      new_path = category_path + [ category_name ]
 
       outline.xpath("./outline").each do |child|
         parse_outline(child, new_path, result)
@@ -143,7 +143,7 @@ class OpmlImporter
     else
       # This is a category - recurse into children
       category_name = outline["title"] || outline["text"] || "Unnamed"
-      new_path = category_path + [category_name]
+      new_path = category_path + [ category_name ]
 
       outline.xpath("./outline").each do |child|
         process_outline(child, new_path, result)

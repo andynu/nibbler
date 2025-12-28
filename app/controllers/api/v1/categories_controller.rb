@@ -1,7 +1,7 @@
 module Api
   module V1
     class CategoriesController < BaseController
-      before_action :set_category, only: [:show, :update, :destroy, :reorder]
+      before_action :set_category, only: [ :show, :update, :destroy, :reorder ]
 
       # GET /api/v1/categories
       def index

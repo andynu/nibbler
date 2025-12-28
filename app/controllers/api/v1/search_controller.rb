@@ -11,7 +11,7 @@ module Api
 
         # Pagination
         page = (params[:page] || 1).to_i
-        per_page = [(params[:per_page] || 50).to_i, 100].min
+        per_page = [ (params[:per_page] || 50).to_i, 100 ].min
         offset = (page - 1) * per_page
 
         total = @user_entries.count
@@ -91,7 +91,7 @@ module Api
         match_pos = plain_content =~ pattern
         if match_pos
           # Extract context around the match
-          start_pos = [match_pos - 80, 0].max
+          start_pos = [ match_pos - 80, 0 ].max
           excerpt = plain_content[start_pos, 200]
           excerpt = "..." + excerpt if start_pos > 0
           excerpt = excerpt + "..." if start_pos + 200 < plain_content.length
