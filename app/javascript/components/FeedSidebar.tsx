@@ -1199,26 +1199,8 @@ function CategoryItem({
       </ContextMenuContent>
       {isExpanded && (
         <>
-          {/* Render feeds in this category */}
-          <div style={{ marginLeft: `${(depth + 1) * 16 + 8}px` }}>
-            {feeds.map((feed) => (
-              <FeedItem
-                key={feed.id}
-                feed={feed}
-                isSelected={selectedFeedId === feed.id}
-                isTracked={trackedFeedId === feed.id}
-                isDragging={activeDragId === feed.id}
-                onSelect={() => onSelectFeed(feed.id)}
-                onEdit={() => onEditFeed(feed)}
-                onRefresh={() => onRefreshFeed(feed)}
-                onUnsubscribe={() => onUnsubscribeFeed(feed)}
-                onInfo={() => onInfoFeed(feed)}
-                isRefreshing={refreshingFeedId === feed.id}
-              />
-            ))}
-          </div>
-          {/* Render child categories recursively */}
-          {childCategories.map((childCategory) => {
+          {/* Render child categories first (sorted alphabetically) */}
+          {[...childCategories].sort((a, b) => a.title.localeCompare(b.title)).map((childCategory) => {
             const childFeeds = filterAndSortFeeds(
               allFeeds.filter((f) => f.category_id === childCategory.id)
             )
@@ -1261,6 +1243,24 @@ function CategoryItem({
               />
             )
           })}
+          {/* Render feeds in this category (after subcategories) */}
+          <div style={{ marginLeft: `${(depth + 1) * 16 + 8}px` }}>
+            {feeds.map((feed) => (
+              <FeedItem
+                key={feed.id}
+                feed={feed}
+                isSelected={selectedFeedId === feed.id}
+                isTracked={trackedFeedId === feed.id}
+                isDragging={activeDragId === feed.id}
+                onSelect={() => onSelectFeed(feed.id)}
+                onEdit={() => onEditFeed(feed)}
+                onRefresh={() => onRefreshFeed(feed)}
+                onUnsubscribe={() => onUnsubscribeFeed(feed)}
+                onInfo={() => onInfoFeed(feed)}
+                isRefreshing={refreshingFeedId === feed.id}
+              />
+            ))}
+          </div>
         </>
       )}
     </ContextMenu>
