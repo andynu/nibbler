@@ -10,6 +10,7 @@ import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
 import { TagEditor } from "@/components/TagEditor"
 import { TtsPlayer } from "@/components/TtsPlayer"
+import { HighlightedContent } from "@/components/HighlightedContent"
 import { useTtsPlayer } from "@/hooks/useTtsPlayer"
 import type { Entry } from "@/lib/api"
 
@@ -313,22 +314,44 @@ export function EntryContent({
             <EnclosurePlayer enclosures={entry.enclosures} />
           )}
 
-          <div
-            className="prose prose-sm max-w-none
-              [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3
-              [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2
-              [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2
-              [&_p]:my-3 [&_p]:leading-relaxed
-              [&_ul]:my-3 [&_ul]:pl-6 [&_ul]:list-disc
-              [&_ol]:my-3 [&_ol]:pl-6 [&_ol]:list-decimal
-              [&_li]:my-1
-              [&_blockquote]:border-l-4 [&_blockquote]:border-muted [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4
-              [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-4
-              [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
-              [&_a]:text-primary [&_a]:underline
-              [&_img]:block [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
-            dangerouslySetInnerHTML={{ __html: processedContent }}
-          />
+          {ttsPlayer.isActive && ttsPlayer.timestamps.length > 0 ? (
+            <HighlightedContent
+              html={processedContent}
+              timestamps={ttsPlayer.timestamps}
+              currentWordIndex={ttsPlayer.currentWordIndex}
+              isPlaying={ttsPlayer.state === "playing"}
+              className="prose prose-sm max-w-none
+                [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3
+                [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2
+                [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2
+                [&_p]:my-3 [&_p]:leading-relaxed
+                [&_ul]:my-3 [&_ul]:pl-6 [&_ul]:list-disc
+                [&_ol]:my-3 [&_ol]:pl-6 [&_ol]:list-decimal
+                [&_li]:my-1
+                [&_blockquote]:border-l-4 [&_blockquote]:border-muted [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4
+                [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-4
+                [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
+                [&_a]:text-primary [&_a]:underline
+                [&_img]:block [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
+            />
+          ) : (
+            <div
+              className="prose prose-sm max-w-none
+                [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3
+                [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2
+                [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2
+                [&_p]:my-3 [&_p]:leading-relaxed
+                [&_ul]:my-3 [&_ul]:pl-6 [&_ul]:list-disc
+                [&_ol]:my-3 [&_ol]:pl-6 [&_ol]:list-decimal
+                [&_li]:my-1
+                [&_blockquote]:border-l-4 [&_blockquote]:border-muted [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4
+                [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-4
+                [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
+                [&_a]:text-primary [&_a]:underline
+                [&_img]:block [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
+              dangerouslySetInnerHTML={{ __html: processedContent }}
+            />
+          )}
 
           {(entry.note || isEditingNote) && (
             <div className="mt-6 p-4 bg-muted rounded-md">

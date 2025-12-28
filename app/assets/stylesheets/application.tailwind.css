@@ -46,6 +46,18 @@
     color: var(--color-foreground);
   }
 
+  /* TTS word highlighting */
+  .tts-word {
+    transition: background-color 0.1s ease-out, color 0.1s ease-out;
+  }
+  .tts-word-active {
+    background-color: var(--color-accent-primary-lighter);
+    color: var(--color-accent-primary-dark);
+    border-radius: 2px;
+    padding: 0 1px;
+    margin: 0 -1px;
+  }
+
   /* Dark mode color overrides */
   .dark {
     --color-background: hsl(0 0% 3.9%);
