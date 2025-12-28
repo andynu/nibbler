@@ -327,7 +327,12 @@ export function EntryContent({
           </header>
 
           {entry.enclosures && entry.enclosures.length > 0 && (
-            <EnclosurePlayer enclosures={entry.enclosures} />
+            <EnclosurePlayer
+              enclosures={entry.enclosures}
+              entryId={entry.id}
+              entryTitle={entry.title}
+              feedTitle={entry.feed_title}
+            />
           )}
 
           {isTtsActiveForThisEntry && audioPlayer.timestamps.length > 0 ? (

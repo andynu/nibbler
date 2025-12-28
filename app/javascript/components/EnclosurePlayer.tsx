@@ -1,9 +1,13 @@
-import { Download, FileAudio, FileVideo, Image as ImageIcon, ExternalLink } from "lucide-react"
+import { Download, FileAudio, FileVideo, Image as ImageIcon, ExternalLink, Play, Pause } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import type { Enclosure } from "@/lib/api"
 
 interface EnclosurePlayerProps {
   enclosures: Enclosure[]
+  entryId?: number
+  entryTitle?: string
+  feedTitle?: string
 }
 
 function formatDuration(duration: string): string {
@@ -29,8 +33,42 @@ function getMediaType(contentType: string): "audio" | "video" | "image" | "other
   return "other"
 }
 
-function AudioPlayer({ enclosure }: { enclosure: Enclosure }) {
+interface AudioPlayerInternalProps {
+  enclosure: Enclosure
+  entryId?: number
+  entryTitle?: string
+  feedTitle?: string
+}
+
+function AudioPlayer({ enclosure, entryId, entryTitle, feedTitle }: AudioPlayerInternalProps) {
+  const audioPlayer = useAudioPlayer()
   const duration = formatDuration(enclosure.duration)
+  const durationSeconds = enclosure.duration ? parseInt(enclosure.duration, 10) : undefined
+
+  // Check if this enclosure is currently playing in the audio panel
+  const isPlayingInPanel = audioPlayer.source === "podcast" &&
+    audioPlayer.activeEntryId === entryId &&
+    audioPlayer.state !== "idle"
+
+  const handlePlay = () => {
+    if (entryId && entryTitle) {
+      audioPlayer.requestPodcastAudio(
+        entryId,
+        enclosure.title || entryTitle,
+        enclosure.content_url,
+        feedTitle,
+        durationSeconds
+      )
+    }
+  }
+
+  const handleTogglePlayback = () => {
+    if (audioPlayer.state === "playing") {
+      audioPlayer.pause()
+    } else {
+      audioPlayer.play()
+    }
+  }
 
   return (
     <div className="bg-muted rounded-lg p-4">
@@ -48,15 +86,56 @@ function AudioPlayer({ enclosure }: { enclosure: Enclosure }) {
           </a>
         </Button>
       </div>
-      <audio
-        controls
-        preload="metadata"
-        className="w-full h-10"
-        src={enclosure.content_url}
-        data-testid="audio-player"
-      >
-        <a href={enclosure.content_url}>Download audio</a>
-      </audio>
+      {/* Show play button that integrates with audio panel, or native controls as fallback */}
+      {entryId && entryTitle ? (
+        <div className="flex items-center gap-2">
+          {isPlayingInPanel ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTogglePlayback}
+              className="gap-2"
+            >
+              {audioPlayer.state === "playing" ? (
+                <>
+                  <Pause className="h-4 w-4" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Resume
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePlay}
+              className="gap-2"
+            >
+              <Play className="h-4 w-4" />
+              Play in panel
+            </Button>
+          )}
+          {isPlayingInPanel && (
+            <span className="text-xs text-muted-foreground">
+              Playing in audio panel
+            </span>
+          )}
+        </div>
+      ) : (
+        <audio
+          controls
+          preload="metadata"
+          className="w-full h-10"
+          src={enclosure.content_url}
+          data-testid="audio-player"
+        >
+          <a href={enclosure.content_url}>Download audio</a>
+        </audio>
+      )}
     </div>
   )
 }
@@ -147,7 +226,7 @@ function OtherEnclosure({ enclosure }: { enclosure: Enclosure }) {
   )
 }
 
-export function EnclosurePlayer({ enclosures }: EnclosurePlayerProps) {
+export function EnclosurePlayer({ enclosures, entryId, entryTitle, feedTitle }: EnclosurePlayerProps) {
   if (!enclosures || enclosures.length === 0) return null
 
   return (
@@ -157,7 +236,7 @@ export function EnclosurePlayer({ enclosures }: EnclosurePlayerProps) {
 
         switch (mediaType) {
           case "audio":
-            return <AudioPlayer key={enclosure.id} enclosure={enclosure} />
+            return <AudioPlayer key={enclosure.id} enclosure={enclosure} entryId={entryId} entryTitle={entryTitle} feedTitle={feedTitle} />
           case "video":
             return <VideoPlayer key={enclosure.id} enclosure={enclosure} />
           case "image":

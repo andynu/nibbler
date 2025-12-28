@@ -4,6 +4,43 @@ import React from "react"
 import { EnclosurePlayer } from "./EnclosurePlayer"
 import type { Enclosure } from "@/lib/api"
 
+// Mock the audio player context
+const mockAudioPlayer = {
+  state: "idle" as const,
+  source: null,
+  currentTime: 0,
+  duration: 0,
+  currentWordIndex: -1,
+  timestamps: [],
+  error: null,
+  autoScroll: true,
+  playbackSpeed: 1,
+  isVisible: false,
+  activeEntryId: null,
+  activeEntryTitle: null,
+  activeFeedTitle: null,
+  play: vi.fn(),
+  pause: vi.fn(),
+  stop: vi.fn(),
+  reset: vi.fn(),
+  seek: vi.fn(),
+  toggle: vi.fn(),
+  toggleAutoScroll: vi.fn(),
+  pauseAutoScroll: vi.fn(),
+  setPlaybackSpeed: vi.fn(),
+  dismiss: vi.fn(),
+  requestTtsAudio: vi.fn(),
+  requestPodcastAudio: vi.fn(),
+  jumpToSource: vi.fn(),
+  onJumpToEntry: null,
+  setOnJumpToEntry: vi.fn(),
+  isActive: false,
+}
+
+vi.mock("@/contexts/AudioPlayerContext", () => ({
+  useAudioPlayer: () => mockAudioPlayer,
+}))
+
 // Helper to create test enclosures
 function mockEnclosure(overrides: Partial<Enclosure> = {}): Enclosure {
   return {

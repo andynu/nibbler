@@ -37,6 +37,9 @@ interface AudioPlayerContextValue {
   // TTS-specific
   requestTtsAudio: (entryId: number, entryTitle: string, feedTitle?: string) => Promise<void>
 
+  // Podcast-specific
+  requestPodcastAudio: (entryId: number, entryTitle: string, audioUrl: string, feedTitle?: string, audioDuration?: number) => void
+
   // Navigation
   jumpToSource: () => void
   onJumpToEntry: ((entryId: number) => void) | null
@@ -232,6 +235,68 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     }
   }, [cleanup, updateCurrentWord, playbackSpeed])
 
+  // Request podcast audio for an entry
+  const requestPodcastAudio = useCallback((
+    entryId: number,
+    entryTitle: string,
+    audioUrl: string,
+    feedTitle?: string,
+    audioDuration?: number
+  ) => {
+    // Clean up any existing playback
+    cleanup()
+
+    entryIdRef.current = entryId
+    setActiveEntryId(entryId)
+    setActiveEntryTitle(entryTitle)
+    setActiveFeedTitle(feedTitle || null)
+    setSource("podcast")
+    setState("loading")
+    setError(null)
+    setCurrentTime(0)
+    setDuration(audioDuration || 0)
+    setCurrentWordIndex(-1)
+    setTimestamps([]) // Podcasts don't have word-level timestamps
+    setIsVisible(true)
+
+    // Create and configure audio element
+    const audio = new Audio(audioUrl)
+    audio.playbackRate = playbackSpeed
+    audioRef.current = audio
+
+    audio.addEventListener("canplaythrough", () => {
+      // Update duration from audio element if not provided
+      if (!audioDuration && audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration)
+      }
+      setState("ready")
+    })
+
+    audio.addEventListener("loadedmetadata", () => {
+      // Also try to get duration from metadata
+      if (audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration)
+      }
+    })
+
+    audio.addEventListener("timeupdate", () => {
+      setCurrentTime(audio.currentTime)
+    })
+
+    audio.addEventListener("ended", () => {
+      setState("ready")
+      setCurrentTime(0)
+    })
+
+    audio.addEventListener("error", () => {
+      setState("error")
+      setError("Failed to load audio")
+    })
+
+    // Start loading the audio
+    audio.load()
+  }, [cleanup, playbackSpeed])
+
   const play = useCallback(() => {
     if (audioRef.current && (state === "ready" || state === "paused")) {
       audioRef.current.play()
@@ -351,6 +416,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     setPlaybackSpeed,
     dismiss,
     requestTtsAudio,
+    requestPodcastAudio,
     jumpToSource,
     onJumpToEntry,
     setOnJumpToEntry,

@@ -43,6 +43,7 @@ const mockAudioPlayer = {
   setPlaybackSpeed: vi.fn(),
   dismiss: vi.fn(),
   requestTtsAudio: vi.fn(),
+  requestPodcastAudio: vi.fn(),
   jumpToSource: vi.fn(),
   onJumpToEntry: null,
   setOnJumpToEntry: vi.fn(),
