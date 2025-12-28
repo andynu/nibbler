@@ -76,7 +76,7 @@ export function ToolsPanel() {
               onClick={(e) => e.preventDefault()}
               draggable
             >
-              Subscribe to Nibbler
+              Subscribe to NibbleRSS
             </a>
             <span className="text-sm text-muted-foreground">
               Drag to your bookmarks bar
@@ -112,7 +112,7 @@ export function ToolsPanel() {
               <li>Detects RSS/Atom feed links in the current page</li>
               <li>If multiple feeds are found, prompts you to choose</li>
               <li>If no feed is detected, uses the current page URL</li>
-              <li>Opens Nibbler with the subscribe dialog pre-filled</li>
+              <li>Opens NibbleRSS with the subscribe dialog pre-filled</li>
             </ul>
           </div>
         </CardContent>

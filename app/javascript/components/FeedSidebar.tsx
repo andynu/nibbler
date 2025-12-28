@@ -364,7 +364,7 @@ export function FeedSidebar({
       <div className="px-3 py-2 border-b border-border shrink-0">
         <div className="flex items-center gap-2 mb-1">
           <NibblerLogo size={40} />
-          <span className="font-semibold">Nibbler</span>
+          <span className="font-semibold">NibbleRSS</span>
         </div>
         <div className="flex items-center gap-0.5">
           <DropdownMenu>

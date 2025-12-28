@@ -49,7 +49,7 @@ export class FeedsPage extends BasePage {
    * Wait for the app branding to be visible (confirms full load)
    */
   async waitForBranding(): Promise<void> {
-    await expect(this.page.getByText("Nibbler")).toBeVisible({ timeout: 10000 })
+    await expect(this.page.getByText("NibbleRSS")).toBeVisible({ timeout: 10000 })
   }
 
   // Navigation actions
