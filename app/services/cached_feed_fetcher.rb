@@ -76,7 +76,7 @@ class CachedFeedFetcher
 
   def load_from_cache(cache_file, metadata_file)
     metadata = JSON.parse(File.read(metadata_file))
-    body = File.read(cache_file)
+    body = File.binread(cache_file)
 
     Rails.logger.debug { "[CachedFeedFetcher] Using cached response for #{@feed.feed_url}" }
 
@@ -90,7 +90,7 @@ class CachedFeedFetcher
   end
 
   def save_to_cache(cache_file, metadata_file, result)
-    File.write(cache_file, result.body)
+    File.binwrite(cache_file, result.body)
     File.write(metadata_file, {
       cached_at: Time.current.iso8601,
       etag: result.etag,
