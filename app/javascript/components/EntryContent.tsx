@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
@@ -13,6 +13,8 @@ interface EntryContentProps {
   entry: Entry | null
   onToggleRead: () => void
   onToggleStarred: () => void
+  onScoreUp?: () => void
+  onScoreDown?: () => void
   onPrevious: () => void
   onNext: () => void
   hasPrevious: boolean
@@ -31,6 +33,8 @@ export function EntryContent({
   entry,
   onToggleRead,
   onToggleStarred,
+  onScoreUp,
+  onScoreDown,
   onPrevious,
   onNext,
   hasPrevious,
@@ -157,6 +161,38 @@ export function EntryContent({
                 } : undefined}
               />
             </Button>
+          )}
+          {onScoreUp && onScoreDown && (
+            <div className="flex items-center gap-0.5 px-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={onScoreDown}
+                aria-label="Decrease score"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+              <span
+                className={cn(
+                  "text-sm font-medium min-w-[2ch] text-center",
+                  entry.score > 0 && "text-green-600 dark:text-green-400",
+                  entry.score < 0 && "text-red-600 dark:text-red-400"
+                )}
+                aria-label={`Score: ${entry.score}`}
+              >
+                {entry.score > 0 ? `+${entry.score}` : entry.score}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={onScoreUp}
+                aria-label="Increase score"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+            </div>
           )}
           <Button variant="ghost" size="icon" asChild>
             <a

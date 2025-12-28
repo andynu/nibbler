@@ -237,6 +237,23 @@ function App() {
     }
   }
 
+  const handleUpdateScore = async (entryId: number, delta: number) => {
+    const entry = entries.find((e) => e.id === entryId)
+    if (!entry) return
+    const newScore = entry.score + delta
+    try {
+      await api.entries.update(entryId, { entry: { score: newScore } })
+      setEntries((prev) =>
+        prev.map((e) => (e.id === entryId ? { ...e, score: newScore } : e))
+      )
+      if (selectedEntry?.id === entryId) {
+        setSelectedEntry({ ...selectedEntry, score: newScore })
+      }
+    } catch (error) {
+      console.error("Failed to update score:", error)
+    }
+  }
+
   const doMarkAllRead = async () => {
     try {
       await api.entries.markAllRead({
@@ -558,6 +575,7 @@ function App() {
           onSelectEntry={loadEntry}
           onToggleRead={handleToggleRead}
           onToggleStarred={handleToggleStarredEntry}
+          onUpdateScore={handleUpdateScore}
           onMarkAllRead={handleMarkAllRead}
           isLoading={isLoadingEntries}
           title={getListTitle()}
@@ -568,6 +586,8 @@ function App() {
           entry={selectedEntry}
           onToggleRead={() => selectedEntry && handleToggleRead(selectedEntry.id)}
           onToggleStarred={() => selectedEntry && handleToggleStarredEntry(selectedEntry.id)}
+          onScoreUp={() => selectedEntry && handleUpdateScore(selectedEntry.id, 1)}
+          onScoreDown={() => selectedEntry && handleUpdateScore(selectedEntry.id, -1)}
           onPrevious={handlePrevious}
           onNext={handleNext}
           hasPrevious={currentIndex > 0}
