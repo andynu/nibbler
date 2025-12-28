@@ -110,11 +110,15 @@ export function useTtsPlayer(): UseTtsPlayerResult {
 
               setTimestamps(pollResponse.timestamps || [])
               setDuration(pollResponse.duration || 0)
-              setState("ready")
+              // Stay in "loading" state until audio is actually ready to play
 
               // Create and configure audio element
               const audio = new Audio(pollResponse.audio_url)
               audioRef.current = audio
+
+              audio.addEventListener("canplaythrough", () => {
+                setState("ready")
+              })
 
               audio.addEventListener("timeupdate", () => {
                 setCurrentTime(audio.currentTime)
@@ -131,6 +135,9 @@ export function useTtsPlayer(): UseTtsPlayerResult {
                 setState("error")
                 setError("Failed to load audio")
               })
+
+              // Start loading the audio
+              audio.load()
             }
           } catch (err) {
             // Ignore polling errors, keep trying
@@ -139,11 +146,15 @@ export function useTtsPlayer(): UseTtsPlayerResult {
       } else if (response.status === "ready" && response.audio_url) {
         setTimestamps(response.timestamps || [])
         setDuration(response.duration || 0)
-        setState("ready")
+        // Stay in "loading" state until audio is actually ready to play
 
         // Create and configure audio element
         const audio = new Audio(response.audio_url)
         audioRef.current = audio
+
+        audio.addEventListener("canplaythrough", () => {
+          setState("ready")
+        })
 
         audio.addEventListener("timeupdate", () => {
           setCurrentTime(audio.currentTime)
@@ -160,6 +171,9 @@ export function useTtsPlayer(): UseTtsPlayerResult {
           setState("error")
           setError("Failed to load audio")
         })
+
+        // Start loading the audio
+        audio.load()
       }
     } catch (err) {
       setState("error")
@@ -170,7 +184,14 @@ export function useTtsPlayer(): UseTtsPlayerResult {
   const play = useCallback(() => {
     if (audioRef.current && (state === "ready" || state === "paused")) {
       audioRef.current.play()
-      setState("playing")
+        .then(() => {
+          setState("playing")
+        })
+        .catch((err) => {
+          console.error("Playback failed:", err)
+          setState("error")
+          setError("Playback failed: " + (err.message || "unknown error"))
+        })
     }
   }, [state])
 
