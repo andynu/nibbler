@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
+import { TagEditor } from "@/components/TagEditor"
 import type { Entry } from "@/lib/api"
 
 interface EntryContentProps {
@@ -24,6 +25,9 @@ interface EntryContentProps {
   onUpdateNote?: (note: string) => Promise<void>
   showIframe: boolean
   onToggleIframe: () => void
+  allTags?: string[]
+  onAddTag?: (tag: string) => Promise<void>
+  onRemoveTag?: (tag: string) => Promise<void>
 }
 
 function stripImages(html: string): string {
@@ -45,6 +49,9 @@ export function EntryContent({
   onUpdateNote,
   showIframe,
   onToggleIframe,
+  allTags = [],
+  onAddTag,
+  onRemoveTag,
 }: EntryContentProps) {
   const { preferences } = usePreferences()
   const shouldStripImages = preferences.strip_images === "true"
@@ -269,13 +276,14 @@ export function EntryContent({
                 ))}
               </div>
             )}
-            {entry.tags && entry.tags.length > 0 && (
-              <div className="flex gap-1 mt-2">
-                {entry.tags.map((tag) => (
-                  <Badge key={tag} variant="outline">
-                    {tag}
-                  </Badge>
-                ))}
+            {onAddTag && onRemoveTag && (
+              <div className="mt-2">
+                <TagEditor
+                  tags={entry.tags || []}
+                  allTags={allTags}
+                  onAddTag={onAddTag}
+                  onRemoveTag={onRemoveTag}
+                />
               </div>
             )}
           </header>

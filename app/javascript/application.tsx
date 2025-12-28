@@ -22,6 +22,7 @@ function App() {
   const [categories, setCategories] = useState<Category[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
+  const [allTags, setAllTags] = useState<string[]>([])
 
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
@@ -77,10 +78,20 @@ function App() {
     onShowSubscribe: setShowSubscribeDialog,
   })
 
-  // Load feeds and categories on mount
+  // Load feeds, categories, and tags on mount
   useEffect(() => {
     loadFeeds()
+    loadTags()
   }, [])
+
+  const loadTags = async () => {
+    try {
+      const result = await api.tags.list()
+      setAllTags(result.tags)
+    } catch (error) {
+      console.error("Failed to load tags:", error)
+    }
+  }
 
   // Check for subscribe URL parameter on mount
   useEffect(() => {
@@ -277,6 +288,32 @@ function App() {
     } catch (error) {
       console.error("Failed to update note:", error)
       throw error // Re-throw so the UI can handle it
+    }
+  }
+
+  const handleAddTag = async (tagName: string) => {
+    if (!selectedEntry) return
+    try {
+      const result = await api.entryTags.add(selectedEntry.id, tagName)
+      setSelectedEntry({ ...selectedEntry, tags: result.tags })
+      // If this is a new tag, add it to allTags
+      if (!allTags.includes(tagName.toLowerCase())) {
+        setAllTags((prev) => [...prev, tagName.toLowerCase()].sort())
+      }
+    } catch (error) {
+      console.error("Failed to add tag:", error)
+      throw error
+    }
+  }
+
+  const handleRemoveTag = async (tagName: string) => {
+    if (!selectedEntry) return
+    try {
+      const result = await api.entryTags.remove(selectedEntry.id, tagName)
+      setSelectedEntry({ ...selectedEntry, tags: result.tags })
+    } catch (error) {
+      console.error("Failed to remove tag:", error)
+      throw error
     }
   }
 
@@ -670,6 +707,9 @@ function App() {
           onUpdateNote={handleUpdateNote}
           showIframe={showIframe}
           onToggleIframe={handleToggleIframe}
+          allTags={allTags}
+          onAddTag={handleAddTag}
+          onRemoveTag={handleRemoveTag}
         />
       </div>
       <KeyboardShortcutsDialog

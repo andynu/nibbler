@@ -345,6 +345,23 @@ export const api = {
     list: () => request<{ tags: string[] }>("/tags"),
   },
 
+  entryTags: {
+    add: (entryId: number, tagName: string) =>
+      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags`, {
+        method: "POST",
+        body: JSON.stringify({ tag_name: tagName }),
+      }),
+    addMultiple: (entryId: number, tagNames: string[]) =>
+      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags`, {
+        method: "POST",
+        body: JSON.stringify({ tag_names: tagNames }),
+      }),
+    remove: (entryId: number, tagName: string) =>
+      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags/${encodeURIComponent(tagName)}`, {
+        method: "DELETE",
+      }),
+  },
+
   labels: {
     list: () => request<Label[]>("/labels"),
     get: (id: number) => request<Label>(`/labels/${id}`),

@@ -193,12 +193,20 @@ describe("EntryContent", () => {
       })
     })
 
-    it("renders tags as badges", () => {
+    it("renders tags as badges when tag callbacks are provided", () => {
       const entry = mockEntryWithContent({
         tags: ["tech", "news"],
       })
 
-      render(<EntryContent {...defaultProps} entry={entry} />)
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={entry}
+          allTags={["tech", "news", "other"]}
+          onAddTag={vi.fn()}
+          onRemoveTag={vi.fn()}
+        />
+      )
 
       expect(screen.getByText("tech")).toBeInTheDocument()
       expect(screen.getByText("news")).toBeInTheDocument()

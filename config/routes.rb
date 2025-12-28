@@ -36,6 +36,7 @@ Rails.application.routes.draw do
           post :mark_all_read
         end
         resources :labels, only: [ :create, :destroy ], controller: "entry_labels"
+        resources :tags, only: [ :create, :destroy ], controller: "entry_tags"
       end
 
       resources :labels
