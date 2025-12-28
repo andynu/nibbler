@@ -52,6 +52,9 @@ group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
 
+  # Pin minitest to 5.x until Rails 8.1 supports 6.0
+  gem "minitest", "~> 5.25"
+
   # Audits gems for known security defects (use config/bundler-audit.yml to ignore issues)
   gem "bundler-audit", require: false
 
@@ -65,4 +68,8 @@ end
 group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
+
+  # Auto-run tests on file changes
+  gem "guard"
+  gem "guard-minitest"
 end
