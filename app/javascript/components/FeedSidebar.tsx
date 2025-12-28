@@ -106,6 +106,7 @@ export function FeedSidebar({
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [newCategoryParentId, setNewCategoryParentId] = useState<number | null>(null)
   const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
   const [infoFeed, setInfoFeed] = useState<Feed | null>(null)
 
@@ -413,6 +414,12 @@ export function FeedSidebar({
 
   const handleCategoryCreated = (category: Category) => {
     onCategoriesChange([...categories, category])
+    setNewCategoryParentId(null) // Reset parent after creation
+  }
+
+  const handleAddChildCategory = (parentCategory: Category) => {
+    setNewCategoryParentId(parentCategory.id)
+    setShowCategoryDialog(true)
   }
 
   const handleCategoryUpdated = (updated: Category) => {
@@ -917,6 +924,7 @@ export function FeedSidebar({
                 onInfoFeed={setInfoFeed}
                 onEditCategory={setEditingCategory}
                 onDeleteCategory={handleDeleteCategory}
+                onAddChildCategory={handleAddChildCategory}
                 hideReadFeeds={hideReadFeeds}
                 filterAndSortFeeds={filterAndSortFeeds}
               />
@@ -967,10 +975,12 @@ export function FeedSidebar({
           if (!open) {
             setShowCategoryDialog(false)
             setEditingCategory(null)
+            setNewCategoryParentId(null)
           }
         }}
         category={editingCategory}
         categories={categories}
+        defaultParentId={newCategoryParentId}
         onCategoryCreated={handleCategoryCreated}
         onCategoryUpdated={handleCategoryUpdated}
       />
@@ -1011,6 +1021,7 @@ interface CategoryItemProps {
   onInfoFeed: (feed: Feed) => void
   onEditCategory: (category: Category) => void
   onDeleteCategory: (category: Category) => void
+  onAddChildCategory: (parentCategory: Category) => void
   hideReadFeeds: boolean
   filterAndSortFeeds: (feeds: Feed[]) => Feed[]
 }
@@ -1040,6 +1051,7 @@ function CategoryItem({
   onInfoFeed,
   onEditCategory,
   onDeleteCategory,
+  onAddChildCategory,
   hideReadFeeds,
   filterAndSortFeeds,
 }: CategoryItemProps) {
@@ -1105,63 +1117,86 @@ function CategoryItem({
   const showDropIndicator = isOver && activeDragId !== null
 
   return (
-    <div ref={setNodeRef} className="group/category">
-      <div className="flex items-center">
-        <Button
-          variant="ghost"
-          className={cn(
-            "flex-1 justify-start gap-2 h-8",
-            showDropIndicator && "ring-2 ring-primary ring-offset-1"
-          )}
-          style={{ ...getButtonStyle(), paddingLeft: `${paddingLeft}px` }}
-          onClick={() => onSelectCategory(category.id)}
-        >
-          <span
-            className="shrink-0 cursor-pointer hover:opacity-70"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle()
-            }}
-          >
-            {isExpanded ? (
-              <FolderOpen className="h-4 w-4" />
-            ) : (
-              <Folder className="h-4 w-4" />
-            )}
-          </span>
-          <span className={cn(
-            "flex-1 text-left truncate",
-            unreadCount > 0 ? "font-medium" : "text-muted-foreground"
-          )}>{category.title}</span>
-          {unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div ref={setNodeRef} className="group/category">
+          <div className="flex items-center">
             <Button
               variant="ghost"
-              size="icon"
-              className="h-7 w-7 opacity-0 group-hover/category:opacity-100 shrink-0"
-              aria-label={`${category.title} menu`}
+              className={cn(
+                "flex-1 justify-start gap-2 h-8",
+                showDropIndicator && "ring-2 ring-primary ring-offset-1"
+              )}
+              style={{ ...getButtonStyle(), paddingLeft: `${paddingLeft}px` }}
+              onClick={() => onSelectCategory(category.id)}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <span
+                className="shrink-0 cursor-pointer hover:opacity-70"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggle()
+                }}
+              >
+                {isExpanded ? (
+                  <FolderOpen className="h-4 w-4" />
+                ) : (
+                  <Folder className="h-4 w-4" />
+                )}
+              </span>
+              <span className={cn(
+                "flex-1 text-left truncate",
+                unreadCount > 0 ? "font-medium" : "text-muted-foreground"
+              )}>{category.title}</span>
+              {unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEditCategory(category)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => onDeleteCategory(category)}
-              className="text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 opacity-0 group-hover/category:opacity-100 shrink-0"
+                  aria-label={`${category.title} menu`}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onAddChildCategory(category)}>
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  Add Subcategory
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEditCategory(category)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onDeleteCategory(category)}
+                  className="text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => onAddChildCategory(category)}>
+          <FolderPlus className="mr-2 h-4 w-4" />
+          Add Subcategory
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onEditCategory(category)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Rename
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onDeleteCategory(category)} variant="destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
       {isExpanded && (
         <>
           {/* Render feeds in this category */}
@@ -1220,6 +1255,7 @@ function CategoryItem({
                 onInfoFeed={onInfoFeed}
                 onEditCategory={onEditCategory}
                 onDeleteCategory={onDeleteCategory}
+                onAddChildCategory={onAddChildCategory}
                 hideReadFeeds={hideReadFeeds}
                 filterAndSortFeeds={filterAndSortFeeds}
               />
@@ -1227,7 +1263,7 @@ function CategoryItem({
           })}
         </>
       )}
-    </div>
+    </ContextMenu>
   )
 }
 

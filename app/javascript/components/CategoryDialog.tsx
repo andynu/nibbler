@@ -23,6 +23,7 @@ interface CategoryDialogProps {
   onOpenChange: (open: boolean) => void
   category?: Category | null
   categories: Category[]
+  defaultParentId?: number | null
   onCategoryCreated: (category: Category) => void
   onCategoryUpdated: (category: Category) => void
 }
@@ -32,6 +33,7 @@ export function CategoryDialog({
   onOpenChange,
   category,
   categories,
+  defaultParentId,
   onCategoryCreated,
   onCategoryUpdated,
 }: CategoryDialogProps) {
@@ -47,9 +49,9 @@ export function CategoryDialog({
       setParentId(category.parent_id)
     } else {
       setTitle("")
-      setParentId(null)
+      setParentId(defaultParentId ?? null)
     }
-  }, [category, open])
+  }, [category, open, defaultParentId])
 
   const handleSubmit = async () => {
     if (!title.trim()) {
