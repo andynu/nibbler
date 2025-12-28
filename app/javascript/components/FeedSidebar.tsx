@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { NibblerLogo } from "@/components/NibblerLogo"
 import { api } from "@/lib/api"
 import type { Feed, Category } from "@/lib/api"
 import { CategoryDialog } from "@/components/CategoryDialog"
@@ -362,7 +363,7 @@ export function FeedSidebar({
     <div className="h-full flex flex-col border-r border-border bg-muted/30">
       <div className="px-3 py-2 border-b border-border shrink-0">
         <div className="flex items-center gap-2 mb-1">
-          <Rss className="h-5 w-5" />
+          <NibblerLogo size={40} />
           <span className="font-semibold">Nibbler</span>
         </div>
         <div className="flex items-center gap-0.5">
