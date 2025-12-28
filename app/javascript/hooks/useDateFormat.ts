@@ -15,6 +15,11 @@ function formatRelativeDate(date: Date): string {
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
 
+  const currentYear = now.getFullYear()
+  const dateYear = date.getFullYear()
+  if (dateYear < currentYear) {
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" })
+  }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
@@ -76,6 +81,16 @@ export function useDateFormat() {
         return formatRelativeDate(date)
       }
       // For non-relative, use short format in list
+      // Include year for dates from previous years
+      const currentYear = new Date().getFullYear()
+      const dateYear = date.getFullYear()
+      if (dateYear < currentYear) {
+        return date.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "2-digit",
+        })
+      }
       return date.toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",

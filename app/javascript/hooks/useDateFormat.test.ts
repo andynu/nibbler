@@ -72,15 +72,29 @@ describe("useDateFormat", () => {
       expect(result.current.formatDate(date2)).toBe("6d ago")
     })
 
-    it('returns "Mon D" format for dates 7+ days ago', () => {
+    it('returns "Mon D" format for dates 7+ days ago in current year', () => {
       const { result } = renderHook(() => useDateFormat())
 
       // 10 days ago (Jan 5)
       const date = new Date("2025-01-05T12:00:00Z")
       const formatted = result.current.formatDate(date)
-      // Should contain "Jan" and "5"
+      // Should contain "Jan" and "5" but not year
       expect(formatted).toMatch(/Jan/)
       expect(formatted).toMatch(/5/)
+      expect(formatted).not.toMatch(/25/)
+      expect(formatted).not.toMatch(/2025/)
+    })
+
+    it('returns "Mon D, YY" format for dates 7+ days ago in previous year', () => {
+      const { result } = renderHook(() => useDateFormat())
+
+      // Previous year (Dec 2024)
+      const date = new Date("2024-12-15T12:00:00Z")
+      const formatted = result.current.formatDate(date)
+      // Should contain "Dec", "15", and "24" (2-digit year)
+      expect(formatted).toMatch(/Dec/)
+      expect(formatted).toMatch(/15/)
+      expect(formatted).toMatch(/24/)
     })
   })
 
@@ -167,7 +181,20 @@ describe("useDateFormat", () => {
       expect(result.current.formatListDate(date)).toBe("30m ago")
     })
 
-    it('uses "Mon D" for non-relative styles', () => {
+    it("includes year for previous year dates in relative mode", () => {
+      mockPreferences.date_format = "relative"
+      const { result } = renderHook(() => useDateFormat())
+
+      // Previous year (more than 7 days ago, so falls back to Mon D, YY format)
+      const date = new Date("2024-12-15T12:00:00Z")
+      const formatted = result.current.formatListDate(date)
+      // Should contain "Dec", "15", and "24" (2-digit year)
+      expect(formatted).toMatch(/Dec/)
+      expect(formatted).toMatch(/15/)
+      expect(formatted).toMatch(/24/)
+    })
+
+    it('uses "Mon D" for non-relative styles in current year', () => {
       mockPreferences.date_format = "short"
       const { result } = renderHook(() => useDateFormat())
 
@@ -175,6 +202,23 @@ describe("useDateFormat", () => {
       const formatted = result.current.formatListDate(date)
       expect(formatted).toMatch(/Jan/)
       expect(formatted).toMatch(/15/)
+      // Should NOT include time for list dates
+      expect(formatted).not.toMatch(/\d{2}:\d{2}/)
+      // Should NOT include year for current year
+      expect(formatted).not.toMatch(/25/)
+      expect(formatted).not.toMatch(/2025/)
+    })
+
+    it('uses "Mon D, YY" for non-relative styles in previous year', () => {
+      mockPreferences.date_format = "short"
+      const { result } = renderHook(() => useDateFormat())
+
+      const date = new Date("2024-12-25T11:30:00Z")
+      const formatted = result.current.formatListDate(date)
+      expect(formatted).toMatch(/Dec/)
+      expect(formatted).toMatch(/25/)
+      // Should include 2-digit year for previous year
+      expect(formatted).toMatch(/24/)
       // Should NOT include time for list dates
       expect(formatted).not.toMatch(/\d{2}:\d{2}/)
     })
