@@ -18,6 +18,7 @@ Rails.application.routes.draw do
       resources :feeds do
         member do
           post :refresh
+          get :info
         end
         collection do
           post :refresh_all

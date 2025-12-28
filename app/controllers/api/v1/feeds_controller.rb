@@ -1,7 +1,7 @@
 module Api
   module V1
     class FeedsController < BaseController
-      before_action :set_feed, only: [ :show, :update, :destroy, :refresh ]
+      before_action :set_feed, only: [ :show, :update, :destroy, :refresh, :info ]
 
       # GET /api/v1/feeds
       def index
@@ -56,6 +56,63 @@ module Api
         else
           render json: { error: result.error }, status: :unprocessable_entity
         end
+      end
+
+      # GET /api/v1/feeds/:id/info
+      # Returns detailed feed info and stats
+      def info
+        # Get entry stats
+        entries = @feed.entries.order(updated: :desc)
+        entry_count = entries.count
+        oldest_entry = entries.last
+        newest_entry = entries.first
+
+        # Calculate posting frequency from last 30 days
+        recent_count = entries.where("updated > ?", 30.days.ago).count
+        posts_per_day = entry_count > 0 ? recent_count / 30.0 : 0
+
+        # Get posting frequency by day of week and hour
+        frequency_by_hour = entries.where("updated > ?", 90.days.ago)
+          .group("strftime('%H', updated)")
+          .count
+          .transform_keys { |k| k.to_i }
+
+        frequency_by_day = entries.where("updated > ?", 90.days.ago)
+          .group("strftime('%w', updated)")
+          .count
+          .transform_keys { |k| k.to_i }
+
+        render json: {
+          id: @feed.id,
+          title: @feed.title,
+          feed_url: @feed.feed_url,
+          site_url: @feed.site_url,
+          icon_url: @feed.icon_url,
+          category_title: @feed.category&.title,
+
+          # Sync info
+          last_updated: @feed.last_updated,
+          last_successful_update: @feed.last_successful_update,
+          next_poll_at: @feed.next_poll_at,
+          etag: @feed.etag,
+          last_modified: @feed.last_modified,
+          last_error: @feed.last_error.presence,
+
+          # Polling interval
+          update_interval: @feed.update_interval,
+          calculated_interval_seconds: @feed.calculated_interval_seconds,
+          avg_posts_per_day: @feed.avg_posts_per_day,
+
+          # Entry stats
+          entry_count: entry_count,
+          oldest_entry_date: oldest_entry&.updated,
+          newest_entry_date: newest_entry&.updated,
+          posts_per_day: posts_per_day.round(2),
+
+          # Frequency data for chart
+          frequency_by_hour: frequency_by_hour,
+          frequency_by_day: frequency_by_day
+        }
       end
 
       # POST /api/v1/feeds/preview

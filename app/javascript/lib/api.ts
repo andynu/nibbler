@@ -110,6 +110,38 @@ export interface FeedPreview {
   sample_entries: Array<{ title: string; published: string | null }>
 }
 
+export interface FeedInfo {
+  id: number
+  title: string
+  feed_url: string
+  site_url: string | null
+  icon_url: string | null
+  category_title: string | null
+
+  // Sync info
+  last_updated: string | null
+  last_successful_update: string | null
+  next_poll_at: string | null
+  etag: string | null
+  last_modified: string | null
+  last_error: string | null
+
+  // Polling interval
+  update_interval: number | null
+  calculated_interval_seconds: number | null
+  avg_posts_per_day: number | null
+
+  // Entry stats
+  entry_count: number
+  oldest_entry_date: string | null
+  newest_entry_date: string | null
+  posts_per_day: number
+
+  // Frequency data for chart
+  frequency_by_hour: Record<number, number>
+  frequency_by_day: Record<number, number>
+}
+
 export interface Preferences {
   show_content_preview: string
   strip_images: string
@@ -231,6 +263,7 @@ export const api = {
       request<{ updated: number; results: Array<{ feed_id: number; title: string; status: string; new_entries: number; error: string | null }> }>("/feeds/refresh_all", { method: "POST" }),
     preview: (url: string) =>
       request<FeedPreview>("/feeds/preview", { method: "POST", body: JSON.stringify({ url }) }),
+    info: (id: number) => request<FeedInfo>(`/feeds/${id}/info`),
   },
 
   entries: {
