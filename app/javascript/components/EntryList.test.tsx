@@ -9,11 +9,18 @@ import { mockEntry } from "../../../test/fixtures/data"
 const mockPreferences = {
   show_content_preview: "true",
   date_format: "relative",
+  entries_sort_by_score: "false",
+  entries_hide_read: "false",
+  entries_hide_unstarred: "false",
+  entries_show_feed_title: "true",
 }
+
+const mockUpdatePreference = vi.fn()
 
 vi.mock("@/contexts/PreferencesContext", () => ({
   usePreferences: () => ({
     preferences: mockPreferences,
+    updatePreference: mockUpdatePreference,
     isLoading: false,
   }),
 }))

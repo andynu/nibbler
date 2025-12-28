@@ -35,6 +35,9 @@ module Api
           hide_read_shows_special
           feeds_sort_by_unread
           entries_sort_by_score
+          entries_hide_read
+          entries_hide_unstarred
+          entries_show_feed_title
           purge_old_days
           purge_unread_articles
           theme
@@ -55,6 +58,9 @@ module Api
           "hide_read_shows_special" => "true",
           "feeds_sort_by_unread" => "false",
           "entries_sort_by_score" => "false",
+          "entries_hide_read" => "false",
+          "entries_hide_unstarred" => "false",
+          "entries_show_feed_title" => "true",
           "purge_old_days" => "60",
           "purge_unread_articles" => "false",
           "theme" => "system"

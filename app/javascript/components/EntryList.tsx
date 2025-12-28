@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown, Eye, EyeOff, Clock, Rss, AlignLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
@@ -35,11 +35,30 @@ export function EntryList({
   const { formatListDate } = useDateFormat()
   const showContentPreview = preferences.show_content_preview === "true"
   const sortByScore = preferences.entries_sort_by_score === "true"
+  const hideRead = preferences.entries_hide_read === "true"
+  const hideUnstarred = preferences.entries_hide_unstarred === "true"
+  const showFeedTitle = preferences.entries_show_feed_title === "true"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
 
   const toggleSortByScore = () => {
     updatePreference("entries_sort_by_score", sortByScore ? "false" : "true")
+  }
+
+  const toggleHideRead = () => {
+    updatePreference("entries_hide_read", hideRead ? "false" : "true")
+  }
+
+  const toggleHideUnstarred = () => {
+    updatePreference("entries_hide_unstarred", hideUnstarred ? "false" : "true")
+  }
+
+  const toggleShowFeedTitle = () => {
+    updatePreference("entries_show_feed_title", showFeedTitle ? "false" : "true")
+  }
+
+  const toggleShowContentPreview = () => {
+    updatePreference("show_content_preview", showContentPreview ? "false" : "true")
   }
 
   // Auto-scroll selected entry into view (for keyboard navigation)
@@ -54,6 +73,7 @@ export function EntryList({
 
   return (
     <div className="h-full flex flex-col border-r border-border">
+      {/* Title bar */}
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-medium truncate">{title}</span>
@@ -63,27 +83,71 @@ export function EntryList({
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("h-7 w-7", sortByScore && "text-primary")}
-            onClick={toggleSortByScore}
-            aria-label={sortByScore ? "Sort by date" : "Sort by score"}
-            title={sortByScore ? "Sorted by score (click for date)" : "Sort by score"}
-          >
-            <ArrowUpDown className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onMarkAllRead}
-            disabled={unreadCount === 0}
-          >
-            <CheckCheck className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">Mark read</span>
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onMarkAllRead}
+          disabled={unreadCount === 0}
+          className="shrink-0"
+        >
+          <CheckCheck className="h-4 w-4 mr-1" />
+          <span className="hidden sm:inline">Mark read</span>
+        </Button>
+      </div>
+      {/* Filter & display toolbar */}
+      <div className="px-2 py-1.5 flex items-center justify-center gap-1 border-b border-border shrink-0 bg-muted/30">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-7 w-7", hideRead && "text-primary bg-primary/10")}
+          onClick={toggleHideRead}
+          aria-label={hideRead ? "Show read entries" : "Hide read entries"}
+          title={hideRead ? "Showing unread only" : "Hide read entries"}
+        >
+          {hideRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-7 w-7", hideUnstarred && "text-primary bg-primary/10")}
+          onClick={toggleHideUnstarred}
+          aria-label={hideUnstarred ? "Show unstarred entries" : "Hide unstarred entries"}
+          title={hideUnstarred ? "Showing starred only" : "Hide unstarred entries"}
+        >
+          <Star className={cn("h-4 w-4", hideUnstarred && "fill-current")} />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-7 w-7", sortByScore && "text-primary bg-primary/10")}
+          onClick={toggleSortByScore}
+          aria-label={sortByScore ? "Sort by date" : "Sort by score"}
+          title={sortByScore ? "Sorted by score" : "Sort by score"}
+        >
+          <ArrowUpDown className="h-4 w-4" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-7 w-7", showFeedTitle && "text-primary bg-primary/10")}
+          onClick={toggleShowFeedTitle}
+          aria-label={showFeedTitle ? "Show date instead of feed title" : "Show feed title"}
+          title={showFeedTitle ? "Showing feed title" : "Show feed title"}
+        >
+          <Rss className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-7 w-7", showContentPreview && "text-primary bg-primary/10")}
+          onClick={toggleShowContentPreview}
+          aria-label={showContentPreview ? "Hide content preview" : "Show content preview"}
+          title={showContentPreview ? "Showing preview" : "Show content preview"}
+        >
+          <AlignLeft className="h-4 w-4" />
+        </Button>
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
@@ -105,6 +169,7 @@ export function EntryList({
                   onScoreUp={onUpdateScore ? () => onUpdateScore(entry.id, 1) : undefined}
                   onScoreDown={onUpdateScore ? () => onUpdateScore(entry.id, -1) : undefined}
                   showContentPreview={showContentPreview}
+                  showFeedTitle={showFeedTitle}
                   formatDate={formatListDate}
                 />
               ))}
@@ -125,10 +190,11 @@ interface EntryItemProps {
   onScoreUp?: () => void
   onScoreDown?: () => void
   showContentPreview: boolean
+  showFeedTitle: boolean
   formatDate: (date: Date | string) => string
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, onScoreUp, onScoreDown, showContentPreview, formatDate }: EntryItemProps) {
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, onScoreUp, onScoreDown, showContentPreview, showFeedTitle, formatDate }: EntryItemProps) {
   const formattedDate = formatDate(entry.published)
 
   return (
@@ -175,8 +241,12 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
             </div>
           )}
           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-            {entry.feed_title && <span className="truncate max-w-[120px]">{entry.feed_title}</span>}
-            <span>·</span>
+            {showFeedTitle && entry.feed_title && (
+              <>
+                <span className="truncate max-w-[120px]">{entry.feed_title}</span>
+                <span>·</span>
+              </>
+            )}
             <span className="whitespace-nowrap">{formattedDate}</span>
           </div>
         </div>

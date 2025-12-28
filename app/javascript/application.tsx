@@ -87,10 +87,10 @@ function App() {
     }
   }, [])
 
-  // Load entries when selection or sort order changes
+  // Load entries when selection, sort order, or filter preferences change
   useEffect(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_by_score])
+  }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred])
 
   const loadFeeds = async () => {
     setIsLoadingFeeds(true)
@@ -113,11 +113,15 @@ function App() {
     try {
       const perPage = parseInt(preferences.default_view_limit, 10) || 30
       const sortByScore = preferences.entries_sort_by_score === "true"
+      const hideRead = preferences.entries_hide_read === "true"
+      const hideUnstarred = preferences.entries_hide_unstarred === "true"
       const result = await api.entries.list({
         feed_id: selectedFeedId || undefined,
         category_id: selectedCategoryId || undefined,
         view: virtualFeed || undefined,
         order_by: sortByScore ? "score" : "date",
+        unread: hideRead ? true : undefined,
+        starred: hideUnstarred ? true : undefined,
         per_page: perPage,
       })
       setEntries(result.entries)
