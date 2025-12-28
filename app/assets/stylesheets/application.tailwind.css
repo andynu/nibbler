@@ -48,14 +48,22 @@
 
   /* TTS word highlighting */
   .tts-word {
-    transition: background-color 0.1s ease-out, color 0.1s ease-out;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out, box-shadow 0.15s ease-out;
   }
   .tts-word-active {
     background-color: var(--color-accent-primary-lighter);
     color: var(--color-accent-primary-dark);
-    border-radius: 2px;
-    padding: 0 1px;
-    margin: 0 -1px;
+    border-radius: 3px;
+    padding: 0 2px;
+    margin: 0 -2px;
+    box-shadow: 0 0 0 2px var(--color-accent-primary-light);
+    font-weight: 500;
+  }
+  /* Dark mode TTS highlighting - use darker background with light text */
+  .dark .tts-word-active {
+    background-color: var(--color-accent-primary);
+    color: white;
+    box-shadow: 0 0 0 2px var(--color-accent-primary-light);
   }
 
   /* Dark mode color overrides */
