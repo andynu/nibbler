@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from "react"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-// Tango-inspired rainbow palette (using medium variants for dark mode readability)
-const SCORE_COLORS: Record<number, { bg: string; text: string; hoverBg: string }> = {
-  1: { bg: "#cc0000", text: "white", hoverBg: "#a40000" },     // Scarlet Red
-  2: { bg: "#f57900", text: "white", hoverBg: "#ce5c00" },     // Orange
-  3: { bg: "#4e9a06", text: "white", hoverBg: "#3d7a05" },     // Chameleon (Green)
-  4: { bg: "#3465a4", text: "white", hoverBg: "#204a87" },     // Sky Blue
-  5: { bg: "#06989a", text: "white", hoverBg: "#058687" },     // Teal/Cyan (custom, between Sky Blue and Plum)
+// Rainbow palette: Red, Orange, Green, Blue, Purple
+// Each color has a border/text color and a filled background color
+const SCORE_COLORS: Record<number, { color: string; bg: string }> = {
+  1: { color: "#cc0000", bg: "#cc0000" },     // Scarlet Red
+  2: { color: "#f57900", bg: "#f57900" },     // Orange
+  3: { color: "#4e9a06", bg: "#4e9a06" },     // Chameleon (Green)
+  4: { color: "#3465a4", bg: "#3465a4" },     // Sky Blue
+  5: { color: "#75507b", bg: "#75507b" },     // Plum (Purple, same tone as blue)
 }
 
 interface ScoreButtonsProps {
@@ -62,7 +62,7 @@ export function ScoreButtons({
     }
   }, [keyboardEnabled, handleKeyDown])
 
-  const buttonSize = size === "sm" ? "h-5 w-5 text-xs" : "h-7 w-7 text-sm"
+  const buttonSize = size === "sm" ? "h-5 min-w-5 text-xs" : "h-6 min-w-6 text-sm"
 
   const handleScoreClick = (newScore: number) => {
     onScoreChange(newScore)
@@ -73,18 +73,18 @@ export function ScoreButtons({
     setIsExpanded(true)
   }
 
-  // Collapsed state: show single colored number
+  // Collapsed state: show single filled colored number
   if (!isExpanded && score > 0) {
     const colors = SCORE_COLORS[score] || SCORE_COLORS[1]
     return (
       <button
         className={cn(
-          "rounded-sm font-bold flex items-center justify-center transition-opacity hover:opacity-80",
+          "font-bold flex items-center justify-center transition-opacity hover:opacity-80 rounded-sm",
           buttonSize
         )}
         style={{
           backgroundColor: colors.bg,
-          color: colors.text,
+          color: "white",
         }}
         onClick={handleCollapsedClick}
         aria-label={`Score: ${score}. Click to change.`}
@@ -95,9 +95,10 @@ export function ScoreButtons({
     )
   }
 
-  // Expanded state: show all 5 buttons
+  // Expanded state: show all 5 buttons in a button group
+  // Unselected = outline style, Selected = filled background
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="inline-flex rounded-sm overflow-hidden border border-border">
       {[1, 2, 3, 4, 5].map((n) => {
         const colors = SCORE_COLORS[n]
         const isActive = n === score
@@ -105,15 +106,17 @@ export function ScoreButtons({
           <button
             key={n}
             className={cn(
-              "rounded-sm font-bold flex items-center justify-center transition-all",
+              "font-bold flex items-center justify-center transition-all border-r border-border last:border-r-0",
               buttonSize,
-              isActive ? "ring-2 ring-offset-1 ring-offset-background" : "opacity-70 hover:opacity-100"
+              !isActive && "hover:bg-accent/50"
             )}
-            style={{
+            style={isActive ? {
               backgroundColor: colors.bg,
-              color: colors.text,
-              "--tw-ring-color": colors.bg,
-            } as React.CSSProperties}
+              color: "white",
+            } : {
+              color: colors.color,
+              backgroundColor: "transparent",
+            }}
             onClick={() => handleScoreClick(n)}
             aria-label={`Set score to ${n}`}
           >
@@ -138,7 +141,7 @@ export function ScoreBadge({ score, size = "sm" }: ScoreBadgeProps) {
   if (score <= 0) return null
 
   const colors = SCORE_COLORS[score] || SCORE_COLORS[1]
-  const badgeSize = size === "sm" ? "h-4 w-4 text-[10px]" : "h-5 w-5 text-xs"
+  const badgeSize = size === "sm" ? "h-4 min-w-4 text-[10px]" : "h-5 min-w-5 text-xs"
 
   return (
     <span
@@ -148,7 +151,7 @@ export function ScoreBadge({ score, size = "sm" }: ScoreBadgeProps) {
       )}
       style={{
         backgroundColor: colors.bg,
-        color: colors.text,
+        color: "white",
       }}
       aria-label={`Score: ${score}`}
     >

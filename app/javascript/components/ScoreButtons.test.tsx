@@ -112,6 +112,6 @@ describe("ScoreBadge", () => {
     expect(screen.getByText("4")).toHaveStyle({ backgroundColor: "#3465a4" })
 
     rerender(<ScoreBadge score={5} />)
-    expect(screen.getByText("5")).toHaveStyle({ backgroundColor: "#06989a" })
+    expect(screen.getByText("5")).toHaveStyle({ backgroundColor: "#75507b" })
   })
 })
