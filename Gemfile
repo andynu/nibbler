@@ -26,6 +26,8 @@ gem "faraday"
 gem "faraday-follow_redirects"
 # OPML parsing
 gem "nokogiri"
+# Image processing for favicon color calculation
+gem "mini_magick"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
