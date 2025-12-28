@@ -175,38 +175,43 @@ export function FeedSidebar({
     if (!trackedFeedId) return
 
     const trackedFeed = feeds.find((f) => f.id === trackedFeedId)
-    if (!trackedFeed?.category_id) return
 
-    // Find category ancestry for the tracked feed
-    const categoryAncestors: number[] = []
-    let currentCategoryId: number | null = trackedFeed.category_id
+    // If the feed has a category, expand its ancestors
+    if (trackedFeed?.category_id) {
+      // Find category ancestry for the tracked feed
+      const categoryAncestors: number[] = []
+      let currentCategoryId: number | null = trackedFeed.category_id
 
-    while (currentCategoryId !== null) {
-      categoryAncestors.push(currentCategoryId)
-      const currentCategory = categories.find((c) => c.id === currentCategoryId)
-      currentCategoryId = currentCategory?.parent_id ?? null
-    }
+      while (currentCategoryId !== null) {
+        categoryAncestors.push(currentCategoryId)
+        const currentCategory = categories.find((c) => c.id === currentCategoryId)
+        currentCategoryId = currentCategory?.parent_id ?? null
+      }
 
-    // Expand all ancestor categories
-    if (categoryAncestors.length > 0) {
-      setExpandedCategories((prev) => {
-        const next = new Set(prev)
-        let changed = false
-        categoryAncestors.forEach((id) => {
-          if (!next.has(id)) {
-            next.add(id)
-            changed = true
-          }
+      // Expand all ancestor categories
+      if (categoryAncestors.length > 0) {
+        setExpandedCategories((prev) => {
+          const next = new Set(prev)
+          let changed = false
+          categoryAncestors.forEach((id) => {
+            if (!next.has(id)) {
+              next.add(id)
+              changed = true
+            }
+          })
+          return changed ? next : prev
         })
-        return changed ? next : prev
-      })
+      }
     }
 
-    // Scroll to the tracked feed element after a brief delay
-    requestAnimationFrame(() => {
+    // Scroll to the tracked feed element after categories expand
+    // Use setTimeout to ensure DOM updates after category expansion
+    const timeoutId = setTimeout(() => {
       const feedElement = document.querySelector(`[data-feed-id="${trackedFeedId}"]`)
       feedElement?.scrollIntoView({ behavior: "smooth", block: "nearest" })
-    })
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
   }, [trackedFeedId, feeds, categories])
 
   // Helper to filter and sort feeds
@@ -605,7 +610,8 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-7 w-7", sortByUnread && "text-primary")}
+            className="h-7 w-7"
+            style={sortByUnread ? { color: "var(--color-accent-primary)" } : undefined}
             onClick={toggleSortByUnread}
             aria-label={sortByUnread ? "Sort alphabetically" : "Sort by unread count"}
           >
@@ -614,7 +620,8 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-7 w-7", syncToTree && "text-primary")}
+            className="h-7 w-7"
+            style={syncToTree ? { color: "var(--color-accent-primary)" } : undefined}
             onClick={toggleSyncToTree}
             aria-label={syncToTree ? "Disable sync to tree" : "Sync sidebar to current article's feed"}
             title={syncToTree ? "Disable sync to tree" : "Sync sidebar to current article's feed"}
