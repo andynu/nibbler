@@ -67,6 +67,7 @@ export function EditFeedDialog({
       setUpdateInterval(String(feed.update_interval ?? 0))
       setError(null)
       setShowDeleteConfirm(false)
+      setIsDeleting(false)
     }
   }, [feed])
 
