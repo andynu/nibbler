@@ -75,21 +75,65 @@ export function FeedSidebar({
   onToggleCollapse,
 }: FeedSidebarProps) {
   const { preferences, updatePreference } = usePreferences()
-  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
-    new Set(categories.map((c) => c.id))
-  )
+
+  // Initialize expanded state from localStorage, defaulting to all expanded
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem("nibbler:expandedCategories")
+      if (saved) {
+        return new Set(JSON.parse(saved) as number[])
+      }
+    } catch {}
+    return new Set(categories.map((c) => c.id))
+  })
+
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
-  const [errorsExpanded, setErrorsExpanded] = useState(false)
+
+  const [errorsExpanded, setErrorsExpanded] = useState(() => {
+    try {
+      return localStorage.getItem("nibbler:errorsExpanded") === "true"
+    } catch {}
+    return false
+  })
 
   // Local override for hide read feeds (toggle in UI)
   const [hideReadOverride, setHideReadOverride] = useState<boolean | null>(null)
   const hideReadFeeds = hideReadOverride ?? preferences.hide_read_feeds === "true"
   const sortByUnread = preferences.feeds_sort_by_unread === "true"
 
+  // Persist expanded categories to localStorage
   useEffect(() => {
-    setExpandedCategories(new Set(categories.map((c) => c.id)))
+    try {
+      localStorage.setItem("nibbler:expandedCategories", JSON.stringify([...expandedCategories]))
+    } catch {}
+  }, [expandedCategories])
+
+  // Persist errors expanded state
+  useEffect(() => {
+    try {
+      localStorage.setItem("nibbler:errorsExpanded", errorsExpanded ? "true" : "false")
+    } catch {}
+  }, [errorsExpanded])
+
+  // When new categories are added, default them to expanded
+  useEffect(() => {
+    const currentIds = new Set(categories.map((c) => c.id))
+    const newCategoryIds = categories.filter((c) => !expandedCategories.has(c.id)).map((c) => c.id)
+    if (newCategoryIds.length > 0) {
+      setExpandedCategories((prev) => {
+        const next = new Set(prev)
+        newCategoryIds.forEach((id) => next.add(id))
+        return next
+      })
+    }
+    // Clean up stale IDs from deleted categories
+    setExpandedCategories((prev) => {
+      const cleaned = new Set([...prev].filter((id) => currentIds.has(id)))
+      if (cleaned.size !== prev.size) return cleaned
+      return prev
+    })
   }, [categories])
 
   // Helper to filter and sort feeds

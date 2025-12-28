@@ -5,6 +5,8 @@ import { afterEach } from 'vitest';
 // Cleanup after each test
 afterEach(() => {
   cleanup();
+  // Clear localStorage to prevent state leaking between tests
+  localStorage.clear();
 });
 
 // Mock window.matchMedia for components that use it
