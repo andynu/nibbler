@@ -316,7 +316,7 @@ export function EntryContent({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => audioPlayer.requestTtsAudio(entry.id, entry.title)}
+                  onClick={() => audioPlayer.requestTtsAudio(entry.id, entry.title, entry.feed_title)}
                   className="gap-2"
                 >
                   <Volume2 className="h-4 w-4" />

@@ -20,6 +20,7 @@ interface AudioPlayerContextValue {
   isVisible: boolean
   activeEntryId: number | null
   activeEntryTitle: string | null
+  activeFeedTitle: string | null
 
   // Controls
   play: () => void
@@ -34,7 +35,7 @@ interface AudioPlayerContextValue {
   dismiss: () => void
 
   // TTS-specific
-  requestTtsAudio: (entryId: number, entryTitle: string) => Promise<void>
+  requestTtsAudio: (entryId: number, entryTitle: string, feedTitle?: string) => Promise<void>
 
   // Computed
   isActive: boolean
@@ -63,6 +64,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [activeEntryId, setActiveEntryId] = useState<number | null>(null)
   const [activeEntryTitle, setActiveEntryTitle] = useState<string | null>(null)
+  const [activeFeedTitle, setActiveFeedTitle] = useState<string | null>(null)
 
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -119,13 +121,14 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
   }, [timestamps])
 
   // Request TTS audio for an entry
-  const requestTtsAudio = useCallback(async (entryId: number, entryTitle: string) => {
+  const requestTtsAudio = useCallback(async (entryId: number, entryTitle: string, feedTitle?: string) => {
     // Clean up any existing playback
     cleanup()
 
     entryIdRef.current = entryId
     setActiveEntryId(entryId)
     setActiveEntryTitle(entryTitle)
+    setActiveFeedTitle(feedTitle || null)
     setSource("tts")
     setState("loading")
     setError(null)
@@ -268,6 +271,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     setIsVisible(false)
     setActiveEntryId(null)
     setActiveEntryTitle(null)
+    setActiveFeedTitle(null)
   }, [cleanup])
 
   // Dismiss the panel without stopping audio
@@ -322,6 +326,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     isVisible,
     activeEntryId,
     activeEntryTitle,
+    activeFeedTitle,
     play,
     pause,
     stop,

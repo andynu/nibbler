@@ -31,6 +31,7 @@ const mockAudioPlayer = {
   isVisible: false,
   activeEntryId: null,
   activeEntryTitle: null,
+  activeFeedTitle: null,
   play: vi.fn(),
   pause: vi.fn(),
   stop: vi.fn(),

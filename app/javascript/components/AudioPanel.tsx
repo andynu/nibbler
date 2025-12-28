@@ -21,6 +21,7 @@ export function AudioPanel() {
     playbackSpeed,
     isVisible,
     activeEntryTitle,
+    activeFeedTitle,
     play,
     pause,
     stop,
@@ -77,7 +78,7 @@ export function AudioPanel() {
               variant="ghost"
               size="icon"
               onClick={pause}
-              className="h-9 w-9"
+              className="h-9 w-9 shrink-0"
               aria-label="Pause"
             >
               <Pause className="h-5 w-5" />
@@ -87,62 +88,31 @@ export function AudioPanel() {
               variant="ghost"
               size="icon"
               onClick={play}
-              className="h-9 w-9"
+              className="h-9 w-9 shrink-0"
               aria-label="Play"
             >
               <Play className="h-5 w-5" />
             </Button>
           )}
 
-          {/* Stop button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={stop}
-            className="h-9 w-9"
-            aria-label="Stop"
-          >
-            <Square className="h-4 w-4" />
-          </Button>
-
-          {/* Auto-scroll toggle (TTS only) */}
-          {source === "tts" && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleAutoScroll}
-              className="h-9 w-9"
-              aria-label={autoScroll ? "Disable auto-scroll" : "Enable auto-scroll"}
-              title={autoScroll ? "Auto-scroll on" : "Auto-scroll off"}
-            >
-              <MousePointerClick
-                className={cn("h-5 w-5", autoScroll ? "text-primary" : "text-muted-foreground")}
-              />
-            </Button>
-          )}
-
-          {/* Speed control */}
-          <select
-            value={playbackSpeed}
-            onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-            className="h-8 px-2 text-sm bg-background border border-border rounded cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
-            aria-label="Playback speed"
-            title="Playback speed"
-          >
-            {SPEED_OPTIONS.map((speed) => (
-              <option key={speed} value={speed}>
-                {speed}x
-              </option>
-            ))}
-          </select>
+          {/* Entry title and feed title */}
+          <div className="hidden sm:flex flex-col min-w-0 max-w-48 shrink-0">
+            {activeEntryTitle && (
+              <div className="truncate text-sm font-medium" title={activeEntryTitle}>
+                {activeEntryTitle}
+              </div>
+            )}
+            {activeFeedTitle && (
+              <div className="truncate text-xs text-muted-foreground" title={activeFeedTitle}>
+                {activeFeedTitle}
+              </div>
+            )}
+          </div>
 
           {/* Progress bar */}
-          <div className="flex-1 flex items-center gap-3 min-w-0">
-            <span className="text-sm text-muted-foreground tabular-nums w-12 text-right">
-              {formatTime(currentTime)}
-            </span>
+          <div className="flex-1 flex items-center gap-2 min-w-0">
             <div
-              className="flex-1 h-2 bg-muted rounded-full cursor-pointer"
+              className="flex-1 h-1.5 bg-muted rounded-full cursor-pointer"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect()
                 const percent = (e.clientX - rect.left) / rect.width
@@ -160,17 +130,52 @@ export function AudioPanel() {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-sm text-muted-foreground tabular-nums w-12">
-              {formatTime(duration)}
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              {formatTime(currentTime)} / {formatTime(duration)}
             </span>
           </div>
 
-          {/* Entry title (truncated) */}
-          {activeEntryTitle && (
-            <div className="hidden md:block max-w-48 truncate text-sm text-muted-foreground" title={activeEntryTitle}>
-              {activeEntryTitle}
-            </div>
+          {/* Speed control */}
+          <select
+            value={playbackSpeed}
+            onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+            className="h-7 px-1.5 text-xs bg-background border border-border rounded cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
+            aria-label="Playback speed"
+            title="Playback speed"
+          >
+            {SPEED_OPTIONS.map((speed) => (
+              <option key={speed} value={speed}>
+                {speed}x
+              </option>
+            ))}
+          </select>
+
+          {/* Auto-scroll toggle (TTS only) */}
+          {source === "tts" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleAutoScroll}
+              className="h-8 w-8 shrink-0"
+              aria-label={autoScroll ? "Disable auto-scroll" : "Enable auto-scroll"}
+              title={autoScroll ? "Auto-scroll on" : "Auto-scroll off"}
+            >
+              <MousePointerClick
+                className={cn("h-4 w-4", autoScroll ? "text-primary" : "text-muted-foreground")}
+              />
+            </Button>
           )}
+
+          {/* Stop button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={stop}
+            className="h-8 w-8 shrink-0"
+            aria-label="Stop"
+          >
+            <Square className="h-3.5 w-3.5" />
+          </Button>
         </>
       )}
 
