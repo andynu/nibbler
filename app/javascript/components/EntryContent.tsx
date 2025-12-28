@@ -274,7 +274,7 @@ export function EntryContent({
               [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-4
               [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
               [&_a]:text-primary [&_a]:underline
-              [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
+              [&_img]:block [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
             dangerouslySetInnerHTML={{ __html: processedContent }}
           />
 
