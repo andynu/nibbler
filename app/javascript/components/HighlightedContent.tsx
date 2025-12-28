@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react"
+import { useEffect, useRef, useMemo, useCallback } from "react"
 import type { WordTimestamp } from "@/lib/api"
 
 interface HighlightedContentProps {
@@ -6,6 +6,8 @@ interface HighlightedContentProps {
   timestamps: WordTimestamp[]
   currentWordIndex: number
   isPlaying: boolean
+  autoScroll?: boolean
+  onUserScroll?: () => void
   className?: string
 }
 
@@ -24,9 +26,13 @@ export function HighlightedContent({
   timestamps,
   currentWordIndex,
   isPlaying,
+  autoScroll = false,
+  onUserScroll,
   className,
 }: HighlightedContentProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const isAutoScrollingRef = useRef(false)
+  const lastScrollTimeRef = useRef(0)
 
   // Extract plain text and build word position map
   const { processedHtml, wordCount } = useMemo(() => {
@@ -84,6 +90,18 @@ export function HighlightedContent({
     }
   }, [html, timestamps.length])
 
+  // Detect user scroll (to pause auto-scroll)
+  const handleScroll = useCallback(() => {
+    // Ignore scroll events triggered by our auto-scroll
+    if (isAutoScrollingRef.current) return
+
+    // Debounce: only trigger if not recently auto-scrolled
+    const now = Date.now()
+    if (now - lastScrollTimeRef.current < 100) return
+
+    onUserScroll?.()
+  }, [onUserScroll])
+
   // Update highlighting when current word changes
   useEffect(() => {
     if (!containerRef.current || !timestamps.length) return
@@ -94,22 +112,40 @@ export function HighlightedContent({
       prevHighlight.classList.remove("tts-word-active")
     }
 
-    // Add new highlight
+    // Add new highlight and scroll into view
     if (currentWordIndex >= 0 && isPlaying) {
       const currentSpan = containerRef.current.querySelector(
         `[data-word-index="${currentWordIndex}"]`
       )
       if (currentSpan) {
         currentSpan.classList.add("tts-word-active")
+
+        // Auto-scroll to keep highlighted word visible
+        if (autoScroll) {
+          isAutoScrollingRef.current = true
+          lastScrollTimeRef.current = Date.now()
+
+          currentSpan.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          })
+
+          // Reset auto-scroll flag after animation completes
+          setTimeout(() => {
+            isAutoScrollingRef.current = false
+          }, 500)
+        }
       }
     }
-  }, [currentWordIndex, isPlaying, timestamps.length])
+  }, [currentWordIndex, isPlaying, timestamps.length, autoScroll])
 
   // Content is sanitized server-side before storage
   return (
     <div
       ref={containerRef}
       className={className}
+      onScroll={handleScroll}
       dangerouslySetInnerHTML={{ __html: processedHtml }}
     />
   )

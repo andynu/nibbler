@@ -10,6 +10,7 @@ interface TtsPlayerState {
   currentWordIndex: number
   timestamps: WordTimestamp[]
   error: string | null
+  autoScroll: boolean
 }
 
 interface TtsPlayerControls {
@@ -18,6 +19,8 @@ interface TtsPlayerControls {
   stop: () => void
   seek: (time: number) => void
   toggle: () => void
+  toggleAutoScroll: () => void
+  pauseAutoScroll: () => void
 }
 
 interface UseTtsPlayerResult extends TtsPlayerState, TtsPlayerControls {
@@ -34,6 +37,7 @@ export function useTtsPlayer(): UseTtsPlayerResult {
   const [currentWordIndex, setCurrentWordIndex] = useState(-1)
   const [timestamps, setTimestamps] = useState<WordTimestamp[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [autoScroll, setAutoScroll] = useState(true)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const entryIdRef = useRef<number | null>(null)
@@ -203,6 +207,14 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     }
   }, [state, play, pause])
 
+  const toggleAutoScroll = useCallback(() => {
+    setAutoScroll((prev) => !prev)
+  }, [])
+
+  const pauseAutoScroll = useCallback(() => {
+    setAutoScroll(false)
+  }, [])
+
   const isActive = state !== "idle" && state !== "error"
 
   return {
@@ -212,12 +224,15 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     currentWordIndex,
     timestamps,
     error,
+    autoScroll,
     requestAudio,
     play,
     pause,
     stop,
     seek,
     toggle,
+    toggleAutoScroll,
+    pauseAutoScroll,
     isActive,
   }
 }

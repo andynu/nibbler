@@ -1,4 +1,4 @@
-import { Play, Pause, Square, Loader2, Volume2 } from "lucide-react"
+import { Play, Pause, Square, Loader2, Volume2, MousePointerClick } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { TtsState } from "@/hooks/useTtsPlayer"
@@ -7,10 +7,12 @@ interface TtsPlayerProps {
   state: TtsState
   currentTime: number
   duration: number
+  autoScroll?: boolean
   onPlay: () => void
   onPause: () => void
   onStop: () => void
   onSeek: (time: number) => void
+  onToggleAutoScroll?: () => void
   onRequestAudio: () => void
   error?: string | null
   className?: string
@@ -26,10 +28,12 @@ export function TtsPlayer({
   state,
   currentTime,
   duration,
+  autoScroll = true,
   onPlay,
   onPause,
   onStop,
   onSeek,
+  onToggleAutoScroll,
   onRequestAudio,
   error,
   className,
@@ -110,6 +114,22 @@ export function TtsPlayer({
       >
         <Square className="h-3 w-3" />
       </Button>
+
+      {/* Auto-scroll toggle */}
+      {onToggleAutoScroll && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleAutoScroll}
+          className="h-8 w-8"
+          aria-label={autoScroll ? "Disable auto-scroll" : "Enable auto-scroll"}
+          title={autoScroll ? "Auto-scroll on" : "Auto-scroll off"}
+        >
+          <MousePointerClick
+            className={cn("h-4 w-4", autoScroll ? "text-primary" : "text-muted-foreground")}
+          />
+        </Button>
+      )}
 
       {/* Progress bar */}
       <div className="flex-1 flex items-center gap-2 min-w-0">

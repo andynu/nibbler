@@ -300,10 +300,12 @@ export function EntryContent({
                 state={ttsPlayer.state}
                 currentTime={ttsPlayer.currentTime}
                 duration={ttsPlayer.duration}
+                autoScroll={ttsPlayer.autoScroll}
                 onPlay={ttsPlayer.play}
                 onPause={ttsPlayer.pause}
                 onStop={ttsPlayer.stop}
                 onSeek={ttsPlayer.seek}
+                onToggleAutoScroll={ttsPlayer.toggleAutoScroll}
                 onRequestAudio={() => ttsPlayer.requestAudio(entry.id)}
                 error={ttsPlayer.error}
               />
@@ -320,6 +322,8 @@ export function EntryContent({
               timestamps={ttsPlayer.timestamps}
               currentWordIndex={ttsPlayer.currentWordIndex}
               isPlaying={ttsPlayer.state === "playing"}
+              autoScroll={ttsPlayer.autoScroll}
+              onUserScroll={ttsPlayer.pauseAutoScroll}
               className="prose prose-sm max-w-none
                 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3
                 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2
