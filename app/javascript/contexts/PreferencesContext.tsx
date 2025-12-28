@@ -33,6 +33,7 @@ const defaultPreferences: Preferences = {
   sidebar_collapsed: "false",
   sync_to_tree: "false",
   user_language: "",
+  tts_playback_speed: "1",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)

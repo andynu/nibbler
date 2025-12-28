@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { api, type WordTimestamp } from "@/lib/api"
+import { usePreferences } from "@/contexts/PreferencesContext"
 
 export type TtsState = "idle" | "loading" | "generating" | "ready" | "playing" | "paused" | "error"
 
@@ -21,16 +22,19 @@ interface TtsPlayerControls {
   toggle: () => void
   toggleAutoScroll: () => void
   pauseAutoScroll: () => void
+  setPlaybackSpeed: (speed: number) => void
 }
 
 interface UseTtsPlayerResult extends TtsPlayerState, TtsPlayerControls {
   requestAudio: (entryId: number) => Promise<void>
   isActive: boolean
+  playbackSpeed: number
 }
 
 const POLL_INTERVAL = 2000 // Poll every 2 seconds while generating
 
 export function useTtsPlayer(): UseTtsPlayerResult {
+  const { preferences, updatePreference } = usePreferences()
   const [state, setState] = useState<TtsState>("idle")
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -42,6 +46,9 @@ export function useTtsPlayer(): UseTtsPlayerResult {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const entryIdRef = useRef<number | null>(null)
   const pollIntervalRef = useRef<number | null>(null)
+
+  // Get playback speed from preferences
+  const playbackSpeed = parseFloat(preferences.tts_playback_speed) || 1
 
   // Clean up audio element and polling
   const cleanup = useCallback(() => {
@@ -61,6 +68,13 @@ export function useTtsPlayer(): UseTtsPlayerResult {
   useEffect(() => {
     return cleanup
   }, [cleanup])
+
+  // Apply playback speed to audio element when it changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackSpeed
+    }
+  }, [playbackSpeed])
 
   // Update current word index based on playback time
   const updateCurrentWord = useCallback((time: number) => {
@@ -114,6 +128,7 @@ export function useTtsPlayer(): UseTtsPlayerResult {
 
               // Create and configure audio element
               const audio = new Audio(pollResponse.audio_url)
+              audio.playbackRate = playbackSpeed
               audioRef.current = audio
 
               audio.addEventListener("canplaythrough", () => {
@@ -150,6 +165,7 @@ export function useTtsPlayer(): UseTtsPlayerResult {
 
         // Create and configure audio element
         const audio = new Audio(response.audio_url)
+        audio.playbackRate = playbackSpeed
         audioRef.current = audio
 
         audio.addEventListener("canplaythrough", () => {
@@ -179,7 +195,7 @@ export function useTtsPlayer(): UseTtsPlayerResult {
       setState("error")
       setError(err instanceof Error ? err.message : "Failed to request audio")
     }
-  }, [cleanup, updateCurrentWord])
+  }, [cleanup, updateCurrentWord, playbackSpeed])
 
   const play = useCallback(() => {
     if (audioRef.current && (state === "ready" || state === "paused")) {
@@ -236,6 +252,10 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     setAutoScroll(false)
   }, [])
 
+  const setPlaybackSpeed = useCallback((speed: number) => {
+    updatePreference("tts_playback_speed", String(speed))
+  }, [updatePreference])
+
   const isActive = state !== "idle" && state !== "error"
 
   return {
@@ -246,6 +266,7 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     timestamps,
     error,
     autoScroll,
+    playbackSpeed,
     requestAudio,
     play,
     pause,
@@ -254,6 +275,7 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     toggle,
     toggleAutoScroll,
     pauseAutoScroll,
+    setPlaybackSpeed,
     isActive,
   }
 }

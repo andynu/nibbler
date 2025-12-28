@@ -173,6 +173,7 @@ export interface Preferences {
   sidebar_collapsed: string
   sync_to_tree: string
   user_language: string
+  tts_playback_speed: string
 }
 
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"

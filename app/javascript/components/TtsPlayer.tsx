@@ -8,15 +8,19 @@ interface TtsPlayerProps {
   currentTime: number
   duration: number
   autoScroll?: boolean
+  playbackSpeed?: number
   onPlay: () => void
   onPause: () => void
   onStop: () => void
   onSeek: (time: number) => void
   onToggleAutoScroll?: () => void
+  onSetPlaybackSpeed?: (speed: number) => void
   onRequestAudio: () => void
   error?: string | null
   className?: string
 }
+
+const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2]
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60)
@@ -29,11 +33,13 @@ export function TtsPlayer({
   currentTime,
   duration,
   autoScroll = true,
+  playbackSpeed = 1,
   onPlay,
   onPause,
   onStop,
   onSeek,
   onToggleAutoScroll,
+  onSetPlaybackSpeed,
   onRequestAudio,
   error,
   className,
@@ -129,6 +135,23 @@ export function TtsPlayer({
             className={cn("h-4 w-4", autoScroll ? "text-primary" : "text-muted-foreground")}
           />
         </Button>
+      )}
+
+      {/* Speed control */}
+      {onSetPlaybackSpeed && (
+        <select
+          value={playbackSpeed}
+          onChange={(e) => onSetPlaybackSpeed(parseFloat(e.target.value))}
+          className="h-7 px-1.5 text-xs bg-background border border-border rounded cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+          aria-label="Playback speed"
+          title="Playback speed"
+        >
+          {SPEED_OPTIONS.map((speed) => (
+            <option key={speed} value={speed}>
+              {speed}x
+            </option>
+          ))}
+        </select>
       )}
 
       {/* Progress bar */}

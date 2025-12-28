@@ -320,11 +320,13 @@ export function EntryContent({
                 currentTime={ttsPlayer.currentTime}
                 duration={ttsPlayer.duration}
                 autoScroll={ttsPlayer.autoScroll}
+                playbackSpeed={ttsPlayer.playbackSpeed}
                 onPlay={ttsPlayer.play}
                 onPause={ttsPlayer.pause}
                 onStop={ttsPlayer.stop}
                 onSeek={ttsPlayer.seek}
                 onToggleAutoScroll={ttsPlayer.toggleAutoScroll}
+                onSetPlaybackSpeed={ttsPlayer.setPlaybackSpeed}
                 onRequestAudio={() => ttsPlayer.requestAudio(entry.id)}
                 error={ttsPlayer.error}
               />
