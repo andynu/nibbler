@@ -193,7 +193,36 @@ export function MoveFeedDialog({
             </>
           )}
 
-          {/* Uncategorized option */}
+          {/* Categories - show first so they get focus priority when typing */}
+          {filteredCategories.length > 0 && (
+            <CommandGroup heading="Categories">
+              {filteredCategories.map((item) => {
+                const isCurrentCategory = feed.category_id === item.category.id
+                return (
+                  <CommandItem
+                    key={item.category.id}
+                    onSelect={() => handleSelectCategory(item.category.id)}
+                    disabled={isCurrentCategory}
+                    className="flex items-center"
+                  >
+                    <span style={{ paddingLeft: `${item.depth * 12}px` }} className="flex items-center">
+                      <Folder className="mr-2 h-4 w-4" />
+                      {item.depth > 0 ? (
+                        <span className="text-muted-foreground text-xs mr-1">
+                          {item.path.slice(0, -1).join(" / ")} /
+                        </span>
+                      ) : null}
+                      <span>{item.category.title}</span>
+                    </span>
+                    {isCurrentCategory && <Check className="ml-auto h-4 w-4" />}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          )}
+
+          {/* Actions - at bottom so create category is last option */}
+          <CommandSeparator />
           <CommandGroup heading="Actions">
             <CommandItem
               onSelect={() => handleSelectCategory(null)}
@@ -212,37 +241,6 @@ export function MoveFeedDialog({
               </CommandItem>
             )}
           </CommandGroup>
-
-          {/* Categories */}
-          {filteredCategories.length > 0 && (
-            <>
-              <CommandSeparator />
-              <CommandGroup heading="Categories">
-                {filteredCategories.map((item) => {
-                  const isCurrentCategory = feed.category_id === item.category.id
-                  return (
-                    <CommandItem
-                      key={item.category.id}
-                      onSelect={() => handleSelectCategory(item.category.id)}
-                      disabled={isCurrentCategory}
-                      className="flex items-center"
-                    >
-                      <span style={{ paddingLeft: `${item.depth * 12}px` }} className="flex items-center">
-                        <Folder className="mr-2 h-4 w-4" />
-                        {item.depth > 0 ? (
-                          <span className="text-muted-foreground text-xs mr-1">
-                            {item.path.slice(0, -1).join(" / ")} /
-                          </span>
-                        ) : null}
-                        <span>{item.category.title}</span>
-                      </span>
-                      {isCurrentCategory && <Check className="ml-auto h-4 w-4" />}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </>
-          )}
         </CommandList>
       </div>
     </CommandDialog>
