@@ -1,4 +1,4 @@
-import { X, Play, Pause, Square, Loader2, MousePointerClick } from "lucide-react"
+import { X, Play, Pause, Square, Loader2, MousePointerClick, LocateFixed } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { cn } from "@/lib/utils"
@@ -29,6 +29,8 @@ export function AudioPanel() {
     toggleAutoScroll,
     setPlaybackSpeed,
     dismiss,
+    jumpToSource,
+    onJumpToEntry,
     error,
   } = useAudioPlayer()
 
@@ -163,6 +165,20 @@ export function AudioPanel() {
               <MousePointerClick
                 className={cn("h-4 w-4", autoScroll ? "text-primary" : "text-muted-foreground")}
               />
+            </Button>
+          )}
+
+          {/* Jump to source button */}
+          {onJumpToEntry && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={jumpToSource}
+              className="h-8 w-8 shrink-0"
+              aria-label="Go to playing item"
+              title="Go to playing item"
+            >
+              <LocateFixed className="h-4 w-4" />
             </Button>
           )}
 

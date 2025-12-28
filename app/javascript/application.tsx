@@ -89,6 +89,16 @@ function App() {
     loadTags()
   }, [])
 
+  // Register audio player navigation callback
+  useEffect(() => {
+    audioPlayer.setOnJumpToEntry((entryId: number) => {
+      loadEntry(entryId)
+    })
+    return () => {
+      audioPlayer.setOnJumpToEntry(null)
+    }
+  }, [])
+
   const loadTags = async () => {
     try {
       const result = await api.tags.list()

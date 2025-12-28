@@ -37,6 +37,11 @@ interface AudioPlayerContextValue {
   // TTS-specific
   requestTtsAudio: (entryId: number, entryTitle: string, feedTitle?: string) => Promise<void>
 
+  // Navigation
+  jumpToSource: () => void
+  onJumpToEntry: ((entryId: number) => void) | null
+  setOnJumpToEntry: (callback: ((entryId: number) => void) | null) => void
+
   // Computed
   isActive: boolean
 }
@@ -65,6 +70,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
   const [activeEntryId, setActiveEntryId] = useState<number | null>(null)
   const [activeEntryTitle, setActiveEntryTitle] = useState<string | null>(null)
   const [activeFeedTitle, setActiveFeedTitle] = useState<string | null>(null)
+  const [onJumpToEntry, setOnJumpToEntry] = useState<((entryId: number) => void) | null>(null)
 
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -311,6 +317,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     updatePreference("tts_playback_speed", String(speed))
   }, [updatePreference])
 
+  // Jump to the currently playing entry
+  const jumpToSource = useCallback(() => {
+    if (activeEntryId !== null && onJumpToEntry) {
+      onJumpToEntry(activeEntryId)
+    }
+  }, [activeEntryId, onJumpToEntry])
+
   const isActive = state !== "idle" && state !== "error"
 
   const value: AudioPlayerContextValue = {
@@ -338,6 +351,9 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     setPlaybackSpeed,
     dismiss,
     requestTtsAudio,
+    jumpToSource,
+    onJumpToEntry,
+    setOnJumpToEntry,
     isActive,
   }
 

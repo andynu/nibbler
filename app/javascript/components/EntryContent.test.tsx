@@ -43,6 +43,9 @@ const mockAudioPlayer = {
   setPlaybackSpeed: vi.fn(),
   dismiss: vi.fn(),
   requestTtsAudio: vi.fn(),
+  jumpToSource: vi.fn(),
+  onJumpToEntry: null,
+  setOnJumpToEntry: vi.fn(),
   isActive: false,
 }
 
