@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -90,6 +90,9 @@ export function FeedSidebar({
     return new Set(categories.map((c) => c.id))
   })
 
+  // Track known category IDs to distinguish new categories from collapsed ones
+  const knownCategoryIds = useRef<Set<number>>(new Set(categories.map((c) => c.id)))
+
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
@@ -140,17 +143,25 @@ export function FeedSidebar({
     } catch {}
   }, [expandedErrorCategories])
 
-  // When new categories are added, default them to expanded
+  // When new categories are added, default them to expanded (but not collapsed ones)
   useEffect(() => {
     const currentIds = new Set(categories.map((c) => c.id))
-    const newCategoryIds = categories.filter((c) => !expandedCategories.has(c.id)).map((c) => c.id)
-    if (newCategoryIds.length > 0) {
+    // Only expand categories that we haven't seen before (truly new)
+    const trulyNewCategoryIds = categories
+      .filter((c) => !knownCategoryIds.current.has(c.id))
+      .map((c) => c.id)
+
+    if (trulyNewCategoryIds.length > 0) {
       setExpandedCategories((prev) => {
         const next = new Set(prev)
-        newCategoryIds.forEach((id) => next.add(id))
+        trulyNewCategoryIds.forEach((id) => next.add(id))
         return next
       })
     }
+
+    // Update known IDs to include all current categories
+    knownCategoryIds.current = currentIds
+
     // Clean up stale IDs from deleted categories
     setExpandedCategories((prev) => {
       const cleaned = new Set([...prev].filter((id) => currentIds.has(id)))
