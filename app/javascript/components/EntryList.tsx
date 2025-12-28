@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,11 +9,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCheck, Star, Circle, StickyNote, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2 } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
 import { ScoreBadge } from "@/components/ScoreButtons"
+import { FeedInfoDialog } from "@/components/FeedInfoDialog"
 import type { Entry, Feed } from "@/lib/api"
 
 interface EntryListProps {
@@ -91,6 +92,7 @@ export function EntryList({
   const displayDensity = (preferences.entries_display_density || "medium") as "small" | "medium" | "large"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
+  const [showFeedInfo, setShowFeedInfo] = useState(false)
 
   const toggleSortByScore = () => {
     updatePreference("entries_sort_by_score", sortByScore ? "false" : "true")
@@ -220,6 +222,10 @@ export function EntryList({
                   Edit feed
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => setShowFeedInfo(true)}>
+                <Info className="h-4 w-4 mr-2" />
+                Feed info
+              </DropdownMenuItem>
               {onDeleteFeed && (
                 <>
                   <DropdownMenuSeparator />
@@ -332,6 +338,11 @@ export function EntryList({
           )}
         </div>
       </ScrollArea>
+      <FeedInfoDialog
+        open={showFeedInfo}
+        onOpenChange={setShowFeedInfo}
+        feed={selectedFeed ?? null}
+      />
     </div>
   )
 }
