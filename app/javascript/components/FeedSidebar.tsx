@@ -90,6 +90,9 @@ export function FeedSidebar({
 }: FeedSidebarProps) {
   const { preferences, updatePreference } = usePreferences()
 
+  // Track whether we've completed initial load (to avoid auto-expanding on first render)
+  const hasInitializedRef = useRef(false)
+
   // Initialize expanded state from localStorage, defaulting to all expanded
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(() => {
     try {
@@ -102,7 +105,8 @@ export function FeedSidebar({
   })
 
   // Track known category IDs to distinguish new categories from collapsed ones
-  const knownCategoryIds = useRef<Set<number>>(new Set(categories.map((c) => c.id)))
+  // Initialize empty - will be populated after first render with actual categories
+  const knownCategoryIds = useRef<Set<number>>(new Set())
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
@@ -206,7 +210,23 @@ export function FeedSidebar({
   // When new categories are added, default them to expanded (but not collapsed ones)
   useEffect(() => {
     const currentIds = new Set(categories.map((c) => c.id))
-    // Only expand categories that we haven't seen before (truly new)
+
+    // On first run with actual categories, just mark them all as known
+    // Don't auto-expand - respect the localStorage state
+    if (!hasInitializedRef.current && categories.length > 0) {
+      hasInitializedRef.current = true
+      knownCategoryIds.current = currentIds
+
+      // Clean up stale IDs from deleted categories (categories that were saved but no longer exist)
+      setExpandedCategories((prev) => {
+        const cleaned = new Set([...prev].filter((id) => currentIds.has(id)))
+        if (cleaned.size !== prev.size) return cleaned
+        return prev
+      })
+      return
+    }
+
+    // Only expand categories that we haven't seen before (truly new - created this session)
     const trulyNewCategoryIds = categories
       .filter((c) => !knownCategoryIds.current.has(c.id))
       .map((c) => c.id)
