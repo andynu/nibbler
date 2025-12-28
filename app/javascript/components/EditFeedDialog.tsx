@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,6 +20,33 @@ import {
 import { api, Feed, Category } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { Loader2, AlertCircle, RefreshCw, Trash2 } from "lucide-react"
+
+// Build a flattened list of categories with depth for indentation
+function buildCategoryTree(categories: Category[]): Array<{ category: Category; depth: number }> {
+  const result: Array<{ category: Category; depth: number }> = []
+  const byParentId = new Map<number | null, Category[]>()
+
+  // Group categories by parent_id
+  for (const cat of categories) {
+    const parentId = cat.parent_id ?? null
+    if (!byParentId.has(parentId)) {
+      byParentId.set(parentId, [])
+    }
+    byParentId.get(parentId)!.push(cat)
+  }
+
+  // Recursively add categories depth-first
+  function addChildren(parentId: number | null, depth: number) {
+    const children = byParentId.get(parentId) || []
+    for (const child of children) {
+      result.push({ category: child, depth })
+      addChildren(child.id, depth + 1)
+    }
+  }
+
+  addChildren(null, 0)
+  return result
+}
 
 const UPDATE_INTERVAL_OPTIONS = [
   { value: "0", label: "Use default" },
@@ -60,6 +87,9 @@ export function EditFeedDialog({
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Build hierarchical category tree for indented display
+  const categoryTree = useMemo(() => buildCategoryTree(categories), [categories])
 
   useEffect(() => {
     if (feed) {
@@ -191,9 +221,9 @@ export function EditFeedDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No category</SelectItem>
-                  {categories.map((category) => (
+                  {categoryTree.map(({ category, depth }) => (
                     <SelectItem key={category.id} value={String(category.id)}>
-                      {category.title}
+                      <span style={{ paddingLeft: depth * 16 }}>{category.title}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
