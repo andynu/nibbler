@@ -132,6 +132,12 @@ class FeedUpdater
   end
 
   def create_entry(parsed_entry)
+    # Skip entries without a valid link - some feeds have broken entries
+    if parsed_entry.link.blank?
+      Rails.logger.debug { "Skipping entry without link: #{parsed_entry.guid}" }
+      return false
+    end
+
     # Check if entry already exists globally (by GUID)
     entry = Entry.find_by(guid: parsed_entry.guid)
 

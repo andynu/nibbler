@@ -83,12 +83,23 @@ class FeedParser
 
   def extract_link(entry)
     # Try common URL methods - not all feed item types have all methods
-    return entry.url if entry.respond_to?(:url) && entry.url.present?
-    return entry.link if entry.respond_to?(:link) && entry.link.present?
+    # Note: Feedjira sometimes puts guid in url field, so validate it looks like a URL
+    if entry.respond_to?(:url) && entry.url.present? && url_like?(entry.url)
+      return entry.url
+    end
+    if entry.respond_to?(:link) && entry.link.present? && url_like?(entry.link)
+      return entry.link
+    end
     # For podcasts, fall back to enclosure URL
-    return entry.enclosure_url if entry.respond_to?(:enclosure_url) && entry.enclosure_url.present?
+    if entry.respond_to?(:enclosure_url) && entry.enclosure_url.present?
+      return entry.enclosure_url
+    end
 
     nil
+  end
+
+  def url_like?(str)
+    str.to_s.match?(%r{\Ahttps?://}i)
   end
 
   def extract_guid(entry)
