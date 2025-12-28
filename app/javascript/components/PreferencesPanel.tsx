@@ -9,7 +9,9 @@ import {
 } from "@/components/ui/select"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useTheme } from "@/contexts/ThemeContext"
+import { useI18n } from "@/contexts/I18nContext"
 import { applyAccentColors, generateAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
+import type { LanguageCode } from "@/lib/i18n"
 
 const UPDATE_INTERVAL_OPTIONS = [
   { value: "15", label: "Every 15 minutes" },
@@ -77,6 +79,7 @@ const CONTENT_VIEW_MODE_OPTIONS = [
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
   const { theme, setTheme } = useTheme()
+  const { currentLanguage, supportedLanguages, setLanguage, isInitialized: i18nInitialized } = useI18n()
 
   if (isLoading) {
     return (
@@ -157,6 +160,39 @@ export function PreferencesPanel() {
               />
             </div>
           </div>
+
+          {i18nInitialized && (
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="language">Language</Label>
+                <p className="text-sm text-muted-foreground">
+                  Interface language (browser default if not set)
+                </p>
+              </div>
+              <Select
+                value={preferences.user_language || "auto"}
+                onValueChange={(value) => {
+                  if (value === "auto") {
+                    updatePreference("user_language", "")
+                  } else {
+                    setLanguage(value as LanguageCode)
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Browser default" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Browser default</SelectItem>
+                  {supportedLanguages.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

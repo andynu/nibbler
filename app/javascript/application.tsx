@@ -12,6 +12,7 @@ import { SettingsDialog } from "@/components/SettingsDialog"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
+import { I18nProvider } from "@/contexts/I18nContext"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -797,7 +798,9 @@ document.addEventListener("DOMContentLoaded", () => {
     root.render(
       <PreferencesProvider>
         <ThemeProvider>
-          <App />
+          <I18nProvider>
+            <App />
+          </I18nProvider>
         </ThemeProvider>
       </PreferencesProvider>
     )

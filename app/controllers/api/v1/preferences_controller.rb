@@ -42,7 +42,10 @@ module Api
           purge_old_days
           purge_unread_articles
           theme
+          accent_hue
+          sidebar_collapsed
           sync_to_tree
+          user_language
         ]
       end
 
@@ -67,7 +70,10 @@ module Api
           "purge_old_days" => "60",
           "purge_unread_articles" => "false",
           "theme" => "system",
-          "sync_to_tree" => "false"
+          "accent_hue" => "210",
+          "sidebar_collapsed" => "false",
+          "sync_to_tree" => "false",
+          "user_language" => ""
         }
       end
     end

@@ -32,6 +32,7 @@ const defaultPreferences: Preferences = {
   accent_hue: "210",
   sidebar_collapsed: "false",
   sync_to_tree: "false",
+  user_language: "",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)

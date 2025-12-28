@@ -169,6 +169,7 @@ export interface Preferences {
   accent_hue: string
   sidebar_collapsed: string
   sync_to_tree: string
+  user_language: string
 }
 
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"

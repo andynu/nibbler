@@ -144,6 +144,7 @@ export function mockPreferences(
   return {
     show_content_preview: "true",
     strip_images: "false",
+    content_view_mode: "rss",
     default_update_interval: "900",
     confirm_feed_catchup: "true",
     default_view_mode: "unread",
@@ -153,10 +154,17 @@ export function mockPreferences(
     hide_read_feeds: "false",
     hide_read_shows_special: "true",
     feeds_sort_by_unread: "false",
+    entries_sort_by_score: "false",
+    entries_hide_read: "false",
+    entries_hide_unstarred: "false",
+    entries_display_density: "medium",
     purge_old_days: "30",
     purge_unread_articles: "false",
     theme: "system",
     accent_hue: "200",
+    sidebar_collapsed: "false",
+    sync_to_tree: "false",
+    user_language: "",
     ...overrides,
   }
 }

@@ -5,6 +5,7 @@ import React from "react"
 import { PreferencesPanel } from "./PreferencesPanel"
 import { PreferencesProvider } from "@/contexts/PreferencesContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
+import { I18nProvider } from "@/contexts/I18nContext"
 import { mockPreferences } from "../../../test/fixtures/data"
 
 // Mock API
@@ -27,10 +28,29 @@ vi.mock("@/lib/accentColors", () => ({
   DEFAULT_ACCENT_HUE: 217,
 }))
 
+// Mock i18n
+vi.mock("@/lib/i18n", () => ({
+  initI18n: vi.fn(),
+  changeLanguage: vi.fn(),
+  SUPPORTED_LANGUAGES: [{ code: "en", name: "English" }],
+  i18n: { language: "en" },
+}))
+
+// Mock react-i18next
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: "en" },
+  }),
+  initReactI18next: { type: "3rdParty", init: vi.fn() },
+}))
+
 const renderWithProviders = (ui: React.ReactElement) => {
   return render(
     <PreferencesProvider>
-      <ThemeProvider>{ui}</ThemeProvider>
+      <ThemeProvider>
+        <I18nProvider>{ui}</I18nProvider>
+      </ThemeProvider>
     </PreferencesProvider>
   )
 }
