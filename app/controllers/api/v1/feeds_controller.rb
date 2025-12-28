@@ -71,14 +71,15 @@ module Api
         recent_count = entries.where("updated > ?", 30.days.ago).count
         posts_per_day = entry_count > 0 ? recent_count / 30.0 : 0
 
-        # Get posting frequency by day of week and hour
-        frequency_by_hour = entries.where("updated > ?", 90.days.ago)
-          .group("strftime('%H', updated)")
+        # Get posting frequency by day of week and hour (PostgreSQL syntax)
+        recent_entries = @feed.entries.where("updated > ?", 90.days.ago)
+        frequency_by_hour = recent_entries
+          .group("EXTRACT(HOUR FROM updated)::integer")
           .count
           .transform_keys { |k| k.to_i }
 
-        frequency_by_day = entries.where("updated > ?", 90.days.ago)
-          .group("strftime('%w', updated)")
+        frequency_by_day = recent_entries
+          .group("EXTRACT(DOW FROM updated)::integer")
           .count
           .transform_keys { |k| k.to_i }
 
