@@ -290,16 +290,19 @@ module Api
 
       # Limit results to N per feed using window functions
       def limit_per_feed(user_entries, limit)
-        # Get all matching entry IDs, then limit per feed using ROW_NUMBER
-        base_sql = user_entries.to_sql
+        # Extract just the IDs from the base query with correct SQL
+        # We need to rebuild the query to use proper window functions
+        base_ids = user_entries.reorder("").pluck(:id)
+        return user_entries if base_ids.empty?
 
+        # Use window function to rank entries per feed
         limited_ids_sql = <<~SQL
           SELECT id FROM (
             SELECT user_entries.id,
                    ROW_NUMBER() OVER (PARTITION BY user_entries.feed_id ORDER BY entries.date_entered DESC) as rn
-            FROM (#{base_sql}) as filtered_entries
-            INNER JOIN user_entries ON user_entries.id = filtered_entries.id
+            FROM user_entries
             INNER JOIN entries ON entries.id = user_entries.entry_id
+            WHERE user_entries.id IN (#{base_ids.join(",")})
           ) ranked
           WHERE rn <= #{limit.to_i}
         SQL
