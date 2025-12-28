@@ -22,6 +22,22 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
+// Mock window.confirm, window.alert, and window.prompt for happy-dom compatibility
+Object.defineProperty(window, 'confirm', {
+  writable: true,
+  value: () => true,
+});
+
+Object.defineProperty(window, 'alert', {
+  writable: true,
+  value: () => {},
+});
+
+Object.defineProperty(window, 'prompt', {
+  writable: true,
+  value: () => null,
+});
+
 // Mock ResizeObserver for radix-ui/scroll-area
 class ResizeObserverMock {
   observe() {}

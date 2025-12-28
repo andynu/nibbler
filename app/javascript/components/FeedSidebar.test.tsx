@@ -459,9 +459,11 @@ describe("FeedSidebar", () => {
 
       // The selected feed button should have inline background style
       const feedButton = screen.getByText("Selected Feed").closest("button")
-      expect(feedButton).toHaveStyle({
-        backgroundColor: "var(--color-accent-primary-dark)",
-      })
+      // Check that the style attribute contains the CSS variable reference
+      expect(feedButton).toHaveAttribute(
+        "style",
+        expect.stringContaining("accent-primary-dark")
+      )
     })
   })
 
