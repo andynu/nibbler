@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,36 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { CategorySelector } from "@/components/CategorySelector"
 import { api, Feed, Category } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { Loader2, AlertCircle, RefreshCw, Trash2 } from "lucide-react"
-
-// Build a flattened list of categories with depth for indentation
-function buildCategoryTree(categories: Category[]): Array<{ category: Category; depth: number }> {
-  const result: Array<{ category: Category; depth: number }> = []
-  const byParentId = new Map<number | null, Category[]>()
-
-  // Group categories by parent_id
-  for (const cat of categories) {
-    const parentId = cat.parent_id ?? null
-    if (!byParentId.has(parentId)) {
-      byParentId.set(parentId, [])
-    }
-    byParentId.get(parentId)!.push(cat)
-  }
-
-  // Recursively add categories depth-first
-  function addChildren(parentId: number | null, depth: number) {
-    const children = byParentId.get(parentId) || []
-    for (const child of children) {
-      result.push({ category: child, depth })
-      addChildren(child.id, depth + 1)
-    }
-  }
-
-  addChildren(null, 0)
-  return result
-}
 
 const UPDATE_INTERVAL_OPTIONS = [
   { value: "0", label: "Use default" },
@@ -80,7 +54,7 @@ export function EditFeedDialog({
   const { preferences } = usePreferences()
   const [title, setTitle] = useState("")
   const [feedUrl, setFeedUrl] = useState("")
-  const [categoryId, setCategoryId] = useState<string>("")
+  const [categoryId, setCategoryId] = useState<number | null>(null)
   const [updateInterval, setUpdateInterval] = useState<string>("0")
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -88,14 +62,11 @@ export function EditFeedDialog({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Build hierarchical category tree for indented display
-  const categoryTree = useMemo(() => buildCategoryTree(categories), [categories])
-
   useEffect(() => {
     if (feed) {
       setTitle(feed.title)
       setFeedUrl(feed.feed_url)
-      setCategoryId(feed.category_id ? String(feed.category_id) : "none")
+      setCategoryId(feed.category_id ?? null)
       setUpdateInterval(String(feed.update_interval ?? 0))
       setError(null)
       setShowDeleteConfirm(false)
@@ -115,7 +86,7 @@ export function EditFeedDialog({
         feed: {
           title,
           feed_url: feedUrl,
-          category_id: categoryId && categoryId !== "none" ? parseInt(categoryId, 10) : null,
+          category_id: categoryId,
           update_interval: parseInt(updateInterval, 10),
         },
       })
@@ -215,19 +186,12 @@ export function EditFeedDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No category</SelectItem>
-                  {categoryTree.map(({ category, depth }) => (
-                    <SelectItem key={category.id} value={String(category.id)}>
-                      <span style={{ paddingLeft: depth * 16 }}>{category.title}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategorySelector
+                categories={categories}
+                selectedCategoryId={categoryId}
+                onSelect={setCategoryId}
+                placeholder="No category"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="updateInterval">Update interval</Label>
