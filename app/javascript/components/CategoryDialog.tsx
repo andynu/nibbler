@@ -105,6 +105,12 @@ export function CategoryDialog({
               id="category-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  handleSubmit()
+                }
+              }}
               placeholder="e.g., Tech News, Podcasts"
               autoFocus
             />
