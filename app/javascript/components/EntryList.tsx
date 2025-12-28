@@ -9,10 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2 } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
+import { ScoreBadge } from "@/components/ScoreButtons"
 import type { Entry, Feed } from "@/lib/api"
 
 interface EntryListProps {
@@ -21,7 +22,6 @@ interface EntryListProps {
   onSelectEntry: (entryId: number) => void
   onToggleRead: (entryId: number) => void
   onToggleStarred: (entryId: number) => void
-  onUpdateScore?: (entryId: number, delta: number) => void
   onMarkAllRead: () => void
   isLoading: boolean
   title: string
@@ -44,7 +44,6 @@ export function EntryList({
   onSelectEntry,
   onToggleRead,
   onToggleStarred,
-  onUpdateScore,
   onMarkAllRead,
   isLoading,
   title,
@@ -325,8 +324,6 @@ export function EntryList({
                   onSelect={() => onSelectEntry(entry.id)}
                   onToggleRead={() => onToggleRead(entry.id)}
                   onToggleStarred={() => onToggleStarred(entry.id)}
-                  onScoreUp={onUpdateScore && displayDensity !== "small" ? () => onUpdateScore(entry.id, 1) : undefined}
-                  onScoreDown={onUpdateScore && displayDensity !== "small" ? () => onUpdateScore(entry.id, -1) : undefined}
                   displayDensity={displayDensity}
                   formatDate={formatListDate}
                 />
@@ -345,13 +342,11 @@ interface EntryItemProps {
   onSelect: () => void
   onToggleRead: () => void
   onToggleStarred: () => void
-  onScoreUp?: () => void
-  onScoreDown?: () => void
   displayDensity: "small" | "medium" | "large"
   formatDate: (date: Date | string) => string
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, onScoreUp, onScoreDown, displayDensity, formatDate }: EntryItemProps) {
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, displayDensity, formatDate }: EntryItemProps) {
   const formattedDate = formatDate(entry.published)
   const showFeedAndDate = displayDensity !== "small"
   const showContentPreview = displayDensity === "large"
@@ -412,42 +407,7 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {entry.score !== 0 && (
-            <span
-              className={cn(
-                "text-xs font-medium px-1",
-                entry.score > 0 && "text-green-600 dark:text-green-400",
-                entry.score < 0 && "text-red-600 dark:text-red-400"
-              )}
-              aria-label={`Score: ${entry.score}`}
-            >
-              {entry.score > 0 ? `+${entry.score}` : entry.score}
-            </span>
-          )}
-          {onScoreUp && onScoreDown && (
-            <div className="flex flex-col -my-1">
-              <button
-                className="p-0 hover:bg-background rounded leading-none"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onScoreUp()
-                }}
-                aria-label="Increase score"
-              >
-                <ChevronUp className="h-3 w-3" />
-              </button>
-              <button
-                className="p-0 hover:bg-background rounded leading-none"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onScoreDown()
-                }}
-                aria-label="Decrease score"
-              >
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+          <ScoreBadge score={entry.score} size="sm" />
           {entry.note && (
             <span className="p-0.5" aria-label="Has note">
               <StickyNote

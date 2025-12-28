@@ -282,17 +282,14 @@ function App() {
     setShowIframe((prev) => !prev)
   }, [])
 
-  const handleUpdateScore = async (entryId: number, delta: number) => {
-    const entry = entries.find((e) => e.id === entryId)
-    if (!entry) return
-    const newScore = entry.score + delta
+  const handleSetScore = async (entryId: number, score: number) => {
     try {
-      await api.entries.update(entryId, { entry: { score: newScore } })
+      await api.entries.update(entryId, { entry: { score } })
       setEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, score: newScore } : e))
+        prev.map((e) => (e.id === entryId ? { ...e, score } : e))
       )
       if (selectedEntry?.id === entryId) {
-        setSelectedEntry({ ...selectedEntry, score: newScore })
+        setSelectedEntry({ ...selectedEntry, score })
       }
     } catch (error) {
       console.error("Failed to update score:", error)
@@ -638,7 +635,6 @@ function App() {
           onSelectEntry={loadEntry}
           onToggleRead={handleToggleRead}
           onToggleStarred={handleToggleStarredEntry}
-          onUpdateScore={handleUpdateScore}
           onMarkAllRead={handleMarkAllRead}
           isLoading={isLoadingEntries}
           title={getListTitle()}
@@ -658,8 +654,7 @@ function App() {
           entry={selectedEntry}
           onToggleRead={() => selectedEntry && handleToggleRead(selectedEntry.id)}
           onToggleStarred={() => selectedEntry && handleToggleStarredEntry(selectedEntry.id)}
-          onScoreUp={() => selectedEntry && handleUpdateScore(selectedEntry.id, 1)}
-          onScoreDown={() => selectedEntry && handleUpdateScore(selectedEntry.id, -1)}
+          onScoreChange={(score) => selectedEntry && handleSetScore(selectedEntry.id, score)}
           onPrevious={handlePrevious}
           onNext={handleNext}
           hasPrevious={currentIndex > 0}
