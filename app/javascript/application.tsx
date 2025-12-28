@@ -26,6 +26,10 @@ function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
   const [virtualFeed, setVirtualFeed] = useState<"starred" | "fresh" | "published" | null>(null)
 
+  // Fresh view parameters (session-only, not persisted)
+  const [freshMaxAge, setFreshMaxAge] = useState<"week" | "month" | "all">("week")
+  const [freshPerFeed, setFreshPerFeed] = useState<number | null>(5)
+
   const [_isLoadingFeeds, setIsLoadingFeeds] = useState(true)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
   const [isLoadingEntry, setIsLoadingEntry] = useState(false)
@@ -88,10 +92,10 @@ function App() {
     }
   }, [])
 
-  // Load entries when selection, sort order, or filter preferences change
+  // Load entries when selection, sort order, filter preferences, or fresh params change
   useEffect(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred])
+  }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred, freshMaxAge, freshPerFeed])
 
   // Reset iframe view to default when entry changes
   useEffect(() => {
@@ -129,6 +133,9 @@ function App() {
         unread: hideRead ? true : undefined,
         starred: hideUnstarred ? true : undefined,
         per_page: perPage,
+        // Fresh view parameters
+        fresh_max_age: virtualFeed === "fresh" ? freshMaxAge : undefined,
+        fresh_per_feed: virtualFeed === "fresh" && freshPerFeed ? freshPerFeed : undefined,
       })
       setEntries(result.entries)
       setSelectedEntry(null)
@@ -613,6 +620,11 @@ function App() {
           onMarkAllRead={handleMarkAllRead}
           isLoading={isLoadingEntries}
           title={getListTitle()}
+          isFreshView={virtualFeed === "fresh"}
+          freshMaxAge={freshMaxAge}
+          freshPerFeed={freshPerFeed}
+          onFreshMaxAgeChange={setFreshMaxAge}
+          onFreshPerFeedChange={setFreshPerFeed}
         />
       </div>
       <div style={{ flex: 1, height: "100%", minWidth: 0 }}>

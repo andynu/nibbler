@@ -278,6 +278,8 @@ export const api = {
       order_by?: "date" | "score"
       page?: number
       per_page?: number
+      fresh_max_age?: "week" | "month" | "all"
+      fresh_per_feed?: number
     }) => {
       const searchParams = new URLSearchParams()
       if (params?.unread !== undefined) searchParams.set("unread", String(params.unread))
@@ -288,6 +290,8 @@ export const api = {
       if (params?.order_by) searchParams.set("order_by", params.order_by)
       if (params?.page) searchParams.set("page", String(params.page))
       if (params?.per_page) searchParams.set("per_page", String(params.per_page))
+      if (params?.fresh_max_age) searchParams.set("fresh_max_age", params.fresh_max_age)
+      if (params?.fresh_per_feed) searchParams.set("fresh_per_feed", String(params.fresh_per_feed))
       const query = searchParams.toString()
       return request<PaginatedEntries>(`/entries${query ? `?${query}` : ""}`)
     },

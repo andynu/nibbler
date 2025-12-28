@@ -18,6 +18,12 @@ interface EntryListProps {
   onMarkAllRead: () => void
   isLoading: boolean
   title: string
+  // Fresh view parameters
+  isFreshView?: boolean
+  freshMaxAge?: "week" | "month" | "all"
+  freshPerFeed?: number | null
+  onFreshMaxAgeChange?: (value: "week" | "month" | "all") => void
+  onFreshPerFeedChange?: (value: number | null) => void
 }
 
 export function EntryList({
@@ -30,6 +36,11 @@ export function EntryList({
   onMarkAllRead,
   isLoading,
   title,
+  isFreshView,
+  freshMaxAge,
+  freshPerFeed,
+  onFreshMaxAgeChange,
+  onFreshPerFeedChange,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
@@ -89,6 +100,39 @@ export function EntryList({
           <span className="hidden sm:inline">Mark read</span>
         </Button>
       </div>
+      {/* Fresh view parameters */}
+      {isFreshView && onFreshMaxAgeChange && onFreshPerFeedChange && (
+        <div className="px-3 py-1.5 flex items-center gap-3 border-b border-border shrink-0 bg-muted/20 text-xs">
+          <div className="flex items-center gap-1">
+            <span className="text-muted-foreground">time:</span>
+            <select
+              value={freshMaxAge}
+              onChange={(e) => onFreshMaxAgeChange(e.target.value as "week" | "month" | "all")}
+              className="bg-background border border-border rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="week">week</option>
+              <option value="month">month</option>
+              <option value="all">all</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-muted-foreground">per:</span>
+            <select
+              value={freshPerFeed ?? ""}
+              onChange={(e) => {
+                const val = e.target.value
+                onFreshPerFeedChange(val === "" ? null : parseInt(val, 10))
+              }}
+              className="bg-background border border-border rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="3">3</option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="">∞</option>
+            </select>
+          </div>
+        </div>
+      )}
       {/* Filter & display toolbar */}
       <div className="px-2 py-1.5 flex items-center justify-center gap-1 border-b border-border shrink-0 bg-muted/30">
         <Button

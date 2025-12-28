@@ -35,7 +35,11 @@ module Api
         # Virtual feeds
         case params[:view]
         when "fresh"
-          @user_entries = @user_entries.where("entries.date_entered > ?", fresh_article_cutoff)
+          cutoff = fresh_article_cutoff_for_param(params[:fresh_max_age])
+          @user_entries = @user_entries.where("entries.date_entered > ?", cutoff) if cutoff
+          if params[:fresh_per_feed].present? && params[:fresh_per_feed].to_i > 0
+            @user_entries = limit_per_feed(@user_entries, params[:fresh_per_feed].to_i)
+          end
         when "starred"
           @user_entries = @user_entries.starred
         when "published"
@@ -252,6 +256,41 @@ module Api
         pref = current_user.user_preferences.find_by(pref_name: "fresh_article_max_age")
         hours = pref&.value&.to_i || 24
         hours.hours.ago
+      end
+
+      # Get the cutoff time for "fresh" articles based on optional param or user preference
+      def fresh_article_cutoff_for_param(max_age_param)
+        case max_age_param
+        when "week"
+          1.week.ago
+        when "month"
+          1.month.ago
+        when "all"
+          nil # No time filter
+        else
+          # Default to user preference
+          fresh_article_cutoff
+        end
+      end
+
+      # Limit results to N per feed using window functions
+      def limit_per_feed(user_entries, limit)
+        # Get all matching entry IDs, then limit per feed using ROW_NUMBER
+        base_sql = user_entries.to_sql
+
+        limited_ids_sql = <<~SQL
+          SELECT id FROM (
+            SELECT user_entries.id,
+                   ROW_NUMBER() OVER (PARTITION BY user_entries.feed_id ORDER BY entries.date_entered DESC) as rn
+            FROM (#{base_sql}) as filtered_entries
+            INNER JOIN user_entries ON user_entries.id = filtered_entries.id
+            INNER JOIN entries ON entries.id = user_entries.entry_id
+          ) ranked
+          WHERE rn <= #{limit.to_i}
+        SQL
+
+        ids = ActiveRecord::Base.connection.select_values(limited_ids_sql)
+        current_user.user_entries.where(id: ids).includes(:entry, :feed).joins(:entry).order("entries.date_entered DESC")
       end
 
       def enclosure_json(enclosure)
