@@ -58,4 +58,15 @@ class User < ApplicationRecord
     self.salt = SecureRandom.hex(16)
     self.pwd_hash = Digest::SHA256.hexdigest(salt + new_password)
   end
+
+  # Generate a new access key for the public published feed
+  def regenerate_access_key!
+    update!(access_key: SecureRandom.urlsafe_base64(32))
+  end
+
+  # Get or create access key for public feed
+  def ensure_access_key!
+    regenerate_access_key! if access_key.blank?
+    access_key
+  end
 end

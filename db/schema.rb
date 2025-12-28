@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_27_220158) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_28_013920) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -290,6 +290,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_220158) do
   end
 
   create_table "users", force: :cascade do |t|
+    t.string "access_key"
     t.integer "access_level", default: 0, null: false
     t.datetime "created_at"
     t.string "email", default: "", null: false
@@ -304,6 +305,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_220158) do
     t.string "pwd_hash", null: false
     t.string "resetpass_token"
     t.string "salt", default: "", null: false
+    t.index ["access_key"], name: "index_users_on_access_key", unique: true
     t.index ["login"], name: "index_users_on_login", unique: true
   end
 

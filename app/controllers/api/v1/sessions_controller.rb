@@ -2,7 +2,7 @@ module Api
   module V1
     class SessionsController < ApplicationController
       skip_forgery_protection
-      before_action :require_auth, only: [ :show, :destroy, :change_password ]
+      before_action :require_auth, only: [ :show, :destroy, :change_password, :public_feed_key, :regenerate_public_feed_key ]
 
       # POST /api/v1/auth/login
       def create
@@ -57,6 +57,24 @@ module Api
         current_user.save!
 
         render json: { message: "Password changed successfully" }
+      end
+
+      # GET /api/v1/auth/public_feed_key
+      def public_feed_key
+        access_key = current_user.ensure_access_key!
+        render json: {
+          access_key: access_key,
+          feed_url: public_feed_url(access_key)
+        }
+      end
+
+      # POST /api/v1/auth/regenerate_public_feed_key
+      def regenerate_public_feed_key
+        current_user.regenerate_access_key!
+        render json: {
+          access_key: current_user.access_key,
+          feed_url: public_feed_url(current_user.access_key)
+        }
       end
 
       private

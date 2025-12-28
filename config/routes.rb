@@ -5,6 +5,9 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Public feed for published articles (no auth required)
+  get "public/feed/:access_key", to: "public_feed#show", as: :public_feed, defaults: { format: :atom }
+
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
@@ -69,6 +72,8 @@ Rails.application.routes.draw do
         delete :logout, to: "sessions#destroy"
         get :me, to: "sessions#show"
         post :change_password, to: "sessions#change_password"
+        get :public_feed_key, to: "sessions#public_feed_key"
+        post :regenerate_public_feed_key, to: "sessions#regenerate_public_feed_key"
       end
     end
   end
