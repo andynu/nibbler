@@ -6,6 +6,7 @@ import { EntryContent } from "@/components/EntryContent"
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog"
 import { SubscribeFeedDialog } from "@/components/SubscribeFeedDialog"
 import { EditFeedDialog } from "@/components/EditFeedDialog"
+import { MoveFeedDialog, useMoveFeedDialog } from "@/components/MoveFeedDialog"
 import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
 import { SettingsDialog } from "@/components/SettingsDialog"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
@@ -43,6 +44,7 @@ function App() {
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
   const [showIframe, setShowIframe] = useState(false)
   const commandPalette = useCommandPalette()
+  const moveFeedDialog = useMoveFeedDialog()
   const contentScrollRef = useRef<HTMLDivElement>(null)
 
   // Navigation history for back button support
@@ -330,6 +332,10 @@ function App() {
     setFeeds((prev) =>
       prev.map((f) => (f.id === updatedFeed.id ? updatedFeed : f))
     )
+  }
+
+  const handleCategoryCreated = (newCategory: Category) => {
+    setCategories((prev) => [...prev, newCategory])
   }
 
   const handleFeedDeleted = (feedId: number) => {
@@ -692,6 +698,14 @@ function App() {
         categories={categories}
         onFeedUpdated={handleFeedUpdated}
         onFeedDeleted={handleFeedDeleted}
+      />
+      <MoveFeedDialog
+        open={moveFeedDialog.open && selectedFeedId !== null}
+        onOpenChange={moveFeedDialog.setOpen}
+        feed={selectedFeedId ? feeds.find((f) => f.id === selectedFeedId) || null : null}
+        categories={categories}
+        onFeedMoved={handleFeedUpdated}
+        onCategoryCreated={handleCategoryCreated}
       />
       <CommandPalette
         open={commandPalette.open}
