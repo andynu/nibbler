@@ -132,7 +132,7 @@ describe("useNavigationHistory", () => {
       )
     })
 
-    it("changeSettingsTab pushes state to enable back navigation between tabs", () => {
+    it("changeSettingsTab replaces state so X/Escape closes dialog entirely", () => {
       const { result } = renderHook(() => useNavigationHistory(mockHandlers))
 
       // First open settings (this pushes initial state)
@@ -140,13 +140,13 @@ describe("useNavigationHistory", () => {
         result.current.openSettings()
       })
 
-      pushStateSpy.mockClear()
+      replaceStateSpy.mockClear()
 
       act(() => {
         result.current.changeSettingsTab("filters")
       })
 
-      expect(pushStateSpy).toHaveBeenCalledWith(
+      expect(replaceStateSpy).toHaveBeenCalledWith(
         { type: "dialog", dialog: "settings", settingsTab: "filters" },
         ""
       )

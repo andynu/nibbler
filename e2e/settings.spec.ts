@@ -106,6 +106,19 @@ test.describe("Tab Navigation", () => {
 
     await expect(settingsPage.importExportTab).toHaveAttribute("data-state", "active")
   })
+
+  test("Escape closes dialog after switching tabs", async ({ feedsPage, settingsPage }) => {
+    await feedsPage.openSettings()
+
+    // Switch through multiple tabs
+    await settingsPage.goToFiltersTab()
+    await settingsPage.goToPreferencesTab()
+
+    // Escape should close the dialog entirely
+    await settingsPage.close()
+
+    await expect(settingsPage.dialog).not.toBeVisible()
+  })
 })
 
 test.describe("Preferences Tab - Article Display", () => {
