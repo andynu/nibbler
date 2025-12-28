@@ -24,7 +24,7 @@ const defaultPreferences: Preferences = {
   entries_sort_by_score: "false",
   entries_hide_read: "false",
   entries_hide_unstarred: "false",
-  entries_show_feed_title: "true",
+  entries_display_density: "medium",
   purge_old_days: "60",
   purge_unread_articles: "false",
   theme: "system",

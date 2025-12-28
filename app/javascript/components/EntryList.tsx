@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown, Eye, EyeOff, Clock, Rss, AlignLeft } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown, Eye, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
@@ -33,11 +33,10 @@ export function EntryList({
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
-  const showContentPreview = preferences.show_content_preview === "true"
   const sortByScore = preferences.entries_sort_by_score === "true"
   const hideRead = preferences.entries_hide_read === "true"
   const hideUnstarred = preferences.entries_hide_unstarred === "true"
-  const showFeedTitle = preferences.entries_show_feed_title === "true"
+  const displayDensity = (preferences.entries_display_density || "medium") as "small" | "medium" | "large"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -53,12 +52,8 @@ export function EntryList({
     updatePreference("entries_hide_unstarred", hideUnstarred ? "false" : "true")
   }
 
-  const toggleShowFeedTitle = () => {
-    updatePreference("entries_show_feed_title", showFeedTitle ? "false" : "true")
-  }
-
-  const toggleShowContentPreview = () => {
-    updatePreference("show_content_preview", showContentPreview ? "false" : "true")
+  const setDisplayDensity = (density: "small" | "medium" | "large") => {
+    updatePreference("entries_display_density", density)
   }
 
   // Auto-scroll selected entry into view (for keyboard navigation)
@@ -128,26 +123,42 @@ export function EntryList({
           <ArrowUpDown className="h-4 w-4" />
         </Button>
         <div className="w-px h-4 bg-border mx-1" />
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-7 w-7", showFeedTitle && "text-primary bg-primary/10")}
-          onClick={toggleShowFeedTitle}
-          aria-label={showFeedTitle ? "Show date instead of feed title" : "Show feed title"}
-          title={showFeedTitle ? "Showing feed title" : "Show feed title"}
-        >
-          <Rss className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-7 w-7", showContentPreview && "text-primary bg-primary/10")}
-          onClick={toggleShowContentPreview}
-          aria-label={showContentPreview ? "Hide content preview" : "Show content preview"}
-          title={showContentPreview ? "Showing preview" : "Show content preview"}
-        >
-          <AlignLeft className="h-4 w-4" />
-        </Button>
+        {/* Density selector: S M L */}
+        <div className="flex items-center rounded-md border border-border overflow-hidden">
+          <button
+            className={cn(
+              "px-2 py-0.5 text-xs font-medium transition-colors",
+              displayDensity === "small" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+            )}
+            onClick={() => setDisplayDensity("small")}
+            aria-label="Compact view"
+            title="Compact: title only"
+          >
+            S
+          </button>
+          <button
+            className={cn(
+              "px-2 py-0.5 text-xs font-medium border-x border-border transition-colors",
+              displayDensity === "medium" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+            )}
+            onClick={() => setDisplayDensity("medium")}
+            aria-label="Medium view"
+            title="Medium: title + feed/date"
+          >
+            M
+          </button>
+          <button
+            className={cn(
+              "px-2 py-0.5 text-xs font-medium transition-colors",
+              displayDensity === "large" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+            )}
+            onClick={() => setDisplayDensity("large")}
+            aria-label="Expanded view"
+            title="Expanded: title + feed/date + preview"
+          >
+            L
+          </button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
@@ -166,10 +177,9 @@ export function EntryList({
                   onSelect={() => onSelectEntry(entry.id)}
                   onToggleRead={() => onToggleRead(entry.id)}
                   onToggleStarred={() => onToggleStarred(entry.id)}
-                  onScoreUp={onUpdateScore ? () => onUpdateScore(entry.id, 1) : undefined}
-                  onScoreDown={onUpdateScore ? () => onUpdateScore(entry.id, -1) : undefined}
-                  showContentPreview={showContentPreview}
-                  showFeedTitle={showFeedTitle}
+                  onScoreUp={onUpdateScore && displayDensity !== "small" ? () => onUpdateScore(entry.id, 1) : undefined}
+                  onScoreDown={onUpdateScore && displayDensity !== "small" ? () => onUpdateScore(entry.id, -1) : undefined}
+                  displayDensity={displayDensity}
                   formatDate={formatListDate}
                 />
               ))}
@@ -189,13 +199,14 @@ interface EntryItemProps {
   onToggleStarred: () => void
   onScoreUp?: () => void
   onScoreDown?: () => void
-  showContentPreview: boolean
-  showFeedTitle: boolean
+  displayDensity: "small" | "medium" | "large"
   formatDate: (date: Date | string) => string
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, onScoreUp, onScoreDown, showContentPreview, showFeedTitle, formatDate }: EntryItemProps) {
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, onScoreUp, onScoreDown, displayDensity, formatDate }: EntryItemProps) {
   const formattedDate = formatDate(entry.published)
+  const showFeedAndDate = displayDensity !== "small"
+  const showContentPreview = displayDensity === "large"
 
   return (
     <div
@@ -240,15 +251,17 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
               {entry.content_preview}
             </div>
           )}
-          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-            {showFeedTitle && entry.feed_title && (
-              <>
-                <span className="truncate max-w-[120px]">{entry.feed_title}</span>
-                <span>·</span>
-              </>
-            )}
-            <span className="whitespace-nowrap">{formattedDate}</span>
-          </div>
+          {showFeedAndDate && (
+            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+              {entry.feed_title && (
+                <>
+                  <span className="truncate max-w-[120px]">{entry.feed_title}</span>
+                  <span>·</span>
+                </>
+              )}
+              <span className="whitespace-nowrap">{formattedDate}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           {entry.score !== 0 && (

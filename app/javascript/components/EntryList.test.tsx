@@ -12,7 +12,7 @@ const mockPreferences = {
   entries_sort_by_score: "false",
   entries_hide_read: "false",
   entries_hide_unstarred: "false",
-  entries_show_feed_title: "true",
+  entries_display_density: "large",
 }
 
 const mockUpdatePreference = vi.fn()
@@ -46,7 +46,7 @@ describe("EntryList", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockPreferences.show_content_preview = "true"
+    mockPreferences.entries_display_density = "large"
   })
 
   describe("empty and loading states", () => {
@@ -132,8 +132,8 @@ describe("EntryList", () => {
       expect(screen.getByText("5m ago")).toBeInTheDocument()
     })
 
-    it("shows content preview when preference is true", () => {
-      mockPreferences.show_content_preview = "true"
+    it("shows content preview when density is large", () => {
+      mockPreferences.entries_display_density = "large"
       const entries = [mockEntry({ content_preview: "This is a preview..." })]
 
       render(<EntryList {...defaultProps} entries={entries} />)
@@ -141,8 +141,8 @@ describe("EntryList", () => {
       expect(screen.getByText("This is a preview...")).toBeInTheDocument()
     })
 
-    it("hides content preview when preference is false", () => {
-      mockPreferences.show_content_preview = "false"
+    it("hides content preview when density is medium", () => {
+      mockPreferences.entries_display_density = "medium"
       const entries = [mockEntry({ content_preview: "This is a preview..." })]
 
       render(<EntryList {...defaultProps} entries={entries} />)
@@ -150,6 +150,16 @@ describe("EntryList", () => {
       expect(
         screen.queryByText("This is a preview...")
       ).not.toBeInTheDocument()
+    })
+
+    it("hides content preview and feed info when density is small", () => {
+      mockPreferences.entries_display_density = "small"
+      const entries = [mockEntry({ content_preview: "This is a preview...", feed_title: "Tech Blog" })]
+
+      render(<EntryList {...defaultProps} entries={entries} />)
+
+      expect(screen.queryByText("This is a preview...")).not.toBeInTheDocument()
+      expect(screen.queryByText("Tech Blog")).not.toBeInTheDocument()
     })
   })
 

@@ -125,7 +125,7 @@ export interface Preferences {
   entries_sort_by_score: string
   entries_hide_read: string
   entries_hide_unstarred: string
-  entries_show_feed_title: string
+  entries_display_density: string
   purge_old_days: string
   purge_unread_articles: string
   theme: string
