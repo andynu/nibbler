@@ -8,7 +8,14 @@ module Api
         @user_entries = current_user.user_entries
           .includes(:entry, :feed)
           .joins(:entry)
-          .order("entries.date_entered DESC")
+
+        # Apply ordering
+        case params[:order_by]
+        when "score"
+          @user_entries = @user_entries.order("user_entries.score DESC, entries.date_entered DESC")
+        else
+          @user_entries = @user_entries.order("entries.date_entered DESC")
+        end
 
         # Filter by read/unread status
         if params[:unread].present?
@@ -121,10 +128,17 @@ module Api
           .joins(:entry, :feed)
           .select(
             "user_entries.id, user_entries.feed_id, user_entries.unread, user_entries.marked, user_entries.score",
-            "entries.id as entry_id, entries.title, entries.link, entries.author, entries.updated",
+            "entries.id as entry_id, entries.title, entries.link, entries.author, entries.updated, entries.date_entered",
             "feeds.title as feed_title"
           )
-          .order("entries.date_entered DESC")
+
+        # Apply ordering
+        case params[:order_by]
+        when "score"
+          @user_entries = @user_entries.order("user_entries.score DESC, entries.date_entered DESC")
+        else
+          @user_entries = @user_entries.order("entries.date_entered DESC")
+        end
 
         # Apply same filters as index
         @user_entries = @user_entries.where(unread: params[:unread] == "true") if params[:unread].present?

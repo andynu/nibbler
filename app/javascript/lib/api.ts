@@ -122,6 +122,7 @@ export interface Preferences {
   hide_read_feeds: string
   hide_read_shows_special: string
   feeds_sort_by_unread: string
+  entries_sort_by_score: string
   purge_old_days: string
   purge_unread_articles: string
   theme: string
@@ -236,6 +237,7 @@ export const api = {
       feed_id?: number
       category_id?: number
       view?: "fresh" | "starred" | "published" | "archived"
+      order_by?: "date" | "score"
       page?: number
       per_page?: number
     }) => {
@@ -245,6 +247,7 @@ export const api = {
       if (params?.feed_id) searchParams.set("feed_id", String(params.feed_id))
       if (params?.category_id) searchParams.set("category_id", String(params.category_id))
       if (params?.view) searchParams.set("view", params.view)
+      if (params?.order_by) searchParams.set("order_by", params.order_by)
       if (params?.page) searchParams.set("page", String(params.page))
       if (params?.per_page) searchParams.set("per_page", String(params.per_page))
       const query = searchParams.toString()

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
@@ -31,11 +31,16 @@ export function EntryList({
   isLoading,
   title,
 }: EntryListProps) {
-  const { preferences } = usePreferences()
+  const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
   const showContentPreview = preferences.show_content_preview === "true"
+  const sortByScore = preferences.entries_sort_by_score === "true"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
+
+  const toggleSortByScore = () => {
+    updatePreference("entries_sort_by_score", sortByScore ? "false" : "true")
+  }
 
   // Auto-scroll selected entry into view (for keyboard navigation)
   useEffect(() => {
@@ -58,16 +63,27 @@ export function EntryList({
             </Badge>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onMarkAllRead}
-          disabled={unreadCount === 0}
-          className="shrink-0"
-        >
-          <CheckCheck className="h-4 w-4 mr-1" />
-          <span className="hidden sm:inline">Mark read</span>
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", sortByScore && "text-primary")}
+            onClick={toggleSortByScore}
+            aria-label={sortByScore ? "Sort by date" : "Sort by score"}
+            title={sortByScore ? "Sorted by score (click for date)" : "Sort by score"}
+          >
+            <ArrowUpDown className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMarkAllRead}
+            disabled={unreadCount === 0}
+          >
+            <CheckCheck className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Mark read</span>
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 min-h-0">

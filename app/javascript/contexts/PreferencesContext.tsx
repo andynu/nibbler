@@ -21,6 +21,7 @@ const defaultPreferences: Preferences = {
   hide_read_feeds: "false",
   hide_read_shows_special: "true",
   feeds_sort_by_unread: "false",
+  entries_sort_by_score: "false",
   purge_old_days: "60",
   purge_unread_articles: "false",
   theme: "system",
