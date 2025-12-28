@@ -42,6 +42,7 @@ module Api
           purge_old_days
           purge_unread_articles
           theme
+          sync_to_tree
         ]
       end
 
@@ -65,7 +66,8 @@ module Api
           "entries_display_density" => "medium",
           "purge_old_days" => "60",
           "purge_unread_articles" => "false",
-          "theme" => "system"
+          "theme" => "system",
+          "sync_to_tree" => "false"
         }
       end
     end

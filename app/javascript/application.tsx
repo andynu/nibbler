@@ -599,6 +599,7 @@ function App() {
           onFeedUpdated={handleFeedUpdated}
           isCollapsed={preferences.sidebar_collapsed === "true"}
           onToggleCollapse={handleToggleSidebar}
+          trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
         />
       </div>
       <div style={{ width: "320px", flexShrink: 0, height: "100%" }}>

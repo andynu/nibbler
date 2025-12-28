@@ -17,7 +17,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Info } from "lucide-react"
+import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Info, Crosshair } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -53,6 +53,7 @@ interface FeedSidebarProps {
   onFeedUpdated?: (feed: Feed) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
+  trackedFeedId: number | null
 }
 
 export function FeedSidebar({
@@ -74,6 +75,7 @@ export function FeedSidebar({
   onFeedUpdated,
   isCollapsed,
   onToggleCollapse,
+  trackedFeedId,
 }: FeedSidebarProps) {
   const { preferences, updatePreference } = usePreferences()
 
@@ -115,6 +117,7 @@ export function FeedSidebar({
   const [hideReadOverride, setHideReadOverride] = useState<boolean | null>(null)
   const hideReadFeeds = hideReadOverride ?? preferences.hide_read_feeds === "true"
   const sortByUnread = preferences.feeds_sort_by_unread === "true"
+  const syncToTree = preferences.sync_to_tree === "true"
 
   // Persist expanded categories to localStorage
   useEffect(() => {
@@ -156,6 +159,45 @@ export function FeedSidebar({
     })
   }, [categories])
 
+  // Auto-expand categories to show tracked feed
+  useEffect(() => {
+    if (!trackedFeedId) return
+
+    const trackedFeed = feeds.find((f) => f.id === trackedFeedId)
+    if (!trackedFeed?.category_id) return
+
+    // Find category ancestry for the tracked feed
+    const categoryAncestors: number[] = []
+    let currentCategoryId: number | null = trackedFeed.category_id
+
+    while (currentCategoryId !== null) {
+      categoryAncestors.push(currentCategoryId)
+      const currentCategory = categories.find((c) => c.id === currentCategoryId)
+      currentCategoryId = currentCategory?.parent_id ?? null
+    }
+
+    // Expand all ancestor categories
+    if (categoryAncestors.length > 0) {
+      setExpandedCategories((prev) => {
+        const next = new Set(prev)
+        let changed = false
+        categoryAncestors.forEach((id) => {
+          if (!next.has(id)) {
+            next.add(id)
+            changed = true
+          }
+        })
+        return changed ? next : prev
+      })
+    }
+
+    // Scroll to the tracked feed element after a brief delay
+    requestAnimationFrame(() => {
+      const feedElement = document.querySelector(`[data-feed-id="${trackedFeedId}"]`)
+      feedElement?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    })
+  }, [trackedFeedId, feeds, categories])
+
   // Helper to filter and sort feeds
   const filterAndSortFeeds = (feedList: Feed[]): Feed[] => {
     let filtered = feedList
@@ -177,6 +219,10 @@ export function FeedSidebar({
 
   const toggleSortByUnread = () => {
     updatePreference("feeds_sort_by_unread", sortByUnread ? "false" : "true")
+  }
+
+  const toggleSyncToTree = () => {
+    updatePreference("sync_to_tree", syncToTree ? "false" : "true")
   }
 
   const toggleCategory = (categoryId: number) => {
@@ -557,6 +603,16 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
+            className={cn("h-7 w-7", syncToTree && "text-primary")}
+            onClick={toggleSyncToTree}
+            aria-label={syncToTree ? "Disable sync to tree" : "Sync sidebar to current article's feed"}
+            title={syncToTree ? "Disable sync to tree" : "Sync sidebar to current article's feed"}
+          >
+            <Crosshair className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-7 w-7"
             onClick={onRefreshAll}
             disabled={isRefreshing}
@@ -749,6 +805,7 @@ export function FeedSidebar({
                 selectedFeedId={selectedFeedId}
                 selectedCategoryId={selectedCategoryId}
                 refreshingFeedId={refreshingFeedId}
+                trackedFeedId={trackedFeedId}
                 onToggle={() => toggleCategory(category.id)}
                 onToggleCategory={toggleCategory}
                 onSelectFeed={onSelectFeed}
@@ -773,6 +830,7 @@ export function FeedSidebar({
                   key={feed.id}
                   feed={feed}
                   isSelected={selectedFeedId === feed.id}
+                  isTracked={trackedFeedId === feed.id}
                   onSelect={() => onSelectFeed(feed.id)}
                   onEdit={() => onEditFeed(feed)}
                   onRefresh={() => handleRefreshFeed(feed)}
@@ -824,6 +882,7 @@ interface CategoryItemProps {
   selectedFeedId: number | null
   selectedCategoryId: number | null
   refreshingFeedId: number | null
+  trackedFeedId: number | null
   onToggle: () => void
   onToggleCategory: (categoryId: number) => void
   onSelectFeed: (feedId: number | null) => void
@@ -851,6 +910,7 @@ function CategoryItem({
   selectedFeedId,
   selectedCategoryId,
   refreshingFeedId,
+  trackedFeedId,
   onToggle,
   onToggleCategory,
   onSelectFeed,
@@ -981,6 +1041,7 @@ function CategoryItem({
                 key={feed.id}
                 feed={feed}
                 isSelected={selectedFeedId === feed.id}
+                isTracked={trackedFeedId === feed.id}
                 onSelect={() => onSelectFeed(feed.id)}
                 onEdit={() => onEditFeed(feed)}
                 onRefresh={() => onRefreshFeed(feed)}
@@ -1016,6 +1077,7 @@ function CategoryItem({
                 selectedFeedId={selectedFeedId}
                 selectedCategoryId={selectedCategoryId}
                 refreshingFeedId={refreshingFeedId}
+                trackedFeedId={trackedFeedId}
                 onToggle={() => onToggleCategory(childCategory.id)}
                 onToggleCategory={onToggleCategory}
                 onSelectFeed={onSelectFeed}
@@ -1040,6 +1102,7 @@ function CategoryItem({
 interface FeedItemProps {
   feed: Feed
   isSelected: boolean
+  isTracked?: boolean
   onSelect: () => void
   onEdit: () => void
   onRefresh: () => void
@@ -1048,18 +1111,40 @@ interface FeedItemProps {
   isRefreshing?: boolean
 }
 
-function FeedItem({ feed, isSelected, onSelect, onEdit, onRefresh, onUnsubscribe, onInfo, isRefreshing }: FeedItemProps) {
+function FeedItem({ feed, isSelected, isTracked, onSelect, onEdit, onRefresh, onUnsubscribe, onInfo, isRefreshing }: FeedItemProps) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
+
+  const getButtonStyle = () => {
+    if (isSelected) {
+      return {
+        backgroundColor: "var(--color-accent-primary-dark)",
+        color: "white",
+      }
+    }
+    if (isTracked) {
+      // Use secondary accent color for tracked feed
+      return isDark
+        ? {
+            backgroundColor: "var(--color-accent-secondary-dark)",
+            color: "white",
+          }
+        : {
+            backgroundColor: "var(--color-accent-secondary-light)",
+            color: "var(--color-accent-secondary-dark)",
+          }
+    }
+    return undefined
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="group flex items-center">
+        <div className="group flex items-center" data-feed-id={feed.id}>
           <Button
             variant="ghost"
             className="flex-1 justify-start gap-2 h-8"
-            style={isSelected ? {
-              backgroundColor: "var(--color-accent-primary-dark)",
-              color: "white",
-            } : undefined}
+            style={getButtonStyle()}
             onClick={onSelect}
           >
             {feed.icon_url ? (

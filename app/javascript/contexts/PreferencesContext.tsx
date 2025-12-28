@@ -31,6 +31,7 @@ const defaultPreferences: Preferences = {
   theme: "system",
   accent_hue: "210",
   sidebar_collapsed: "false",
+  sync_to_tree: "false",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
