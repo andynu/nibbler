@@ -144,6 +144,9 @@ export interface FeedInfo {
   // Frequency data for chart
   frequency_by_hour: Record<number, number>
   frequency_by_day: Record<number, number>
+
+  // Word frequency for categorization hints
+  top_words: Array<{ word: string; count: number }>
 }
 
 export interface Preferences {

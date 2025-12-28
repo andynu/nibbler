@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Rss, ExternalLink, Calendar, Clock, AlertCircle, BarChart3 } from "lucide-react"
+import { Rss, ExternalLink, Calendar, Clock, AlertCircle, BarChart3, Tags } from "lucide-react"
 import { api } from "@/lib/api"
 import type { Feed, FeedInfo } from "@/lib/api"
 
@@ -258,6 +258,28 @@ export function FeedInfoDialog({ open, onOpenChange, feed }: FeedInfoDialogProps
                     <div className="text-xs text-muted-foreground mb-1">By day of week</div>
                     <FrequencyChart data={info.frequency_by_day} labels={DAY_NAMES} />
                   </div>
+                </div>
+              </section>
+            )}
+
+            {/* Word Frequency */}
+            {info.top_words && info.top_words.length > 0 && (
+              <section>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                  <Tags className="h-4 w-4" />
+                  Common Topics
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {info.top_words.map(({ word, count }) => (
+                    <span
+                      key={word}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded-full text-xs"
+                      title={`${count} occurrences`}
+                    >
+                      <span>{word}</span>
+                      <span className="text-muted-foreground">{count}</span>
+                    </span>
+                  ))}
                 </div>
               </section>
             )}

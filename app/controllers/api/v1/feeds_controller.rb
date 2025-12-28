@@ -112,7 +112,10 @@ module Api
 
           # Frequency data for chart
           frequency_by_hour: frequency_by_hour,
-          frequency_by_day: frequency_by_day
+          frequency_by_day: frequency_by_day,
+
+          # Word frequency for categorization hints
+          top_words: WordFrequencyAnalyzer.new(@feed).analyze
         }
       end
 
