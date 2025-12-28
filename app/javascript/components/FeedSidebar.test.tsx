@@ -361,10 +361,10 @@ describe("FeedSidebar", () => {
       expect(screen.getByText("Errors (1)")).toBeInTheDocument()
     })
 
-    it("clicking errors folder expands to show error feeds", async () => {
+    it("clicking errors folder expands to show error category groups", async () => {
       const user = userEvent.setup()
       const feeds = [
-        mockFeed({ id: 1, title: "Broken Feed", last_error: "Error", category_id: 1 }),
+        mockFeed({ id: 1, title: "Broken Feed", last_error: "Feed not found", category_id: 1 }),
       ]
       const categories = [mockCategory({ id: 1, title: "Tech" })]
 
@@ -375,16 +375,15 @@ describe("FeedSidebar", () => {
       // Click the errors folder to expand
       await user.click(screen.getByText("Errors (1)"))
 
-      // Now error feed should be visible in error section
-      const feedButtons = screen.getAllByText("Broken Feed")
-      expect(feedButtons.length).toBeGreaterThanOrEqual(1)
+      // Should show error category group
+      expect(screen.getByText("Not Found (1)")).toBeInTheDocument()
     })
 
-    it("clicking error feed in expanded folder calls onEditFeed", async () => {
+    it("clicking error feed in expanded category calls onEditFeed", async () => {
       const user = userEvent.setup()
       const onEditFeed = vi.fn()
       const feeds = [
-        mockFeed({ id: 1, title: "Broken Feed", last_error: "Error", category_id: 1 }),
+        mockFeed({ id: 1, title: "Broken Feed", last_error: "Feed not found", category_id: 1 }),
       ]
       const categories = [mockCategory({ id: 1, title: "Tech" })]
 
@@ -395,7 +394,10 @@ describe("FeedSidebar", () => {
       // Expand error folder first
       await user.click(screen.getByText("Errors (1)"))
 
-      // Find the feed in the error section (first occurrence after expanding)
+      // Expand error category group
+      await user.click(screen.getByText("Not Found (1)"))
+
+      // Find and click the feed in the error section
       const feedButtons = screen.getAllByText("Broken Feed")
       await user.click(feedButtons[0])
 

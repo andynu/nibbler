@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
+import { cn, categorizeError, ERROR_CATEGORIES, ErrorCategory } from "@/lib/utils"
 import { NibblerLogo } from "@/components/NibblerLogo"
 import { api } from "@/lib/api"
 import type { Feed, Category } from "@/lib/api"
@@ -98,6 +98,17 @@ export function FeedSidebar({
     return false
   })
 
+  // Track which error categories are expanded
+  const [expandedErrorCategories, setExpandedErrorCategories] = useState<Set<ErrorCategory>>(() => {
+    try {
+      const saved = localStorage.getItem("nibbler:expandedErrorCategories")
+      if (saved) {
+        return new Set(JSON.parse(saved) as ErrorCategory[])
+      }
+    } catch {}
+    return new Set()
+  })
+
   // Local override for hide read feeds (toggle in UI)
   const [hideReadOverride, setHideReadOverride] = useState<boolean | null>(null)
   const hideReadFeeds = hideReadOverride ?? preferences.hide_read_feeds === "true"
@@ -116,6 +127,13 @@ export function FeedSidebar({
       localStorage.setItem("nibbler:errorsExpanded", errorsExpanded ? "true" : "false")
     } catch {}
   }, [errorsExpanded])
+
+  // Persist expanded error categories
+  useEffect(() => {
+    try {
+      localStorage.setItem("nibbler:expandedErrorCategories", JSON.stringify([...expandedErrorCategories]))
+    } catch {}
+  }, [expandedErrorCategories])
 
   // When new categories are added, default them to expanded
   useEffect(() => {
@@ -174,16 +192,72 @@ export function FeedSidebar({
   const collapseAllCategories = () => {
     setExpandedCategories(new Set())
     setErrorsExpanded(false)
+    setExpandedErrorCategories(new Set())
   }
 
   const expandAllCategories = () => {
     setExpandedCategories(new Set(categories.map((c) => c.id)))
     setErrorsExpanded(true)
+    // Expand all error categories too
+    const allErrorCats = Object.keys(ERROR_CATEGORIES) as ErrorCategory[]
+    setExpandedErrorCategories(new Set(allErrorCats))
+  }
+
+  const toggleErrorCategory = (category: ErrorCategory) => {
+    setExpandedErrorCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(category)) {
+        next.delete(category)
+      } else {
+        next.add(category)
+      }
+      return next
+    })
   }
 
   const uncategorizedFeeds = filterAndSortFeeds(feeds.filter((f) => !f.category_id))
   const totalUnread = feeds.reduce((sum, f) => sum + f.unread_count, 0)
   const feedsWithErrors = feeds.filter((f) => f.last_error)
+
+  // Group error feeds by error type
+  const groupedErrorFeeds = useMemo(() => {
+    const groups = new Map<ErrorCategory, Feed[]>()
+
+    feedsWithErrors.forEach((feed) => {
+      const category = categorizeError(feed.last_error || "")
+      const existing = groups.get(category) || []
+      existing.push(feed)
+      groups.set(category, existing)
+    })
+
+    // Sort groups by priority
+    return Array.from(groups.entries())
+      .sort((a, b) => ERROR_CATEGORIES[a[0]].priority - ERROR_CATEGORIES[b[0]].priority)
+  }, [feedsWithErrors])
+
+  const handleBulkUnsubscribe = async (feedsToDelete: Feed[]) => {
+    const count = feedsToDelete.length
+    const categoryLabel = ERROR_CATEGORIES[categorizeError(feedsToDelete[0].last_error || "")].label
+    if (!confirm(`Unsubscribe from ${count} feed(s) with ${categoryLabel} errors? This will remove all their entries.`)) {
+      return
+    }
+
+    try {
+      // Delete feeds one by one (could be optimized with batch endpoint)
+      for (const feed of feedsToDelete) {
+        await api.feeds.delete(feed.id)
+      }
+      const deletedIds = new Set(feedsToDelete.map((f) => f.id))
+      onFeedsChange(feeds.filter((f) => !deletedIds.has(f.id)))
+
+      // Clear selection if deleted feed was selected
+      if (selectedFeedId !== null && deletedIds.has(selectedFeedId)) {
+        onSelectFeed(null)
+      }
+    } catch (error) {
+      console.error("Failed to unsubscribe feeds:", error)
+    }
+  }
 
   // Build tree structure: only render root categories (no parent)
   const rootCategories = categories.filter((c) => !c.parent_id)
@@ -584,21 +658,51 @@ export function FeedSidebar({
                   <span className="flex-1 text-left">Errors ({feedsWithErrors.length})</span>
                 </Button>
                 {errorsExpanded && (
-                  <div className="space-y-0.5 ml-4">
-                    {feedsWithErrors.map((feed) => (
-                      <Button
-                        key={feed.id}
-                        variant="ghost"
-                        className="w-full justify-start gap-2 h-7 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => onEditFeed(feed)}
-                      >
-                        {feed.icon_url ? (
-                          <img src={feed.icon_url} className="h-3 w-3" alt="" />
-                        ) : (
-                          <Rss className="h-3 w-3" />
+                  <div className="space-y-1 ml-4">
+                    {groupedErrorFeeds.map(([errorCategory, errorFeeds]) => (
+                      <div key={errorCategory}>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start gap-2 h-7 text-xs text-muted-foreground hover:text-muted-foreground"
+                          onClick={() => toggleErrorCategory(errorCategory)}
+                        >
+                          <span className="shrink-0">
+                            {expandedErrorCategories.has(errorCategory) ? (
+                              <FolderOpen className="h-3 w-3" />
+                            ) : (
+                              <Folder className="h-3 w-3" />
+                            )}
+                          </span>
+                          <span className="flex-1 text-left">{ERROR_CATEGORIES[errorCategory].label} ({errorFeeds.length})</span>
+                        </Button>
+                        {expandedErrorCategories.has(errorCategory) && (
+                          <div className="space-y-0.5 ml-4">
+                            {errorFeeds.map((feed) => (
+                              <Button
+                                key={feed.id}
+                                variant="ghost"
+                                className="w-full justify-start gap-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() => onEditFeed(feed)}
+                              >
+                                {feed.icon_url ? (
+                                  <img src={feed.icon_url} className="h-3 w-3" alt="" />
+                                ) : (
+                                  <Rss className="h-3 w-3" />
+                                )}
+                                <span className="flex-1 text-left truncate">{feed.title}</span>
+                              </Button>
+                            ))}
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start gap-2 h-7 text-xs text-destructive hover:text-destructive"
+                              onClick={() => handleBulkUnsubscribe(errorFeeds)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              <span className="flex-1 text-left">Unsubscribe all ({errorFeeds.length})</span>
+                            </Button>
+                          </div>
                         )}
-                        <span className="flex-1 text-left truncate">{feed.title}</span>
-                      </Button>
+                      </div>
                     ))}
                   </div>
                 )}
