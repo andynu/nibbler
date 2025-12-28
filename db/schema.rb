@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_28_013920) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_28_043135) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -77,6 +77,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_013920) do
     t.integer "calculated_interval_seconds"
     t.bigint "category_id"
     t.integer "consecutive_failures", default: 0, null: false
+    t.integer "entry_count", default: 0, null: false
     t.string "etag", default: "", null: false
     t.string "favicon_avg_color"
     t.boolean "favicon_is_custom"
@@ -96,7 +97,9 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_013920) do
     t.datetime "last_updated"
     t.datetime "last_viewed"
     t.boolean "mark_unread_on_update", default: false, null: false
+    t.datetime "newest_entry_date"
     t.datetime "next_poll_at"
+    t.datetime "oldest_entry_date"
     t.integer "order_id", default: 0, null: false
     t.bigint "parent_feed_id"
     t.boolean "private", default: false, null: false

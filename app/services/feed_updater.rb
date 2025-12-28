@@ -99,8 +99,9 @@ class FeedUpdater
       end
     end
 
-    # Update adaptive polling statistics
+    # Update adaptive polling statistics and entry cache
     @feed.update_polling_stats!(new_count)
+    @feed.refresh_entry_stats! if new_count > 0
 
     UpdateResult.new(feed: @feed, new_entries_count: new_count, status: :ok)
   rescue StandardError => e

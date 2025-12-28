@@ -30,8 +30,12 @@ export interface Feed {
   category_title: string | null
   icon_url: string | null
   last_updated: string | null
+  last_successful_update: string | null
   last_error: string | null
   unread_count: number
+  entry_count: number
+  oldest_entry_date: string | null
+  newest_entry_date: string | null
   update_interval?: number
 }
 

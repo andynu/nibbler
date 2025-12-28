@@ -2,11 +2,18 @@ import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown, Eye, EyeOff } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { CheckCheck, Star, Circle, StickyNote, ChevronUp, ChevronDown, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
-import type { Entry } from "@/lib/api"
+import type { Entry, Feed } from "@/lib/api"
 
 interface EntryListProps {
   entries: Entry[]
@@ -24,6 +31,11 @@ interface EntryListProps {
   freshPerFeed?: number | null
   onFreshMaxAgeChange?: (value: "week" | "month" | "all") => void
   onFreshPerFeedChange?: (value: number | null) => void
+  // Single feed view
+  selectedFeed?: Feed | null
+  onRefreshFeed?: (feedId: number) => void
+  onEditFeed?: (feed: Feed) => void
+  onDeleteFeed?: (feedId: number) => void
 }
 
 export function EntryList({
@@ -41,9 +53,39 @@ export function EntryList({
   freshPerFeed,
   onFreshMaxAgeChange,
   onFreshPerFeedChange,
+  selectedFeed,
+  onRefreshFeed,
+  onEditFeed,
+  onDeleteFeed,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
+
+  // Helper to format relative time (e.g., "2h ago", "3d ago")
+  const formatRelativeTime = (dateStr: string | null): string => {
+    if (!dateStr) return "never"
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return "just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 30) return `${diffDays}d ago`
+    return date.toLocaleDateString()
+  }
+
+  // Helper to format date range (e.g., "2019 — 2024" or "2024")
+  const formatDateRange = (oldest: string | null, newest: string | null): string | null => {
+    if (!oldest || !newest) return null
+    const oldestYear = new Date(oldest).getFullYear()
+    const newestYear = new Date(newest).getFullYear()
+    return oldestYear === newestYear ? String(oldestYear) : `${oldestYear} — ${newestYear}`
+  }
+
   const sortByScore = preferences.entries_sort_by_score === "true"
   const hideRead = preferences.entries_hide_read === "true"
   const hideUnstarred = preferences.entries_hide_unstarred === "true"
@@ -131,6 +173,68 @@ export function EntryList({
               <option value="">∞</option>
             </select>
           </div>
+        </div>
+      )}
+      {/* Single feed toolbar */}
+      {selectedFeed && (
+        <div className="px-3 py-1.5 flex items-center gap-2 border-b border-border shrink-0 bg-muted/20 text-xs">
+          <span className="text-muted-foreground">
+            Updated {formatRelativeTime(selectedFeed.last_successful_update)}
+          </span>
+          {selectedFeed.site_url && (
+            <a
+              href={selectedFeed.site_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground"
+              title="Open source website"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+          <span className="text-muted-foreground">{selectedFeed.entry_count} items</span>
+          <div className="flex-1" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {formatDateRange(selectedFeed.oldest_entry_date, selectedFeed.newest_entry_date) && (
+                <>
+                  <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                    Activity: {formatDateRange(selectedFeed.oldest_entry_date, selectedFeed.newest_entry_date)}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {onRefreshFeed && (
+                <DropdownMenuItem onClick={() => onRefreshFeed(selectedFeed.id)}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync now
+                </DropdownMenuItem>
+              )}
+              {onEditFeed && (
+                <DropdownMenuItem onClick={() => onEditFeed(selectedFeed)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit feed
+                </DropdownMenuItem>
+              )}
+              {onDeleteFeed && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onDeleteFeed(selectedFeed.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Unsubscribe
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
       {/* Filter & display toolbar */}

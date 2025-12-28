@@ -164,6 +164,18 @@ namespace :feeds do
     puts "\nDone! Now run: rake feeds:update_all to fetch entries"
   end
 
+  desc "Refresh cached entry statistics (count, oldest/newest dates) for all feeds"
+  task refresh_entry_stats: :environment do
+    puts "Refreshing entry stats for all feeds..."
+    count = 0
+    Feed.find_each do |feed|
+      feed.refresh_entry_stats!
+      count += 1
+      print "." if (count % 10).zero?
+    end
+    puts "\nDone! Refreshed #{count} feeds."
+  end
+
   desc "Show feed update stats"
   task stats: :environment do
     puts "Feed Statistics:"

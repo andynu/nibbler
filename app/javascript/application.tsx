@@ -213,6 +213,28 @@ function App() {
     }
   }
 
+  const handleRefreshFeed = async (feedId: number) => {
+    try {
+      await api.feeds.refresh(feedId)
+      await loadFeeds()
+      await loadEntries()
+    } catch (error) {
+      console.error("Failed to refresh feed:", error)
+    }
+  }
+
+  const handleDeleteFeed = async (feedId: number) => {
+    try {
+      await api.feeds.delete(feedId)
+      setFeeds((prev) => prev.filter((f) => f.id !== feedId))
+      if (selectedFeedId === feedId) {
+        handleSelectFeed(null)
+      }
+    } catch (error) {
+      console.error("Failed to delete feed:", error)
+    }
+  }
+
   const handleToggleRead = async (entryId: number) => {
     try {
       const result = await api.entries.toggleRead(entryId)
@@ -625,6 +647,10 @@ function App() {
           freshPerFeed={freshPerFeed}
           onFreshMaxAgeChange={setFreshMaxAge}
           onFreshPerFeedChange={setFreshPerFeed}
+          selectedFeed={selectedFeedId ? feeds.find((f) => f.id === selectedFeedId) : null}
+          onRefreshFeed={handleRefreshFeed}
+          onEditFeed={setEditingFeed}
+          onDeleteFeed={handleDeleteFeed}
         />
       </div>
       <div style={{ flex: 1, height: "100%", minWidth: 0 }}>

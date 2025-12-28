@@ -80,6 +80,20 @@ class Feed < ApplicationRecord
     retry_after.present? && retry_after > Time.current
   end
 
+  # Refresh cached entry statistics (count and date range)
+  # Call after entries are added, updated, or removed
+  def refresh_entry_stats!
+    stats = entries.reorder(nil).pick(
+      Arel.sql("COUNT(*), MIN(entries.updated), MAX(entries.updated)")
+    )
+
+    update!(
+      entry_count: stats[0] || 0,
+      oldest_entry_date: stats[1],
+      newest_entry_date: stats[2]
+    )
+  end
+
   # Calculate and update adaptive polling statistics after entries are processed
   # @param new_entries_count [Integer] number of new entries added this update
   def update_polling_stats!(new_entries_count)
