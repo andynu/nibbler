@@ -35,35 +35,46 @@ VENV_BIN = PROJECT_ROOT / ".venv" / "bin"
 DEFAULT_MODEL = "en_US-lessac-medium"
 MODEL_PATH = MODELS_DIR / f"{DEFAULT_MODEL}.onnx"
 
+# Padding to prevent word clipping (in seconds)
+SILENCE_PADDING_START = 0.15  # 150ms at start
+SILENCE_PADDING_END = 0.25    # 250ms at end
 
-def generate_audio(text: str, output_path: Path) -> Path:
-    """Generate audio using Piper TTS.
+
+def add_silence_padding(input_path: Path, output_path: Path, start_pad: float, end_pad: float) -> Path:
+    """Add silence padding to audio file using ffmpeg.
 
     Args:
-        text: Text to convert to speech
-        output_path: Path for output WAV file (without extension)
+        input_path: Path to input WAV file
+        output_path: Path for output WAV file
+        start_pad: Seconds of silence to add at start
+        end_pad: Seconds of silence to add at end
 
     Returns:
-        Path to the generated WAV file
+        Path to the padded WAV file
     """
-    wav_path = output_path.with_suffix(".wav")
+    # Use ffmpeg to add silence padding using adelay and apad filters
+    # adelay adds silence at the start, apad adds silence at the end
+    # Format: adelay=START_MS|START_MS (stereo), apad=pad_dur=END_S
+    start_ms = int(start_pad * 1000)
 
-    piper_cmd = [
-        str(VENV_BIN / "piper"),
-        "--model", str(MODEL_PATH),
-        "--output_file", str(wav_path),
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-y",  # Overwrite output
+        "-i", str(input_path),
+        "-af", f"adelay={start_ms}|{start_ms},apad=pad_dur={end_pad}",
+        "-ar", "22050",  # Keep sample rate consistent with Piper output
+        str(output_path),
     ]
 
     result = subprocess.run(
-        piper_cmd,
-        input=text.encode("utf-8"),
+        ffmpeg_cmd,
         capture_output=True,
     )
 
     if result.returncode != 0:
-        raise RuntimeError(f"Piper TTS failed: {result.stderr.decode()}")
+        raise RuntimeError(f"FFmpeg padding failed: {result.stderr.decode()}")
 
-    return wav_path
+    return output_path
 
 
 def extract_timestamps(audio_path: Path, transcript: str) -> list[dict]:
@@ -108,11 +119,47 @@ def process_text(text: str, output_path: Path) -> dict:
     if not text:
         raise ValueError("Empty text provided")
 
-    # Generate audio
-    wav_path = generate_audio(text, output_path)
+    wav_path = output_path.with_suffix(".wav")
 
-    # Extract timestamps
-    timestamps = extract_timestamps(wav_path, text)
+    # Generate raw audio to temp file, extract timestamps, then add padding
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+        raw_audio_path = Path(temp_file.name)
+
+    try:
+        # Generate raw audio using Piper
+        piper_cmd = [
+            str(VENV_BIN / "piper"),
+            "--model", str(MODEL_PATH),
+            "--output_file", str(raw_audio_path),
+        ]
+
+        result = subprocess.run(
+            piper_cmd,
+            input=text.encode("utf-8"),
+            capture_output=True,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Piper TTS failed: {result.stderr.decode()}")
+
+        # Extract timestamps from raw (unpadded) audio
+        timestamps = extract_timestamps(raw_audio_path, text)
+
+        # Adjust timestamps to account for start padding
+        for ts in timestamps:
+            ts["start"] = round(ts["start"] + SILENCE_PADDING_START, 3)
+            ts["end"] = round(ts["end"] + SILENCE_PADDING_START, 3)
+
+        # Add silence padding to create final audio
+        add_silence_padding(raw_audio_path, wav_path, SILENCE_PADDING_START, SILENCE_PADDING_END)
+
+        # Calculate total duration including padding
+        total_duration = timestamps[-1]["end"] + SILENCE_PADDING_END if timestamps else 0
+
+    finally:
+        # Clean up temp file
+        if raw_audio_path.exists():
+            raw_audio_path.unlink()
 
     # Save timestamps to JSON
     json_path = output_path.with_suffix(".json")
@@ -120,7 +167,7 @@ def process_text(text: str, output_path: Path) -> dict:
         json.dump({
             "text": text,
             "timestamps": timestamps,
-            "duration": timestamps[-1]["end"] if timestamps else 0,
+            "duration": total_duration,
         }, f, indent=2)
 
     return {
