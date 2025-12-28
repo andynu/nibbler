@@ -42,8 +42,9 @@ import type { Feed, Category } from "@/lib/api"
 import { CategoryDialog } from "@/components/CategoryDialog"
 import { FeedInfoDialog } from "@/components/FeedInfoDialog"
 import { usePreferences } from "@/contexts/PreferencesContext"
+import { getAllVirtualFolders, getVirtualFoldersByMode, SmartFolderIcon, type VirtualFolder } from "@/lib/virtualFolders"
 
-type VirtualFeed = "starred" | "fresh" | "published" | null
+type VirtualFeed = string | null
 
 interface FeedSidebarProps {
   feeds: Feed[]
@@ -770,68 +771,81 @@ export function FeedSidebar({
           onDragEnd={handleDragEnd}
         >
         <div className="p-2">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 mb-1"
-            style={!selectedFeedId && !selectedCategoryId && !virtualFeed ? {
-              backgroundColor: "var(--color-accent-primary-dark)",
-              color: "white",
-            } : undefined}
-            onClick={() => {
-              onSelectFeed(null)
-              onSelectCategory(null)
-              onSelectVirtualFeed(null)
-            }}
-          >
-            <Rss className="h-4 w-4" />
-            <span className={cn(
-              "flex-1 text-left",
-              totalUnread > 0 ? "font-medium" : "text-muted-foreground"
-            )}>All Feeds</span>
-            {totalUnread > 0 && <Badge variant="secondary">{totalUnread}</Badge>}
-          </Button>
+          {/* Item-list virtual folders (All Feeds, Fresh, Starred, Published) */}
+          {getVirtualFoldersByMode("item-list").map((folder) => {
+            const Icon = folder.icon
+            // Special case: empty string id means "All Feeds" (no virtual feed selected)
+            const isSelected = folder.id === ""
+              ? (!selectedFeedId && !selectedCategoryId && virtualFeed === null)
+              : virtualFeed === folder.id
+            const handleClick = () => {
+              if (folder.id === "") {
+                onSelectFeed(null)
+                onSelectCategory(null)
+                onSelectVirtualFeed(null)
+              } else {
+                onSelectVirtualFeed(folder.id)
+              }
+            }
 
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 mb-1"
-            style={virtualFeed === "fresh" ? {
-              backgroundColor: "var(--color-accent-primary-dark)",
-              color: "white",
-            } : undefined}
-            onClick={() => onSelectVirtualFeed("fresh")}
-          >
-            <Clock className="h-4 w-4" />
-            <span className={cn(
-              "flex-1 text-left",
-              totalUnread > 0 ? "font-medium" : "text-muted-foreground"
-            )}>Fresh</span>
-          </Button>
+            return (
+              <Button
+                key={folder.id || "all"}
+                variant="ghost"
+                className="w-full justify-start gap-2 mb-1"
+                style={isSelected ? {
+                  backgroundColor: "var(--color-accent-primary-dark)",
+                  color: "white",
+                } : undefined}
+                onClick={handleClick}
+              >
+                {folder.isSmart ? (
+                  <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
+                ) : (
+                  <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
+                )}
+                <span className={cn(
+                  "flex-1 text-left",
+                  folder.id === "" && totalUnread > 0 ? "font-medium" : undefined
+                )}>{folder.name}</span>
+                {folder.id === "" && totalUnread > 0 && (
+                  <Badge variant="secondary">{totalUnread}</Badge>
+                )}
+              </Button>
+            )
+          })}
 
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 mb-1"
-            style={virtualFeed === "starred" ? {
-              backgroundColor: "var(--color-accent-primary-dark)",
-              color: "white",
-            } : undefined}
-            onClick={() => onSelectVirtualFeed("starred")}
-          >
-            <Star className="h-4 w-4" style={{ color: "var(--color-accent-secondary)" }} />
-            <span className="flex-1 text-left">Starred</span>
-          </Button>
+          {/* Feed-list virtual folders (smart folders: Uncategorized, Dead Letter Box) */}
+          {getVirtualFoldersByMode("feed-list").map((folder) => {
+            const Icon = folder.icon
+            const isSelected = virtualFeed === folder.id
+            const matchingFeeds = folder.filterFeeds ? folder.filterFeeds(feeds) : []
+            const matchCount = matchingFeeds.length
 
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 mb-1"
-            style={virtualFeed === "published" ? {
-              backgroundColor: "var(--color-accent-primary-dark)",
-              color: "white",
-            } : undefined}
-            onClick={() => onSelectVirtualFeed("published")}
-          >
-            <Send className="h-4 w-4" />
-            <span className="flex-1 text-left">Published</span>
-          </Button>
+            // Don't show empty smart folders
+            if (matchCount === 0) return null
+
+            return (
+              <Button
+                key={folder.id}
+                variant="ghost"
+                className="w-full justify-start gap-2 mb-1"
+                style={isSelected ? {
+                  backgroundColor: "var(--color-accent-primary-dark)",
+                  color: "white",
+                } : undefined}
+                onClick={() => onSelectVirtualFeed(folder.id)}
+              >
+                {folder.isSmart ? (
+                  <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
+                ) : (
+                  <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
+                )}
+                <span className="flex-1 text-left">{folder.name}</span>
+                <Badge variant="secondary">{matchCount}</Badge>
+              </Button>
+            )
+          })}
 
           {feedsWithErrors.length > 0 && (
             <>

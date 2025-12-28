@@ -18,6 +18,7 @@ import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerConte
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
+import { getVirtualFolder } from "@/lib/virtualFolders"
 
 function App() {
   const { preferences, updatePreference } = usePreferences()
@@ -30,7 +31,7 @@ function App() {
 
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
-  const [virtualFeed, setVirtualFeed] = useState<"starred" | "fresh" | "published" | null>(null)
+  const [virtualFeed, setVirtualFeed] = useState<string | null>(null)
 
   // Fresh view parameters (session-only, not persisted)
   const [freshMaxAge, setFreshMaxAge] = useState<"week" | "month" | "all">("week")
@@ -147,16 +148,27 @@ function App() {
   }
 
   const loadEntries = async () => {
+    // For feed-list virtual folders, we don't load entries - we show feeds instead
+    const vf = virtualFeed ? getVirtualFolder(virtualFeed) : null
+    if (vf?.mode === "feed-list") {
+      setEntries([])
+      setSelectedEntry(null)
+      setIsLoadingEntries(false)
+      return
+    }
+
     setIsLoadingEntries(true)
     try {
       const perPage = parseInt(preferences.default_view_limit, 10) || 30
       const sortByScore = preferences.entries_sort_by_score === "true"
       const hideRead = preferences.entries_hide_read === "true"
       const hideUnstarred = preferences.entries_hide_unstarred === "true"
+      // Convert empty string to undefined for API (All Feeds case)
+      const viewParam = virtualFeed === "" ? undefined : virtualFeed
       const result = await api.entries.list({
         feed_id: selectedFeedId || undefined,
         category_id: selectedCategoryId || undefined,
-        view: virtualFeed || undefined,
+        view: viewParam || undefined,
         order_by: sortByScore ? "score" : "date",
         unread: hideRead ? true : undefined,
         starred: hideUnstarred ? true : undefined,
@@ -217,11 +229,11 @@ function App() {
     }
   }
 
-  const handleSelectVirtualFeed = (feed: "starred" | "fresh" | "published" | null) => {
+  const handleSelectVirtualFeed = (feed: string | null) => {
     setVirtualFeed(feed)
     setSelectedFeedId(null)
     setSelectedCategoryId(null)
-    if (feed !== null) {
+    if (feed !== null && feed !== "") {
       navigationHistory.navigateToVirtualFeed(feed)
     } else {
       navigationHistory.navigateToRoot()
@@ -401,6 +413,14 @@ function App() {
   const currentIndex = selectedEntry
     ? entries.findIndex((e) => e.id === selectedEntry.id)
     : -1
+
+  // Compute filtered feeds for feed-list virtual folders
+  const currentVirtualFolder = virtualFeed ? getVirtualFolder(virtualFeed) : null
+  const isFeedListMode = currentVirtualFolder?.mode === "feed-list"
+  const filteredFeedsForList = useMemo(() => {
+    if (!isFeedListMode || !currentVirtualFolder?.filterFeeds) return []
+    return currentVirtualFolder.filterFeeds(feeds)
+  }, [isFeedListMode, currentVirtualFolder, feeds])
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
@@ -650,9 +670,10 @@ function App() {
   useKeyboardCommands(keyboardCommands)
 
   const getListTitle = () => {
-    if (virtualFeed === "starred") return "Starred"
-    if (virtualFeed === "fresh") return "Fresh"
-    if (virtualFeed === "published") return "Published"
+    if (virtualFeed !== null) {
+      const vf = getVirtualFolder(virtualFeed)
+      return vf?.name || "All Feeds"
+    }
     if (selectedFeedId) {
       const feed = feeds.find((f) => f.id === selectedFeedId)
       return feed?.title || "Feed"
@@ -735,6 +756,9 @@ function App() {
           onRefreshFeed={handleRefreshFeed}
           onEditFeed={setEditingFeed}
           onDeleteFeed={handleDeleteFeed}
+          displayMode={isFeedListMode ? "feeds" : "entries"}
+          filteredFeeds={filteredFeedsForList}
+          onSelectFeedFromList={handleSelectFeed}
         />
       </div>
       <div style={{ flex: 1, height: "100%", minWidth: 0 }}>

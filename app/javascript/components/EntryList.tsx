@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCheck, Star, Circle, StickyNote, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Info } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Info, Rss, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
@@ -37,6 +37,10 @@ interface EntryListProps {
   onRefreshFeed?: (feedId: number) => void
   onEditFeed?: (feed: Feed) => void
   onDeleteFeed?: (feedId: number) => void
+  // Feed-list mode (for virtual folders showing feeds)
+  displayMode?: "entries" | "feeds"
+  filteredFeeds?: Feed[]
+  onSelectFeedFromList?: (feedId: number) => void
 }
 
 export function EntryList({
@@ -57,6 +61,9 @@ export function EntryList({
   onRefreshFeed,
   onEditFeed,
   onDeleteFeed,
+  displayMode = "entries",
+  filteredFeeds = [],
+  onSelectFeedFromList,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
@@ -316,25 +323,84 @@ export function EntryList({
 
       <ScrollArea className="flex-1 min-h-0">
         <div ref={listRef}>
-          {isLoading ? (
-            <div className="p-4 text-center text-muted-foreground">Loading...</div>
-          ) : entries.length === 0 ? (
-            <div className="p-4 text-center text-muted-foreground">No entries</div>
+          {displayMode === "feeds" ? (
+            // Feed-list mode: show filtered feeds
+            filteredFeeds.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">No feeds</div>
+            ) : (
+              <div className="p-1">
+                {filteredFeeds.map((feed) => (
+                  <div
+                    key={feed.id}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
+                      "hover:bg-accent"
+                    )}
+                    onClick={() => onSelectFeedFromList?.(feed.id)}
+                  >
+                    <div className="shrink-0">
+                      {feed.icon_url ? (
+                        <img
+                          src={feed.icon_url}
+                          alt=""
+                          className="h-4 w-4 rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none"
+                          }}
+                        />
+                      ) : (
+                        <Rss className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{feed.title}</div>
+                      {feed.category_title && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          {feed.category_title}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
+                      {feed.last_error && (
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" title={feed.last_error} />
+                      )}
+                      {feed.newest_entry_date && (
+                        <span title={`Last post: ${new Date(feed.newest_entry_date).toLocaleDateString()}`}>
+                          {formatRelativeTime(feed.newest_entry_date)}
+                        </span>
+                      )}
+                      {feed.unread_count > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {feed.unread_count}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
-            <div className="p-1">
-              {entries.map((entry) => (
-                <EntryItem
-                  key={entry.id}
-                  entry={entry}
-                  isSelected={selectedEntryId === entry.id}
-                  onSelect={() => onSelectEntry(entry.id)}
-                  onToggleRead={() => onToggleRead(entry.id)}
-                  onToggleStarred={() => onToggleStarred(entry.id)}
-                  displayDensity={displayDensity}
-                  formatDate={formatListDate}
-                />
-              ))}
-            </div>
+            // Entry-list mode: show entries (default)
+            isLoading ? (
+              <div className="p-4 text-center text-muted-foreground">Loading...</div>
+            ) : entries.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">No entries</div>
+            ) : (
+              <div className="p-1">
+                {entries.map((entry) => (
+                  <EntryItem
+                    key={entry.id}
+                    entry={entry}
+                    isSelected={selectedEntryId === entry.id}
+                    onSelect={() => onSelectEntry(entry.id)}
+                    onToggleRead={() => onToggleRead(entry.id)}
+                    onToggleStarred={() => onToggleStarred(entry.id)}
+                    displayDensity={displayDensity}
+                    formatDate={formatListDate}
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
       </ScrollArea>
