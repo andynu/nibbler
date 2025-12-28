@@ -81,6 +81,7 @@ export function FeedSidebar({
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
+  const [errorsExpanded, setErrorsExpanded] = useState(false)
 
   // Local override for hide read feeds (toggle in UI)
   const [hideReadOverride, setHideReadOverride] = useState<boolean | null>(null)
@@ -496,27 +497,40 @@ export function FeedSidebar({
             <>
               <div className="h-px bg-border my-2" />
               <div className="mb-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 text-destructive text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>{feedsWithErrors.length} feed{feedsWithErrors.length !== 1 ? 's' : ''} with errors</span>
-                </div>
-                <div className="space-y-0.5">
-                  {feedsWithErrors.map((feed) => (
-                    <Button
-                      key={feed.id}
-                      variant="ghost"
-                      className="w-full justify-start gap-2 h-7 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => onEditFeed(feed)}
-                    >
-                      {feed.icon_url ? (
-                        <img src={feed.icon_url} className="h-3 w-3" alt="" />
-                      ) : (
-                        <Rss className="h-3 w-3" />
-                      )}
-                      <span className="flex-1 text-left truncate">{feed.title}</span>
-                    </Button>
-                  ))}
-                </div>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-2 h-8 text-destructive hover:text-destructive"
+                  onClick={() => setErrorsExpanded((prev) => !prev)}
+                >
+                  <span className="shrink-0">
+                    {errorsExpanded ? (
+                      <FolderOpen className="h-4 w-4" />
+                    ) : (
+                      <Folder className="h-4 w-4" />
+                    )}
+                  </span>
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left">Errors ({feedsWithErrors.length})</span>
+                </Button>
+                {errorsExpanded && (
+                  <div className="space-y-0.5 ml-4">
+                    {feedsWithErrors.map((feed) => (
+                      <Button
+                        key={feed.id}
+                        variant="ghost"
+                        className="w-full justify-start gap-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => onEditFeed(feed)}
+                      >
+                        {feed.icon_url ? (
+                          <img src={feed.icon_url} className="h-3 w-3" alt="" />
+                        ) : (
+                          <Rss className="h-3 w-3" />
+                        )}
+                        <span className="flex-1 text-left truncate">{feed.title}</span>
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}

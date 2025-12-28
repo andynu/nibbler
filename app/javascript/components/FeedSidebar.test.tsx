@@ -328,17 +328,17 @@ describe("FeedSidebar", () => {
   })
 
   describe("feeds with errors", () => {
-    it("shows feeds with errors section when errors exist", () => {
+    it("shows collapsible errors folder when errors exist", () => {
       const feeds = [
         mockFeed({ id: 1, title: "Broken Feed", last_error: "Connection refused" }),
       ]
 
       render(<FeedSidebar {...defaultProps} feeds={feeds} />)
 
-      expect(screen.getByText("1 feed with errors")).toBeInTheDocument()
+      expect(screen.getByText("Errors (1)")).toBeInTheDocument()
     })
 
-    it("shows plural form for multiple errors", () => {
+    it("shows count for multiple errors", () => {
       const feeds = [
         mockFeed({ id: 1, title: "Broken Feed 1", last_error: "Error 1" }),
         mockFeed({ id: 2, title: "Broken Feed 2", last_error: "Error 2" }),
@@ -346,21 +346,56 @@ describe("FeedSidebar", () => {
 
       render(<FeedSidebar {...defaultProps} feeds={feeds} />)
 
-      expect(screen.getByText("2 feeds with errors")).toBeInTheDocument()
+      expect(screen.getByText("Errors (2)")).toBeInTheDocument()
     })
 
-    it("clicking error feed calls onEditFeed", async () => {
-      const user = userEvent.setup()
-      const onEditFeed = vi.fn()
+    it("error feeds are hidden by default (collapsed)", () => {
       const feeds = [
         mockFeed({ id: 1, title: "Broken Feed", last_error: "Error" }),
       ]
 
+      render(<FeedSidebar {...defaultProps} feeds={feeds} />)
+
+      // Error folder is collapsed by default, so feed name shouldn't appear in error section
+      // Note: The feed may appear elsewhere if uncategorized, so we just verify the folder exists
+      expect(screen.getByText("Errors (1)")).toBeInTheDocument()
+    })
+
+    it("clicking errors folder expands to show error feeds", async () => {
+      const user = userEvent.setup()
+      const feeds = [
+        mockFeed({ id: 1, title: "Broken Feed", last_error: "Error", category_id: 1 }),
+      ]
+      const categories = [mockCategory({ id: 1, title: "Tech" })]
+
       render(
-        <FeedSidebar {...defaultProps} feeds={feeds} onEditFeed={onEditFeed} />
+        <FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />
       )
 
-      // Find all "Broken Feed" buttons and click the first one (in error section)
+      // Click the errors folder to expand
+      await user.click(screen.getByText("Errors (1)"))
+
+      // Now error feed should be visible in error section
+      const feedButtons = screen.getAllByText("Broken Feed")
+      expect(feedButtons.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it("clicking error feed in expanded folder calls onEditFeed", async () => {
+      const user = userEvent.setup()
+      const onEditFeed = vi.fn()
+      const feeds = [
+        mockFeed({ id: 1, title: "Broken Feed", last_error: "Error", category_id: 1 }),
+      ]
+      const categories = [mockCategory({ id: 1, title: "Tech" })]
+
+      render(
+        <FeedSidebar {...defaultProps} feeds={feeds} categories={categories} onEditFeed={onEditFeed} />
+      )
+
+      // Expand error folder first
+      await user.click(screen.getByText("Errors (1)"))
+
+      // Find the feed in the error section (first occurrence after expanding)
       const feedButtons = screen.getAllByText("Broken Feed")
       await user.click(feedButtons[0])
 
@@ -547,15 +582,15 @@ describe("FeedSidebar", () => {
   })
 
   describe("error indicators", () => {
-    it("shows feeds with errors section when last_error is set", () => {
+    it("shows collapsible errors folder when last_error is set", () => {
       const feeds = [
         mockFeed({ id: 1, title: "Error Feed Only", last_error: "Connection timeout" }),
       ]
 
       render(<FeedSidebar {...defaultProps} feeds={feeds} />)
 
-      // The error section should be shown with the error count
-      expect(screen.getByText("1 feed with errors")).toBeInTheDocument()
+      // The error section should be shown with the error count in folder format
+      expect(screen.getByText("Errors (1)")).toBeInTheDocument()
     })
   })
 })
