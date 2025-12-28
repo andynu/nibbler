@@ -1,4 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from "react"
+import {
+  DndContext,
+  DragOverlay,
+  useDraggable,
+  useDroppable,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+} from "@dnd-kit/core"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +28,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Info, Crosshair } from "lucide-react"
+import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Info, Crosshair, GripVertical } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -124,6 +135,51 @@ export function FeedSidebar({
 
   // Ref to the scroll viewport for tracking mode scrolling
   const scrollViewportRef = useRef<HTMLDivElement>(null)
+
+  // Drag and drop state
+  const [activeDragId, setActiveDragId] = useState<number | null>(null)
+  const activeDragFeed = activeDragId ? feeds.find((f) => f.id === activeDragId) : null
+
+  // Drag and drop sensors - require some movement before starting drag
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  )
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const feedId = event.active.id as number
+    setActiveDragId(feedId)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveDragId(null)
+
+    if (!over) return
+
+    const feedId = active.id as number
+    const overId = over.id as string
+
+    // Check if dropped on a category
+    if (overId.startsWith("category-")) {
+      const categoryId = parseInt(overId.replace("category-", ""), 10)
+      const feed = feeds.find((f) => f.id === feedId)
+
+      // Only update if the category is different
+      if (feed && feed.category_id !== categoryId) {
+        try {
+          const updatedFeed = await api.feeds.update(feedId, {
+            feed: { category_id: categoryId },
+          })
+          onFeedsChange(feeds.map((f) => (f.id === feedId ? updatedFeed : f)))
+          onFeedUpdated?.(updatedFeed)
+        } catch (error) {
+          console.error("Failed to move feed:", error)
+        }
+      }
+    }
+  }
 
   // Persist expanded categories to localStorage
   useEffect(() => {
@@ -681,6 +737,11 @@ export function FeedSidebar({
       </div>
 
       <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
         <div className="p-2">
           <Button
             variant="ghost"
@@ -845,6 +906,7 @@ export function FeedSidebar({
                 selectedCategoryId={selectedCategoryId}
                 refreshingFeedId={refreshingFeedId}
                 trackedFeedId={trackedFeedId}
+                activeDragId={activeDragId}
                 onToggle={() => toggleCategory(category.id)}
                 onToggleCategory={toggleCategory}
                 onSelectFeed={onSelectFeed}
@@ -870,6 +932,7 @@ export function FeedSidebar({
                   feed={feed}
                   isSelected={selectedFeedId === feed.id}
                   isTracked={trackedFeedId === feed.id}
+                  isDragging={activeDragId === feed.id}
                   onSelect={() => onSelectFeed(feed.id)}
                   onEdit={() => onEditFeed(feed)}
                   onRefresh={() => handleRefreshFeed(feed)}
@@ -881,6 +944,21 @@ export function FeedSidebar({
             </>
           )}
         </div>
+
+        {/* Drag overlay - shows the dragged feed */}
+        <DragOverlay>
+          {activeDragFeed && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-background border rounded-md shadow-lg opacity-90">
+              {activeDragFeed.icon_url ? (
+                <img src={activeDragFeed.icon_url} className="h-4 w-4" alt="" />
+              ) : (
+                <Rss className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="text-sm truncate">{activeDragFeed.title}</span>
+            </div>
+          )}
+        </DragOverlay>
+        </DndContext>
       </ScrollArea>
 
       <CategoryDialog
@@ -922,6 +1000,7 @@ interface CategoryItemProps {
   selectedCategoryId: number | null
   refreshingFeedId: number | null
   trackedFeedId: number | null
+  activeDragId: number | null
   onToggle: () => void
   onToggleCategory: (categoryId: number) => void
   onSelectFeed: (feedId: number | null) => void
@@ -950,6 +1029,7 @@ function CategoryItem({
   selectedCategoryId,
   refreshingFeedId,
   trackedFeedId,
+  activeDragId,
   onToggle,
   onToggleCategory,
   onSelectFeed,
@@ -965,6 +1045,11 @@ function CategoryItem({
 }: CategoryItemProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
+
+  // Make category a drop target
+  const { isOver, setNodeRef } = useDroppable({
+    id: `category-${category.id}`,
+  })
 
   // Calculate unread count including all descendants
   const getDescendantUnreadCount = (cat: Category): number => {
@@ -1016,12 +1101,18 @@ function CategoryItem({
   // Indentation based on depth
   const paddingLeft = depth * 16 + 8 // 8px base + 16px per depth level
 
+  // Show drop indicator when dragging over and not already in this category
+  const showDropIndicator = isOver && activeDragId !== null
+
   return (
-    <div className="group/category">
+    <div ref={setNodeRef} className="group/category">
       <div className="flex items-center">
         <Button
           variant="ghost"
-          className="flex-1 justify-start gap-2 h-8"
+          className={cn(
+            "flex-1 justify-start gap-2 h-8",
+            showDropIndicator && "ring-2 ring-primary ring-offset-1"
+          )}
           style={{ ...getButtonStyle(), paddingLeft: `${paddingLeft}px` }}
           onClick={() => onSelectCategory(category.id)}
         >
@@ -1081,6 +1172,7 @@ function CategoryItem({
                 feed={feed}
                 isSelected={selectedFeedId === feed.id}
                 isTracked={trackedFeedId === feed.id}
+                isDragging={activeDragId === feed.id}
                 onSelect={() => onSelectFeed(feed.id)}
                 onEdit={() => onEditFeed(feed)}
                 onRefresh={() => onRefreshFeed(feed)}
@@ -1117,6 +1209,7 @@ function CategoryItem({
                 selectedCategoryId={selectedCategoryId}
                 refreshingFeedId={refreshingFeedId}
                 trackedFeedId={trackedFeedId}
+                activeDragId={activeDragId}
                 onToggle={() => onToggleCategory(childCategory.id)}
                 onToggleCategory={onToggleCategory}
                 onSelectFeed={onSelectFeed}
@@ -1142,6 +1235,7 @@ interface FeedItemProps {
   feed: Feed
   isSelected: boolean
   isTracked?: boolean
+  isDragging?: boolean
   onSelect: () => void
   onEdit: () => void
   onRefresh: () => void
@@ -1150,9 +1244,18 @@ interface FeedItemProps {
   isRefreshing?: boolean
 }
 
-function FeedItem({ feed, isSelected, isTracked, onSelect, onEdit, onRefresh, onUnsubscribe, onInfo, isRefreshing }: FeedItemProps) {
+function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, onRefresh, onUnsubscribe, onInfo, isRefreshing }: FeedItemProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
+
+  // Make feed draggable
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: feed.id,
+  })
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined
 
   const getButtonStyle = () => {
     if (isSelected) {
@@ -1179,7 +1282,19 @@ function FeedItem({ feed, isSelected, isTracked, onSelect, onEdit, onRefresh, on
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="group flex items-center" data-feed-id={feed.id}>
+        <div
+          ref={setNodeRef}
+          style={style}
+          className={cn("group flex items-center", isDragging && "opacity-50")}
+          data-feed-id={feed.id}
+        >
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-100 touch-none"
+          >
+            <GripVertical className="h-3 w-3 text-muted-foreground" />
+          </div>
           <Button
             variant="ghost"
             className="flex-1 justify-start gap-2 h-8"
