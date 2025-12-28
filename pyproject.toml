@@ -1,0 +1,14 @@
+[project]
+name = "nibbler-tts"
+version = "0.1.0"
+description = "TTS tools for Nibbler RSS reader"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "piper-tts>=1.2.0",
+    "forcealign>=0.0.9",
+    "torchcodec>=0.9.1",
+]
+
+[tool.uv]
+# Cache directory for piper models
+cache-dir = ".uv-cache"

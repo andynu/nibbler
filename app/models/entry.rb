@@ -18,6 +18,7 @@ class Entry < ApplicationRecord
   has_many :entry_labels, dependent: :destroy
   has_many :labels, through: :entry_labels
   has_many :cached_images, dependent: :destroy
+  has_one :cached_audio, dependent: :destroy
 
   validates :guid, presence: true, uniqueness: true
   validates :title, presence: true

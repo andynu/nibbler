@@ -10,9 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_28_060000) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_28_121443) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "cached_audios", force: :cascade do |t|
+    t.string "audio_filename", null: false
+    t.datetime "cached_at", null: false
+    t.string "content_hash", null: false
+    t.float "duration", null: false
+    t.bigint "entry_id", null: false
+    t.json "timestamps", null: false
+    t.index ["content_hash"], name: "index_cached_audios_on_content_hash"
+    t.index ["entry_id"], name: "index_cached_audios_on_entry_id", unique: true
+  end
 
   create_table "cached_images", force: :cascade do |t|
     t.datetime "cached_at", null: false
@@ -323,6 +334,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_060000) do
     t.index ["login"], name: "index_users_on_login", unique: true
   end
 
+  add_foreign_key "cached_audios", "entries", on_delete: :cascade
   add_foreign_key "cached_images", "entries", on_delete: :cascade
   add_foreign_key "categories", "categories", column: "parent_id", on_delete: :nullify
   add_foreign_key "categories", "users"

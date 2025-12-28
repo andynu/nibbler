@@ -42,3 +42,14 @@ node_modules/
 playwright-report/
 test-results/
 
+# Python TTS environment
+/.venv/
+/.uv-cache/
+/uv.lock
+
+# Cached audio files
+/public/audio/cache/
+
+# TTS voice models (large files)
+/lib/tts/models/*.onnx
+

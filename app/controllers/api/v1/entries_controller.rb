@@ -1,7 +1,7 @@
 module Api
   module V1
     class EntriesController < BaseController
-      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred ]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :audio ]
 
       # GET /api/v1/entries
       def index
@@ -120,6 +120,43 @@ module Api
       def toggle_starred
         @user_entry.update!(marked: !@user_entry.marked)
         render json: { id: @user_entry.id, starred: @user_entry.marked }
+      end
+
+      # GET /api/v1/entries/:id/audio
+      # Returns audio URL and word-level timestamps for TTS playback.
+      # If audio doesn't exist, starts generation and returns status.
+      def audio
+        entry = @user_entry.entry
+        cached = entry.cached_audio
+
+        # Check if we have valid cached audio
+        if cached&.valid_for_content?(entry.content) && File.exist?(cached.cached_path)
+          render json: {
+            status: "ready",
+            audio_url: cached.audio_url,
+            duration: cached.duration,
+            timestamps: cached.timestamps
+          }
+          return
+        end
+
+        # Clean up stale cache
+        cached&.destroy
+
+        # Check if generation is already in progress
+        pending_job = GoodJob::Job.where(job_class: "GenerateArticleAudioJob")
+          .where("serialized_params->>'arguments' LIKE ?", "%#{entry.id}%")
+          .where(finished_at: nil)
+          .exists?
+
+        if pending_job
+          render json: { status: "generating" }
+          return
+        end
+
+        # Start generation
+        GenerateArticleAudioJob.perform_later(entry.id)
+        render json: { status: "generating" }
       end
 
       # POST /api/v1/entries/mark_all_read
