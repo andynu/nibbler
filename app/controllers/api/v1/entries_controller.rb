@@ -42,9 +42,13 @@ module Api
           @user_entries = @user_entries.where(feed_id: params[:feed_id])
         end
 
-        # Filter by category
+        # Filter by category (including all descendant categories)
         if params[:category_id].present?
-          @user_entries = @user_entries.joins(:feed).where(feeds: { category_id: params[:category_id] })
+          category = current_user.categories.find_by(id: params[:category_id])
+          if category
+            category_ids = category.self_and_descendant_ids
+            @user_entries = @user_entries.joins(:feed).where(feeds: { category_id: category_ids })
+          end
         end
 
         # Pagination
@@ -99,7 +103,11 @@ module Api
         if params[:feed_id].present?
           scope = scope.where(feed_id: params[:feed_id])
         elsif params[:category_id].present?
-          scope = scope.joins(:feed).where(feeds: { category_id: params[:category_id] })
+          category = current_user.categories.find_by(id: params[:category_id])
+          if category
+            category_ids = category.self_and_descendant_ids
+            scope = scope.joins(:feed).where(feeds: { category_id: category_ids })
+          end
         end
 
         count = scope.update_all(unread: false, last_read: Time.current)
@@ -123,7 +131,13 @@ module Api
         @user_entries = @user_entries.where(marked: true) if params[:starred] == "true"
         @user_entries = @user_entries.where(published: true) if params[:published] == "true"
         @user_entries = @user_entries.where(feed_id: params[:feed_id]) if params[:feed_id].present?
-        @user_entries = @user_entries.where(feeds: { category_id: params[:category_id] }) if params[:category_id].present?
+        if params[:category_id].present?
+          category = current_user.categories.find_by(id: params[:category_id])
+          if category
+            category_ids = category.self_and_descendant_ids
+            @user_entries = @user_entries.where(feeds: { category_id: category_ids })
+          end
+        end
 
         case params[:view]
         when "fresh"

@@ -19,4 +19,19 @@ class Category < ApplicationRecord
 
   scope :roots, -> { where(parent_id: nil) }
   scope :ordered, -> { order(:order_id, :title) }
+
+  # Returns array of all descendant category IDs (recursive children)
+  def descendant_ids
+    ids = []
+    children.each do |child|
+      ids << child.id
+      ids.concat(child.descendant_ids)
+    end
+    ids
+  end
+
+  # Returns this category's ID plus all descendant IDs
+  def self_and_descendant_ids
+    [id] + descendant_ids
+  end
 end
