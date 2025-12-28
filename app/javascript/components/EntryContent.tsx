@@ -301,6 +301,12 @@ export function EntryContent({
                   <Textarea
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                        e.preventDefault()
+                        handleSaveNote()
+                      }
+                    }}
                     placeholder="Add a note about this article..."
                     className="min-h-[100px]"
                     autoFocus
