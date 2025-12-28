@@ -36,7 +36,8 @@ module Api
         case params[:view]
         when "fresh"
           cutoff = fresh_article_cutoff_for_param(params[:fresh_max_age])
-          @user_entries = @user_entries.where("entries.date_entered > ?", cutoff) if cutoff
+          # Use entries.updated (publication date) for Fresh view filtering, not date_entered (import time)
+          @user_entries = @user_entries.where("entries.updated > ?", cutoff) if cutoff
           if params[:fresh_per_feed].present? && params[:fresh_per_feed].to_i > 0
             @user_entries = limit_per_feed(@user_entries, params[:fresh_per_feed].to_i)
           end
@@ -173,7 +174,8 @@ module Api
 
         case params[:view]
         when "fresh"
-          @user_entries = @user_entries.where("entries.date_entered > ?", fresh_article_cutoff)
+          # Use entries.updated (publication date) for Fresh view filtering
+          @user_entries = @user_entries.where("entries.updated > ?", fresh_article_cutoff)
         when "starred"
           @user_entries = @user_entries.where(marked: true)
         when "published"
