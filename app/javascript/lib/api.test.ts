@@ -131,7 +131,30 @@ describe("api.feeds", () => {
     })
   })
 
-  describe("update", () => {
+  describe("preview", () => {
+    it("previews a feed with POST /feeds/preview", async () => {
+      const previewResult = {
+        title: "Test Feed",
+        site_url: "https://example.com",
+        feed_url: "https://example.com/feed.xml",
+        entry_count: 10,
+        last_updated: "2025-12-27T12:00:00Z",
+        sample_entries: [{ title: "First Post", published: "2025-12-27" }],
+      }
+      mockFetch.mockResolvedValue(jsonResponse(previewResult))
+
+      const result = await api.feeds.preview("https://example.com/feed.xml")
+
+      expect(mockFetch).toHaveBeenCalledWith("/api/v1/feeds/preview", {
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        body: JSON.stringify({ url: "https://example.com/feed.xml" }),
+      })
+      expect(result).toEqual(previewResult)
+    })
+  })
+
+  describe("feeds update", () => {
     it("updates a feed with PATCH /feeds/:id", async () => {
       const updatedFeed = mockFeed({ title: "Updated Title" })
       mockFetch.mockResolvedValue(jsonResponse(updatedFeed))

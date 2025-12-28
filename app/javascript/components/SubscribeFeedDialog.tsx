@@ -17,8 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { api, Feed, Category } from "@/lib/api"
-import { Loader2 } from "lucide-react"
+import { api, Feed, Category, FeedPreview } from "@/lib/api"
+import { Loader2, CheckCircle, XCircle, Rss } from "lucide-react"
 
 interface SubscribeFeedDialogProps {
   open: boolean
@@ -45,7 +45,28 @@ export function SubscribeFeedDialog({
   const [title, setTitle] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [preview, setPreview] = useState<FeedPreview | null>(null)
+
+  const handleTest = async () => {
+    setError(null)
+    setPreview(null)
+    setIsTesting(true)
+
+    try {
+      const result = await api.feeds.preview(feedUrl)
+      setPreview(result)
+      // Auto-fill title if empty
+      if (!title && result.title) {
+        setTitle(result.title)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch feed")
+    } finally {
+      setIsTesting(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,7 +95,23 @@ export function SubscribeFeedDialog({
     setTitle("")
     setCategoryId("")
     setError(null)
+    setPreview(null)
     onOpenChange(false)
+  }
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Unknown"
+    try {
+      return new Date(dateStr).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    } catch {
+      return dateStr
+    }
   }
 
   return (
@@ -90,16 +127,70 @@ export function SubscribeFeedDialog({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="feedUrl">Feed URL</Label>
-              <Input
-                id="feedUrl"
-                type="url"
-                placeholder="https://example.com/feed.xml"
-                value={feedUrl}
-                onChange={(e) => setFeedUrl(e.target.value)}
-                required
-                autoFocus
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="feedUrl"
+                  type="url"
+                  placeholder="https://example.com/feed.xml"
+                  value={feedUrl}
+                  onChange={(e) => {
+                    setFeedUrl(e.target.value)
+                    setPreview(null) // Clear preview when URL changes
+                  }}
+                  required
+                  autoFocus
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTest}
+                  disabled={isTesting || !feedUrl}
+                >
+                  {isTesting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Test"
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {preview && (
+              <div className="rounded-md border bg-muted/50 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="font-medium">Feed found</span>
+                </div>
+                <div className="grid gap-1 text-sm">
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground">Title:</span>
+                    <span className="font-medium">{preview.title}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground">Entries:</span>
+                    <span>{preview.entry_count} articles</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground">Last updated:</span>
+                    <span>{formatDate(preview.last_updated)}</span>
+                  </div>
+                  {preview.sample_entries.length > 0 && (
+                    <div className="mt-2 pt-2 border-t">
+                      <span className="text-muted-foreground text-xs">Recent articles:</span>
+                      <ul className="mt-1 space-y-0.5">
+                        {preview.sample_entries.map((entry, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs">
+                            <Rss className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
+                            <span className="line-clamp-1">{entry.title}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="title">Title (optional)</Label>
               <Input

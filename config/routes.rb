@@ -21,6 +21,7 @@ Rails.application.routes.draw do
         end
         collection do
           post :refresh_all
+          post :preview
         end
       end
 

@@ -58,6 +58,52 @@ module Api
         end
       end
 
+      # POST /api/v1/feeds/preview
+      # Fetches and parses a feed URL without subscribing
+      def preview
+        url = params[:url].to_s.strip
+        return render json: { error: "URL is required" }, status: :bad_request if url.blank?
+
+        # Normalize URL - add https:// if no protocol specified
+        url = "https://#{url}" unless url.match?(%r{\Ahttps?://}i)
+
+        begin
+          # Create a temporary feed object to use with FeedFetcher
+          temp_feed = Feed.new(feed_url: url)
+          fetcher = FeedFetcher.new(temp_feed)
+          fetch_result = fetcher.fetch
+
+          if fetch_result.error?
+            return render json: { error: fetch_result.error }, status: :unprocessable_entity
+          end
+
+          parse_result = FeedParser.new(fetch_result.body, feed_url: url).parse
+
+          if !parse_result.success?
+            return render json: { error: parse_result.error }, status: :unprocessable_entity
+          end
+
+          # Calculate last updated from entries
+          last_entry_date = parse_result.entries
+            .map { |e| e.updated || e.published }
+            .compact
+            .max
+
+          render json: {
+            title: parse_result.title,
+            site_url: parse_result.site_url,
+            feed_url: url,
+            entry_count: parse_result.entries.count,
+            last_updated: last_entry_date,
+            sample_entries: parse_result.entries.first(3).map do |entry|
+              { title: entry.title, published: entry.published }
+            end
+          }
+        rescue StandardError => e
+          render json: { error: "Failed to fetch feed: #{e.message}" }, status: :unprocessable_entity
+        end
+      end
+
       # POST /api/v1/feeds/refresh_all
       def refresh_all
         feeds = current_user.feeds.where("last_updated IS NULL OR last_updated < ?", 5.minutes.ago)

@@ -101,6 +101,15 @@ export interface PaginatedEntries {
   }
 }
 
+export interface FeedPreview {
+  title: string
+  site_url: string | null
+  feed_url: string
+  entry_count: number
+  last_updated: string | null
+  sample_entries: Array<{ title: string; published: string | null }>
+}
+
 export interface Preferences {
   show_content_preview: string
   strip_images: string
@@ -216,6 +225,8 @@ export const api = {
       request<{ status: string; new_entries: number; feed: Feed }>(`/feeds/${id}/refresh`, { method: "POST" }),
     refreshAll: () =>
       request<{ updated: number; results: Array<{ feed_id: number; title: string; status: string; new_entries: number; error: string | null }> }>("/feeds/refresh_all", { method: "POST" }),
+    preview: (url: string) =>
+      request<FeedPreview>("/feeds/preview", { method: "POST", body: JSON.stringify({ url }) }),
   },
 
   entries: {

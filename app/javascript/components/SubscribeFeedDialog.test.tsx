@@ -7,11 +7,13 @@ import { mockCategory, mockFeed } from "../../../test/fixtures/data"
 
 // Mock API
 const mockApiCreate = vi.fn()
+const mockApiPreview = vi.fn()
 
 vi.mock("@/lib/api", () => ({
   api: {
     feeds: {
       create: (...args: unknown[]) => mockApiCreate(...args),
+      preview: (...args: unknown[]) => mockApiPreview(...args),
     },
   },
 }))
@@ -292,6 +294,138 @@ describe("SubscribeFeedDialog", () => {
       // Button should show loading spinner and be disabled
       const button = screen.getByRole("button", { name: /subscribe/i })
       expect(button).toBeDisabled()
+    })
+  })
+
+  describe("test/preview functionality", () => {
+    it("shows Test button", () => {
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      expect(screen.getByRole("button", { name: /test/i })).toBeInTheDocument()
+    })
+
+    it("Test button is disabled when URL is empty", () => {
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      const testButton = screen.getByRole("button", { name: /test/i })
+      expect(testButton).toBeDisabled()
+    })
+
+    it("Test button is enabled when URL is entered", async () => {
+      const user = userEvent.setup()
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/feed.xml")
+
+      const testButton = screen.getByRole("button", { name: /test/i })
+      expect(testButton).not.toBeDisabled()
+    })
+
+    it("clicking Test calls api.feeds.preview with URL", async () => {
+      const user = userEvent.setup()
+      mockApiPreview.mockResolvedValue({
+        title: "Test Feed",
+        feed_url: "https://example.com/feed.xml",
+        entry_count: 10,
+        last_updated: "2025-12-27T12:00:00Z",
+        sample_entries: [],
+      })
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/feed.xml")
+      await user.click(screen.getByRole("button", { name: /test/i }))
+
+      await waitFor(() => {
+        expect(mockApiPreview).toHaveBeenCalledWith("https://example.com/feed.xml")
+      })
+    })
+
+    it("shows preview information after successful test", async () => {
+      const user = userEvent.setup()
+      mockApiPreview.mockResolvedValue({
+        title: "Tech Blog",
+        feed_url: "https://example.com/feed.xml",
+        entry_count: 25,
+        last_updated: "2025-12-27T12:00:00Z",
+        sample_entries: [
+          { title: "First Article", published: "2025-12-27" },
+          { title: "Second Article", published: "2025-12-26" },
+        ],
+      })
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/feed.xml")
+      await user.click(screen.getByRole("button", { name: /test/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText("Feed found")).toBeInTheDocument()
+        expect(screen.getByText("Tech Blog")).toBeInTheDocument()
+        expect(screen.getByText("25 articles")).toBeInTheDocument()
+        expect(screen.getByText("First Article")).toBeInTheDocument()
+      })
+    })
+
+    it("auto-fills title from preview", async () => {
+      const user = userEvent.setup()
+      mockApiPreview.mockResolvedValue({
+        title: "Auto-Detected Title",
+        feed_url: "https://example.com/feed.xml",
+        entry_count: 5,
+        last_updated: null,
+        sample_entries: [],
+      })
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/feed.xml")
+      await user.click(screen.getByRole("button", { name: /test/i }))
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue("Auto-Detected Title")
+      })
+    })
+
+    it("shows error when test fails", async () => {
+      const user = userEvent.setup()
+      mockApiPreview.mockRejectedValue(new Error("Unable to fetch feed"))
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/invalid")
+      await user.click(screen.getByRole("button", { name: /test/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText("Unable to fetch feed")).toBeInTheDocument()
+      })
+    })
+
+    it("clears preview when URL changes", async () => {
+      const user = userEvent.setup()
+      mockApiPreview.mockResolvedValue({
+        title: "Test Feed",
+        feed_url: "https://example.com/feed.xml",
+        entry_count: 10,
+        last_updated: null,
+        sample_entries: [],
+      })
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      // Test first URL
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/feed.xml")
+      await user.click(screen.getByRole("button", { name: /test/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText("Feed found")).toBeInTheDocument()
+      })
+
+      // Change URL - preview should clear
+      await user.type(screen.getByLabelText("Feed URL"), "2")
+
+      expect(screen.queryByText("Feed found")).not.toBeInTheDocument()
     })
   })
 
