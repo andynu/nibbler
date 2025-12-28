@@ -491,28 +491,49 @@ export function FeedSidebar({
   return (
     <div className="h-full flex flex-col border-r border-border bg-muted/30">
       <div className="px-3 py-2 border-b border-border shrink-0">
-        <div className="flex items-center gap-2 mb-1">
+        {/* Top toolbar row */}
+        <div className="flex items-center justify-between gap-0.5 mb-2">
+          {/* Left side: Toggle sidebar, Add feed */}
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onToggleCollapse}
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Add...">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={onSubscribe}>
+                  <Rss className="mr-2 h-4 w-4" />
+                  Subscribe to Feed
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowCategoryDialog(true)}>
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  New Category
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {/* Right side: Settings */}
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onSettings} aria-label="Settings">
+            <Cog className="h-4 w-4" />
+          </Button>
+        </div>
+        {/* Centered logo and title */}
+        <div className="flex items-center justify-center gap-2 mb-2">
           <NibblerLogo size={40} />
           <span className="font-semibold">NibbleRSS</span>
         </div>
-        <div className="flex items-center gap-0.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Add...">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={onSubscribe}>
-                <Rss className="mr-2 h-4 w-4" />
-                Subscribe to Feed
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowCategoryDialog(true)}>
-                <FolderPlus className="mr-2 h-4 w-4" />
-                New Category
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Secondary toolbar row */}
+        <div className="flex items-center justify-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
@@ -545,31 +566,20 @@ export function FeedSidebar({
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            onClick={onToggleCollapse}
-            aria-label="Collapse sidebar"
+            onClick={expandAllCategories}
+            aria-label="Expand all categories"
           >
-            <PanelLeftClose className="h-4 w-4" />
+            <ChevronsUpDown className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onSettings} aria-label="Settings">
-            <Cog className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={collapseAllCategories}
+            aria-label="Collapse all categories"
+          >
+            <ChevronsDownUp className="h-4 w-4" />
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={expandAllCategories}>
-                <ChevronsUpDown className="mr-2 h-4 w-4" />
-                Expand all
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={collapseAllCategories}>
-                <ChevronsDownUp className="mr-2 h-4 w-4" />
-                Collapse all
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
