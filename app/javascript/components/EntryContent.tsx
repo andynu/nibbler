@@ -75,8 +75,8 @@ export function EntryContent({
     setIsEditingNote(false)
     setNoteText(entry?.note || "")
     setIframeError(false)
-    // Stop TTS when switching entries
-    ttsPlayer.stop()
+    // Reset TTS when switching entries (full cleanup to idle state)
+    ttsPlayer.reset()
   }, [entry?.id])
 
   const handleStartEditNote = () => {

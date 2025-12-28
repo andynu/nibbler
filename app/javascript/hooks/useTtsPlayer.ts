@@ -18,6 +18,7 @@ interface TtsPlayerControls {
   play: () => void
   pause: () => void
   stop: () => void
+  reset: () => void
   seek: (time: number) => void
   toggle: () => void
   toggleAutoScroll: () => void
@@ -228,6 +229,18 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     }
   }, [])
 
+  // Full reset - returns to idle state and cleans up resources
+  const reset = useCallback(() => {
+    cleanup()
+    setState("idle")
+    setCurrentTime(0)
+    setDuration(0)
+    setCurrentWordIndex(-1)
+    setTimestamps([])
+    setError(null)
+    setAutoScroll(true)
+  }, [cleanup])
+
   const seek = useCallback((time: number) => {
     if (audioRef.current) {
       audioRef.current.currentTime = time
@@ -271,6 +284,7 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     play,
     pause,
     stop,
+    reset,
     seek,
     toggle,
     toggleAutoScroll,
