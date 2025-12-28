@@ -122,6 +122,9 @@ export function FeedSidebar({
   const sortByUnread = preferences.feeds_sort_by_unread === "true"
   const syncToTree = preferences.sync_to_tree === "true"
 
+  // Ref to the scroll viewport for tracking mode scrolling
+  const scrollViewportRef = useRef<HTMLDivElement>(null)
+
   // Persist expanded categories to localStorage
   useEffect(() => {
     try {
@@ -207,8 +210,26 @@ export function FeedSidebar({
     // Scroll to the tracked feed element after categories expand
     // Use setTimeout to ensure DOM updates after category expansion
     const timeoutId = setTimeout(() => {
-      const feedElement = document.querySelector(`[data-feed-id="${trackedFeedId}"]`)
-      feedElement?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+      const feedElement = document.querySelector(`[data-feed-id="${trackedFeedId}"]`) as HTMLElement | null
+      const viewport = scrollViewportRef.current
+      if (!feedElement || !viewport) return
+
+      // Calculate vertical scroll position manually to avoid horizontal scrolling
+      const elementRect = feedElement.getBoundingClientRect()
+      const viewportRect = viewport.getBoundingClientRect()
+
+      // Check if element is already visible in viewport
+      const isAboveViewport = elementRect.top < viewportRect.top
+      const isBelowViewport = elementRect.bottom > viewportRect.bottom
+
+      if (isAboveViewport) {
+        // Scroll element to top of viewport (with small margin)
+        viewport.scrollTop += elementRect.top - viewportRect.top - 8
+      } else if (isBelowViewport) {
+        // Scroll element to bottom of viewport (with small margin)
+        viewport.scrollTop += elementRect.bottom - viewportRect.bottom + 8
+      }
+      // If element is already visible, don't scroll
     }, 100)
 
     return () => clearTimeout(timeoutId)
@@ -659,7 +680,7 @@ export function FeedSidebar({
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
         <div className="p-2">
           <Button
             variant="ghost"
