@@ -1,17 +1,15 @@
-import { useMemo, useState, useEffect, useCallback } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, Volume2 } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
 import { TagEditor } from "@/components/TagEditor"
-import { TtsPlayer } from "@/components/TtsPlayer"
 import { HighlightedContent } from "@/components/HighlightedContent"
-import { useTtsPlayer } from "@/hooks/useTtsPlayer"
 import type { Entry } from "@/lib/api"
 
 interface EntryContentProps {
@@ -61,22 +59,21 @@ export function EntryContent({
   onToggleFocusMode,
 }: EntryContentProps) {
   const { preferences } = usePreferences()
+  const audioPlayer = useAudioPlayer()
   const shouldStripImages = preferences.strip_images === "true"
   const [isEditingNote, setIsEditingNote] = useState(false)
   const [noteText, setNoteText] = useState("")
   const [isSavingNote, setIsSavingNote] = useState(false)
   const [iframeError, setIframeError] = useState(false)
 
-  // TTS player hook
-  const ttsPlayer = useTtsPlayer()
+  // Check if TTS is active for this entry
+  const isTtsActiveForThisEntry = audioPlayer.source === "tts" && audioPlayer.activeEntryId === entry?.id
 
   // Reset state when entry changes
   useEffect(() => {
     setIsEditingNote(false)
     setNoteText(entry?.note || "")
     setIframeError(false)
-    // Reset TTS when switching entries (full cleanup to idle state)
-    ttsPlayer.reset()
   }, [entry?.id])
 
   const handleStartEditNote = () => {
@@ -313,38 +310,34 @@ export function EntryContent({
                 />
               </div>
             )}
-            {/* TTS Player */}
-            <div className="mt-3">
-              <TtsPlayer
-                state={ttsPlayer.state}
-                currentTime={ttsPlayer.currentTime}
-                duration={ttsPlayer.duration}
-                autoScroll={ttsPlayer.autoScroll}
-                playbackSpeed={ttsPlayer.playbackSpeed}
-                onPlay={ttsPlayer.play}
-                onPause={ttsPlayer.pause}
-                onStop={ttsPlayer.stop}
-                onSeek={ttsPlayer.seek}
-                onToggleAutoScroll={ttsPlayer.toggleAutoScroll}
-                onSetPlaybackSpeed={ttsPlayer.setPlaybackSpeed}
-                onRequestAudio={() => ttsPlayer.requestAudio(entry.id)}
-                error={ttsPlayer.error}
-              />
-            </div>
+            {/* TTS Listen Button - only shown when TTS is not active for this entry */}
+            {!isTtsActiveForThisEntry && (
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => audioPlayer.requestTtsAudio(entry.id, entry.title)}
+                  className="gap-2"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  Listen
+                </Button>
+              </div>
+            )}
           </header>
 
           {entry.enclosures && entry.enclosures.length > 0 && (
             <EnclosurePlayer enclosures={entry.enclosures} />
           )}
 
-          {ttsPlayer.isActive && ttsPlayer.timestamps.length > 0 ? (
+          {isTtsActiveForThisEntry && audioPlayer.timestamps.length > 0 ? (
             <HighlightedContent
               html={processedContent}
-              timestamps={ttsPlayer.timestamps}
-              currentWordIndex={ttsPlayer.currentWordIndex}
-              isPlaying={ttsPlayer.state === "playing"}
-              autoScroll={ttsPlayer.autoScroll}
-              onUserScroll={ttsPlayer.pauseAutoScroll}
+              timestamps={audioPlayer.timestamps}
+              currentWordIndex={audioPlayer.currentWordIndex}
+              isPlaying={audioPlayer.state === "playing"}
+              autoScroll={audioPlayer.autoScroll}
+              onUserScroll={audioPlayer.pauseAutoScroll}
               className="prose prose-sm max-w-none
                 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3
                 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2

@@ -10,15 +10,18 @@ import { MoveFeedDialog, useMoveFeedDialog } from "@/components/MoveFeedDialog"
 import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
 import { SettingsDialog } from "@/components/SettingsDialog"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { AudioPanel } from "@/components/AudioPanel"
 import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { I18nProvider } from "@/contexts/I18nContext"
+import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { api, Feed, Entry, Category } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 
 function App() {
   const { preferences, updatePreference } = usePreferences()
+  const audioPlayer = useAudioPlayer()
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
@@ -652,12 +655,14 @@ function App() {
   }
 
   return (
+    <>
     <div
       style={{
         display: "flex",
-        height: "100vh",
+        height: audioPlayer.isVisible ? "calc(100vh - 56px)" : "100vh",
         width: "100vw",
         overflow: "hidden",
+        transition: "height 200ms ease-out",
       }}
     >
       <div style={{
@@ -819,6 +824,8 @@ function App() {
         onConfirm={doMarkAllRead}
       />
     </div>
+    <AudioPanel />
+    </>
   )
 }
 
@@ -830,7 +837,9 @@ document.addEventListener("DOMContentLoaded", () => {
       <PreferencesProvider>
         <ThemeProvider>
           <I18nProvider>
-            <App />
+            <AudioPlayerProvider>
+              <App />
+            </AudioPlayerProvider>
           </I18nProvider>
         </ThemeProvider>
       </PreferencesProvider>

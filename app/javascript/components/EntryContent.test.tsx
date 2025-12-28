@@ -17,6 +17,38 @@ vi.mock("@/contexts/PreferencesContext", () => ({
   }),
 }))
 
+// Mock the audio player context
+const mockAudioPlayer = {
+  state: "idle" as const,
+  source: null,
+  currentTime: 0,
+  duration: 0,
+  currentWordIndex: -1,
+  timestamps: [],
+  error: null,
+  autoScroll: true,
+  playbackSpeed: 1,
+  isVisible: false,
+  activeEntryId: null,
+  activeEntryTitle: null,
+  play: vi.fn(),
+  pause: vi.fn(),
+  stop: vi.fn(),
+  reset: vi.fn(),
+  seek: vi.fn(),
+  toggle: vi.fn(),
+  toggleAutoScroll: vi.fn(),
+  pauseAutoScroll: vi.fn(),
+  setPlaybackSpeed: vi.fn(),
+  dismiss: vi.fn(),
+  requestTtsAudio: vi.fn(),
+  isActive: false,
+}
+
+vi.mock("@/contexts/AudioPlayerContext", () => ({
+  useAudioPlayer: () => mockAudioPlayer,
+}))
+
 // Mock EnclosurePlayer to keep tests focused
 vi.mock("@/components/EnclosurePlayer", () => ({
   EnclosurePlayer: ({ enclosures }: { enclosures: unknown[] }) => (
