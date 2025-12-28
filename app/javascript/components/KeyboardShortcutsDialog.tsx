@@ -27,6 +27,7 @@ const shortcuts = [
     { key: "o / Enter", description: "Open entry" },
     { key: "m / u", description: "Toggle read/unread" },
     { key: "s", description: "Toggle starred" },
+    { key: "i", description: "Toggle iframe/RSS view" },
     { key: "v", description: "Open original link" },
     { key: "r", description: "Refresh entries" },
   ]},

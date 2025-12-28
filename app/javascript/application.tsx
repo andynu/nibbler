@@ -37,6 +37,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState("feeds")
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
+  const [showIframe, setShowIframe] = useState(false)
   const commandPalette = useCommandPalette()
   const contentScrollRef = useRef<HTMLDivElement>(null)
 
@@ -91,6 +92,11 @@ function App() {
   useEffect(() => {
     loadEntries()
   }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred])
+
+  // Reset iframe view to default when entry changes
+  useEffect(() => {
+    setShowIframe(preferences.content_view_mode === "iframe")
+  }, [selectedEntry?.id, preferences.content_view_mode])
 
   const loadFeeds = async () => {
     setIsLoadingFeeds(true)
@@ -242,6 +248,10 @@ function App() {
       throw error // Re-throw so the UI can handle it
     }
   }
+
+  const handleToggleIframe = useCallback(() => {
+    setShowIframe((prev) => !prev)
+  }, [])
 
   const handleUpdateScore = async (entryId: number, delta: number) => {
     const entry = entries.find((e) => e.id === entryId)
@@ -499,6 +509,7 @@ function App() {
       { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "u", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
+      { key: "i", handler: handleToggleIframe, description: "Toggle iframe/RSS view" },
       { key: "v", handler: handleKeyboardOpenOriginal, description: "Open original link" },
       { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
       // Go to views
@@ -521,6 +532,7 @@ function App() {
       handleKeyboardPreviousCategory,
       handleKeyboardToggleRead,
       handleKeyboardToggleStarred,
+      handleToggleIframe,
       handleKeyboardOpen,
       handleKeyboardClose,
       handleKeyboardRefresh,
@@ -616,6 +628,8 @@ function App() {
           isLoading={isLoadingEntry}
           scrollViewportRef={contentScrollRef}
           onUpdateNote={handleUpdateNote}
+          showIframe={showIframe}
+          onToggleIframe={handleToggleIframe}
         />
       </div>
       <KeyboardShortcutsDialog

@@ -69,6 +69,11 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark" },
 ]
 
+const CONTENT_VIEW_MODE_OPTIONS = [
+  { value: "rss", label: "RSS content (default)" },
+  { value: "iframe", label: "Original page in iframe" },
+]
+
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
   const { theme, setTheme } = useTheme()
@@ -188,6 +193,30 @@ export function PreferencesPanel() {
                 updatePreference("strip_images", checked ? "true" : "false")
               }
             />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="content_view_mode">Default article view</Label>
+              <p className="text-sm text-muted-foreground">
+                Show RSS content or the original page in an iframe (toggle with 'i')
+              </p>
+            </div>
+            <Select
+              value={preferences.content_view_mode || "rss"}
+              onValueChange={(value) => updatePreference("content_view_mode", value)}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTENT_VIEW_MODE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center justify-between">

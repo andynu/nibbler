@@ -25,6 +25,7 @@ module Api
         %w[
           show_content_preview
           strip_images
+          content_view_mode
           default_update_interval
           confirm_feed_catchup
           default_view_mode
@@ -48,6 +49,7 @@ module Api
         {
           "show_content_preview" => "true",
           "strip_images" => "false",
+          "content_view_mode" => "rss",
           "default_update_interval" => "30",
           "confirm_feed_catchup" => "true",
           "default_view_mode" => "adaptive",

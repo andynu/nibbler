@@ -36,6 +36,8 @@ describe("EntryContent", () => {
     hasPrevious: true,
     hasNext: true,
     isLoading: false,
+    showIframe: false,
+    onToggleIframe: vi.fn(),
   }
 
   beforeEach(() => {

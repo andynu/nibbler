@@ -12,6 +12,7 @@ interface PreferencesContextValue {
 const defaultPreferences: Preferences = {
   show_content_preview: "true",
   strip_images: "false",
+  content_view_mode: "rss",
   default_update_interval: "30",
   confirm_feed_catchup: "true",
   default_view_mode: "adaptive",

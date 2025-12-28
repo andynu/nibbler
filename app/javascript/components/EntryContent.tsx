@@ -1,9 +1,9 @@
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, ChevronUp, ChevronDown } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, ChevronUp, ChevronDown, FileText, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
@@ -22,6 +22,8 @@ interface EntryContentProps {
   isLoading: boolean
   scrollViewportRef?: React.RefObject<HTMLDivElement | null>
   onUpdateNote?: (note: string) => Promise<void>
+  showIframe: boolean
+  onToggleIframe: () => void
 }
 
 function stripImages(html: string): string {
@@ -42,17 +44,21 @@ export function EntryContent({
   isLoading,
   scrollViewportRef,
   onUpdateNote,
+  showIframe,
+  onToggleIframe,
 }: EntryContentProps) {
   const { preferences } = usePreferences()
   const shouldStripImages = preferences.strip_images === "true"
   const [isEditingNote, setIsEditingNote] = useState(false)
   const [noteText, setNoteText] = useState("")
   const [isSavingNote, setIsSavingNote] = useState(false)
+  const [iframeError, setIframeError] = useState(false)
 
-  // Reset note editing state when entry changes
+  // Reset state when entry changes
   useEffect(() => {
     setIsEditingNote(false)
     setNoteText(entry?.note || "")
+    setIframeError(false)
   }, [entry?.id])
 
   const handleStartEditNote = () => {
@@ -194,6 +200,19 @@ export function EntryContent({
               </Button>
             </div>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleIframe}
+            aria-label={showIframe ? "Show RSS content" : "Show original page"}
+            title={showIframe ? "Show RSS content (i)" : "Show original page (i)"}
+          >
+            {showIframe ? (
+              <FileText className="h-4 w-4" />
+            ) : (
+              <Globe className="h-4 w-4" />
+            )}
+          </Button>
           <Button variant="ghost" size="icon" asChild>
             <a
               href={entry.link}
@@ -207,6 +226,33 @@ export function EntryContent({
         </div>
       </div>
 
+      {showIframe ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {iframeError ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-6">
+              <Globe className="h-12 w-12 opacity-50" />
+              <div className="text-center">
+                <p className="font-medium">Unable to load original page</p>
+                <p className="text-sm mt-1">This site may block embedding. Try opening in a new tab.</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href={entry.link} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in new tab
+                </a>
+              </Button>
+            </div>
+          ) : (
+            <iframe
+              src={entry.link}
+              className="flex-1 w-full border-0"
+              title={entry.title}
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              onError={() => setIframeError(true)}
+            />
+          )}
+        </div>
+      ) : (
       <ScrollArea className="flex-1 min-h-0" viewportRef={scrollViewportRef}>
         <article className="max-w-3xl mx-auto p-6">
           <header className="mb-6">
@@ -339,6 +385,7 @@ export function EntryContent({
           )}
         </article>
       </ScrollArea>
+      )}
     </div>
   )
 }
