@@ -141,8 +141,10 @@ class FeedUpdater
 
     # Check if entry already exists globally (by GUID)
     entry = Entry.find_by(guid: parsed_entry.guid)
+    new_entry = false
 
     if entry.nil?
+      new_entry = true
       # Create new global entry
       entry = Entry.create!(
         guid: parsed_entry.guid,
@@ -184,6 +186,11 @@ class FeedUpdater
 
       # Execute user's filters on the new entry
       FilterExecutor.execute(user_entry)
+
+      # Enqueue image caching if enabled for this feed and entry is new
+      if new_entry && @feed.cache_images?
+        CacheArticleImagesJob.perform_later(entry.id)
+      end
 
       true # New entry for this user
     else

@@ -1,0 +1,19 @@
+basic:
+  guid: "entry-1"
+  title: "Test Entry"
+  link: "https://example.com/article"
+  content: "<p>Hello World</p>"
+  content_hash: "abc123"
+  updated: <%= Time.current.to_fs(:db) %>
+  date_entered: <%= Time.current.to_fs(:db) %>
+  date_updated: <%= Time.current.to_fs(:db) %>
+
+with_images:
+  guid: "entry-with-images"
+  title: "Entry With Images"
+  link: "https://example.com/images-article"
+  content: '<p>Content with <img src="https://example.com/image1.jpg"> and <img src="https://example.com/image2.png"></p>'
+  content_hash: "def456"
+  updated: <%= Time.current.to_fs(:db) %>
+  date_entered: <%= Time.current.to_fs(:db) %>
+  date_updated: <%= Time.current.to_fs(:db) %>

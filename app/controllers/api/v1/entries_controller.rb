@@ -217,7 +217,8 @@ module Api
         }
 
         if full_content
-          json[:content] = entry.content
+          # Use cached_content (with locally cached images) if available
+          json[:content] = entry.cached_content.presence || entry.content
           json[:note] = user_entry.note
           json[:labels] = entry.labels.map { |l| { id: l.id, caption: l.caption, fg_color: l.fg_color, bg_color: l.bg_color } }
           json[:tags] = user_entry.tags.pluck(:tag_name)

@@ -10,9 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_28_043135) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_28_060000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "cached_images", force: :cascade do |t|
+    t.datetime "cached_at", null: false
+    t.string "cached_filename", null: false
+    t.string "content_type", default: "", null: false
+    t.bigint "entry_id", null: false
+    t.integer "file_size", default: 0, null: false
+    t.text "original_url", null: false
+    t.index ["entry_id", "original_url"], name: "index_cached_images_on_entry_id_and_original_url", unique: true
+    t.index ["entry_id"], name: "index_cached_images_on_entry_id"
+  end
 
   create_table "categories", force: :cascade do |t|
     t.boolean "collapsed", default: false, null: false
@@ -312,6 +323,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_043135) do
     t.index ["login"], name: "index_users_on_login", unique: true
   end
 
+  add_foreign_key "cached_images", "entries", on_delete: :cascade
   add_foreign_key "categories", "categories", column: "parent_id", on_delete: :nullify
   add_foreign_key "categories", "users"
   add_foreign_key "enclosures", "entries", on_delete: :cascade
