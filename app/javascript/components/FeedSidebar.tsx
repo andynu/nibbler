@@ -17,7 +17,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft } from "lucide-react"
+import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -125,6 +125,16 @@ export function FeedSidebar({
       }
       return next
     })
+  }
+
+  const collapseAllCategories = () => {
+    setExpandedCategories(new Set())
+    setErrorsExpanded(false)
+  }
+
+  const expandAllCategories = () => {
+    setExpandedCategories(new Set(categories.map((c) => c.id)))
+    setErrorsExpanded(true)
   }
 
   const uncategorizedFeeds = filterAndSortFeeds(feeds.filter((f) => !f.category_id))
@@ -425,6 +435,23 @@ export function FeedSidebar({
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onSettings} aria-label="Settings">
             <Cog className="h-4 w-4" />
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={expandAllCategories}>
+                <ChevronsUpDown className="mr-2 h-4 w-4" />
+                Expand all
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={collapseAllCategories}>
+                <ChevronsDownUp className="mr-2 h-4 w-4" />
+                Collapse all
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
