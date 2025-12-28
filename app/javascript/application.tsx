@@ -341,6 +341,19 @@ function App() {
     }
   }, [entries, currentIndex])
 
+  const handleKeyboardNextUnread = useCallback(() => {
+    if (entries.length === 0) return
+    const startIndex = currentIndex === -1 ? -1 : currentIndex
+    // Find next unread entry
+    for (let i = startIndex + 1; i < entries.length; i++) {
+      if (entries[i].unread) {
+        loadEntry(entries[i].id)
+        return
+      }
+    }
+    // No unread found after current position
+  }, [entries, currentIndex])
+
   // Helper to get category_id for an entry via its feed
   const getCategoryForEntry = useCallback(
     (entry: Entry): number | null => {
@@ -478,6 +491,7 @@ function App() {
       { key: "K", handler: handleKeyboardPreviousCategory, description: "Previous category", modifiers: { shift: true } },
       { key: "n", handler: handleKeyboardNext, description: "Next entry" },
       { key: "p", handler: handleKeyboardPrevious, description: "Previous entry" },
+      { key: " ", handler: handleKeyboardNextUnread, description: "Next unread" },
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Escape", handler: handleKeyboardClose, description: "Close/deselect entry" },
@@ -502,6 +516,7 @@ function App() {
     [
       handleKeyboardNext,
       handleKeyboardPrevious,
+      handleKeyboardNextUnread,
       handleKeyboardNextCategory,
       handleKeyboardPreviousCategory,
       handleKeyboardToggleRead,
