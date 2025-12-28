@@ -360,19 +360,19 @@ export function FeedSidebar({
 
   return (
     <div className="h-full flex flex-col border-r border-border bg-muted/30">
-      <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="px-3 py-2 border-b border-border shrink-0">
+        <div className="flex items-center gap-2 mb-1">
           <Rss className="h-5 w-5" />
           <span className="font-semibold">Nibbler</span>
         </div>
         <div className="flex items-center gap-0.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Add...">
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Add...">
                 <Plus className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={onSubscribe}>
                 <Rss className="mr-2 h-4 w-4" />
                 Subscribe to Feed
@@ -386,7 +386,7 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7"
             onClick={toggleHideRead}
             aria-label={hideReadFeeds ? "Show all feeds" : "Hide read feeds"}
           >
@@ -395,7 +395,7 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-8 w-8", sortByUnread && "text-primary")}
+            className={cn("h-7 w-7", sortByUnread && "text-primary")}
             onClick={toggleSortByUnread}
             aria-label={sortByUnread ? "Sort alphabetically" : "Sort by unread count"}
           >
@@ -404,7 +404,7 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7"
             onClick={onRefreshAll}
             disabled={isRefreshing}
             aria-label="Refresh all feeds"
@@ -414,13 +414,13 @@ export function FeedSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7"
             onClick={onToggleCollapse}
             aria-label="Collapse sidebar"
           >
             <PanelLeftClose className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSettings} aria-label="Settings">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onSettings} aria-label="Settings">
             <Cog className="h-4 w-4" />
           </Button>
         </div>
