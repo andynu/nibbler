@@ -31,9 +31,13 @@ const shortcuts = [
     { key: "v", description: "Open original link" },
     { key: "r", description: "Refresh entries" },
   ]},
+  { category: "View", items: [
+    { key: "Shift+F", description: "Toggle focus mode" },
+    { key: "b", description: "Toggle sidebar" },
+  ]},
   { category: "Other", items: [
     { key: "Ctrl+K", description: "Open command palette" },
-    { key: "Escape", description: "Close/deselect entry" },
+    { key: "Escape", description: "Exit focus mode / Close entry" },
     { key: "?", description: "Show keyboard shortcuts" },
   ]},
 ]

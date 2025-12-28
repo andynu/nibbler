@@ -45,6 +45,7 @@ function App() {
   const [settingsTab, setSettingsTab] = useState("feeds")
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
   const [showIframe, setShowIframe] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
   const commandPalette = useCommandPalette()
   const moveFeedDialog = useMoveFeedDialog()
   const contentScrollRef = useRef<HTMLDivElement>(null)
@@ -510,8 +511,13 @@ function App() {
   }, [selectedEntry, entries])
 
   const handleKeyboardClose = useCallback(() => {
-    setSelectedEntry(null)
-  }, [])
+    // If in focus mode, exit it; otherwise close the selected entry
+    if (focusMode) {
+      setFocusMode(false)
+    } else {
+      setSelectedEntry(null)
+    }
+  }, [focusMode])
 
   const handleKeyboardRefresh = useCallback(() => {
     loadEntries()
@@ -562,6 +568,14 @@ function App() {
     updatePreference("sidebar_collapsed", newValue)
   }, [preferences.sidebar_collapsed, updatePreference])
 
+  const handleToggleFocusMode = useCallback(() => {
+    setFocusMode((prev) => !prev)
+  }, [])
+
+  const handleExitFocusMode = useCallback(() => {
+    setFocusMode(false)
+  }, [])
+
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       // Navigation
@@ -591,6 +605,8 @@ function App() {
       { key: "b", handler: handleContentPageUp, description: "Page up content", modifiers: { ctrl: true } },
       // Sidebar
       { key: "b", handler: handleToggleSidebar, description: "Toggle sidebar" },
+      // Focus mode
+      { key: "F", handler: handleToggleFocusMode, description: "Toggle focus mode", modifiers: { shift: true } },
       // Help
       { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts", modifiers: { shift: true } },
     ],
@@ -614,6 +630,7 @@ function App() {
       handleContentPageDown,
       handleContentPageUp,
       handleToggleSidebar,
+      handleToggleFocusMode,
     ]
   )
 
@@ -643,7 +660,13 @@ function App() {
         overflow: "hidden",
       }}
     >
-      <div style={{ width: preferences.sidebar_collapsed === "true" ? "48px" : "240px", flexShrink: 0, height: "100%", transition: "width 150ms ease-out" }}>
+      <div style={{
+        width: focusMode ? "0px" : (preferences.sidebar_collapsed === "true" ? "48px" : "240px"),
+        flexShrink: 0,
+        height: "100%",
+        transition: "width 150ms ease-out",
+        overflow: "hidden",
+      }}>
         <FeedSidebar
           feeds={feeds}
           categories={categories}
@@ -672,7 +695,13 @@ function App() {
           trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
         />
       </div>
-      <div style={{ width: "320px", flexShrink: 0, height: "100%" }}>
+      <div style={{
+        width: focusMode ? "0px" : "320px",
+        flexShrink: 0,
+        height: "100%",
+        transition: "width 150ms ease-out",
+        overflow: "hidden",
+      }}>
         <EntryList
           entries={entries}
           selectedEntryId={selectedEntry?.id || null}
@@ -711,6 +740,8 @@ function App() {
           allTags={allTags}
           onAddTag={handleAddTag}
           onRemoveTag={handleRemoveTag}
+          focusMode={focusMode}
+          onToggleFocusMode={handleToggleFocusMode}
         />
       </div>
       <KeyboardShortcutsDialog

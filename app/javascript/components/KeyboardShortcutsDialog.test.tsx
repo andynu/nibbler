@@ -50,6 +50,12 @@ describe("KeyboardShortcutsDialog", () => {
 
       expect(screen.getByText("Other")).toBeInTheDocument()
     })
+
+    it("shows View category", () => {
+      render(<KeyboardShortcutsDialog {...defaultProps} />)
+
+      expect(screen.getByText("View")).toBeInTheDocument()
+    })
   })
 
   describe("Navigation shortcuts", () => {
@@ -140,6 +146,22 @@ describe("KeyboardShortcutsDialog", () => {
     })
   })
 
+  describe("View shortcuts", () => {
+    it("shows toggle focus mode shortcut", () => {
+      render(<KeyboardShortcutsDialog {...defaultProps} />)
+
+      expect(screen.getByText("Toggle focus mode")).toBeInTheDocument()
+      expect(screen.getByText("Shift+F")).toBeInTheDocument()
+    })
+
+    it("shows toggle sidebar shortcut", () => {
+      render(<KeyboardShortcutsDialog {...defaultProps} />)
+
+      expect(screen.getByText("Toggle sidebar")).toBeInTheDocument()
+      expect(screen.getByText("b")).toBeInTheDocument()
+    })
+  })
+
   describe("Other shortcuts", () => {
     it("shows command palette shortcut", () => {
       render(<KeyboardShortcutsDialog {...defaultProps} />)
@@ -151,7 +173,7 @@ describe("KeyboardShortcutsDialog", () => {
     it("shows escape shortcut", () => {
       render(<KeyboardShortcutsDialog {...defaultProps} />)
 
-      expect(screen.getByText("Close/deselect entry")).toBeInTheDocument()
+      expect(screen.getByText("Exit focus mode / Close entry")).toBeInTheDocument()
       expect(screen.getByText("Escape")).toBeInTheDocument()
     })
 

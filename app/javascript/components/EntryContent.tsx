@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
@@ -31,6 +31,8 @@ interface EntryContentProps {
   allTags?: string[]
   onAddTag?: (tag: string) => Promise<void>
   onRemoveTag?: (tag: string) => Promise<void>
+  focusMode?: boolean
+  onToggleFocusMode?: () => void
 }
 
 function stripImages(html: string): string {
@@ -55,6 +57,8 @@ export function EntryContent({
   allTags = [],
   onAddTag,
   onRemoveTag,
+  focusMode = false,
+  onToggleFocusMode,
 }: EntryContentProps) {
   const { preferences } = usePreferences()
   const shouldStripImages = preferences.strip_images === "true"
@@ -215,6 +219,21 @@ export function EntryContent({
               <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
+          {onToggleFocusMode && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleFocusMode}
+              aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"}
+              title={focusMode ? "Exit focus mode (Shift+F or Escape)" : "Focus mode (Shift+F)"}
+            >
+              {focusMode ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
