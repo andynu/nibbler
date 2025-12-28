@@ -52,6 +52,7 @@ export function EditFeedDialog({
 }: EditFeedDialogProps) {
   const { preferences } = usePreferences()
   const [title, setTitle] = useState("")
+  const [feedUrl, setFeedUrl] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
   const [updateInterval, setUpdateInterval] = useState<string>("0")
   const [isLoading, setIsLoading] = useState(false)
@@ -63,6 +64,7 @@ export function EditFeedDialog({
   useEffect(() => {
     if (feed) {
       setTitle(feed.title)
+      setFeedUrl(feed.feed_url)
       setCategoryId(feed.category_id ? String(feed.category_id) : "none")
       setUpdateInterval(String(feed.update_interval ?? 0))
       setError(null)
@@ -82,6 +84,7 @@ export function EditFeedDialog({
       const updatedFeed = await api.feeds.update(feed.id, {
         feed: {
           title,
+          feed_url: feedUrl,
           category_id: categoryId && categoryId !== "none" ? parseInt(categoryId, 10) : null,
           update_interval: parseInt(updateInterval, 10),
         },
@@ -161,15 +164,23 @@ export function EditFeedDialog({
                 onChange={(e) => setTitle(e.target.value)}
                 required
               />
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent(title + " rss")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Search for RSS feed
+              </a>
             </div>
             <div className="space-y-2">
               <Label htmlFor="feedUrl">Feed URL</Label>
               <Input
                 id="feedUrl"
                 type="url"
-                value={feed.feed_url}
-                disabled
-                className="text-muted-foreground"
+                value={feedUrl}
+                onChange={(e) => setFeedUrl(e.target.value)}
+                required
               />
             </div>
             <div className="space-y-2">
@@ -272,7 +283,7 @@ export function EditFeedDialog({
                 </Button>
               )}
             </div>
-            <Button type="submit" disabled={isLoading || !title}>
+            <Button type="submit" disabled={isLoading || !title || !feedUrl}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>

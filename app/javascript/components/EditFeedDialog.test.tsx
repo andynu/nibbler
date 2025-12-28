@@ -79,12 +79,12 @@ describe("EditFeedDialog", () => {
       expect(screen.getByLabelText("Title")).toBeInTheDocument()
     })
 
-    it("shows Feed URL input field (disabled)", () => {
+    it("shows Feed URL input field", () => {
       render(<EditFeedDialog {...defaultProps} />)
 
       const urlInput = screen.getByLabelText("Feed URL")
       expect(urlInput).toBeInTheDocument()
-      expect(urlInput).toBeDisabled()
+      expect(urlInput).not.toBeDisabled()
     })
 
     it("shows Category selector", () => {
@@ -168,11 +168,16 @@ describe("EditFeedDialog", () => {
       expect(titleInput).toHaveValue("New Title")
     })
 
-    it("URL field is readonly/disabled", () => {
+    it("can edit feed URL", async () => {
+      const user = userEvent.setup()
+
       render(<EditFeedDialog {...defaultProps} />)
 
       const urlInput = screen.getByLabelText("Feed URL")
-      expect(urlInput).toBeDisabled()
+      await user.clear(urlInput)
+      await user.type(urlInput, "https://new.example.com/rss.xml")
+
+      expect(urlInput).toHaveValue("https://new.example.com/rss.xml")
     })
   })
 
@@ -191,6 +196,7 @@ describe("EditFeedDialog", () => {
         expect(mockApiUpdate).toHaveBeenCalledWith(1, {
           feed: {
             title: "Updated Title",
+            feed_url: "https://example.com/feed.xml",
             category_id: null,
             update_interval: 0,
           },
