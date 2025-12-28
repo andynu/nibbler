@@ -284,6 +284,7 @@ export const api = {
       per_page?: number
       fresh_max_age?: "week" | "month" | "all"
       fresh_per_feed?: number
+      tag?: string
     }) => {
       const searchParams = new URLSearchParams()
       if (params?.unread !== undefined) searchParams.set("unread", String(params.unread))
@@ -296,6 +297,7 @@ export const api = {
       if (params?.per_page) searchParams.set("per_page", String(params.per_page))
       if (params?.fresh_max_age) searchParams.set("fresh_max_age", params.fresh_max_age)
       if (params?.fresh_per_feed) searchParams.set("fresh_per_feed", String(params.fresh_per_feed))
+      if (params?.tag) searchParams.set("tag", params.tag)
       const query = searchParams.toString()
       return request<PaginatedEntries>(`/entries${query ? `?${query}` : ""}`)
     },
