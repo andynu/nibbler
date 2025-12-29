@@ -416,10 +416,9 @@ export function FeedSidebar({
       .sort((a, b) => ERROR_CATEGORIES[a[0]].priority - ERROR_CATEGORIES[b[0]].priority)
   }, [feedsWithErrors])
 
-  const handleBulkUnsubscribe = async (feedsToDelete: Feed[]) => {
+  const handleBulkUnsubscribe = async (feedsToDelete: Feed[], confirmMessage: string) => {
     const count = feedsToDelete.length
-    const categoryLabel = ERROR_CATEGORIES[categorizeError(feedsToDelete[0].last_error || "")].label
-    if (!confirm(`Unsubscribe from ${count} feed(s) with ${categoryLabel} errors? This will remove all their entries.`)) {
+    if (!confirm(confirmMessage)) {
       return
     }
 
@@ -438,6 +437,23 @@ export function FeedSidebar({
     } catch (error) {
       console.error("Failed to unsubscribe feeds:", error)
     }
+  }
+
+  const handleBulkUnsubscribeError = async (feedsToDelete: Feed[]) => {
+    const count = feedsToDelete.length
+    const categoryLabel = ERROR_CATEGORIES[categorizeError(feedsToDelete[0].last_error || "")].label
+    await handleBulkUnsubscribe(
+      feedsToDelete,
+      `Unsubscribe from ${count} feed(s) with ${categoryLabel} errors? This will remove all their entries.`
+    )
+  }
+
+  const handleBulkUnsubscribeSmartFolder = async (feedsToDelete: Feed[], folderName: string) => {
+    const count = feedsToDelete.length
+    await handleBulkUnsubscribe(
+      feedsToDelete,
+      `Unsubscribe from all ${count} feeds in "${folderName}"? This will remove all their entries.`
+    )
   }
 
   // Build tree structure: only render root categories (no parent)
@@ -856,27 +872,49 @@ export function FeedSidebar({
             }
 
             return (
-              <div key={folder.id}>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2 mb-1"
-                  onClick={toggleExpand}
-                >
-                  <span className="shrink-0">
-                    {isExpanded ? (
-                      <FolderOpen className="h-4 w-4" />
+              <div key={folder.id} className="group/smartfolder">
+                <div className="flex items-center">
+                  <Button
+                    variant="ghost"
+                    className="flex-1 justify-start gap-2 mb-1"
+                    onClick={toggleExpand}
+                  >
+                    <span className="shrink-0">
+                      {isExpanded ? (
+                        <FolderOpen className="h-4 w-4" />
+                      ) : (
+                        <Folder className="h-4 w-4" />
+                      )}
+                    </span>
+                    {folder.isSmart ? (
+                      <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
                     ) : (
-                      <Folder className="h-4 w-4" />
+                      <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
                     )}
-                  </span>
-                  {folder.isSmart ? (
-                    <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
-                  ) : (
-                    <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
-                  )}
-                  <span className="flex-1 text-left">{folder.name}</span>
-                  <Badge variant="secondary">{matchCount}</Badge>
-                </Button>
+                    <span className="flex-1 text-left">{folder.name}</span>
+                    <Badge variant="secondary">{matchCount}</Badge>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover/smartfolder:opacity-100 transition-opacity"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleBulkUnsubscribeSmartFolder(matchingFeeds, folder.name)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Unsubscribe all ({matchCount})
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {isExpanded && (
                   <div className="ml-6">
                     {matchingFeeds.map((feed) => (
@@ -889,7 +927,7 @@ export function FeedSidebar({
                         onSelect={() => onSelectFeed(feed.id)}
                         onEdit={() => handleEditFeed(feed)}
                         onRefresh={() => handleRefresh(feed)}
-                        onUnsubscribe={() => handleDeleteClick(feed)}
+                        onUnsubscribe={() => handleUnsubscribeFeed(feed)}
                         onInfo={() => setInfoFeed(feed)}
                         isRefreshing={refreshingFeedId === feed.id}
                       />
@@ -957,7 +995,7 @@ export function FeedSidebar({
                             <Button
                               variant="ghost"
                               className="w-full justify-start gap-2 h-7 text-xs text-destructive hover:text-destructive"
-                              onClick={() => handleBulkUnsubscribe(errorFeeds)}
+                              onClick={() => handleBulkUnsubscribeError(errorFeeds)}
                             >
                               <Trash2 className="h-3 w-3" />
                               <span className="flex-1 text-left">Unsubscribe all ({errorFeeds.length})</span>
