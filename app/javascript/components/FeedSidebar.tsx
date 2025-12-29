@@ -122,6 +122,17 @@ export function FeedSidebar({
     return false
   })
 
+  // Track which smart folders are expanded
+  const [expandedSmartFolders, setExpandedSmartFolders] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("nibbler:expandedSmartFolders")
+      if (saved) {
+        return new Set(JSON.parse(saved) as string[])
+      }
+    } catch {}
+    return new Set()
+  })
+
   // Track which error categories are expanded
   const [expandedErrorCategories, setExpandedErrorCategories] = useState<Set<ErrorCategory>>(() => {
     try {
@@ -207,6 +218,13 @@ export function FeedSidebar({
       localStorage.setItem("nibbler:expandedErrorCategories", JSON.stringify([...expandedErrorCategories]))
     } catch {}
   }, [expandedErrorCategories])
+
+  // Persist expanded smart folders
+  useEffect(() => {
+    try {
+      localStorage.setItem("nibbler:expandedSmartFolders", JSON.stringify([...expandedSmartFolders]))
+    } catch {}
+  }, [expandedSmartFolders])
 
   // When new categories are added, default them to expanded (but not collapsed ones)
   useEffect(() => {
@@ -818,32 +836,67 @@ export function FeedSidebar({
           {/* Feed-list virtual folders (smart folders: Uncategorized, Dead Letter Box) */}
           {getVirtualFoldersByMode("feed-list").map((folder) => {
             const Icon = folder.icon
-            const isSelected = virtualFeed === folder.id
-            const matchingFeeds = folder.filterFeeds ? folder.filterFeeds(feeds) : []
+            const matchingFeeds = folder.filterFeeds ? filterAndSortFeeds(folder.filterFeeds(feeds)) : []
             const matchCount = matchingFeeds.length
+            const isExpanded = expandedSmartFolders.has(folder.id)
 
             // Don't show empty smart folders
             if (matchCount === 0) return null
 
+            const toggleExpand = () => {
+              setExpandedSmartFolders((prev) => {
+                const next = new Set(prev)
+                if (next.has(folder.id)) {
+                  next.delete(folder.id)
+                } else {
+                  next.add(folder.id)
+                }
+                return next
+              })
+            }
+
             return (
-              <Button
-                key={folder.id}
-                variant="ghost"
-                className="w-full justify-start gap-2 mb-1"
-                style={isSelected ? {
-                  backgroundColor: "var(--color-accent-primary-dark)",
-                  color: "white",
-                } : undefined}
-                onClick={() => onSelectVirtualFeed(folder.id)}
-              >
-                {folder.isSmart ? (
-                  <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
-                ) : (
-                  <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
+              <div key={folder.id}>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-2 mb-1"
+                  onClick={toggleExpand}
+                >
+                  <span className="shrink-0">
+                    {isExpanded ? (
+                      <FolderOpen className="h-4 w-4" />
+                    ) : (
+                      <Folder className="h-4 w-4" />
+                    )}
+                  </span>
+                  {folder.isSmart ? (
+                    <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
+                  ) : (
+                    <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
+                  )}
+                  <span className="flex-1 text-left">{folder.name}</span>
+                  <Badge variant="secondary">{matchCount}</Badge>
+                </Button>
+                {isExpanded && (
+                  <div className="ml-6">
+                    {matchingFeeds.map((feed) => (
+                      <FeedItem
+                        key={feed.id}
+                        feed={feed}
+                        isSelected={selectedFeedId === feed.id}
+                        isTracked={trackedFeedId === feed.id}
+                        isDragging={false}
+                        onSelect={() => onSelectFeed(feed.id)}
+                        onEdit={() => handleEditFeed(feed)}
+                        onRefresh={() => handleRefresh(feed)}
+                        onUnsubscribe={() => handleDeleteClick(feed)}
+                        onInfo={() => setInfoFeed(feed)}
+                        isRefreshing={refreshingFeedId === feed.id}
+                      />
+                    ))}
+                  </div>
                 )}
-                <span className="flex-1 text-left">{folder.name}</span>
-                <Badge variant="secondary">{matchCount}</Badge>
-              </Button>
+              </div>
             )
           })}
 

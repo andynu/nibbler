@@ -148,15 +148,6 @@ function App() {
   }
 
   const loadEntries = async () => {
-    // For feed-list virtual folders, we don't load entries - we show feeds instead
-    const vf = virtualFeed ? getVirtualFolder(virtualFeed) : null
-    if (vf?.mode === "feed-list") {
-      setEntries([])
-      setSelectedEntry(null)
-      setIsLoadingEntries(false)
-      return
-    }
-
     setIsLoadingEntries(true)
     try {
       const perPage = parseInt(preferences.default_view_limit, 10) || 30
@@ -413,14 +404,6 @@ function App() {
   const currentIndex = selectedEntry
     ? entries.findIndex((e) => e.id === selectedEntry.id)
     : -1
-
-  // Compute filtered feeds for feed-list virtual folders
-  const currentVirtualFolder = virtualFeed ? getVirtualFolder(virtualFeed) : null
-  const isFeedListMode = currentVirtualFolder?.mode === "feed-list"
-  const filteredFeedsForList = useMemo(() => {
-    if (!isFeedListMode || !currentVirtualFolder?.filterFeeds) return []
-    return currentVirtualFolder.filterFeeds(feeds)
-  }, [isFeedListMode, currentVirtualFolder, feeds])
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
@@ -756,9 +739,6 @@ function App() {
           onRefreshFeed={handleRefreshFeed}
           onEditFeed={setEditingFeed}
           onDeleteFeed={handleDeleteFeed}
-          displayMode={isFeedListMode ? "feeds" : "entries"}
-          filteredFeeds={filteredFeedsForList}
-          onSelectFeedFromList={handleSelectFeed}
         />
       </div>
       <div style={{ flex: 1, height: "100%", minWidth: 0 }}>
