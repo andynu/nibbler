@@ -44,7 +44,25 @@ module Api
       end
 
       # POST /api/v1/feeds/:id/refresh
+      # Manual refresh respects backoff (rate limited feeds) but allows override of normal intervals
       def refresh
+        # Respect backoff period for rate-limited feeds
+        if @feed.in_backoff?
+          return render json: {
+            error: "Feed is rate-limited, please wait before refreshing",
+            retry_after: @feed.retry_after&.iso8601,
+            seconds_remaining: [(@feed.retry_after - Time.current).to_i, 0].max
+          }, status: :too_many_requests
+        end
+
+        # Prevent concurrent updates (5 minute window)
+        if @feed.last_update_started.present? && @feed.last_update_started > 1.minute.ago
+          return render json: {
+            error: "Feed is currently being updated",
+            last_update_started: @feed.last_update_started.iso8601
+          }, status: :conflict
+        end
+
         result = FeedUpdater.new(@feed).update
 
         if result.success?
