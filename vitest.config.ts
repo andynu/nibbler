@@ -9,18 +9,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./test/setup.ts'],
     include: ['app/javascript/**/*.test.{ts,tsx}'],
-    // Pool configuration for better parallelization
+    // Pool configuration for better parallelization (Vitest 4.x)
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        // Reuse threads for faster subsequent tests
-        isolate: false,
-        // Use more threads when possible
-        minThreads: 1,
-        maxThreads: undefined, // Use all available CPUs
-      },
-    },
-    // Reduce test isolation overhead (tests are already independent)
+    // Disable test isolation for faster execution (tests are already independent)
     isolate: false,
     coverage: {
       provider: 'v8',
