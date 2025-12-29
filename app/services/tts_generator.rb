@@ -77,7 +77,7 @@ class TtsGenerator
     output_base = CACHE_DIR.join(filename)
 
     # Create temp file with text content
-    text_file = Tempfile.new(["tts_text", ".txt"])
+    text_file = Tempfile.new([ "tts_text", ".txt" ])
     text_file.write(text)
     text_file.close
 

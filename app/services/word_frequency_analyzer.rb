@@ -82,7 +82,7 @@ class WordFrequencyAnalyzer
   private
 
   def extract_text(title, content)
-    text = [title || "", ActionController::Base.helpers.strip_tags(content || "")].join(" ")
+    text = [ title || "", ActionController::Base.helpers.strip_tags(content || "") ].join(" ")
     # Normalize whitespace
     text.gsub(/\s+/, " ").strip
   end

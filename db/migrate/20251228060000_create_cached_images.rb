@@ -10,7 +10,7 @@ class CreateCachedImages < ActiveRecord::Migration[8.1]
       t.integer :file_size, null: false, default: 0
       t.datetime :cached_at, null: false
 
-      t.index [:entry_id, :original_url], unique: true
+      t.index [ :entry_id, :original_url ], unique: true
     end
   end
 end

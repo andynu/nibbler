@@ -32,6 +32,6 @@ class Category < ApplicationRecord
 
   # Returns this category's ID plus all descendant IDs
   def self_and_descendant_ids
-    [id] + descendant_ids
+    [ id ] + descendant_ids
   end
 end

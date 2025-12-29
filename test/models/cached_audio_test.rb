@@ -101,7 +101,7 @@ class CachedAudioTest < ActiveSupport::TestCase
       audio_filename: filename,
       content_hash: "abc123",
       duration: 1.0,
-      timestamps: [{ word: "test", start: 0.0, end: 0.5 }],
+      timestamps: [ { word: "test", start: 0.0, end: 0.5 } ],
       cached_at: Time.current
     )
 
