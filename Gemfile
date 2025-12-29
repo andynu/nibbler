@@ -75,4 +75,7 @@ group :development do
   # Auto-run tests on file changes
   gem "guard"
   gem "guard-minitest"
+
+  # View sent emails in browser instead of sending
+  gem "letter_opener"
 end

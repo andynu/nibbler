@@ -54,21 +54,28 @@ Rails.application.configure do
   config.good_job.enable_cron = true
   config.good_job.smaller_number_is_higher_priority = true
 
-  # Ignore bad email addresses and do not raise email delivery errors.
-  # Set this to true and configure the email server for immediate delivery to raise delivery errors.
-  # config.action_mailer.raise_delivery_errors = false
+  # Email delivery configuration
+  config.action_mailer.raise_delivery_errors = true
+  config.action_mailer.perform_deliveries = ENV.fetch("SMTP_HOST", nil).present?
 
-  # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  # Set host to be used by links generated in mailer templates
+  config.action_mailer.default_url_options = {
+    host: ENV.fetch("APP_HOST", "localhost"),
+    protocol: ENV.fetch("APP_PROTOCOL", "https")
+  }
 
-  # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
-  # config.action_mailer.smtp_settings = {
-  #   user_name: Rails.application.credentials.dig(:smtp, :user_name),
-  #   password: Rails.application.credentials.dig(:smtp, :password),
-  #   address: "smtp.example.com",
-  #   port: 587,
-  #   authentication: :plain
-  # }
+  # SMTP settings from environment variables
+  if ENV["SMTP_HOST"].present?
+    config.action_mailer.delivery_method = :smtp
+    config.action_mailer.smtp_settings = {
+      address: ENV.fetch("SMTP_HOST"),
+      port: ENV.fetch("SMTP_PORT", 587).to_i,
+      user_name: ENV["SMTP_USERNAME"],
+      password: ENV["SMTP_PASSWORD"],
+      authentication: ENV.fetch("SMTP_AUTH", "plain").to_sym,
+      enable_starttls_auto: ENV.fetch("SMTP_STARTTLS", "true") == "true"
+    }
+  end
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).
