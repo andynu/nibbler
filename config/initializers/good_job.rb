@@ -12,6 +12,11 @@ Rails.application.configure do
       cron: "0 3 * * *", # at 3am daily
       class: "PurgeArticlesJob",
       description: "Remove old articles based on user purge preferences"
+    },
+    update_favicons: {
+      cron: "0 4 * * *", # at 4am daily
+      class: "UpdateFaviconsJob",
+      description: "Fetch and cache favicons for feeds that need updating"
     }
   }
 
