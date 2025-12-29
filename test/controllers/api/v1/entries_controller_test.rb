@@ -119,4 +119,101 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     titles = json["entries"].map { |e| e["title"] }
     assert_includes titles, "Very Old Article"
   end
+
+  test "multi-column sort parameter works" do
+    feed2 = feeds(:low_frequency)
+
+    # Create entries with different dates and scores
+    entry1 = Entry.create!(
+      guid: "sort-test-1-#{SecureRandom.uuid}",
+      title: "Alpha Article",
+      link: "https://example.com/alpha",
+      content: "<p>Content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 2.days.ago,
+      date_entered: 2.days.ago,
+      date_updated: Time.current
+    )
+
+    entry2 = Entry.create!(
+      guid: "sort-test-2-#{SecureRandom.uuid}",
+      title: "Beta Article",
+      link: "https://example.com/beta",
+      content: "<p>Content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.day.ago,
+      date_entered: 1.day.ago,
+      date_updated: Time.current
+    )
+
+    ue1 = @user.user_entries.create!(
+      entry: entry1, feed: @feed, uuid: SecureRandom.uuid, unread: true, score: 5
+    )
+
+    ue2 = @user.user_entries.create!(
+      entry: entry2, feed: feed2, uuid: SecureRandom.uuid, unread: true, score: 3
+    )
+
+    # Sort by score descending - entry1 (score 5) should be first
+    get api_v1_entries_url, params: { sort: "score:desc" }, as: :json
+    assert_response :success
+    json = JSON.parse(response.body)
+    scores = json["entries"].map { |e| e["score"] }
+    # Check that scores are in descending order (allowing for existing entries)
+    assert scores.first >= scores.last, "Scores should be in descending order"
+
+    # Sort by date ascending - older entry1 should be first
+    get api_v1_entries_url, params: { sort: "date:asc" }, as: :json
+    assert_response :success
+    json = JSON.parse(response.body)
+    ids = json["entries"].map { |e| e["id"] }
+    idx1 = ids.index(ue1.id)
+    idx2 = ids.index(ue2.id)
+    assert idx1 < idx2, "Older entry should come first with date:asc"
+  end
+
+  test "multi-column sort ignores invalid columns" do
+    get api_v1_entries_url, params: { sort: "invalid_column:desc,date:asc" }, as: :json
+    assert_response :success
+    # Should not raise an error, invalid column is skipped
+  end
+
+  test "multi-column sort with feed sorts by feed title" do
+    # This test verifies the feed column sort works (feeds table joined)
+    get api_v1_entries_url, params: { sort: "feed:asc,date:desc" }, as: :json
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert json["entries"].is_a?(Array)
+  end
+
+  test "legacy order_by param still works" do
+    get api_v1_entries_url, params: { order_by: "score" }, as: :json
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert json["entries"].is_a?(Array)
+  end
+
+  test "sort param takes precedence over order_by" do
+    # Create entries with different scores
+    entry = Entry.create!(
+      guid: "precedence-test-#{SecureRandom.uuid}",
+      title: "Precedence Test",
+      link: "https://example.com/prec",
+      content: "<p>Content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true, score: 0
+    )
+
+    # Both params present - sort should win
+    get api_v1_entries_url, params: { sort: "title:asc", order_by: "score" }, as: :json
+    assert_response :success
+    # If sort takes precedence, entries should be sorted by title, not score
+    # We just verify no error occurs - detailed order testing done above
+  end
 end

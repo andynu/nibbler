@@ -9,13 +9,13 @@ module Api
           .includes(:entry, :feed)
           .joins(:entry)
 
-        # Apply ordering
-        case params[:order_by]
-        when "score"
-          @user_entries = @user_entries.order("user_entries.score DESC, entries.date_entered DESC")
-        else
-          @user_entries = @user_entries.order("entries.date_entered DESC")
+        # Join feeds table if sorting by feed
+        if sort_requires_feeds_join?
+          @user_entries = @user_entries.joins(:feed)
         end
+
+        # Apply ordering
+        @user_entries = apply_sorting(@user_entries)
 
         # Filter by read/unread status
         if params[:unread].present?
@@ -188,13 +188,8 @@ module Api
             "feeds.title as feed_title"
           )
 
-        # Apply ordering
-        case params[:order_by]
-        when "score"
-          @user_entries = @user_entries.order("user_entries.score DESC, entries.date_entered DESC")
-        else
-          @user_entries = @user_entries.order("entries.date_entered DESC")
-        end
+        # Apply ordering (feeds already joined above)
+        @user_entries = apply_sorting(@user_entries)
 
         # Apply same filters as index
         @user_entries = @user_entries.where(unread: params[:unread] == "true") if params[:unread].present?
@@ -363,6 +358,56 @@ module Api
           width: enclosure.width,
           height: enclosure.height
         }
+      end
+
+      # Column name to SQL mapping for sorting
+      SORT_COLUMN_MAP = {
+        "date" => "entries.date_entered",
+        "published" => "entries.updated",
+        "feed" => "feeds.title",
+        "title" => "entries.title",
+        "score" => "user_entries.score",
+        "unread" => "user_entries.unread"
+      }.freeze
+
+      VALID_DIRECTIONS = %w[asc desc].freeze
+
+      # Parse sort parameter (e.g., "date:desc,feed:asc,score:desc")
+      # Returns array of { column: "sql_column", direction: "asc"|"desc" }
+      def parse_sort_param(sort_string)
+        return [ { column: "entries.date_entered", direction: "desc" } ] if sort_string.blank?
+
+        sort_string.split(",").filter_map do |part|
+          column, direction = part.strip.split(":")
+          sql_column = SORT_COLUMN_MAP[column.to_s.downcase]
+          next unless sql_column # Skip invalid columns
+
+          direction = direction.to_s.downcase
+          direction = "desc" unless VALID_DIRECTIONS.include?(direction)
+
+          { column: sql_column, direction: direction }
+        end.presence || [ { column: "entries.date_entered", direction: "desc" } ]
+      end
+
+      # Apply sorting to query based on params
+      # Supports both legacy order_by param and new sort param
+      def apply_sorting(query)
+        if params[:sort].present?
+          sort_specs = parse_sort_param(params[:sort])
+          order_clauses = sort_specs.map { |s| "#{s[:column]} #{s[:direction].upcase}" }
+          query.order(Arel.sql(order_clauses.join(", ")))
+        elsif params[:order_by] == "score"
+          query.order("user_entries.score DESC, entries.date_entered DESC")
+        else
+          query.order("entries.date_entered DESC")
+        end
+      end
+
+      # Check if sorting requires feeds table to be joined
+      def sort_requires_feeds_join?
+        return false unless params[:sort].present?
+
+        params[:sort].downcase.include?("feed")
       end
     end
   end
