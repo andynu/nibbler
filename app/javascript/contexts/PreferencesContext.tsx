@@ -23,6 +23,7 @@ const defaultPreferences: Preferences = {
   hide_read_shows_special: "true",
   feeds_sort_by_unread: "false",
   entries_sort_by_score: "false",
+  entries_sort_config: "date:desc", // Default: date descending
   entries_hide_read: "false",
   entries_hide_unstarred: "false",
   entries_display_density: "medium",

@@ -164,6 +164,7 @@ export interface Preferences {
   hide_read_shows_special: string
   feeds_sort_by_unread: string
   entries_sort_by_score: string
+  entries_sort_config: string // Multi-column sort: "date:desc,feed:asc"
   entries_hide_read: string
   entries_hide_unstarred: string
   entries_display_density: string

@@ -15,7 +15,7 @@ import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesConte
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { I18nProvider } from "@/contexts/I18nContext"
 import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerContext"
-import { api, Feed, Entry, Category } from "@/lib/api"
+import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { getVirtualFolder } from "@/lib/virtualFolders"
@@ -125,7 +125,7 @@ function App() {
   // Load entries when selection, sort order, filter preferences, or fresh params change
   useEffect(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred, freshMaxAge, freshPerFeed])
+  }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_config, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred, freshMaxAge, freshPerFeed])
 
   // Reset iframe view to default when entry changes
   useEffect(() => {
@@ -152,16 +152,18 @@ function App() {
     setIsLoadingEntries(true)
     try {
       const perPage = parseInt(preferences.default_view_limit, 10) || 30
-      const sortByScore = preferences.entries_sort_by_score === "true"
       const hideRead = preferences.entries_hide_read === "true"
       const hideUnstarred = preferences.entries_hide_unstarred === "true"
       // Convert empty string to undefined for API (All Feeds case)
       const viewParam = virtualFeed === "" ? undefined : virtualFeed
+      // Use multi-column sort config if set, otherwise fall back to legacy sort_by_score
+      const sortParam = preferences.entries_sort_config ||
+        (preferences.entries_sort_by_score === "true" ? "score:desc" : "date:desc")
       const result = await api.entries.list({
         feed_id: selectedFeedId || undefined,
         category_id: selectedCategoryId || undefined,
         view: viewParam || undefined,
-        order_by: sortByScore ? "score" : "date",
+        sort: sortParam,
         unread: hideRead ? true : undefined,
         starred: hideUnstarred ? true : undefined,
         per_page: perPage,
@@ -406,6 +408,18 @@ function App() {
     ? entries.findIndex((e) => e.id === selectedEntry.id)
     : -1
 
+  // Parse sort config from preference, with fallback for legacy sort_by_score
+  const sortConfig = useMemo(() => {
+    if (preferences.entries_sort_config) {
+      return paramToSortConfig(preferences.entries_sort_config)
+    }
+    // Legacy fallback: convert sort_by_score to sort config
+    if (preferences.entries_sort_by_score === "true") {
+      return [{ column: "score" as const, direction: "desc" as const }]
+    }
+    return [{ column: "date" as const, direction: "desc" as const }]
+  }, [preferences.entries_sort_config, preferences.entries_sort_by_score])
+
   const handlePrevious = () => {
     if (currentIndex > 0) {
       loadEntry(entries[currentIndex - 1].id)
@@ -551,6 +565,12 @@ function App() {
   const handleKeyboardRefresh = useCallback(() => {
     loadEntries()
   }, [selectedFeedId, selectedCategoryId, virtualFeed])
+
+  // Handle multi-column sort changes from EntryList
+  const handleSortChange = useCallback((newSort: SortConfig[]) => {
+    const sortString = sortConfigToParam(newSort)
+    updatePreference("entries_sort_config", sortString)
+  }, [updatePreference])
 
   const handleKeyboardHelp = useCallback(() => {
     setShowKeyboardShortcuts((prev) => !prev)
@@ -753,6 +773,8 @@ function App() {
           onEditFeed={setEditingFeed}
           onDeleteFeed={handleDeleteFeed}
           boundaryHit={boundaryHit}
+          sortConfig={sortConfig}
+          onSortChange={handleSortChange}
         />
       </div>
       <div style={{ flex: 1, height: "100%", minWidth: 0 }}>
