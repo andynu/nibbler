@@ -50,6 +50,7 @@ function App() {
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
   const [showIframe, setShowIframe] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
+  const [boundaryHit, setBoundaryHit] = useState<"start" | "end" | null>(null)
   const commandPalette = useCommandPalette()
   const moveFeedDialog = useMoveFeedDialog()
   const contentScrollRef = useRef<HTMLDivElement>(null)
@@ -417,6 +418,12 @@ function App() {
     }
   }
 
+  // Trigger boundary hit feedback with auto-clear
+  const triggerBoundaryFeedback = useCallback((boundary: "start" | "end") => {
+    setBoundaryHit(boundary)
+    setTimeout(() => setBoundaryHit(null), 300)
+  }, [])
+
   // Keyboard navigation handlers - use useCallback to avoid stale closures
   const handleKeyboardNext = useCallback(() => {
     if (entries.length === 0) return
@@ -425,8 +432,11 @@ function App() {
       loadEntry(entries[0].id)
     } else if (currentIndex < entries.length - 1) {
       loadEntry(entries[currentIndex + 1].id)
+    } else {
+      // At end of list, trigger boundary feedback
+      triggerBoundaryFeedback("end")
     }
-  }, [entries, currentIndex])
+  }, [entries, currentIndex, triggerBoundaryFeedback])
 
   const handleKeyboardPrevious = useCallback(() => {
     if (entries.length === 0) return
@@ -435,8 +445,11 @@ function App() {
       loadEntry(entries[entries.length - 1].id)
     } else if (currentIndex > 0) {
       loadEntry(entries[currentIndex - 1].id)
+    } else {
+      // At start of list, trigger boundary feedback
+      triggerBoundaryFeedback("start")
     }
-  }, [entries, currentIndex])
+  }, [entries, currentIndex, triggerBoundaryFeedback])
 
   const handleKeyboardNextUnread = useCallback(() => {
     if (entries.length === 0) return
@@ -739,6 +752,7 @@ function App() {
           onRefreshFeed={handleRefreshFeed}
           onEditFeed={setEditingFeed}
           onDeleteFeed={handleDeleteFeed}
+          boundaryHit={boundaryHit}
         />
       </div>
       <div style={{ flex: 1, height: "100%", minWidth: 0 }}>

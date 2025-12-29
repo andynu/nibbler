@@ -88,4 +88,14 @@
     --color-input: hsl(0 0% 14.9%);
     --color-ring: hsl(0 0% 83.1%);
   }
+
+  /* Keyboard navigation boundary flash animation */
+  @keyframes boundary-flash {
+    0% { background-color: var(--color-accent-primary-light); }
+    100% { background-color: transparent; }
+  }
+
+  .animate-boundary-flash {
+    animation: boundary-flash 0.3s ease-out forwards;
+  }
 }

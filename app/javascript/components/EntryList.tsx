@@ -41,6 +41,8 @@ interface EntryListProps {
   displayMode?: "entries" | "feeds"
   filteredFeeds?: Feed[]
   onSelectFeedFromList?: (feedId: number) => void
+  // Keyboard navigation boundary feedback
+  boundaryHit?: "start" | "end" | null
 }
 
 export function EntryList({
@@ -64,6 +66,7 @@ export function EntryList({
   displayMode = "entries",
   filteredFeeds = [],
   onSelectFeedFromList,
+  boundaryHit,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
@@ -387,7 +390,7 @@ export function EntryList({
               <div className="p-4 text-center text-muted-foreground">No entries</div>
             ) : (
               <div className="p-1">
-                {entries.map((entry) => (
+                {entries.map((entry, index) => (
                   <EntryItem
                     key={entry.id}
                     entry={entry}
@@ -397,6 +400,10 @@ export function EntryList({
                     onToggleStarred={() => onToggleStarred(entry.id)}
                     displayDensity={displayDensity}
                     formatDate={formatListDate}
+                    showBoundaryFlash={
+                      (boundaryHit === "start" && index === 0) ||
+                      (boundaryHit === "end" && index === entries.length - 1)
+                    }
                   />
                 ))}
               </div>
@@ -421,9 +428,10 @@ interface EntryItemProps {
   onToggleStarred: () => void
   displayDensity: "small" | "medium" | "large"
   formatDate: (date: Date | string) => string
+  showBoundaryFlash?: boolean
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, displayDensity, formatDate }: EntryItemProps) {
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, displayDensity, formatDate, showBoundaryFlash }: EntryItemProps) {
   const formattedDate = formatDate(entry.published)
   const showFeedAndDate = displayDensity !== "small"
   const showContentPreview = displayDensity === "large"
@@ -437,7 +445,8 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
       className={cn(
         "p-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors",
         isSelected && "bg-accent ring-2 ring-offset-1 ring-offset-background",
-        entry.unread && "border-l-2"
+        entry.unread && "border-l-2",
+        showBoundaryFlash && "animate-boundary-flash"
       )}
       style={{
         ...(entry.unread ? { borderLeftColor: "var(--color-accent-secondary)" } : {}),

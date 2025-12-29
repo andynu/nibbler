@@ -326,4 +326,51 @@ describe("EntryList", () => {
       expect(screen.getByText("Article 100")).toBeInTheDocument()
     })
   })
+
+  describe("boundary flash feedback", () => {
+    it("applies flash animation class to first entry when boundaryHit is 'start'", () => {
+      const entries = [
+        mockEntry({ id: 1, title: "First Article" }),
+        mockEntry({ id: 2, title: "Second Article" }),
+      ]
+
+      render(<EntryList {...defaultProps} entries={entries} boundaryHit="start" />)
+
+      const firstEntry = screen.getByRole("option", { name: /first article/i })
+      const secondEntry = screen.getByRole("option", { name: /second article/i })
+
+      expect(firstEntry).toHaveClass("animate-boundary-flash")
+      expect(secondEntry).not.toHaveClass("animate-boundary-flash")
+    })
+
+    it("applies flash animation class to last entry when boundaryHit is 'end'", () => {
+      const entries = [
+        mockEntry({ id: 1, title: "First Article" }),
+        mockEntry({ id: 2, title: "Last Article" }),
+      ]
+
+      render(<EntryList {...defaultProps} entries={entries} boundaryHit="end" />)
+
+      const firstEntry = screen.getByRole("option", { name: /first article/i })
+      const lastEntry = screen.getByRole("option", { name: /last article/i })
+
+      expect(firstEntry).not.toHaveClass("animate-boundary-flash")
+      expect(lastEntry).toHaveClass("animate-boundary-flash")
+    })
+
+    it("does not apply flash animation when boundaryHit is null", () => {
+      const entries = [
+        mockEntry({ id: 1, title: "First Article" }),
+        mockEntry({ id: 2, title: "Last Article" }),
+      ]
+
+      render(<EntryList {...defaultProps} entries={entries} boundaryHit={null} />)
+
+      const firstEntry = screen.getByRole("option", { name: /first article/i })
+      const lastEntry = screen.getByRole("option", { name: /last article/i })
+
+      expect(firstEntry).not.toHaveClass("animate-boundary-flash")
+      expect(lastEntry).not.toHaveClass("animate-boundary-flash")
+    })
+  })
 })
