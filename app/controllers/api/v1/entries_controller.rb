@@ -334,16 +334,19 @@ module Api
         base_ids = user_entries.reorder("").pluck(:id)
         return user_entries if base_ids.empty?
 
-        # Use window function to rank entries per feed
-        limited_ids_sql = <<~SQL
+        # Sanitize inputs to prevent SQL injection
+        safe_limit = limit.to_i
+
+        # Use sanitize_sql_array for proper SQL escaping
+        limited_ids_sql = ActiveRecord::Base.sanitize_sql_array([<<~SQL.squish, base_ids, safe_limit])
           SELECT id FROM (
             SELECT user_entries.id,
                    ROW_NUMBER() OVER (PARTITION BY user_entries.feed_id ORDER BY entries.date_entered DESC) as rn
             FROM user_entries
             INNER JOIN entries ON entries.id = user_entries.entry_id
-            WHERE user_entries.id IN (#{base_ids.join(",")})
+            WHERE user_entries.id IN (?)
           ) ranked
-          WHERE rn <= #{limit.to_i}
+          WHERE rn <= ?
         SQL
 
         ids = ActiveRecord::Base.connection.select_values(limited_ids_sql)
