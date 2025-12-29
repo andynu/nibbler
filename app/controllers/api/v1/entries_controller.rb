@@ -338,7 +338,7 @@ module Api
         safe_limit = limit.to_i
 
         # Use sanitize_sql_array for proper SQL escaping
-        limited_ids_sql = ActiveRecord::Base.sanitize_sql_array([<<~SQL.squish, base_ids, safe_limit])
+        limited_ids_sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, base_ids, safe_limit ])
           SELECT id FROM (
             SELECT user_entries.id,
                    ROW_NUMBER() OVER (PARTITION BY user_entries.feed_id ORDER BY entries.date_entered DESC) as rn

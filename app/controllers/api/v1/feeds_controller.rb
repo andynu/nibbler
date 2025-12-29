@@ -51,7 +51,7 @@ module Api
           return render json: {
             error: "Feed is rate-limited, please wait before refreshing",
             retry_after: @feed.retry_after&.iso8601,
-            seconds_remaining: [(@feed.retry_after - Time.current).to_i, 0].max
+            seconds_remaining: [ (@feed.retry_after - Time.current).to_i, 0 ].max
           }, status: :too_many_requests
         end
 
