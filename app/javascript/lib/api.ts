@@ -31,6 +31,7 @@ export interface Feed {
   icon_url: string | null
   last_updated: string | null
   last_successful_update: string | null
+  next_poll_at: string | null
   last_error: string | null
   unread_count: number
   entry_count: number

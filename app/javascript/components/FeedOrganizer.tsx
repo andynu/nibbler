@@ -29,9 +29,77 @@ import {
   GripVertical,
   Plus,
   AlertCircle,
+  Clock,
+  CheckCircle2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CommandPalette } from "@/components/CommandPalette"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+// Format relative future time (e.g., "in 2h", "in 45m", "now")
+function formatNextSync(nextPollAt: string | null): { label: string; ready: boolean } {
+  if (!nextPollAt) {
+    return { label: "now", ready: true }
+  }
+
+  const nextPoll = new Date(nextPollAt)
+  const now = new Date()
+  const diffMs = nextPoll.getTime() - now.getTime()
+
+  if (diffMs <= 0) {
+    return { label: "now", ready: true }
+  }
+
+  const diffMins = Math.ceil(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffDays > 0) {
+    return { label: `${diffDays}d`, ready: false }
+  }
+  if (diffHours > 0) {
+    return { label: `${diffHours}h`, ready: false }
+  }
+  return { label: `${diffMins}m`, ready: false }
+}
+
+function NextSyncIndicator({ feed }: { feed: Feed }) {
+  const { label, ready } = formatNextSync(feed.next_poll_at)
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              "flex items-center gap-0.5 text-xs shrink-0",
+              ready ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+            )}
+          >
+            {ready ? (
+              <CheckCircle2 className="h-3 w-3" />
+            ) : (
+              <>
+                <Clock className="h-3 w-3" />
+                <span>{label}</span>
+              </>
+            )}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          {ready
+            ? "Ready to sync"
+            : `Next sync in ${label}`}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
 interface FeedOrganizerProps {
   feeds: Feed[]
@@ -421,6 +489,7 @@ export function FeedOrganizer({
                                 <Rss className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
                               )}
                               <span className="flex-1 truncate">{feed.title}</span>
+                              <NextSyncIndicator feed={feed} />
                               {feed.last_error && (
                                 <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
                               )}
@@ -452,6 +521,7 @@ export function FeedOrganizer({
                         <Rss className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
                       )}
                       <span className="flex-1 truncate">{item.data.title}</span>
+                      <NextSyncIndicator feed={item.data} />
                       {item.data.last_error && (
                         <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
                       )}

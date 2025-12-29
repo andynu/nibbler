@@ -228,6 +228,7 @@ module Api
           icon_url: feed.icon_url,
           last_updated: feed.last_updated,
           last_successful_update: feed.last_successful_update,
+          next_poll_at: feed.next_poll_at,
           last_error: feed.last_error.presence,
           unread_count: feed.user_entries.unread.count,
           entry_count: feed.entry_count,
