@@ -872,69 +872,82 @@ export function FeedSidebar({
             }
 
             return (
-              <div key={folder.id} className="group/smartfolder">
-                <div className="flex items-center">
-                  <Button
-                    variant="ghost"
-                    className="flex-1 justify-start gap-2 mb-1"
-                    onClick={toggleExpand}
-                  >
-                    <span className="shrink-0">
-                      {isExpanded ? (
-                        <FolderOpen className="h-4 w-4" />
-                      ) : (
-                        <Folder className="h-4 w-4" />
-                      )}
-                    </span>
-                    {folder.isSmart ? (
-                      <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
-                    ) : (
-                      <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
-                    )}
-                    <span className="flex-1 text-left">{folder.name}</span>
-                    <Badge variant="secondary">{matchCount}</Badge>
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+              <ContextMenu key={folder.id}>
+                <ContextMenuTrigger asChild>
+                  <div className="group/smartfolder">
+                    <div className="flex items-center">
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover/smartfolder:opacity-100 transition-opacity"
+                        className="flex-1 justify-start gap-2 mb-1"
+                        onClick={toggleExpand}
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="shrink-0">
+                          {isExpanded ? (
+                            <FolderOpen className="h-4 w-4" />
+                          ) : (
+                            <Folder className="h-4 w-4" />
+                          )}
+                        </span>
+                        {folder.isSmart ? (
+                          <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
+                        ) : (
+                          <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
+                        )}
+                        <span className="flex-1 text-left">{folder.name}</span>
+                        <Badge variant="secondary">{matchCount}</Badge>
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => handleBulkUnsubscribeSmartFolder(matchingFeeds, folder.name)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Unsubscribe all ({matchCount})
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover/smartfolder:opacity-100 transition-opacity"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleBulkUnsubscribeSmartFolder(matchingFeeds, folder.name)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Unsubscribe all ({matchCount})
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                 {isExpanded && (
-                  <div className="ml-6">
-                    {matchingFeeds.map((feed) => (
-                      <FeedItem
-                        key={feed.id}
-                        feed={feed}
-                        isSelected={selectedFeedId === feed.id}
-                        isTracked={trackedFeedId === feed.id}
-                        isDragging={false}
-                        onSelect={() => onSelectFeed(feed.id)}
-                        onEdit={() => handleEditFeed(feed)}
-                        onRefresh={() => handleRefresh(feed)}
-                        onUnsubscribe={() => handleUnsubscribeFeed(feed)}
-                        onInfo={() => setInfoFeed(feed)}
-                        isRefreshing={refreshingFeedId === feed.id}
-                      />
-                    ))}
+                      <div className="ml-6">
+                        {matchingFeeds.map((feed) => (
+                          <FeedItem
+                            key={feed.id}
+                            feed={feed}
+                            isSelected={selectedFeedId === feed.id}
+                            isTracked={trackedFeedId === feed.id}
+                            isDragging={false}
+                            onSelect={() => onSelectFeed(feed.id)}
+                            onEdit={() => handleEditFeed(feed)}
+                            onRefresh={() => handleRefresh(feed)}
+                            onUnsubscribe={() => handleUnsubscribeFeed(feed)}
+                            onInfo={() => setInfoFeed(feed)}
+                            isRefreshing={refreshingFeedId === feed.id}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    onClick={() => handleBulkUnsubscribeSmartFolder(matchingFeeds, folder.name)}
+                    variant="destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Unsubscribe all ({matchCount})
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             )
           })}
 
