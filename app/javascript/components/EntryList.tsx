@@ -9,13 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCheck, Star, Circle, StickyNote, ArrowUpDown, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Info, Rss, AlertCircle } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Info, Rss, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
 import { ScoreBadge } from "@/components/ScoreButtons"
 import { FeedInfoDialog } from "@/components/FeedInfoDialog"
-import type { Entry, Feed } from "@/lib/api"
+import { SortableHeaderRow, toggleSort } from "@/components/SortableColumnHeader"
+import type { Entry, Feed, SortConfig, SortColumn } from "@/lib/api"
 
 interface EntryListProps {
   entries: Entry[]
@@ -43,6 +44,9 @@ interface EntryListProps {
   onSelectFeedFromList?: (feedId: number) => void
   // Keyboard navigation boundary feedback
   boundaryHit?: "start" | "end" | null
+  // Multi-column sorting
+  sortConfig?: SortConfig[]
+  onSortChange?: (newSort: SortConfig[]) => void
 }
 
 export function EntryList({
@@ -67,6 +71,8 @@ export function EntryList({
   filteredFeeds = [],
   onSelectFeedFromList,
   boundaryHit,
+  sortConfig = [],
+  onSortChange,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
@@ -96,17 +102,12 @@ export function EntryList({
     return oldestYear === newestYear ? String(oldestYear) : `${oldestYear} — ${newestYear}`
   }
 
-  const sortByScore = preferences.entries_sort_by_score === "true"
   const hideRead = preferences.entries_hide_read === "true"
   const hideUnstarred = preferences.entries_hide_unstarred === "true"
   const displayDensity = (preferences.entries_display_density || "medium") as "small" | "medium" | "large"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
   const [showFeedInfo, setShowFeedInfo] = useState(false)
-
-  const toggleSortByScore = () => {
-    updatePreference("entries_sort_by_score", sortByScore ? "false" : "true")
-  }
 
   const toggleHideRead = () => {
     updatePreference("entries_hide_read", hideRead ? "false" : "true")
@@ -275,17 +276,6 @@ export function EntryList({
           <Star className={cn("h-4 w-4", hideUnstarred && "fill-current")} />
         </Button>
         <div className="w-px h-4 bg-border mx-1" />
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-7 w-7", sortByScore && "text-primary bg-primary/10")}
-          onClick={toggleSortByScore}
-          aria-label={sortByScore ? "Sort by date" : "Sort by score"}
-          title={sortByScore ? "Sorted by score" : "Sort by score"}
-        >
-          <ArrowUpDown className="h-4 w-4" />
-        </Button>
-        <div className="w-px h-4 bg-border mx-1" />
         {/* Density selector: S M L */}
         <div className="flex items-center rounded-md border border-border overflow-hidden">
           <button
@@ -323,6 +313,16 @@ export function EntryList({
           </button>
         </div>
       </div>
+      {/* Sort controls - only show when entries mode and sort handler provided */}
+      {displayMode === "entries" && onSortChange && (
+        <SortableHeaderRow
+          currentSort={sortConfig}
+          onSort={(column: SortColumn, additive: boolean) => {
+            const newSort = toggleSort(sortConfig, column, additive)
+            onSortChange(newSort)
+          }}
+        />
+      )}
 
       <ScrollArea className="flex-1 min-h-0">
         <div ref={listRef}>

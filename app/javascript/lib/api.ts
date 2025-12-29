@@ -273,6 +273,32 @@ export interface FilterUpdateData {
   filter_actions_attributes?: FilterActionUpdateData[]
 }
 
+// Sorting configuration for multi-column sorting
+export type SortColumn = "date" | "published" | "feed" | "title" | "score" | "unread"
+export type SortDirection = "asc" | "desc"
+
+export interface SortConfig {
+  column: SortColumn
+  direction: SortDirection
+}
+
+// Convert SortConfig array to API parameter string
+export function sortConfigToParam(configs: SortConfig[]): string {
+  return configs.map((c) => `${c.column}:${c.direction}`).join(",")
+}
+
+// Parse API parameter string to SortConfig array
+export function paramToSortConfig(param: string): SortConfig[] {
+  if (!param) return []
+  return param.split(",").map((part) => {
+    const [column, direction] = part.split(":")
+    return {
+      column: column as SortColumn,
+      direction: (direction || "desc") as SortDirection,
+    }
+  })
+}
+
 export const api = {
   feeds: {
     list: () => request<Feed[]>("/feeds"),
@@ -299,6 +325,7 @@ export const api = {
       category_id?: number
       view?: "fresh" | "starred" | "published" | "archived"
       order_by?: "date" | "score"
+      sort?: string // Multi-column sort: "date:desc,feed:asc"
       page?: number
       per_page?: number
       fresh_max_age?: "week" | "month" | "all"
@@ -311,7 +338,8 @@ export const api = {
       if (params?.feed_id) searchParams.set("feed_id", String(params.feed_id))
       if (params?.category_id) searchParams.set("category_id", String(params.category_id))
       if (params?.view) searchParams.set("view", params.view)
-      if (params?.order_by) searchParams.set("order_by", params.order_by)
+      if (params?.sort) searchParams.set("sort", params.sort)
+      else if (params?.order_by) searchParams.set("order_by", params.order_by)
       if (params?.page) searchParams.set("page", String(params.page))
       if (params?.per_page) searchParams.set("per_page", String(params.per_page))
       if (params?.fresh_max_age) searchParams.set("fresh_max_age", params.fresh_max_age)
