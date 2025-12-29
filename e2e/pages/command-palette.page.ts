@@ -38,8 +38,8 @@ export class CommandPalettePage {
     await this.page.keyboard.press("Enter")
   }
 
-  async selectResultByText(text: string): Promise<void> {
-    await this.page.getByText(text).click()
+  async selectResultByText(text: string | RegExp): Promise<void> {
+    await this.page.getByRole("option", { name: text }).click()
   }
 
   async navigateDown(): Promise<void> {
