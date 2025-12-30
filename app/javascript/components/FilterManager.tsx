@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -697,10 +699,8 @@ function FilterEditorDialog({
                         <SelectContent>
                           <SelectItem value="all">All feeds</SelectItem>
                           {categories.length > 0 && (
-                            <>
-                              <SelectItem value="" disabled>
-                                ─ Categories ─
-                              </SelectItem>
+                            <SelectGroup>
+                              <SelectLabel>Categories</SelectLabel>
                               {categories.map((cat) => (
                                 <SelectItem
                                   key={`cat:${cat.id}`}
@@ -709,13 +709,11 @@ function FilterEditorDialog({
                                   {cat.title}
                                 </SelectItem>
                               ))}
-                            </>
+                            </SelectGroup>
                           )}
                           {feeds.length > 0 && (
-                            <>
-                              <SelectItem value="" disabled>
-                                ─ Feeds ─
-                              </SelectItem>
+                            <SelectGroup>
+                              <SelectLabel>Feeds</SelectLabel>
                               {feeds.map((feed) => (
                                 <SelectItem
                                   key={`feed:${feed.id}`}
@@ -724,7 +722,7 @@ function FilterEditorDialog({
                                   {feed.title}
                                 </SelectItem>
                               ))}
-                            </>
+                            </SelectGroup>
                           )}
                         </SelectContent>
                       </Select>
