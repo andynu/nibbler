@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, forwardRef } from "react"
 import {
   DndContext,
   DragOverlay,
@@ -21,16 +21,31 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { api, Feed, Category } from "@/lib/api"
 import {
   Rss,
   Folder,
   FolderOpen,
+  FolderInput,
   GripVertical,
   Plus,
   AlertCircle,
   Clock,
   CheckCircle2,
+  RefreshCw,
+  Settings,
+  Info,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CommandPalette } from "@/components/CommandPalette"
@@ -40,6 +55,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { FeedInfoDialog } from "@/components/FeedInfoDialog"
+import { EditFeedDialog } from "@/components/EditFeedDialog"
 
 // Format relative future time (e.g., "in 2h", "in 45m", "now")
 function formatNextSync(nextPollAt: string | null): { label: string; ready: boolean } {
@@ -126,6 +143,9 @@ export function FeedOrganizer({
   const [showQuickMove, setShowQuickMove] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
+  const [infoFeed, setInfoFeed] = useState<Feed | null>(null)
+  const [editFeed, setEditFeed] = useState<Feed | null>(null)
+  const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
 
   // Build tree structure
   const treeItems = useMemo(() => {
@@ -398,6 +418,18 @@ export function FeedOrganizer({
     setShowQuickMove(false)
   }
 
+  const handleMoveFeed = async (feed: Feed, categoryId: number | null) => {
+    if (feed.category_id === categoryId) return
+    try {
+      const updatedFeed = await api.feeds.update(feed.id, {
+        feed: { category_id: categoryId },
+      })
+      onFeedsChange(feeds.map((f) => (f.id === feed.id ? updatedFeed : f)))
+    } catch (error) {
+      console.error("Failed to move feed:", error)
+    }
+  }
+
   const handleAddCategory = async () => {
     const title = prompt("Category name:")
     if (!title?.trim()) return
@@ -410,6 +442,45 @@ export function FeedOrganizer({
       setExpandedCategories((prev) => new Set([...prev, newCategory.id]))
     } catch (error) {
       console.error("Failed to create category:", error)
+    }
+  }
+
+  const handleRefreshFeed = async (feed: Feed) => {
+    if (refreshingFeedId) return
+    setRefreshingFeedId(feed.id)
+    try {
+      await api.feeds.refresh(feed.id)
+      // Optionally reload feeds to get updated data
+      const updatedFeeds = await api.feeds.list()
+      onFeedsChange(updatedFeeds)
+    } catch (error) {
+      console.error("Failed to refresh feed:", error)
+    } finally {
+      setRefreshingFeedId(null)
+    }
+  }
+
+  const handleFeedUpdated = (updatedFeed: Feed) => {
+    onFeedsChange(feeds.map((f) => (f.id === updatedFeed.id ? updatedFeed : f)))
+    setEditFeed(null)
+  }
+
+  const handleFeedDeleted = (feedId: number) => {
+    onFeedsChange(feeds.filter((f) => f.id !== feedId))
+    setEditFeed(null)
+    setSelectedId(null)
+  }
+
+  const handleUnsubscribe = async (feed: Feed) => {
+    const confirmed = window.confirm(`Unsubscribe from "${feed.title}"?`)
+    if (!confirmed) return
+
+    try {
+      await api.feeds.delete(feed.id)
+      onFeedsChange(feeds.filter((f) => f.id !== feed.id))
+      setSelectedId(null)
+    } catch (error) {
+      console.error("Failed to unsubscribe:", error)
     }
   }
 
@@ -469,63 +540,176 @@ export function FeedOrganizer({
                       {isExpanded && (
                         <div className="ml-6">
                           {item.feeds.map((feed) => (
-                            <SortableItem
-                              key={`feed-${feed.id}`}
-                              id={`feed-${feed.id}`}
-                              isSelected={selectedId === `feed-${feed.id}`}
-                              isEditing={editingId === `feed-${feed.id}`}
-                              editValue={editValue}
-                              onEditChange={setEditValue}
-                              onEditSave={saveEdit}
-                              onSelect={() => setSelectedId(`feed-${feed.id}`)}
-                            >
-                              {feed.icon_url ? (
-                                <img
-                                  src={feed.icon_url}
-                                  className="h-4 w-4 mr-2 shrink-0"
-                                  alt=""
-                                />
-                              ) : (
-                                <Rss className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
-                              )}
-                              <span className="flex-1 truncate">{feed.title}</span>
-                              <NextSyncIndicator feed={feed} />
-                              {feed.last_error && (
-                                <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
-                              )}
-                            </SortableItem>
+                            <ContextMenu key={`feed-${feed.id}`}>
+                              <ContextMenuTrigger asChild>
+                                <SortableItem
+                                  id={`feed-${feed.id}`}
+                                  isSelected={selectedId === `feed-${feed.id}`}
+                                  isEditing={editingId === `feed-${feed.id}`}
+                                  editValue={editValue}
+                                  onEditChange={setEditValue}
+                                  onEditSave={saveEdit}
+                                  onSelect={() => setSelectedId(`feed-${feed.id}`)}
+                                >
+                                  {refreshingFeedId === feed.id ? (
+                                    <RefreshCw className="h-4 w-4 mr-2 shrink-0 animate-spin" />
+                                  ) : feed.icon_url ? (
+                                    <img
+                                      src={feed.icon_url}
+                                      className="h-4 w-4 mr-2 shrink-0"
+                                      alt=""
+                                    />
+                                  ) : (
+                                    <Rss className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
+                                  )}
+                                  <span className="flex-1 truncate">{feed.title}</span>
+                                  <NextSyncIndicator feed={feed} />
+                                  {feed.last_error && (
+                                    <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+                                  )}
+                                </SortableItem>
+                              </ContextMenuTrigger>
+                              <ContextMenuContent>
+                                <ContextMenuItem
+                                  onClick={() => handleRefreshFeed(feed)}
+                                  disabled={refreshingFeedId === feed.id}
+                                >
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  Sync Now
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => setEditFeed(feed)}>
+                                  <Settings className="mr-2 h-4 w-4" />
+                                  Edit Feed...
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => setInfoFeed(feed)}>
+                                  <Info className="mr-2 h-4 w-4" />
+                                  Feed Info...
+                                </ContextMenuItem>
+                                <ContextMenuSub>
+                                  <ContextMenuSubTrigger>
+                                    <FolderInput className="mr-2 h-4 w-4" />
+                                    Move to...
+                                  </ContextMenuSubTrigger>
+                                  <ContextMenuSubContent>
+                                    <ContextMenuItem
+                                      onClick={() => handleMoveFeed(feed, null)}
+                                      disabled={feed.category_id === null}
+                                    >
+                                      <Rss className="mr-2 h-4 w-4" />
+                                      Uncategorized
+                                    </ContextMenuItem>
+                                    <ContextMenuSeparator />
+                                    {categories.map((cat) => (
+                                      <ContextMenuItem
+                                        key={cat.id}
+                                        onClick={() => handleMoveFeed(feed, cat.id)}
+                                        disabled={feed.category_id === cat.id}
+                                      >
+                                        <Folder className="mr-2 h-4 w-4" />
+                                        {cat.title}
+                                      </ContextMenuItem>
+                                    ))}
+                                  </ContextMenuSubContent>
+                                </ContextMenuSub>
+                                <ContextMenuSeparator />
+                                <ContextMenuItem
+                                  onClick={() => handleUnsubscribe(feed)}
+                                  variant="destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Unsubscribe
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            </ContextMenu>
                           ))}
                         </div>
                       )}
                     </div>
                   )
                 } else {
+                  const feed = item.data
                   return (
-                    <SortableItem
-                      key={`feed-${item.data.id}`}
-                      id={`feed-${item.data.id}`}
-                      isSelected={selectedId === `feed-${item.data.id}`}
-                      isEditing={editingId === `feed-${item.data.id}`}
-                      editValue={editValue}
-                      onEditChange={setEditValue}
-                      onEditSave={saveEdit}
-                      onSelect={() => setSelectedId(`feed-${item.data.id}`)}
-                    >
-                      {item.data.icon_url ? (
-                        <img
-                          src={item.data.icon_url}
-                          className="h-4 w-4 mr-2 shrink-0"
-                          alt=""
-                        />
-                      ) : (
-                        <Rss className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="flex-1 truncate">{item.data.title}</span>
-                      <NextSyncIndicator feed={item.data} />
-                      {item.data.last_error && (
-                        <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
-                      )}
-                    </SortableItem>
+                    <ContextMenu key={`feed-${feed.id}`}>
+                      <ContextMenuTrigger asChild>
+                        <SortableItem
+                          id={`feed-${feed.id}`}
+                          isSelected={selectedId === `feed-${feed.id}`}
+                          isEditing={editingId === `feed-${feed.id}`}
+                          editValue={editValue}
+                          onEditChange={setEditValue}
+                          onEditSave={saveEdit}
+                          onSelect={() => setSelectedId(`feed-${feed.id}`)}
+                        >
+                          {refreshingFeedId === feed.id ? (
+                            <RefreshCw className="h-4 w-4 mr-2 shrink-0 animate-spin" />
+                          ) : feed.icon_url ? (
+                            <img
+                              src={feed.icon_url}
+                              className="h-4 w-4 mr-2 shrink-0"
+                              alt=""
+                            />
+                          ) : (
+                            <Rss className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="flex-1 truncate">{feed.title}</span>
+                          <NextSyncIndicator feed={feed} />
+                          {feed.last_error && (
+                            <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+                          )}
+                        </SortableItem>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem
+                          onClick={() => handleRefreshFeed(feed)}
+                          disabled={refreshingFeedId === feed.id}
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Sync Now
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => setEditFeed(feed)}>
+                          <Settings className="mr-2 h-4 w-4" />
+                          Edit Feed...
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => setInfoFeed(feed)}>
+                          <Info className="mr-2 h-4 w-4" />
+                          Feed Info...
+                        </ContextMenuItem>
+                        <ContextMenuSub>
+                          <ContextMenuSubTrigger>
+                            <FolderInput className="mr-2 h-4 w-4" />
+                            Move to...
+                          </ContextMenuSubTrigger>
+                          <ContextMenuSubContent>
+                            <ContextMenuItem
+                              onClick={() => handleMoveFeed(feed, null)}
+                              disabled={feed.category_id === null}
+                            >
+                              <Rss className="mr-2 h-4 w-4" />
+                              Uncategorized
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            {categories.map((cat) => (
+                              <ContextMenuItem
+                                key={cat.id}
+                                onClick={() => handleMoveFeed(feed, cat.id)}
+                                disabled={feed.category_id === cat.id}
+                              >
+                                <Folder className="mr-2 h-4 w-4" />
+                                {cat.title}
+                              </ContextMenuItem>
+                            ))}
+                          </ContextMenuSubContent>
+                        </ContextMenuSub>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onClick={() => handleUnsubscribe(feed)}
+                          variant="destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Unsubscribe
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
                   )
                 }
               })}
@@ -566,11 +750,30 @@ export function FeedOrganizer({
         onSelectCategory={handleQuickMove}
         mode="move"
       />
+
+      <FeedInfoDialog
+        open={infoFeed !== null}
+        onOpenChange={(open) => {
+          if (!open) setInfoFeed(null)
+        }}
+        feed={infoFeed}
+      />
+
+      <EditFeedDialog
+        feed={editFeed}
+        open={editFeed !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditFeed(null)
+        }}
+        categories={categories}
+        onFeedUpdated={handleFeedUpdated}
+        onFeedDeleted={handleFeedDeleted}
+      />
     </div>
   )
 }
 
-interface SortableItemProps {
+interface SortableItemProps extends React.HTMLAttributes<HTMLDivElement> {
   id: string
   isSelected: boolean
   isEditing: boolean
@@ -582,76 +785,93 @@ interface SortableItemProps {
   children: React.ReactNode
 }
 
-function SortableItem({
-  id,
-  isSelected,
-  isEditing,
-  editValue,
-  onEditChange,
-  onEditSave,
-  onSelect,
-  onToggle,
-  children,
-}: SortableItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id })
+const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
+  function SortableItem(
+    {
+      id,
+      isSelected,
+      isEditing,
+      editValue,
+      onEditChange,
+      onEditSave,
+      onSelect,
+      onToggle,
+      children,
+      ...restProps
+    },
+    forwardedRef
+  ) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id })
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      onEditSave()
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
     }
-    if (e.key === "Escape") {
-      e.preventDefault()
-      onEditSave()
-    }
-  }
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer group",
-        isSelected && "bg-accent",
-        isDragging && "ring-2 ring-ring"
-      )}
-      onClick={onSelect}
-      onDoubleClick={onToggle}
-      role="option"
-      aria-selected={isSelected}
-    >
-      <button
-        className="touch-none opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault()
+        onEditSave()
+      }
+      if (e.key === "Escape") {
+        e.preventDefault()
+        onEditSave()
+      }
+    }
+
+    // Combine both refs (sortable and forwarded)
+    const combinedRef = (node: HTMLDivElement | null) => {
+      setNodeRef(node)
+      if (typeof forwardedRef === "function") {
+        forwardedRef(node)
+      } else if (forwardedRef) {
+        forwardedRef.current = node
+      }
+    }
+
+    return (
+      <div
+        ref={combinedRef}
+        style={style}
+        className={cn(
+          "flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer group",
+          isSelected && "bg-accent",
+          isDragging && "ring-2 ring-ring"
+        )}
+        onClick={onSelect}
+        onDoubleClick={onToggle}
+        role="option"
+        aria-selected={isSelected}
+        {...restProps}
       >
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </button>
-      {isEditing ? (
-        <Input
-          value={editValue}
-          onChange={(e) => onEditChange(e.target.value)}
-          onBlur={onEditSave}
-          onKeyDown={handleKeyDown}
-          className="h-7 flex-1"
-          autoFocus
-        />
-      ) : (
-        <div className="flex items-center flex-1 min-w-0">{children}</div>
-      )}
-    </div>
-  )
-}
+        <button
+          className="touch-none opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </button>
+        {isEditing ? (
+          <Input
+            value={editValue}
+            onChange={(e) => onEditChange(e.target.value)}
+            onBlur={onEditSave}
+            onKeyDown={handleKeyDown}
+            className="h-7 flex-1"
+            autoFocus
+          />
+        ) : (
+          <div className="flex items-center flex-1 min-w-0">{children}</div>
+        )}
+      </div>
+    )
+  }
+)
