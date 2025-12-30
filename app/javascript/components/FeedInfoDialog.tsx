@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,14 @@ import {
 } from "@/components/ui/dialog"
 import { Rss, ExternalLink, Calendar, Clock, AlertCircle, BarChart3, Tags } from "lucide-react"
 import { api } from "@/lib/api"
-import type { Feed, FeedInfo } from "@/lib/api"
+import type { Feed, FeedInfo, Filter } from "@/lib/api"
+import { cn } from "@/lib/utils"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface FeedInfoDialogProps {
   open: boolean
@@ -67,24 +74,107 @@ function FrequencyChart({ data, labels }: { data: Record<number, number>; labels
   )
 }
 
+// Helper to determine if a filter is a "word tagging filter" for a given word.
+// These are filters created by clicking a word in the frequency list.
+// They have:
+// - A single rule matching "Title or Content" (type 3) with the word pattern
+// - A single action of type "tag" (4) with the word as the tag name
+function isWordTaggingFilter(filter: Filter, word: string): boolean {
+  if (filter.rules.length !== 1 || filter.actions.length !== 1) return false
+
+  const rule = filter.rules[0]
+  const action = filter.actions[0]
+
+  // Rule must be "Title or Content" (type 3) matching the word (case-insensitive)
+  // Using word boundary pattern: \bword\b
+  const expectedPattern = `\\b${word}\\b`
+  if (rule.filter_type !== 3) return false
+  if (rule.reg_exp.toLowerCase() !== expectedPattern.toLowerCase()) return false
+
+  // Action must be "tag" (type 4) with the word as the tag name
+  if (action.action_type !== 4) return false
+  if (action.action_param?.toLowerCase() !== word.toLowerCase()) return false
+
+  return true
+}
+
+// Find filter ID for a given word if a word tagging filter exists
+function findWordFilter(filters: Filter[], word: string): number | null {
+  const filter = filters.find((f) => isWordTaggingFilter(f, word))
+  return filter?.id ?? null
+}
+
 export function FeedInfoDialog({ open, onOpenChange, feed }: FeedInfoDialogProps) {
   const [info, setInfo] = useState<FeedInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState<Filter[]>([])
+  const [pendingWord, setPendingWord] = useState<string | null>(null)
 
+  // Load feed info and filters when dialog opens
   useEffect(() => {
     if (open && feed) {
       setIsLoading(true)
       setError(null)
-      api.feeds
-        .info(feed.id)
-        .then(setInfo)
+      Promise.all([api.feeds.info(feed.id), api.filters.list()])
+        .then(([feedInfo, filterList]) => {
+          setInfo(feedInfo)
+          setFilters(filterList)
+        })
         .catch((err) => setError(err.message))
         .finally(() => setIsLoading(false))
     } else {
       setInfo(null)
+      setFilters([])
     }
   }, [open, feed?.id])
+
+  // Handle clicking a word to create or remove a filter
+  const handleWordClick = useCallback(
+    async (word: string) => {
+      if (!feed) return
+
+      setPendingWord(word)
+      try {
+        const existingFilterId = findWordFilter(filters, word)
+
+        if (existingFilterId) {
+          // Remove the filter (existing tags remain on articles)
+          await api.filters.delete(existingFilterId)
+          setFilters((prev) => prev.filter((f) => f.id !== existingFilterId))
+        } else {
+          // Create a new tagging filter for this word
+          const newFilter = await api.filters.create({
+            filter: {
+              title: `Tag: ${word}`,
+              enabled: true,
+              match_any_rule: false,
+              inverse: false,
+              filter_rules_attributes: [
+                {
+                  filter_type: 3, // Title or Content
+                  reg_exp: `\\b${word}\\b`,
+                  inverse: false,
+                },
+              ],
+              filter_actions_attributes: [
+                {
+                  action_type: 4, // Tag
+                  action_param: word,
+                },
+              ],
+            },
+          })
+          setFilters((prev) => [...prev, newFilter])
+        }
+      } catch (err) {
+        console.error("Failed to toggle word filter:", err)
+      } finally {
+        setPendingWord(null)
+      }
+    },
+    [feed, filters]
+  )
 
   if (!feed) return null
 
@@ -269,18 +359,51 @@ export function FeedInfoDialog({ open, onOpenChange, feed }: FeedInfoDialogProps
                   <Tags className="h-4 w-4" />
                   Common Topics
                 </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {info.top_words.map(({ word, count }) => (
-                    <span
-                      key={word}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded-full text-xs"
-                      title={`${count} occurrences`}
-                    >
-                      <span>{word}</span>
-                      <span className="text-muted-foreground">{count}</span>
-                    </span>
-                  ))}
-                </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Click a word to create a tagging filter
+                </p>
+                <TooltipProvider>
+                  <div className="flex flex-wrap gap-1.5">
+                    {info.top_words.map(({ word, count }) => {
+                      const hasFilter = findWordFilter(filters, word) !== null
+                      const isPending = pendingWord === word
+
+                      return (
+                        <Tooltip key={word}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => handleWordClick(word)}
+                              disabled={isPending}
+                              className={cn(
+                                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors cursor-pointer",
+                                "hover:ring-2 hover:ring-primary/50 focus:outline-none focus:ring-2 focus:ring-primary",
+                                hasFilter
+                                  ? "bg-primary text-primary-foreground font-medium"
+                                  : "bg-muted hover:bg-muted/80",
+                                isPending && "opacity-50 cursor-wait"
+                              )}
+                            >
+                              <span>{word}</span>
+                              <span
+                                className={cn(
+                                  hasFilter ? "text-primary-foreground/70" : "text-muted-foreground"
+                                )}
+                              >
+                                {count}
+                              </span>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {hasFilter
+                              ? `Click to remove filter for "${word}"`
+                              : `Click to create filter tagging articles with "${word}"`}
+                          </TooltipContent>
+                        </Tooltip>
+                      )
+                    })}
+                  </div>
+                </TooltipProvider>
               </section>
             )}
           </div>
