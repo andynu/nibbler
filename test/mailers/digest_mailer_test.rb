@@ -13,7 +13,7 @@ class DigestMailerTest < ActionMailer::TestCase
       email.deliver_now
     end
 
-    assert_equal ["digest@example.com"], email.to
+    assert_equal [ "digest@example.com" ], email.to
     assert_match(/Your Daily Digest/, email.subject)
   end
 
