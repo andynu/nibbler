@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, forwardRef } from "react"
+import { useState, useEffect, useMemo, forwardRef, useRef } from "react"
 import {
   DndContext,
   DragOverlay,
@@ -141,6 +141,8 @@ export function FeedOrganizer({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showQuickMove, setShowQuickMove] = useState(false)
+  // Ref to track when quick move dialog just closed (to prevent Escape from clearing selection)
+  const quickMoveJustClosedRef = useRef(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
   const [infoFeed, setInfoFeed] = useState<Feed | null>(null)
@@ -300,6 +302,11 @@ export function FeedOrganizer({
           }
           break
         case "Escape":
+          // Don't clear selection if quick move dialog is open or just closed
+          if (showQuickMove || quickMoveJustClosedRef.current) {
+            quickMoveJustClosedRef.current = false
+            return
+          }
           setSelectedId(null)
           break
       }
@@ -307,7 +314,7 @@ export function FeedOrganizer({
 
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [selectedId, editingId, sortableIds])
+  }, [selectedId, editingId, sortableIds, showQuickMove])
 
   const navigateNext = () => {
     if (!selectedId) {
@@ -744,7 +751,13 @@ export function FeedOrganizer({
 
       <CommandPalette
         open={showQuickMove}
-        onOpenChange={setShowQuickMove}
+        onOpenChange={(open) => {
+          if (!open && showQuickMove) {
+            // Dialog is closing - set ref so Escape handler knows not to clear selection
+            quickMoveJustClosedRef.current = true
+          }
+          setShowQuickMove(open)
+        }}
         placeholder="Move to category..."
         categories={categories}
         onSelectCategory={handleQuickMove}
