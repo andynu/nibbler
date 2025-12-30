@@ -62,3 +62,15 @@ This project uses `bd` (beads) for issue tracking:
 - Keep changes minimal and focused
 - Use existing patterns found in the codebase
 - No emojis in code or documentation unless requested
+
+### Ruby Linting
+
+Run RuboCop before committing Ruby changes to catch style issues before CI:
+
+```bash
+bundle exec rubocop                    # Check for issues
+bundle exec rubocop -a                 # Auto-fix simple issues
+bundle exec rubocop path/to/file.rb    # Check specific file
+```
+
+Note: CI runs the same config, so local checks match CI exactly.
