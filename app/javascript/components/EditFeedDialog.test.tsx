@@ -9,6 +9,8 @@ import { mockFeed, mockCategory, mockPreferences } from "../../../test/fixtures/
 const mockApiUpdate = vi.fn()
 const mockApiRefresh = vi.fn()
 const mockApiDelete = vi.fn()
+const mockApiInfo = vi.fn()
+const mockApiFiltersList = vi.fn()
 
 vi.mock("@/lib/api", () => ({
   api: {
@@ -16,6 +18,10 @@ vi.mock("@/lib/api", () => ({
       update: (...args: unknown[]) => mockApiUpdate(...args),
       refresh: (...args: unknown[]) => mockApiRefresh(...args),
       delete: (...args: unknown[]) => mockApiDelete(...args),
+      info: (...args: unknown[]) => mockApiInfo(...args),
+    },
+    filters: {
+      list: () => mockApiFiltersList(),
     },
   },
 }))
@@ -44,6 +50,31 @@ describe("EditFeedDialog", () => {
     mockApiUpdate.mockResolvedValue(defaultFeed)
     mockApiRefresh.mockResolvedValue({ feed: defaultFeed, status: "success", new_entries: 0 })
     mockApiDelete.mockResolvedValue({})
+    mockApiInfo.mockResolvedValue({
+      id: 1,
+      title: "Test Feed",
+      feed_url: "https://example.com/feed.xml",
+      site_url: "https://example.com",
+      icon_url: null,
+      category_title: null,
+      last_updated: "2025-01-15T10:00:00Z",
+      last_successful_update: "2025-01-15T10:00:00Z",
+      next_poll_at: "2025-01-15T11:00:00Z",
+      etag: null,
+      last_modified: null,
+      last_error: null,
+      update_interval: null,
+      calculated_interval_seconds: 3600,
+      avg_posts_per_day: 2.5,
+      entry_count: 100,
+      oldest_entry_date: "2024-01-01T00:00:00Z",
+      newest_entry_date: "2025-01-15T09:00:00Z",
+      posts_per_day: 2.5,
+      frequency_by_hour: {},
+      frequency_by_day: { 0: 10, 1: 15, 2: 12 },
+      top_words: [{ word: "test", count: 5 }],
+    })
+    mockApiFiltersList.mockResolvedValue([])
   })
 
   describe("rendering", () => {
@@ -69,7 +100,7 @@ describe("EditFeedDialog", () => {
       render(<EditFeedDialog {...defaultProps} />)
 
       expect(
-        screen.getByText(/update feed settings or manage subscription/i)
+        screen.getByText(/update feed settings and view statistics/i)
       ).toBeInTheDocument()
     })
 
@@ -131,16 +162,6 @@ describe("EditFeedDialog", () => {
 
       const urlInput = screen.getByLabelText("Feed URL")
       expect(urlInput).toHaveValue("https://example.com/feed.xml")
-    })
-
-    it("shows last updated date", () => {
-      const feedWithDate = mockFeed({
-        last_updated: "2025-01-15T10:00:00Z",
-      })
-
-      render(<EditFeedDialog {...defaultProps} feed={feedWithDate} />)
-
-      expect(screen.getByText(/last updated:/i)).toBeInTheDocument()
     })
 
     it("shows last error when present", () => {

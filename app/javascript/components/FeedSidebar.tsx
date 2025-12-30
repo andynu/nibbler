@@ -28,7 +28,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Info, Crosshair, GripVertical } from "lucide-react"
+import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Crosshair, GripVertical } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -40,7 +40,6 @@ import { NibblerLogo } from "@/components/NibblerLogo"
 import { api } from "@/lib/api"
 import type { Feed, Category } from "@/lib/api"
 import { CategoryDialog } from "@/components/CategoryDialog"
-import { FeedInfoDialog } from "@/components/FeedInfoDialog"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { getAllVirtualFolders, getVirtualFoldersByMode, SmartFolderIcon, type VirtualFolder } from "@/lib/virtualFolders"
 
@@ -113,7 +112,6 @@ export function FeedSidebar({
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [newCategoryParentId, setNewCategoryParentId] = useState<number | null>(null)
   const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
-  const [infoFeed, setInfoFeed] = useState<Feed | null>(null)
 
   const [errorsExpanded, setErrorsExpanded] = useState(() => {
     try {
@@ -930,7 +928,6 @@ export function FeedSidebar({
                             onEdit={() => handleEditFeed(feed)}
                             onRefresh={() => handleRefresh(feed)}
                             onUnsubscribe={() => handleUnsubscribeFeed(feed)}
-                            onInfo={() => setInfoFeed(feed)}
                             isRefreshing={refreshingFeedId === feed.id}
                           />
                         ))}
@@ -1059,7 +1056,6 @@ export function FeedSidebar({
                 onEditFeed={onEditFeed}
                 onRefreshFeed={handleRefreshFeed}
                 onUnsubscribeFeed={handleUnsubscribeFeed}
-                onInfoFeed={setInfoFeed}
                 onEditCategory={setEditingCategory}
                 onDeleteCategory={handleDeleteCategory}
                 onAddChildCategory={handleAddChildCategory}
@@ -1083,7 +1079,6 @@ export function FeedSidebar({
                   onEdit={() => onEditFeed(feed)}
                   onRefresh={() => handleRefreshFeed(feed)}
                   onUnsubscribe={() => handleUnsubscribeFeed(feed)}
-                  onInfo={() => setInfoFeed(feed)}
                   isRefreshing={refreshingFeedId === feed.id}
                 />
               ))}
@@ -1123,13 +1118,6 @@ export function FeedSidebar({
         onCategoryUpdated={handleCategoryUpdated}
       />
 
-      <FeedInfoDialog
-        open={infoFeed !== null}
-        onOpenChange={(open) => {
-          if (!open) setInfoFeed(null)
-        }}
-        feed={infoFeed}
-      />
     </div>
   )
 }
@@ -1156,7 +1144,6 @@ interface CategoryItemProps {
   onEditFeed: (feed: Feed) => void
   onRefreshFeed: (feed: Feed) => void
   onUnsubscribeFeed: (feed: Feed) => void
-  onInfoFeed: (feed: Feed) => void
   onEditCategory: (category: Category) => void
   onDeleteCategory: (category: Category) => void
   onAddChildCategory: (parentCategory: Category) => void
@@ -1186,7 +1173,6 @@ function CategoryItem({
   onEditFeed,
   onRefreshFeed,
   onUnsubscribeFeed,
-  onInfoFeed,
   onEditCategory,
   onDeleteCategory,
   onAddChildCategory,
@@ -1372,7 +1358,6 @@ function CategoryItem({
                 onEditFeed={onEditFeed}
                 onRefreshFeed={onRefreshFeed}
                 onUnsubscribeFeed={onUnsubscribeFeed}
-                onInfoFeed={onInfoFeed}
                 onEditCategory={onEditCategory}
                 onDeleteCategory={onDeleteCategory}
                 onAddChildCategory={onAddChildCategory}
@@ -1394,7 +1379,6 @@ function CategoryItem({
                 onEdit={() => onEditFeed(feed)}
                 onRefresh={() => onRefreshFeed(feed)}
                 onUnsubscribe={() => onUnsubscribeFeed(feed)}
-                onInfo={() => onInfoFeed(feed)}
                 isRefreshing={refreshingFeedId === feed.id}
               />
             ))}
@@ -1414,11 +1398,10 @@ interface FeedItemProps {
   onEdit: () => void
   onRefresh: () => void
   onUnsubscribe: () => void
-  onInfo: () => void
   isRefreshing?: boolean
 }
 
-function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, onRefresh, onUnsubscribe, onInfo, isRefreshing }: FeedItemProps) {
+function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, onRefresh, onUnsubscribe, isRefreshing }: FeedItemProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
 
@@ -1522,10 +1505,6 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
                 <Settings className="mr-2 h-4 w-4" />
                 Edit Feed
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onInfo}>
-                <Info className="mr-2 h-4 w-4" />
-                Feed Info
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onUnsubscribe} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -1543,10 +1522,6 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
         <ContextMenuItem onClick={onEdit}>
           <Settings className="mr-2 h-4 w-4" />
           Edit Feed...
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onInfo}>
-          <Info className="mr-2 h-4 w-4" />
-          Feed Info...
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={onUnsubscribe} variant="destructive">

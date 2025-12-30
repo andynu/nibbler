@@ -44,7 +44,6 @@ import {
   CheckCircle2,
   RefreshCw,
   Settings,
-  Info,
   Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -55,7 +54,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { FeedInfoDialog } from "@/components/FeedInfoDialog"
 import { EditFeedDialog } from "@/components/EditFeedDialog"
 
 // Format relative future time (e.g., "in 2h", "in 45m", "now")
@@ -145,7 +143,6 @@ export function FeedOrganizer({
   const quickMoveJustClosedRef = useRef(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
-  const [infoFeed, setInfoFeed] = useState<Feed | null>(null)
   const [editFeed, setEditFeed] = useState<Feed | null>(null)
   const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null)
 
@@ -588,10 +585,6 @@ export function FeedOrganizer({
                                   <Settings className="mr-2 h-4 w-4" />
                                   Edit Feed...
                                 </ContextMenuItem>
-                                <ContextMenuItem onClick={() => setInfoFeed(feed)}>
-                                  <Info className="mr-2 h-4 w-4" />
-                                  Feed Info...
-                                </ContextMenuItem>
                                 <ContextMenuSub>
                                   <ContextMenuSubTrigger>
                                     <FolderInput className="mr-2 h-4 w-4" />
@@ -677,10 +670,6 @@ export function FeedOrganizer({
                           <Settings className="mr-2 h-4 w-4" />
                           Edit Feed...
                         </ContextMenuItem>
-                        <ContextMenuItem onClick={() => setInfoFeed(feed)}>
-                          <Info className="mr-2 h-4 w-4" />
-                          Feed Info...
-                        </ContextMenuItem>
                         <ContextMenuSub>
                           <ContextMenuSubTrigger>
                             <FolderInput className="mr-2 h-4 w-4" />
@@ -762,14 +751,6 @@ export function FeedOrganizer({
         categories={categories}
         onSelectCategory={handleQuickMove}
         mode="move"
-      />
-
-      <FeedInfoDialog
-        open={infoFeed !== null}
-        onOpenChange={(open) => {
-          if (!open) setInfoFeed(null)
-        }}
-        feed={infoFeed}
       />
 
       <EditFeedDialog
