@@ -1,4 +1,12 @@
-# Analyzes word frequency in feed entries to help with categorization
+# Analyzes word frequency in feed entries to help with categorization and tag suggestions.
+#
+# Can analyze entries from a feed or from an arbitrary collection of entries.
+#
+# @example Analyze a feed
+#   WordFrequencyAnalyzer.new(feed).analyze
+#
+# @example Analyze specific entries
+#   WordFrequencyAnalyzer.for_entries(entries, limit: 10).analyze
 class WordFrequencyAnalyzer
   # Common English stopwords to exclude from analysis
   STOPWORDS = Set.new(%w[
@@ -54,32 +62,45 @@ class WordFrequencyAnalyzer
   MAX_WORD_LENGTH = 30
   TOP_WORDS_LIMIT = 20
 
-  def initialize(feed)
+  # Create analyzer for a feed (original interface)
+  def initialize(feed = nil, entries: nil, limit: TOP_WORDS_LIMIT)
     @feed = feed
+    @entries = entries
+    @limit = limit
+  end
+
+  # Factory method for analyzing a collection of entries
+  def self.for_entries(entries, limit: TOP_WORDS_LIMIT)
+    new(nil, entries: entries, limit: limit)
   end
 
   def analyze
     word_counts = Hash.new(0)
 
-    # Get all entries for this feed
-    @feed.entries.find_each do |entry|
-      # Extract text from title and content
+    entries_to_analyze.find_each do |entry|
       text = extract_text(entry.title, entry.content)
 
-      # Tokenize and count words
       tokenize(text).each do |word|
         word_counts[word] += 1 if should_count?(word)
       end
     end
 
-    # Sort by frequency and take top N
     word_counts
       .sort_by { |_word, count| -count }
-      .first(TOP_WORDS_LIMIT)
+      .first(@limit)
       .map { |word, count| { word: word, count: count } }
   end
 
+  # Returns just the top keywords as an array of strings (useful for tag suggestions)
+  def keywords
+    analyze.map { |h| h[:word] }
+  end
+
   private
+
+  def entries_to_analyze
+    @entries || @feed&.entries || Entry.none
+  end
 
   def extract_text(title, content)
     text = [ title || "", ActionController::Base.helpers.strip_tags(content || "") ].join(" ")

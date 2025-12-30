@@ -368,6 +368,15 @@ export const api = {
       }),
     audio: (id: number) =>
       request<AudioResponse>(`/entries/${id}/audio`),
+    keywords: (params?: { feed_id?: number; category_id?: number; limit?: number; entry_limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.feed_id) searchParams.set("feed_id", String(params.feed_id))
+      if (params?.category_id) searchParams.set("category_id", String(params.category_id))
+      if (params?.limit) searchParams.set("limit", String(params.limit))
+      if (params?.entry_limit) searchParams.set("entry_limit", String(params.entry_limit))
+      const query = searchParams.toString()
+      return request<{ keywords: Array<{ word: string; count: number }> }>(`/entries/keywords${query ? `?${query}` : ""}`)
+    },
   },
 
   categories: {

@@ -177,6 +177,37 @@ module Api
         render json: { marked_read: count }
       end
 
+      # GET /api/v1/entries/keywords
+      # Returns top keywords from entries for tag suggestions
+      def keywords
+        entries_scope = current_user.user_entries.joins(:entry)
+
+        # Filter by feed
+        if params[:feed_id].present?
+          entries_scope = entries_scope.where(feed_id: params[:feed_id])
+        end
+
+        # Filter by category (including all descendant categories)
+        if params[:category_id].present?
+          category = current_user.categories.find_by(id: params[:category_id])
+          if category
+            category_ids = category.self_and_descendant_ids
+            entries_scope = entries_scope.joins(:feed).where(feeds: { category_id: category_ids })
+          end
+        end
+
+        # Limit to recent entries for performance (default 100)
+        limit = [ (params[:entry_limit] || 100).to_i, 500 ].min
+        entries = Entry.where(id: entries_scope.order("entries.date_entered DESC").limit(limit).pluck("entries.id"))
+
+        # Get word count limit (default 10 for suggestions)
+        word_limit = [ (params[:limit] || 10).to_i, 50 ].min
+
+        keywords = WordFrequencyAnalyzer.for_entries(entries, limit: word_limit).analyze
+
+        render json: { keywords: keywords }
+      end
+
       # GET /api/v1/entries/headlines
       # Lightweight list without content for performance
       def headlines

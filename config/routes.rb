@@ -34,6 +34,7 @@ Rails.application.routes.draw do
         end
         collection do
           get :headlines
+          get :keywords
           post :mark_all_read
         end
         resources :labels, only: [ :create, :destroy ], controller: "entry_labels"
