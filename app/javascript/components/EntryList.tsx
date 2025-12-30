@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCheck, Star, Circle, StickyNote, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Info, Rss, AlertCircle } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Info, Rss, AlertCircle, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
@@ -48,6 +48,8 @@ interface EntryListProps {
   // Multi-column sorting
   sortConfig?: SortConfig[]
   onSortChange?: (newSort: SortConfig[]) => void
+  // Mobile navigation
+  onShowSidebar?: () => void
 }
 
 export function EntryList({
@@ -74,6 +76,7 @@ export function EntryList({
   boundaryHit,
   sortConfig = [],
   onSortChange,
+  onShowSidebar,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
@@ -137,6 +140,11 @@ export function EntryList({
       {/* Title bar */}
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-2 min-w-0">
+          {onShowSidebar && (
+            <Button variant="ghost" size="icon" onClick={onShowSidebar} aria-label="Show sidebar">
+              <Menu className="h-4 w-4" />
+            </Button>
+          )}
           <span className="font-medium truncate">{title}</span>
           {unreadCount > 0 && (
             <Badge variant="secondary" className="shrink-0">

@@ -15,6 +15,7 @@ import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesConte
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { I18nProvider } from "@/contexts/I18nContext"
 import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerContext"
+import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
 import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -23,6 +24,7 @@ import { getVirtualFolder } from "@/lib/virtualFolders"
 function App() {
   const { preferences, updatePreference } = usePreferences()
   const audioPlayer = useAudioPlayer()
+  const layout = useLayout()
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
@@ -701,6 +703,78 @@ function App() {
     return "All Feeds"
   }
 
+  // Compute pane visibility based on breakpoint and current pane
+  const getSidebarWidth = () => {
+    if (focusMode) return "0px"
+    if (layout.isMobile) {
+      // Mobile: sidebar takes full width when visible, hidden otherwise
+      return layout.currentPane === "sidebar" ? "100%" : "0px"
+    }
+    if (layout.isTablet) {
+      // Tablet: sidebar is either collapsed (48px) or hidden
+      return layout.currentPane === "sidebar" ? "240px" : "0px"
+    }
+    // Desktop: normal sidebar behavior
+    return preferences.sidebar_collapsed === "true" ? "48px" : "240px"
+  }
+
+  const getListWidth = () => {
+    if (focusMode) return "0px"
+    if (layout.isMobile) {
+      // Mobile: list takes full width when visible
+      return layout.currentPane === "list" ? "100%" : "0px"
+    }
+    if (layout.isTablet) {
+      // Tablet: list is 320px when visible (list or content pane)
+      return layout.currentPane === "sidebar" ? "0px" : "320px"
+    }
+    // Desktop: fixed 320px
+    return "320px"
+  }
+
+  const getContentDisplay = () => {
+    if (layout.isMobile) {
+      // Mobile: content takes full width when visible
+      return layout.currentPane === "content" ? "block" : "none"
+    }
+    if (layout.isTablet) {
+      // Tablet: content visible when not on sidebar
+      return layout.currentPane === "sidebar" ? "none" : "block"
+    }
+    // Desktop: always visible
+    return "block"
+  }
+
+  // Handle selecting an entry - navigate to content on mobile
+  const handleSelectEntryWithNav = (entryId: number) => {
+    loadEntry(entryId)
+    if (layout.isMobile) {
+      layout.goToContent()
+    }
+  }
+
+  // Handle selecting a feed - navigate to list on mobile
+  const handleSelectFeedWithNav = (feedId: number | null) => {
+    handleSelectFeed(feedId)
+    if (layout.isMobile && feedId !== null) {
+      layout.goToList()
+    }
+  }
+
+  const handleSelectCategoryWithNav = (categoryId: number | null) => {
+    handleSelectCategory(categoryId)
+    if (layout.isMobile && categoryId !== null) {
+      layout.goToList()
+    }
+  }
+
+  const handleSelectVirtualFeedWithNav = (feed: string | null) => {
+    handleSelectVirtualFeed(feed)
+    if (layout.isMobile) {
+      layout.goToList()
+    }
+  }
+
   return (
     <>
     <div
@@ -713,11 +787,16 @@ function App() {
       }}
     >
       <div style={{
-        width: focusMode ? "0px" : (preferences.sidebar_collapsed === "true" ? "48px" : "240px"),
+        width: getSidebarWidth(),
         flexShrink: 0,
         height: "100%",
-        transition: "width 150ms ease-out",
+        transition: layout.isMobile ? "none" : "width 150ms ease-out",
         overflow: "hidden",
+        position: layout.isMobile ? "absolute" : "relative",
+        left: 0,
+        top: 0,
+        zIndex: layout.isMobile ? 20 : "auto",
+        backgroundColor: layout.isMobile ? "var(--color-background)" : "transparent",
       }}>
         <FeedSidebar
           feeds={feeds}
@@ -725,9 +804,9 @@ function App() {
           selectedFeedId={selectedFeedId}
           selectedCategoryId={selectedCategoryId}
           virtualFeed={virtualFeed}
-          onSelectFeed={handleSelectFeed}
-          onSelectCategory={handleSelectCategory}
-          onSelectVirtualFeed={handleSelectVirtualFeed}
+          onSelectFeed={handleSelectFeedWithNav}
+          onSelectCategory={handleSelectCategoryWithNav}
+          onSelectVirtualFeed={handleSelectVirtualFeedWithNav}
           onRefreshAll={handleRefreshAll}
           isRefreshing={isRefreshing}
           onSubscribe={() => {
@@ -742,22 +821,27 @@ function App() {
           onCategoriesChange={setCategories}
           onFeedsChange={setFeeds}
           onFeedUpdated={handleFeedUpdated}
-          isCollapsed={preferences.sidebar_collapsed === "true"}
-          onToggleCollapse={handleToggleSidebar}
+          isCollapsed={!layout.isMobile && preferences.sidebar_collapsed === "true"}
+          onToggleCollapse={layout.isMobile ? layout.goToList : handleToggleSidebar}
           trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
         />
       </div>
       <div style={{
-        width: focusMode ? "0px" : "320px",
+        width: getListWidth(),
         flexShrink: 0,
         height: "100%",
-        transition: "width 150ms ease-out",
+        transition: layout.isMobile ? "none" : "width 150ms ease-out",
         overflow: "hidden",
+        position: layout.isMobile ? "absolute" : "relative",
+        left: 0,
+        top: 0,
+        zIndex: layout.isMobile ? 10 : "auto",
+        backgroundColor: layout.isMobile ? "var(--color-background)" : "transparent",
       }}>
         <EntryList
           entries={entries}
           selectedEntryId={selectedEntry?.id || null}
-          onSelectEntry={loadEntry}
+          onSelectEntry={handleSelectEntryWithNav}
           onToggleRead={handleToggleRead}
           onToggleStarred={handleToggleStarredEntry}
           onMarkAllRead={handleMarkAllRead}
@@ -775,9 +859,22 @@ function App() {
           boundaryHit={boundaryHit}
           sortConfig={sortConfig}
           onSortChange={handleSortChange}
+          onShowSidebar={layout.isMobile ? layout.goToSidebar : undefined}
         />
       </div>
-      <div style={{ flex: 1, height: "100%", minWidth: 0 }}>
+      <div style={{
+        flex: 1,
+        height: "100%",
+        minWidth: 0,
+        display: getContentDisplay(),
+        position: layout.isMobile ? "absolute" : "relative",
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: layout.isMobile ? 5 : "auto",
+        backgroundColor: layout.isMobile ? "var(--color-background)" : "transparent",
+      }}>
         <EntryContent
           entry={selectedEntry}
           onToggleRead={() => selectedEntry && handleToggleRead(selectedEntry.id)}
@@ -797,6 +894,7 @@ function App() {
           onRemoveTag={handleRemoveTag}
           focusMode={focusMode}
           onToggleFocusMode={handleToggleFocusMode}
+          onBack={layout.isMobile ? layout.goToList : undefined}
         />
       </div>
       <KeyboardShortcutsDialog
@@ -887,9 +985,11 @@ document.addEventListener("DOMContentLoaded", () => {
       <PreferencesProvider>
         <ThemeProvider>
           <I18nProvider>
-            <AudioPlayerProvider>
-              <App />
-            </AudioPlayerProvider>
+            <LayoutProvider>
+              <AudioPlayerProvider>
+                <App />
+              </AudioPlayerProvider>
+            </LayoutProvider>
           </I18nProvider>
         </ThemeProvider>
       </PreferencesProvider>

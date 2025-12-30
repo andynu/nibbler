@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, Volume2 } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, Volume2, ArrowLeft } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
@@ -31,6 +31,8 @@ interface EntryContentProps {
   onRemoveTag?: (tag: string) => Promise<void>
   focusMode?: boolean
   onToggleFocusMode?: () => void
+  // Mobile navigation
+  onBack?: () => void
 }
 
 function stripImages(html: string): string {
@@ -57,6 +59,7 @@ export function EntryContent({
   onRemoveTag,
   focusMode = false,
   onToggleFocusMode,
+  onBack,
 }: EntryContentProps) {
   const { preferences } = usePreferences()
   const audioPlayer = useAudioPlayer()
@@ -132,6 +135,11 @@ export function EntryContent({
     <div className="h-full flex flex-col">
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-1">
+          {onBack && (
+            <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to list">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={onPrevious} disabled={!hasPrevious} aria-label="Previous entry">
             <ChevronLeft className="h-4 w-4" />
           </Button>
