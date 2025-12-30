@@ -1,0 +1,19 @@
+basic_entry:
+  uuid: "ue-basic-123"
+  user: one
+  feed: high_frequency
+  entry: basic
+  unread: true
+  marked: false
+  published: false
+  score: 3
+
+read_entry:
+  uuid: "ue-read-456"
+  user: one
+  feed: high_frequency
+  entry: with_images
+  unread: false
+  marked: false
+  published: false
+  score: 1

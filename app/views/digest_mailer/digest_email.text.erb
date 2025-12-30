@@ -1,0 +1,25 @@
+NIBBLER DAILY DIGEST
+<%= '=' * 40 %>
+
+<%= @articles.size %> new article<%= @articles.size == 1 ? '' : 's' %> for <%= Date.current.strftime('%B %d, %Y') %>
+
+<% @articles.each_with_index do |user_entry, index| %>
+<% entry = user_entry.entry %>
+<%= '-' * 40 %>
+
+<% if user_entry.feed %><%= user_entry.feed.title.upcase %><% end %><% if user_entry.score && user_entry.score > 0 %> [Score: <%= user_entry.score %>]<% end %>
+
+<%= entry.title %>
+<%= entry.updated&.strftime('%B %d, %Y at %l:%M %p') || entry.date_entered&.strftime('%B %d, %Y at %l:%M %p') %>
+
+<% content_preview = strip_tags(entry.content).truncate(200) %>
+<% if content_preview.present? %><%= word_wrap(content_preview, line_width: 72) %><% end %>
+
+Read more: <%= root_url %>?entry=<%= user_entry.uuid %>
+
+<% end %>
+<%= '=' * 40 %>
+
+Open Nibbler: <%= root_url %>
+Preferences: <%= root_url %>settings
+Unsubscribe: <%= root_url %>settings?unsubscribe_digest=1
