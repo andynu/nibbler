@@ -1,4 +1,21 @@
 import { useState, useEffect } from "react"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
@@ -95,6 +112,17 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
   const [availableTags, setAvailableTags] = useState<string[]>([])
   const [availableLabels, setAvailableLabels] = useState<Array<{ id: number; caption: string }>>([])
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   useEffect(() => {
     loadFilters()
     loadTagsAndLabels()
@@ -121,6 +149,36 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
       console.error("Failed to load filters:", error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) return
+
+    const oldIndex = filters.findIndex((f) => f.id === Number(active.id))
+    const newIndex = filters.findIndex((f) => f.id === Number(over.id))
+
+    if (oldIndex === -1 || newIndex === -1) return
+
+    // Optimistically update the UI
+    const newFilters = arrayMove(filters, oldIndex, newIndex)
+    setFilters(newFilters)
+
+    // Update order_id for all affected filters
+    try {
+      await Promise.all(
+        newFilters.map((filter, index) =>
+          api.filters.update(filter.id, {
+            filter: { order_id: index },
+          })
+        )
+      )
+    } catch (error) {
+      console.error("Failed to update filter order:", error)
+      // Revert on error
+      loadFilters()
     }
   }
 
@@ -200,97 +258,32 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
             </p>
           </div>
         ) : (
-          <div className="divide-y">
-            {filters.map((filter) => (
-              <div
-                key={filter.id}
-                className="p-4 flex items-start gap-4 hover:bg-muted/50"
-                data-testid="filter-row"
-              >
-                <div className="pt-1 text-muted-foreground cursor-move">
-                  <GripVertical className="w-4 h-4" />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium truncate">{filter.title}</h4>
-                    {!filter.enabled && (
-                      <Badge variant="secondary">Disabled</Badge>
-                    )}
-                    {testResult?.filterId === filter.id && (
-                      <Badge variant="outline">
-                        {testResult.matches}/{testResult.total} matched
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {filter.rules.length > 0 && (
-                      <span>
-                        {filter.match_any_rule ? "Match any: " : "Match all: "}
-                        {filter.rules
-                          .map(
-                            (r) =>
-                              `${r.inverse ? "NOT " : ""}${getFilterTypeName(
-                                r.filter_type
-                              )} ~ "${r.reg_exp}"`
-                          )
-                          .join(filter.match_any_rule ? " OR " : " AND ")}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {filter.actions.map((action, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">
-                        {getActionTypeName(action.action_type)}
-                        {action.action_param && `: ${action.action_param}`}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  {filter.last_triggered && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Last triggered:{" "}
-                      {new Date(filter.last_triggered).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={filter.enabled}
-                    onCheckedChange={() => handleToggleEnabled(filter)}
-                    aria-label={`Toggle ${filter.title}`}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filters.map((f) => f.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="divide-y">
+                {filters.map((filter) => (
+                  <SortableFilterItem
+                    key={filter.id}
+                    filter={filter}
+                    testResult={testResult}
+                    getFilterTypeName={getFilterTypeName}
+                    getActionTypeName={getActionTypeName}
+                    onToggleEnabled={handleToggleEnabled}
+                    onTest={handleTest}
+                    onEdit={setEditingFilter}
+                    onDelete={handleDelete}
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleTest(filter.id)}
-                    aria-label={`Test ${filter.title}`}
-                  >
-                    <Play className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setEditingFilter(filter)}
-                    aria-label={`Edit ${filter.title}`}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(filter.id)}
-                    aria-label={`Delete ${filter.title}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </ScrollArea>
 
@@ -523,7 +516,7 @@ function FilterEditorDialog({
         ...form.actions.map((a) => ({
           id: a.id,
           action_type: a.action_type,
-          action_param: a.action_param || null,
+          action_param: a.action_param || "",
         })),
         ...deletedActionIds.map((id) => ({ id, _destroy: true as const })),
       ]
@@ -875,5 +868,137 @@ function FilterEditorDialog({
         </DialogPrimitive.Content>
       </DialogPortal>
     </Dialog>
+  )
+}
+
+interface SortableFilterItemProps {
+  filter: Filter
+  testResult: { filterId: number; matches: number; total: number } | null
+  getFilterTypeName: (typeValue: number) => string
+  getActionTypeName: (typeValue: number) => string
+  onToggleEnabled: (filter: Filter) => void
+  onTest: (filterId: number) => void
+  onEdit: (filter: Filter) => void
+  onDelete: (filterId: number) => void
+}
+
+function SortableFilterItem({
+  filter,
+  testResult,
+  getFilterTypeName,
+  getActionTypeName,
+  onToggleEnabled,
+  onTest,
+  onEdit,
+  onDelete,
+}: SortableFilterItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: filter.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="p-4 flex items-start gap-4 hover:bg-muted/50 bg-background"
+      data-testid="filter-row"
+    >
+      <div
+        className="pt-1 text-muted-foreground cursor-grab active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="w-4 h-4" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h4 className="font-medium truncate">{filter.title}</h4>
+          {!filter.enabled && (
+            <Badge variant="secondary">Disabled</Badge>
+          )}
+          {testResult?.filterId === filter.id && (
+            <Badge variant="outline">
+              {testResult.matches}/{testResult.total} matched
+            </Badge>
+          )}
+        </div>
+
+        <div className="mt-1 text-sm text-muted-foreground">
+          {filter.rules.length > 0 && (
+            <span>
+              {filter.match_any_rule ? "Match any: " : "Match all: "}
+              {filter.rules
+                .map(
+                  (r) =>
+                    `${r.inverse ? "NOT " : ""}${getFilterTypeName(
+                      r.filter_type
+                    )} ~ "${r.reg_exp}"`
+                )
+                .join(filter.match_any_rule ? " OR " : " AND ")}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-1 flex flex-wrap gap-1">
+          {filter.actions.map((action, idx) => (
+            <Badge key={idx} variant="outline" className="text-xs">
+              {getActionTypeName(action.action_type)}
+              {action.action_param && `: ${action.action_param}`}
+            </Badge>
+          ))}
+        </div>
+
+        {filter.last_triggered && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Last triggered:{" "}
+            {new Date(filter.last_triggered).toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Switch
+          checked={filter.enabled}
+          onCheckedChange={() => onToggleEnabled(filter)}
+          aria-label={`Toggle ${filter.title}`}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onTest(filter.id)}
+          aria-label={`Test ${filter.title}`}
+        >
+          <Play className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEdit(filter)}
+          aria-label={`Edit ${filter.title}`}
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onDelete(filter.id)}
+          aria-label={`Delete ${filter.title}`}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
   )
 }
