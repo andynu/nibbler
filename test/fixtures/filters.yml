@@ -1,0 +1,15 @@
+basic_filter:
+  user: one
+  title: "Basic Filter"
+  match_any_rule: false
+  inverse: false
+  order_id: 0
+  enabled: true
+
+any_match_filter:
+  user: one
+  title: "Any Match Filter"
+  match_any_rule: true
+  inverse: false
+  order_id: 1
+  enabled: true

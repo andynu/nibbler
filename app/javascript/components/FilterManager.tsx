@@ -38,6 +38,7 @@ const FILTER_TYPES = [
   { value: 2, label: "Content", name: "content" },
   { value: 3, label: "Title or Content", name: "both" },
   { value: 4, label: "Link URL", name: "link" },
+  { value: 5, label: "Date", name: "date" },
   { value: 6, label: "Author", name: "author" },
   { value: 7, label: "Tags", name: "tag" },
 ]
@@ -660,7 +661,11 @@ function FilterEditorDialog({
                         onChange={(e) =>
                           handleUpdateRule(index, { reg_exp: e.target.value })
                         }
-                        placeholder="Regular expression pattern"
+                        placeholder={
+                          rule.filter_type === 5
+                            ? "<7d (last 7 days), >2025-01-01, 2025-01-01..2025-12-31"
+                            : "Regular expression pattern"
+                        }
                       />
                     </div>
 

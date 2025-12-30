@@ -43,11 +43,56 @@ class FilterRule < ApplicationRecord
                regex.match?(article[:author].to_s)
     when FILTER_TYPES[:tag]
                article[:tags]&.any? { |t| regex.match?(t) }
+    when FILTER_TYPES[:date]
+               matches_date?(article)
     else
                false
     end
     inverse ? !result : result
   rescue RegexpError
+    false
+  end
+
+  private
+
+  # Matches article date against the date criterion in reg_exp.
+  #
+  # Supported formats:
+  #   <7d           - published within last 7 days (relative)
+  #   >7d           - published more than 7 days ago (relative)
+  #   >2025-01-01   - published after date (absolute)
+  #   <2025-01-01   - published before date (absolute)
+  #   2025-01-01..2025-12-31 - published within date range (absolute)
+  def matches_date?(article)
+    article_date = article[:published] || article[:updated]
+    return false unless article_date
+
+    # Ensure we have a Time object
+    article_date = Time.parse(article_date.to_s) unless article_date.is_a?(Time)
+
+    criterion = reg_exp.to_s.strip
+
+    case criterion
+    when /^<(\d+)d$/  # Within last N days
+      days = ::Regexp.last_match(1).to_i
+      article_date >= days.days.ago
+    when /^>(\d+)d$/  # More than N days ago
+      days = ::Regexp.last_match(1).to_i
+      article_date < days.days.ago
+    when /^>(\d{4}-\d{2}-\d{2})$/  # After specific date
+      date = Date.parse(::Regexp.last_match(1))
+      article_date.to_date > date
+    when /^<(\d{4}-\d{2}-\d{2})$/  # Before specific date
+      date = Date.parse(::Regexp.last_match(1))
+      article_date.to_date < date
+    when /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/  # Date range
+      start_date = Date.parse(::Regexp.last_match(1))
+      end_date = Date.parse(::Regexp.last_match(2))
+      article_date.to_date >= start_date && article_date.to_date <= end_date
+    else
+      false
+    end
+  rescue ArgumentError, TypeError
     false
   end
 end
