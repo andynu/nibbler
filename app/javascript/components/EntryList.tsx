@@ -464,7 +464,8 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
       role="option"
       aria-selected={isSelected}
       className={cn(
-        "p-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors",
+        // Base styles with larger padding on mobile for touch targets
+        "p-2 sm:p-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors",
         isSelected && "bg-accent ring-2 ring-offset-1 ring-offset-background",
         entry.unread && "border-l-2",
         showBoundaryFlash && "animate-boundary-flash"
@@ -475,9 +476,10 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
       }}
       onClick={onSelect}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 sm:gap-2">
+        {/* Read indicator - larger touch target on mobile */}
         <button
-          className="mt-1 p-0.5 hover:bg-background rounded shrink-0"
+          className="mt-0.5 p-1.5 sm:p-0.5 -m-1 sm:m-0 hover:bg-background rounded shrink-0 min-w-[28px] sm:min-w-0"
           onClick={(e) => {
             e.stopPropagation()
             onToggleRead()
@@ -485,7 +487,7 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
           aria-label={entry.unread ? "Mark as read" : "Mark as unread"}
         >
           <Circle
-            className="h-3 w-3"
+            className="h-3.5 w-3.5 sm:h-3 sm:w-3"
             style={entry.unread ? {
               fill: "var(--color-accent-secondary)",
               color: "var(--color-accent-secondary)",
@@ -493,7 +495,11 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
           />
         </button>
         <div className="flex-1 min-w-0">
-          <div className={cn("text-sm leading-snug line-clamp-2", entry.unread ? "font-medium" : "text-muted-foreground")}>
+          {/* Title - slightly larger on mobile for readability */}
+          <div className={cn(
+            "text-sm sm:text-sm leading-snug line-clamp-2",
+            entry.unread ? "font-medium" : "text-muted-foreground"
+          )}>
             {entry.title}
           </div>
           {showContentPreview && entry.content_preview && (
@@ -513,10 +519,14 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
             </div>
           )}
         </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          <ScoreBadge score={entry.score} size="sm" />
+        {/* Action buttons - larger touch targets on mobile */}
+        <div className="flex items-center gap-1 sm:gap-0.5 shrink-0">
+          {/* Hide score on small mobile screens */}
+          <div className="hidden xs:block">
+            <ScoreBadge score={entry.score} size="sm" />
+          </div>
           {entry.note && (
-            <span className="p-0.5" aria-label="Has note">
+            <span className="p-1 sm:p-0.5" aria-label="Has note">
               <StickyNote
                 className="h-4 w-4"
                 style={{
@@ -526,7 +536,7 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
             </span>
           )}
           <button
-            className="p-0.5 hover:bg-background rounded"
+            className="p-2 sm:p-0.5 -m-1 sm:m-0 hover:bg-background rounded min-w-[32px] sm:min-w-0"
             onClick={(e) => {
               e.stopPropagation()
               onToggleStarred()
@@ -534,7 +544,7 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
             aria-label={entry.starred ? "Remove star" : "Add star"}
           >
             <Star
-              className="h-4 w-4"
+              className="h-5 w-5 sm:h-4 sm:w-4"
               style={entry.starred ? {
                 fill: "var(--color-accent-secondary)",
                 color: "var(--color-accent-secondary)",

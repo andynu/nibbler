@@ -147,7 +147,8 @@ export function EntryContent({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          {/* Core actions - always visible */}
           <Button
             variant="ghost"
             size="icon"
@@ -176,12 +177,14 @@ export function EntryContent({
               } : undefined}
             />
           </Button>
+          {/* Note button - hidden on small mobile */}
           {onUpdateNote && (
             <Button
               variant="ghost"
               size="icon"
               onClick={handleStartEditNote}
               aria-label={entry.note ? "Edit note" : "Add note"}
+              className="hidden xs:inline-flex"
             >
               <StickyNote
                 className="h-4 w-4"
@@ -191,8 +194,9 @@ export function EntryContent({
               />
             </Button>
           )}
+          {/* Score buttons - hidden on mobile */}
           {onScoreChange && (
-            <div className="px-1">
+            <div className="px-1 hidden sm:block">
               <ScoreButtons
                 score={entry.score}
                 onScoreChange={onScoreChange}
@@ -201,12 +205,14 @@ export function EntryContent({
               />
             </div>
           )}
+          {/* Iframe toggle - hidden on small mobile */}
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggleIframe}
             aria-label={showIframe ? "Show RSS content" : "Show original page"}
             title={showIframe ? "Show RSS content (i)" : "Show original page (i)"}
+            className="hidden xs:inline-flex"
           >
             {showIframe ? (
               <FileText className="h-4 w-4" />
@@ -214,6 +220,7 @@ export function EntryContent({
               <Globe className="h-4 w-4" />
             )}
           </Button>
+          {/* External link - always visible */}
           <Button variant="ghost" size="icon" asChild>
             <a
               href={entry.link}
@@ -224,6 +231,7 @@ export function EntryContent({
               <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
+          {/* Focus mode - hidden on mobile */}
           {onToggleFocusMode && (
             <Button
               variant="ghost"
@@ -231,6 +239,7 @@ export function EntryContent({
               onClick={onToggleFocusMode}
               aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"}
               title={focusMode ? "Exit focus mode (Shift+F or Escape)" : "Focus mode (Shift+F)"}
+              className="hidden sm:inline-flex"
             >
               {focusMode ? (
                 <Minimize2 className="h-4 w-4" />
@@ -270,9 +279,11 @@ export function EntryContent({
         </div>
       ) : (
       <ScrollArea className="flex-1 min-h-0" viewportRef={scrollViewportRef}>
-        <article className="max-w-3xl mx-auto p-6">
-          <header className="mb-6">
-            <h1 className="text-2xl font-bold mb-2">
+        {/* Article container - smaller padding on mobile, larger on desktop */}
+        <article className="max-w-3xl mx-auto p-4 sm:p-6">
+          <header className="mb-4 sm:mb-6">
+            {/* Title - larger and more readable on all screens */}
+            <h1 className="text-xl sm:text-2xl font-bold mb-2 leading-tight">
               <a
                 href={entry.link}
                 target="_blank"
@@ -282,7 +293,7 @@ export function EntryContent({
                 {entry.title}
               </a>
             </h1>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-sm text-muted-foreground">
               {entry.feed_title && <span>{entry.feed_title}</span>}
               {entry.author && (
                 <>
