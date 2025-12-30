@@ -11,6 +11,8 @@ import { CommandPalette, useCommandPalette } from "@/components/CommandPalette"
 import { SettingsDialog } from "@/components/SettingsDialog"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { AudioPanel } from "@/components/AudioPanel"
+import { MobileNavBar } from "@/components/mobile/MobileNavBar"
+import { SidebarDrawer } from "@/components/mobile/SidebarDrawer"
 import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { I18nProvider } from "@/contexts/I18nContext"
@@ -704,14 +706,11 @@ function App() {
   }
 
   // Compute pane visibility based on breakpoint and current pane
+  // Note: On mobile, sidebar is handled by SidebarDrawer, not this function
   const getSidebarWidth = () => {
     if (focusMode) return "0px"
-    if (layout.isMobile) {
-      // Mobile: sidebar takes full width when visible, hidden otherwise
-      return layout.currentPane === "sidebar" ? "100%" : "0px"
-    }
     if (layout.isTablet) {
-      // Tablet: sidebar is either collapsed (48px) or hidden
+      // Tablet: sidebar is either expanded or hidden
       return layout.currentPane === "sidebar" ? "240px" : "0px"
     }
     // Desktop: normal sidebar behavior
@@ -721,8 +720,8 @@ function App() {
   const getListWidth = () => {
     if (focusMode) return "0px"
     if (layout.isMobile) {
-      // Mobile: list takes full width when visible
-      return layout.currentPane === "list" ? "100%" : "0px"
+      // Mobile: list takes full width when visible (not on content pane)
+      return layout.currentPane === "content" ? "0px" : "100%"
     }
     if (layout.isTablet) {
       // Tablet: list is 320px when visible (list or content pane)
@@ -775,57 +774,103 @@ function App() {
     }
   }
 
+  // Calculate main container height based on audio player and mobile nav bar
+  const getMainHeight = () => {
+    let height = "100vh"
+    const deductions: string[] = []
+
+    if (audioPlayer.isVisible) {
+      deductions.push("56px") // Audio panel height
+    }
+    if (layout.isMobile) {
+      deductions.push("56px") // Mobile nav bar height
+    }
+
+    if (deductions.length > 0) {
+      height = `calc(100vh - ${deductions.join(" - ")})`
+    }
+    return height
+  }
+
   return (
     <>
     <div
       style={{
         display: "flex",
-        height: audioPlayer.isVisible ? "calc(100vh - 56px)" : "100vh",
+        height: getMainHeight(),
         width: "100vw",
         overflow: "hidden",
         transition: "height 200ms ease-out",
       }}
     >
-      <div style={{
-        width: getSidebarWidth(),
-        flexShrink: 0,
-        height: "100%",
-        transition: layout.isMobile ? "none" : "width 150ms ease-out",
-        overflow: "hidden",
-        position: layout.isMobile ? "absolute" : "relative",
-        left: 0,
-        top: 0,
-        zIndex: layout.isMobile ? 20 : "auto",
-        backgroundColor: layout.isMobile ? "var(--color-background)" : "transparent",
-      }}>
-        <FeedSidebar
-          feeds={feeds}
-          categories={categories}
-          selectedFeedId={selectedFeedId}
-          selectedCategoryId={selectedCategoryId}
-          virtualFeed={virtualFeed}
-          onSelectFeed={handleSelectFeedWithNav}
-          onSelectCategory={handleSelectCategoryWithNav}
-          onSelectVirtualFeed={handleSelectVirtualFeedWithNav}
-          onRefreshAll={handleRefreshAll}
-          isRefreshing={isRefreshing}
-          onSubscribe={() => {
-            setShowSubscribeDialog(true)
-            navigationHistory.openSubscribe()
-          }}
-          onEditFeed={setEditingFeed}
-          onSettings={() => {
-            setShowSettings(true)
-            navigationHistory.openSettings()
-          }}
-          onCategoriesChange={setCategories}
-          onFeedsChange={setFeeds}
-          onFeedUpdated={handleFeedUpdated}
-          isCollapsed={!layout.isMobile && preferences.sidebar_collapsed === "true"}
-          onToggleCollapse={layout.isMobile ? layout.goToList : handleToggleSidebar}
-          trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
-        />
-      </div>
+      {/* Sidebar - wrapped in drawer on mobile */}
+      {layout.isMobile ? (
+        <SidebarDrawer>
+          <FeedSidebar
+            feeds={feeds}
+            categories={categories}
+            selectedFeedId={selectedFeedId}
+            selectedCategoryId={selectedCategoryId}
+            virtualFeed={virtualFeed}
+            onSelectFeed={handleSelectFeedWithNav}
+            onSelectCategory={handleSelectCategoryWithNav}
+            onSelectVirtualFeed={handleSelectVirtualFeedWithNav}
+            onRefreshAll={handleRefreshAll}
+            isRefreshing={isRefreshing}
+            onSubscribe={() => {
+              setShowSubscribeDialog(true)
+              navigationHistory.openSubscribe()
+            }}
+            onEditFeed={setEditingFeed}
+            onSettings={() => {
+              setShowSettings(true)
+              navigationHistory.openSettings()
+            }}
+            onCategoriesChange={setCategories}
+            onFeedsChange={setFeeds}
+            onFeedUpdated={handleFeedUpdated}
+            isCollapsed={false}
+            onToggleCollapse={layout.goToList}
+            trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
+          />
+        </SidebarDrawer>
+      ) : (
+        <div style={{
+          width: getSidebarWidth(),
+          flexShrink: 0,
+          height: "100%",
+          transition: "width 150ms ease-out",
+          overflow: "hidden",
+        }}>
+          <FeedSidebar
+            feeds={feeds}
+            categories={categories}
+            selectedFeedId={selectedFeedId}
+            selectedCategoryId={selectedCategoryId}
+            virtualFeed={virtualFeed}
+            onSelectFeed={handleSelectFeedWithNav}
+            onSelectCategory={handleSelectCategoryWithNav}
+            onSelectVirtualFeed={handleSelectVirtualFeedWithNav}
+            onRefreshAll={handleRefreshAll}
+            isRefreshing={isRefreshing}
+            onSubscribe={() => {
+              setShowSubscribeDialog(true)
+              navigationHistory.openSubscribe()
+            }}
+            onEditFeed={setEditingFeed}
+            onSettings={() => {
+              setShowSettings(true)
+              navigationHistory.openSettings()
+            }}
+            onCategoriesChange={setCategories}
+            onFeedsChange={setFeeds}
+            onFeedUpdated={handleFeedUpdated}
+            isCollapsed={preferences.sidebar_collapsed === "true"}
+            onToggleCollapse={handleToggleSidebar}
+            trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
+          />
+        </div>
+      )}
       <div style={{
         width: getListWidth(),
         flexShrink: 0,
@@ -972,6 +1017,7 @@ function App() {
         onConfirm={doMarkAllRead}
       />
     </div>
+    <MobileNavBar hasSelectedEntry={selectedEntry !== null} />
     <AudioPanel />
     </>
   )

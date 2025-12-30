@@ -98,4 +98,9 @@
   .animate-boundary-flash {
     animation: boundary-flash 0.3s ease-out forwards;
   }
+
+  /* Safe area for mobile devices with home indicators */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
