@@ -54,6 +54,23 @@ vi.mock("@/contexts/AudioPlayerContext", () => ({
   useAudioPlayer: () => mockAudioPlayer,
 }))
 
+// Mock the layout context
+vi.mock("@/contexts/LayoutContext", () => ({
+  useLayout: () => ({
+    breakpoint: "desktop" as const,
+    isMobile: false,
+    isTablet: false,
+    isDesktop: true,
+    currentPane: "content" as const,
+    setCurrentPane: vi.fn(),
+    goToSidebar: vi.fn(),
+    goToList: vi.fn(),
+    goToContent: vi.fn(),
+    goBack: vi.fn(),
+    canGoBack: false,
+  }),
+}))
+
 // Mock EnclosurePlayer to keep tests focused
 vi.mock("@/components/EnclosurePlayer", () => ({
   EnclosurePlayer: ({ enclosures }: { enclosures: unknown[] }) => (

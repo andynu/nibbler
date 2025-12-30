@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -6,10 +6,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, Volume2, ArrowLeft } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
+import { useLayout } from "@/contexts/LayoutContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
 import { TagEditor } from "@/components/TagEditor"
 import { HighlightedContent } from "@/components/HighlightedContent"
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
 import type { Entry } from "@/lib/api"
 
 interface EntryContentProps {
@@ -63,6 +65,7 @@ export function EntryContent({
 }: EntryContentProps) {
   const { preferences } = usePreferences()
   const audioPlayer = useAudioPlayer()
+  const layout = useLayout()
   const shouldStripImages = preferences.strip_images === "true"
   const [isEditingNote, setIsEditingNote] = useState(false)
   const [noteText, setNoteText] = useState("")
@@ -71,6 +74,22 @@ export function EntryContent({
 
   // Check if TTS is active for this entry
   const isTtsActiveForThisEntry = audioPlayer.source === "tts" && audioPlayer.activeEntryId === entry?.id
+
+  // Swipe navigation for mobile - swipe left/right to navigate articles
+  const handleSwipeLeft = useCallback(() => {
+    if (hasNext) onNext()
+  }, [hasNext, onNext])
+
+  const handleSwipeRight = useCallback(() => {
+    if (hasPrevious) onPrevious()
+  }, [hasPrevious, onPrevious])
+
+  const swipeRef = useSwipeNavigation<HTMLDivElement>({
+    onSwipeLeft: handleSwipeLeft,
+    onSwipeRight: handleSwipeRight,
+    enabled: layout.isMobile && !!entry,
+    threshold: 60,
+  })
 
   // Reset state when entry changes
   useEffect(() => {
@@ -132,7 +151,7 @@ export function EntryContent({
   })
 
   return (
-    <div className="h-full flex flex-col">
+    <div ref={swipeRef} className="h-full flex flex-col">
       <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-1">
           {onBack && (
