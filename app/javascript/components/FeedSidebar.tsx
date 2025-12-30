@@ -1244,11 +1244,11 @@ function CategoryItem({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div ref={setNodeRef} className="group/category">
-          <div className="flex items-center">
+          <div className="flex items-center min-w-0">
             <Button
               variant="ghost"
               className={cn(
-                "flex-1 justify-start gap-2 h-8",
+                "flex-1 justify-start gap-2 h-8 min-w-0",
                 showDropIndicator && "ring-2 ring-primary ring-offset-1"
               )}
               style={{ ...getButtonStyle(), paddingLeft: `${paddingLeft}px` }}
@@ -1271,7 +1271,7 @@ function CategoryItem({
                 "flex-1 text-left truncate",
                 unreadCount > 0 ? "font-medium" : "text-muted-foreground"
               )}>{category.title}</span>
-              {unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
+              {unreadCount > 0 && <Badge variant="secondary" className="shrink-0">{unreadCount}</Badge>}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1442,7 +1442,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
         <div
           ref={setNodeRef}
           style={style}
-          className={cn("group flex items-center", isDragging && "opacity-50")}
+          className={cn("group flex items-center min-w-0", isDragging && "opacity-50")}
           data-feed-id={feed.id}
         >
           <div
@@ -1454,7 +1454,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
           </div>
           <Button
             variant="ghost"
-            className="flex-1 justify-start gap-2 h-8"
+            className="flex-1 justify-start gap-2 h-8 min-w-0"
             style={getButtonStyle()}
             onClick={onSelect}
           >
@@ -1483,7 +1483,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
                 </Tooltip>
               </TooltipProvider>
             )}
-            {feed.unread_count > 0 && <Badge variant="secondary">{feed.unread_count}</Badge>}
+            {feed.unread_count > 0 && <Badge variant="secondary" className="shrink-0">{feed.unread_count}</Badge>}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
