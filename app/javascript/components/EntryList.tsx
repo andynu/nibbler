@@ -16,6 +16,7 @@ import { useDateFormat } from "@/hooks/useDateFormat"
 import { ScoreBadge } from "@/components/ScoreButtons"
 import { FeedInfoDialog } from "@/components/FeedInfoDialog"
 import { SortableHeaderRow, toggleSort } from "@/components/SortableColumnHeader"
+import { SortDropdown } from "@/components/SortDropdown"
 import type { Entry, Feed, SortConfig, SortColumn } from "@/lib/api"
 
 interface EntryListProps {
@@ -315,13 +316,25 @@ export function EntryList({
       </div>
       {/* Sort controls - only show when entries mode and sort handler provided */}
       {displayMode === "entries" && onSortChange && (
-        <SortableHeaderRow
-          currentSort={sortConfig}
-          onSort={(column: SortColumn, additive: boolean) => {
-            const newSort = toggleSort(sortConfig, column, additive)
-            onSortChange(newSort)
-          }}
-        />
+        <>
+          {/* Mobile: dropdown */}
+          <div className="sm:hidden px-2 py-1.5 border-b border-border bg-muted/20">
+            <SortDropdown
+              currentSort={sortConfig}
+              onSortChange={onSortChange}
+              className="w-full h-8 text-xs"
+            />
+          </div>
+          {/* Desktop: column headers */}
+          <SortableHeaderRow
+            currentSort={sortConfig}
+            onSort={(column: SortColumn, additive: boolean) => {
+              const newSort = toggleSort(sortConfig, column, additive)
+              onSortChange(newSort)
+            }}
+            className="hidden sm:flex"
+          />
+        </>
       )}
 
       <ScrollArea className="flex-1 min-h-0">
