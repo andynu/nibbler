@@ -161,6 +161,23 @@
       "purgeUnreadArticles": "Purge unread articles",
       "purgeUnreadArticlesDescription": "Also purge articles that haven't been read yet"
     },
+    "emailDigest": {
+      "title": "Email Digest",
+      "sendDailyDigest": "Send daily digest",
+      "sendDailyDigestDescription": "Receive a daily email with your top unread articles",
+      "deliveryTime": "Delivery time",
+      "deliveryTimeDescription": "When to send your daily digest",
+      "minimumScore": "Minimum score",
+      "minimumScoreDescription": "Only include articles with at least this score",
+      "markAsReadAfterSending": "Mark as read after sending",
+      "markAsReadAfterSendingDescription": "Automatically mark included articles as read after the digest is sent",
+      "includeAll": "Include all articles",
+      "score1Plus": "Score 1+",
+      "score2Plus": "Score 2+",
+      "score3Plus": "Score 3+",
+      "score4Plus": "Score 4+",
+      "score5Only": "Score 5 only"
+    },
     "time": {
       "hours_6": "6 hours",
       "hours_12": "12 hours",

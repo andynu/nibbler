@@ -76,6 +76,26 @@ const CONTENT_VIEW_MODE_OPTIONS = [
   { value: "iframe", label: "Original page in iframe" },
 ]
 
+const DIGEST_TIME_OPTIONS = [
+  { value: "06:00", label: "6:00 AM" },
+  { value: "07:00", label: "7:00 AM" },
+  { value: "08:00", label: "8:00 AM" },
+  { value: "09:00", label: "9:00 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "12:00", label: "12:00 PM" },
+  { value: "18:00", label: "6:00 PM" },
+  { value: "20:00", label: "8:00 PM" },
+]
+
+const DIGEST_MIN_SCORE_OPTIONS = [
+  { value: "0", label: "Include all articles" },
+  { value: "1", label: "Score 1+" },
+  { value: "2", label: "Score 2+" },
+  { value: "3", label: "Score 3+" },
+  { value: "4", label: "Score 4+" },
+  { value: "5", label: "Score 5 only" },
+]
+
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
   const { theme, setTheme } = useTheme()
@@ -445,6 +465,94 @@ export function PreferencesPanel() {
                 updatePreference("purge_unread_articles", checked ? "true" : "false")
               }
               disabled={preferences.purge_old_days === "0"}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-medium mb-4">Email Digest</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="digest_enable">Send daily digest</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive a daily email with your top unread articles
+              </p>
+            </div>
+            <Switch
+              id="digest_enable"
+              checked={preferences.digest_enable === "true"}
+              onCheckedChange={(checked) =>
+                updatePreference("digest_enable", checked ? "true" : "false")
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="digest_preferred_time">Delivery time</Label>
+              <p className="text-sm text-muted-foreground">
+                When to send your daily digest
+              </p>
+            </div>
+            <Select
+              value={preferences.digest_preferred_time || "08:00"}
+              onValueChange={(value) => updatePreference("digest_preferred_time", value)}
+              disabled={preferences.digest_enable !== "true"}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIGEST_TIME_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="digest_min_score">Minimum score</Label>
+              <p className="text-sm text-muted-foreground">
+                Only include articles with at least this score
+              </p>
+            </div>
+            <Select
+              value={preferences.digest_min_score || "0"}
+              onValueChange={(value) => updatePreference("digest_min_score", value)}
+              disabled={preferences.digest_enable !== "true"}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIGEST_MIN_SCORE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="digest_catchup">Mark as read after sending</Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically mark included articles as read after the digest is sent
+              </p>
+            </div>
+            <Switch
+              id="digest_catchup"
+              checked={preferences.digest_catchup === "true"}
+              onCheckedChange={(checked) =>
+                updatePreference("digest_catchup", checked ? "true" : "false")
+              }
+              disabled={preferences.digest_enable !== "true"}
             />
           </div>
         </div>

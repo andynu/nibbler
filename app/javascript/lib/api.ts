@@ -176,6 +176,11 @@ export interface Preferences {
   sync_to_tree: string
   user_language: string
   tts_playback_speed: string
+  // Email digest preferences
+  digest_enable: string
+  digest_preferred_time: string
+  digest_catchup: string
+  digest_min_score: string
 }
 
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"

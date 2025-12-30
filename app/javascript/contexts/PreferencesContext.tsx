@@ -35,6 +35,11 @@ const defaultPreferences: Preferences = {
   sync_to_tree: "false",
   user_language: "",
   tts_playback_speed: "1",
+  // Email digest preferences
+  digest_enable: "false",
+  digest_preferred_time: "08:00",
+  digest_catchup: "false",
+  digest_min_score: "0",
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
