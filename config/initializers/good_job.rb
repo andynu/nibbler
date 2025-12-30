@@ -17,6 +17,11 @@ Rails.application.configure do
       cron: "0 4 * * *", # at 4am daily
       class: "UpdateFaviconsJob",
       description: "Fetch and cache favicons for feeds that need updating"
+    },
+    send_digests: {
+      cron: "0 * * * *", # every hour at minute 0
+      class: "SendDigestsJob",
+      description: "Send email digests to users at their preferred time"
     }
   }
 
