@@ -366,6 +366,7 @@ function FilterEditorDialog({
   const [isSaving, setIsSaving] = useState(false)
   const [deletedRuleIds, setDeletedRuleIds] = useState<number[]>([])
   const [deletedActionIds, setDeletedActionIds] = useState<number[]>([])
+  const [keywordSuggestions, setKeywordSuggestions] = useState<string[]>([])
 
   useEffect(() => {
     if (filter) {
@@ -411,6 +412,48 @@ function FilterEditorDialog({
       setDeletedActionIds([])
     }
   }, [filter, open])
+
+  // Load keyword suggestions based on filter rules' feed/category context
+  useEffect(() => {
+    if (!open) return
+
+    // Get unique feed and category IDs from rules
+    const feedIds = form.rules.map((r) => r.feed_id).filter((id): id is number => id !== null)
+    const categoryIds = form.rules.map((r) => r.category_id).filter((id): id is number => id !== null)
+
+    // Load keywords for each unique context
+    const loadKeywords = async () => {
+      try {
+        const keywordPromises: Promise<{ keywords: Array<{ word: string; count: number }> }>[] = []
+
+        // Add keyword requests for feeds
+        feedIds.forEach((feedId) => {
+          keywordPromises.push(api.entries.keywords({ feed_id: feedId, limit: 10 }))
+        })
+
+        // Add keyword requests for categories
+        categoryIds.forEach((categoryId) => {
+          keywordPromises.push(api.entries.keywords({ category_id: categoryId, limit: 10 }))
+        })
+
+        // If no specific context, load general keywords
+        if (keywordPromises.length === 0) {
+          keywordPromises.push(api.entries.keywords({ limit: 10 }))
+        }
+
+        const results = await Promise.all(keywordPromises)
+        const allKeywords = new Set<string>()
+        results.forEach((result) => {
+          result.keywords.forEach((k) => allKeywords.add(k.word))
+        })
+        setKeywordSuggestions(Array.from(allKeywords))
+      } catch (error) {
+        console.error("Failed to load keyword suggestions:", error)
+      }
+    }
+
+    loadKeywords()
+  }, [open, form.rules])
 
   const handleAddRule = () => {
     setForm((prev) => ({
@@ -795,8 +838,15 @@ function FilterEditorDialog({
                         list={`tag-suggestions-${index}`}
                       />
                       <datalist id={`tag-suggestions-${index}`}>
+                        {/* Show keyword suggestions first (content-based) */}
+                        {keywordSuggestions
+                          .filter((kw) => !availableTags.includes(kw))
+                          .map((keyword) => (
+                            <option key={`kw-${keyword}`} value={keyword} />
+                          ))}
+                        {/* Then existing tags */}
                         {availableTags.map((tag) => (
-                          <option key={tag} value={tag} />
+                          <option key={`tag-${tag}`} value={tag} />
                         ))}
                       </datalist>
                     </>
