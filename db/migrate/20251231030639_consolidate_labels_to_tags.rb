@@ -16,10 +16,10 @@ class ConsolidateLabelsToTags < ActiveRecord::Migration[8.1]
     rename_column :entry_tags, :label_id, :tag_id
 
     # Step 6: Add index for efficient tag lookups by user and name
-    add_index :tags, [:user_id, :name], unique: true
+    add_index :tags, [ :user_id, :name ], unique: true
 
     # Step 7: Add unique constraint on entry_tags to prevent duplicates
-    add_index :entry_tags, [:entry_id, :tag_id], unique: true
+    add_index :entry_tags, [ :entry_id, :tag_id ], unique: true
 
     # Step 8: Remove old non-unique indexes that are now redundant
     remove_index :entry_tags, :entry_id if index_exists?(:entry_tags, :entry_id)
