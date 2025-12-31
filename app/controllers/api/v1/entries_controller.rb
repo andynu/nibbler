@@ -63,18 +63,12 @@ module Api
           end
         end
 
-        # Filter by tag
+        # Filter by tag via Entry -> EntryTag -> Tag join
         if params[:tag].present?
-          tag = params[:tag].downcase.strip
-          # Use tag_cache which stores comma-separated tags
-          # Match: exact tag, tag at start (tag,), tag in middle (,tag,), or tag at end (,tag)
-          @user_entries = @user_entries.where(
-            "user_entries.tag_cache = :tag OR " \
-            "user_entries.tag_cache LIKE :start OR " \
-            "user_entries.tag_cache LIKE :middle OR " \
-            "user_entries.tag_cache LIKE :ending",
-            tag: tag, start: "#{tag},%", middle: "%,#{tag},%", ending: "%,#{tag}"
-          )
+          tag_name = params[:tag].downcase.strip
+          @user_entries = @user_entries
+            .joins(entry: :tags)
+            .where(tags: { user_id: current_user.id, name: tag_name })
         end
 
         # Pagination

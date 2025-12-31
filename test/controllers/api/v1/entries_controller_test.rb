@@ -216,4 +216,114 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     # If sort takes precedence, entries should be sorted by title, not score
     # We just verify no error occurs - detailed order testing done above
   end
+
+  test "filters entries by tag" do
+    # Create two entries - one tagged, one not
+    tagged_entry = Entry.create!(
+      guid: "tagged-entry-#{SecureRandom.uuid}",
+      title: "Tagged Article",
+      link: "https://example.com/tagged",
+      content: "<p>Tagged content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    untagged_entry = Entry.create!(
+      guid: "untagged-entry-#{SecureRandom.uuid}",
+      title: "Untagged Article",
+      link: "https://example.com/untagged",
+      content: "<p>Untagged content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    @user.user_entries.create!(
+      entry: tagged_entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+
+    @user.user_entries.create!(
+      entry: untagged_entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+
+    # Create tag and apply to tagged_entry
+    tag = Tag.create!(name: "ruby", user: @user)
+    EntryTag.create!(entry: tagged_entry, tag: tag)
+
+    # Filter by tag
+    get api_v1_entries_url, params: { tag: "ruby" }, as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    titles = json["entries"].map { |e| e["title"] }
+
+    # Tagged entry should appear
+    assert_includes titles, "Tagged Article"
+    # Untagged entry should NOT appear
+    refute_includes titles, "Untagged Article"
+  end
+
+  test "tag filter is case insensitive" do
+    entry = Entry.create!(
+      guid: "case-test-#{SecureRandom.uuid}",
+      title: "Case Test Article",
+      link: "https://example.com/case",
+      content: "<p>Content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+
+    tag = Tag.create!(name: "ruby", user: @user)
+    EntryTag.create!(entry: entry, tag: tag)
+
+    # Filter with uppercase should still match lowercase tag
+    get api_v1_entries_url, params: { tag: "Ruby" }, as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    titles = json["entries"].map { |e| e["title"] }
+    assert_includes titles, "Case Test Article"
+  end
+
+  test "tag filter only shows entries tagged by current user" do
+    # Create another user
+    other_user = User.create!(login: "other_user", pwd_hash: Digest::SHA256.hexdigest("test"))
+
+    entry = Entry.create!(
+      guid: "multi-user-#{SecureRandom.uuid}",
+      title: "Multi User Article",
+      link: "https://example.com/multi",
+      content: "<p>Content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+
+    # Tag belongs to OTHER user
+    other_tag = Tag.create!(name: "ruby", user: other_user)
+    EntryTag.create!(entry: entry, tag: other_tag)
+
+    # Current user filters by ruby - should NOT see the entry
+    # (tag belongs to other user)
+    get api_v1_entries_url, params: { tag: "ruby" }, as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    titles = json["entries"].map { |e| e["title"] }
+    refute_includes titles, "Multi User Article"
+  end
 end
