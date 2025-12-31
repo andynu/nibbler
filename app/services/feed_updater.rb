@@ -180,8 +180,7 @@ class FeedUpdater
         feed: @feed,
         user: @feed.user,
         uuid: SecureRandom.uuid,
-        unread: true,
-        tag_cache: parsed_entry.categories.join(",")
+        unread: true
       )
 
       # Execute user's filters on the new entry

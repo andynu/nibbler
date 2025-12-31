@@ -133,7 +133,7 @@ module Api
         # Get recent articles from the user's feeds for testing
         current_user.user_entries
           .joins(:entry)
-          .includes(:entry)
+          .includes(entry: :tags)
           .order("entries.date_entered DESC")
           .limit(100)
           .map do |ue|
@@ -143,7 +143,7 @@ module Api
               content: ue.entry.content,
               link: ue.entry.link,
               author: ue.entry.author,
-              tags: ue.tag_cache.split(",")
+              tags: ue.entry.tags.map(&:name)
             }
           end
       end
