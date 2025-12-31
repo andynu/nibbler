@@ -48,17 +48,18 @@ import {
   FilterActionUpdateData,
   FilterUpdateData,
   FilterActionType,
+  FilterRuleType,
 } from "@/lib/api"
 import { Plus, Pencil, Trash2, GripVertical, Play, X, RotateCcw } from "lucide-react"
 
 const FILTER_TYPES = [
-  { value: 1, label: "Title", name: "title" },
-  { value: 2, label: "Content", name: "content" },
-  { value: 3, label: "Title or Content", name: "both" },
-  { value: 4, label: "Link URL", name: "link" },
-  { value: 5, label: "Date", name: "date" },
-  { value: 6, label: "Author", name: "author" },
-  { value: 7, label: "Tags", name: "tag" },
+  { value: "title", label: "Title" },
+  { value: "content", label: "Content" },
+  { value: "both", label: "Title or Content" },
+  { value: "link", label: "Link URL" },
+  { value: "date", label: "Date" },
+  { value: "author", label: "Author" },
+  { value: "tag", label: "Tags" },
 ]
 
 const ACTION_TYPES = [
@@ -72,7 +73,7 @@ const ACTION_TYPES = [
 
 interface RuleFormData {
   id?: number
-  filter_type: number
+  filter_type: FilterRuleType
   reg_exp: string
   inverse: boolean
   feed_id: number | null
@@ -237,7 +238,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
     }
   }
 
-  const getFilterTypeName = (typeValue: number) => {
+  const getFilterTypeName = (typeValue: FilterRuleType) => {
     return FILTER_TYPES.find((t) => t.value === typeValue)?.label || "Unknown"
   }
 
@@ -416,7 +417,7 @@ function FilterEditorDialog({
         inverse: false,
         rules: [
           {
-            filter_type: 1,
+            filter_type: "title",
             reg_exp: "",
             inverse: false,
             feed_id: null,
@@ -478,7 +479,7 @@ function FilterEditorDialog({
       rules: [
         ...prev.rules,
         {
-          filter_type: 1,
+          filter_type: "title",
           reg_exp: "",
           inverse: false,
           feed_id: null,
@@ -684,10 +685,10 @@ function FilterEditorDialog({
                       </div>
 
                       <Select
-                        value={String(rule.filter_type)}
+                        value={rule.filter_type}
                         onValueChange={(value) =>
                           handleUpdateRule(index, {
-                            filter_type: parseInt(value),
+                            filter_type: value as FilterRuleType,
                           })
                         }
                       >
@@ -698,7 +699,7 @@ function FilterEditorDialog({
                           {FILTER_TYPES.map((type) => (
                             <SelectItem
                               key={type.value}
-                              value={String(type.value)}
+                              value={type.value}
                             >
                               {type.label}
                             </SelectItem>
@@ -715,7 +716,7 @@ function FilterEditorDialog({
                           handleUpdateRule(index, { reg_exp: e.target.value })
                         }
                         placeholder={
-                          rule.filter_type === 5
+                          rule.filter_type === "date"
                             ? "<7d (last 7 days), >2025-01-01, 2025-01-01..2025-12-31"
                             : "Regular expression pattern"
                         }
@@ -922,7 +923,7 @@ interface SortableFilterItemProps {
   testResult: { filterId: number; matches: number; total: number } | null
   backfillResult: { filterId: number; affectedCount: number } | null
   backfillInProgress: number | null
-  getFilterTypeName: (typeValue: number) => string
+  getFilterTypeName: (typeValue: FilterRuleType) => string
   getActionTypeName: (typeValue: FilterActionType) => string
   onToggleEnabled: (filter: Filter) => void
   onTest: (filterId: number) => void

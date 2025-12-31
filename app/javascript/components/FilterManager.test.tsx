@@ -47,8 +47,7 @@ describe("FilterManager", () => {
     rules: [
       {
         id: 1,
-        filter_type: 1,
-        filter_type_name: "title",
+        filter_type: "title",
         reg_exp: "test.*pattern",
         inverse: false,
         feed_id: null,

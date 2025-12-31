@@ -191,8 +191,7 @@ export type FilterActionType = "delete" | "mark_read" | "star" | "tag" | "publis
 
 export interface FilterRule {
   id?: number
-  filter_type: number
-  filter_type_name: FilterRuleType
+  filter_type: FilterRuleType
   reg_exp: string
   inverse: boolean
   feed_id: number | null
@@ -258,7 +257,7 @@ export interface QueueItem {
 }
 
 export type FilterRuleCreateData = {
-  filter_type: number
+  filter_type: FilterRuleType
   reg_exp: string
   inverse?: boolean
   feed_id?: number | null
@@ -266,7 +265,7 @@ export type FilterRuleCreateData = {
 }
 
 export type FilterRuleUpdateData =
-  | { id?: number; filter_type: number; reg_exp: string; inverse?: boolean; feed_id?: number | null; category_id?: number | null }
+  | { id?: number; filter_type: FilterRuleType; reg_exp: string; inverse?: boolean; feed_id?: number | null; category_id?: number | null }
   | { id: number; _destroy: true }
 
 export type FilterActionCreateData = {

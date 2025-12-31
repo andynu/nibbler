@@ -99,8 +99,7 @@ export function mockFilterRule(
 ): FilterRule {
   return {
     id: 1,
-    filter_type: 1,
-    filter_type_name: "title",
+    filter_type: "title",
     reg_exp: "test",
     inverse: false,
     feed_id: null,

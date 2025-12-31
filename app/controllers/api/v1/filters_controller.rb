@@ -112,7 +112,6 @@ module Api
         {
           id: rule.id,
           filter_type: rule.filter_type,
-          filter_type_name: FilterRule::FILTER_TYPES.key(rule.filter_type),
           reg_exp: rule.reg_exp,
           inverse: rule.inverse,
           feed_id: rule.feed_id,

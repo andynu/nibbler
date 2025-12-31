@@ -8,7 +8,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "matches title filter" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:title],
+      filter_type: "title",
       reg_exp: "test"
     )
 
@@ -19,7 +19,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "matches content filter" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:content],
+      filter_type: "content",
       reg_exp: "important"
     )
 
@@ -30,7 +30,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "matches both filter" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:both],
+      filter_type: "both",
       reg_exp: "ruby"
     )
 
@@ -42,7 +42,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "matches link filter" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:link],
+      filter_type: "link",
       reg_exp: "example\\.com"
     )
 
@@ -53,7 +53,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "matches author filter" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:author],
+      filter_type: "author",
       reg_exp: "john"
     )
 
@@ -64,7 +64,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "matches tag filter" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:tag],
+      filter_type: "tag",
       reg_exp: "tech"
     )
 
@@ -76,7 +76,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "inverse negates result" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:title],
+      filter_type: "title",
       reg_exp: "test",
       inverse: true
     )
@@ -89,7 +89,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter matches articles within last N days" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: "<7d"
     )
 
@@ -101,7 +101,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter matches articles older than N days" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: ">7d"
     )
 
@@ -113,7 +113,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter matches articles after specific date" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: ">2025-01-01"
     )
 
@@ -125,7 +125,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter matches articles before specific date" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: "<2025-01-01"
     )
 
@@ -137,7 +137,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter matches articles within date range" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: "2025-01-01..2025-06-30"
     )
 
@@ -151,7 +151,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter falls back to updated if published missing" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: "<7d"
     )
 
@@ -162,7 +162,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter returns false for missing date" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: "<7d"
     )
 
@@ -172,7 +172,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter returns false for invalid criterion" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: "invalid"
     )
 
@@ -182,7 +182,7 @@ class FilterRuleTest < ActiveSupport::TestCase
   test "date filter with inverse" do
     rule = FilterRule.new(
       filter: @filter,
-      filter_type: FilterRule::FILTER_TYPES[:date],
+      filter_type: "date",
       reg_exp: "<7d",
       inverse: true
     )
