@@ -33,6 +33,11 @@ function App() {
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
   const [allTags, setAllTags] = useState<string[]>([])
   const [allTagsWithCounts, setAllTagsWithCounts] = useState<Array<{ name: string; count: number }>>([])
+  const [virtualFolderCounts, setVirtualFolderCounts] = useState<{
+    fresh: number
+    starred: number
+    published: number
+  } | null>(null)
 
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
@@ -91,10 +96,11 @@ function App() {
     onShowSubscribe: setShowSubscribeDialog,
   })
 
-  // Load feeds, categories, and tags on mount
+  // Load feeds, categories, tags, and counters on mount
   useEffect(() => {
     loadFeeds()
     loadTags()
+    loadCounters()
   }, [])
 
   // Register audio player navigation callback
@@ -114,6 +120,19 @@ function App() {
       setAllTagsWithCounts(result.tags_with_counts)
     } catch (error) {
       console.error("Failed to load tags:", error)
+    }
+  }
+
+  const loadCounters = async () => {
+    try {
+      const result = await api.counters.get()
+      setVirtualFolderCounts({
+        fresh: result.virtual.fresh,
+        starred: result.virtual.starred,
+        published: result.virtual.published,
+      })
+    } catch (error) {
+      console.error("Failed to load counters:", error)
     }
   }
 
@@ -202,6 +221,7 @@ function App() {
           prev.map((e) => (e.id === entryId ? { ...e, unread: false } : e))
         )
         loadFeeds() // Refresh unread counts
+        loadCounters() // Refresh virtual folder counts
       }
     } catch (error) {
       console.error("Failed to load entry:", error)
@@ -259,6 +279,7 @@ function App() {
     try {
       await api.feeds.refreshAll()
       await loadFeeds()
+      await loadCounters()
       await loadEntries()
     } catch (error) {
       console.error("Failed to refresh feeds:", error)
@@ -271,6 +292,7 @@ function App() {
     try {
       await api.feeds.refresh(feedId)
       await loadFeeds()
+      await loadCounters()
       await loadEntries()
     } catch (error) {
       console.error("Failed to refresh feed:", error)
@@ -299,6 +321,7 @@ function App() {
         setSelectedEntry({ ...selectedEntry, unread: result.unread })
       }
       loadFeeds() // Refresh unread counts
+      loadCounters() // Refresh virtual folder counts
     } catch (error) {
       console.error("Failed to toggle read:", error)
     }
@@ -313,6 +336,7 @@ function App() {
       if (selectedEntry?.id === entryId) {
         setSelectedEntry({ ...selectedEntry, starred: result.starred })
       }
+      loadCounters() // Refresh starred count
     } catch (error) {
       console.error("Failed to toggle starred:", error)
     }
@@ -384,6 +408,7 @@ function App() {
       })
       setEntries((prev) => prev.map((e) => ({ ...e, unread: false })))
       loadFeeds() // Refresh unread counts
+      loadCounters() // Refresh virtual folder counts
     } catch (error) {
       console.error("Failed to mark all read:", error)
     }
@@ -840,6 +865,7 @@ function App() {
             virtualFeed={virtualFeed}
             selectedTag={selectedTag}
             tagsWithCounts={allTagsWithCounts}
+            virtualFolderCounts={virtualFolderCounts}
             onSelectFeed={handleSelectFeedWithNav}
             onSelectCategory={handleSelectCategoryWithNav}
             onSelectVirtualFeed={handleSelectVirtualFeedWithNav}
@@ -879,6 +905,7 @@ function App() {
             virtualFeed={virtualFeed}
             selectedTag={selectedTag}
             tagsWithCounts={allTagsWithCounts}
+            virtualFolderCounts={virtualFolderCounts}
             onSelectFeed={handleSelectFeedWithNav}
             onSelectCategory={handleSelectCategoryWithNav}
             onSelectVirtualFeed={handleSelectVirtualFeedWithNav}

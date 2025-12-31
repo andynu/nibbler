@@ -54,6 +54,11 @@ interface FeedSidebarProps {
   virtualFeed: VirtualFeed
   selectedTag: string | null
   tagsWithCounts: Array<{ name: string; count: number }>
+  virtualFolderCounts?: {
+    fresh: number
+    starred: number
+    published: number
+  } | null
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
   onSelectVirtualFeed: (feed: VirtualFeed) => void
@@ -79,6 +84,7 @@ export function FeedSidebar({
   virtualFeed,
   selectedTag,
   tagsWithCounts,
+  virtualFolderCounts,
   onSelectFeed,
   onSelectCategory,
   onSelectVirtualFeed,
@@ -846,6 +852,26 @@ export function FeedSidebar({
               }
             }
 
+            // Get count for virtual folder (Fresh, Starred, Published show their counts; All Feeds shows unread/total)
+            const getVirtualFolderCount = (): number | null => {
+              if (folder.id === "") {
+                return showTotalCount ? totalEntryCount : totalUnread
+              }
+              if (!virtualFolderCounts) return null
+              switch (folder.id) {
+                case "fresh":
+                  return virtualFolderCounts.fresh
+                case "starred":
+                  return virtualFolderCounts.starred
+                case "published":
+                  return virtualFolderCounts.published
+                default:
+                  return null
+              }
+            }
+
+            const folderCount = getVirtualFolderCount()
+
             return (
               <Button
                 key={folder.id || "all"}
@@ -864,10 +890,10 @@ export function FeedSidebar({
                 )}
                 <span className={cn(
                   "flex-1 text-left",
-                  folder.id === "" && totalUnread > 0 ? "font-medium" : undefined
+                  (folder.id === "" && totalUnread > 0) || (folder.id === "fresh" && (virtualFolderCounts?.fresh ?? 0) > 0) ? "font-medium" : undefined
                 )}>{folder.name}</span>
-                {folder.id === "" && (showTotalCount ? totalEntryCount > 0 : totalUnread > 0) && (
-                  <Badge variant="secondary">{showTotalCount ? totalEntryCount : totalUnread}</Badge>
+                {folderCount !== null && folderCount > 0 && (
+                  <Badge variant="secondary">{folderCount}</Badge>
                 )}
               </Button>
             )
