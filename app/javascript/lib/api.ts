@@ -466,6 +466,21 @@ export const api = {
       request<void>(`/entries/${entryId}/labels/${labelId}`, { method: "DELETE" }),
   },
 
+  counters: {
+    get: () =>
+      request<{
+        feeds: Record<number, number>
+        categories: Record<number, number>
+        virtual: {
+          all: number
+          fresh: number
+          starred: number
+          published: number
+        }
+        total: number
+      }>("/counters"),
+  },
+
   opml: {
     preview: async (file: File) => {
       const formData = new FormData()
