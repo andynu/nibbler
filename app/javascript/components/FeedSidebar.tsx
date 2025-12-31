@@ -1168,6 +1168,8 @@ export function FeedSidebar({
         </DndContext>
       </ScrollArea>
 
+      <SyncStatusBar feeds={feeds} isRefreshing={isRefreshing} />
+
       <CategoryDialog
         open={showCategoryDialog || editingCategory !== null}
         onOpenChange={(open) => {
@@ -1596,5 +1598,72 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+  )
+}
+
+interface SyncStatusBarProps {
+  feeds: Feed[]
+  isRefreshing: boolean
+}
+
+function SyncStatusBar({ feeds, isRefreshing }: SyncStatusBarProps) {
+  const [, setTick] = useState(0)
+
+  // Find the most recent last_updated timestamp from all feeds
+  const lastSyncTime = useMemo(() => {
+    let mostRecent: Date | null = null
+    for (const feed of feeds) {
+      if (feed.last_updated) {
+        const feedTime = new Date(feed.last_updated)
+        if (!mostRecent || feedTime > mostRecent) {
+          mostRecent = feedTime
+        }
+      }
+    }
+    return mostRecent
+  }, [feeds])
+
+  // Update the display every minute to keep "X ago" current
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1)
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const formatTimeAgo = (date: Date): string => {
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMins < 1) return "just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    return `${diffDays}d ago`
+  }
+
+  if (isRefreshing) {
+    return (
+      <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground flex items-center gap-1.5 shrink-0">
+        <RefreshCw className="h-3 w-3 animate-spin" />
+        <span>Syncing...</span>
+      </div>
+    )
+  }
+
+  if (!lastSyncTime) {
+    return (
+      <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground shrink-0">
+        Never synced
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground shrink-0">
+      Last sync: {formatTimeAgo(lastSyncTime)}
+    </div>
   )
 }
