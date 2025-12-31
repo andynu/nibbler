@@ -54,3 +54,7 @@ test-results/
 /lib/tts/models/*.onnx
 
 coverage/
+
+# Local Claude Code tooling config
+.lsp.json
+.mcp.json
