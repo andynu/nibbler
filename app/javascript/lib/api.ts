@@ -204,8 +204,7 @@ export interface FilterRule {
 
 export interface FilterAction {
   id?: number
-  action_type: number
-  action_type_name: FilterActionType
+  action_type: FilterActionType
   action_param: string | null
   _destroy?: boolean
 }
@@ -271,12 +270,12 @@ export type FilterRuleUpdateData =
   | { id: number; _destroy: true }
 
 export type FilterActionCreateData = {
-  action_type: number
+  action_type: FilterActionType
   action_param?: string | null
 }
 
 export type FilterActionUpdateData =
-  | { id?: number; action_type: number; action_param?: string | null }
+  | { id?: number; action_type: FilterActionType; action_param?: string | null }
   | { id: number; _destroy: true }
 
 export interface FilterCreateData {

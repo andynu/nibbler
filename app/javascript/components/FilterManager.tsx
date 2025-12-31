@@ -47,6 +47,7 @@ import {
   FilterRuleUpdateData,
   FilterActionUpdateData,
   FilterUpdateData,
+  FilterActionType,
 } from "@/lib/api"
 import { Plus, Pencil, Trash2, GripVertical, Play, X, RotateCcw } from "lucide-react"
 
@@ -61,13 +62,13 @@ const FILTER_TYPES = [
 ]
 
 const ACTION_TYPES = [
-  { value: 2, label: "Mark as read", name: "mark_read" },
-  { value: 3, label: "Star article", name: "star" },
-  { value: 4, label: "Add tag", name: "tag", hasParam: true },
-  { value: 6, label: "Adjust score", name: "score", hasParam: true },
-  { value: 7, label: "Apply label", name: "label", hasParam: true },
-  { value: 1, label: "Delete article", name: "delete" },
-  { value: 8, label: "Stop processing", name: "stop" },
+  { value: "mark_read", label: "Mark as read" },
+  { value: "star", label: "Star article" },
+  { value: "tag", label: "Add tag", hasParam: true },
+  { value: "score", label: "Adjust score", hasParam: true },
+  { value: "label", label: "Apply label", hasParam: true },
+  { value: "delete", label: "Delete article" },
+  { value: "stop", label: "Stop processing" },
 ]
 
 interface RuleFormData {
@@ -81,7 +82,7 @@ interface RuleFormData {
 
 interface ActionFormData {
   id?: number
-  action_type: number
+  action_type: FilterActionType
   action_param: string
 }
 
@@ -246,7 +247,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
     return FILTER_TYPES.find((t) => t.value === typeValue)?.label || "Unknown"
   }
 
-  const getActionTypeName = (typeValue: number) => {
+  const getActionTypeName = (typeValue: FilterActionType) => {
     return ACTION_TYPES.find((t) => t.value === typeValue)?.label || "Unknown"
   }
 
@@ -431,7 +432,7 @@ function FilterEditorDialog({
             category_id: null,
           },
         ],
-        actions: [{ action_type: 2, action_param: "" }],
+        actions: [{ action_type: "mark_read", action_param: "" }],
       })
       setDeletedRuleIds([])
       setDeletedActionIds([])
@@ -522,7 +523,7 @@ function FilterEditorDialog({
   const handleAddAction = () => {
     setForm((prev) => ({
       ...prev,
-      actions: [...prev.actions, { action_type: 2, action_param: "" }],
+      actions: [...prev.actions, { action_type: "mark_read", action_param: "" }],
     }))
   }
 
@@ -825,10 +826,10 @@ function FilterEditorDialog({
                   className="flex items-center gap-2 p-3 border rounded-md bg-muted/30"
                 >
                   <Select
-                    value={String(action.action_type)}
+                    value={action.action_type}
                     onValueChange={(value) =>
                       handleUpdateAction(index, {
-                        action_type: parseInt(value),
+                        action_type: value as FilterActionType,
                         action_param: "",
                       })
                     }
@@ -840,7 +841,7 @@ function FilterEditorDialog({
                       {ACTION_TYPES.map((type) => (
                         <SelectItem
                           key={type.value}
-                          value={String(type.value)}
+                          value={type.value}
                         >
                           {type.label}
                         </SelectItem>
@@ -849,7 +850,7 @@ function FilterEditorDialog({
                   </Select>
 
                   {/* Tag action - show input with datalist for autocomplete */}
-                  {action.action_type === 4 && (
+                  {action.action_type === "tag" && (
                     <>
                       <Input
                         className="flex-1"
@@ -878,7 +879,7 @@ function FilterEditorDialog({
                   )}
 
                   {/* Label action - show select from available labels */}
-                  {action.action_type === 7 && (
+                  {action.action_type === "label" && (
                     <Select
                       value={action.action_param || ""}
                       onValueChange={(value) =>
@@ -899,7 +900,7 @@ function FilterEditorDialog({
                   )}
 
                   {/* Score action - show number input */}
-                  {action.action_type === 6 && (
+                  {action.action_type === "score" && (
                     <Input
                       className="flex-1"
                       value={action.action_param}
@@ -952,7 +953,7 @@ interface SortableFilterItemProps {
   backfillResult: { filterId: number; affectedCount: number } | null
   backfillInProgress: number | null
   getFilterTypeName: (typeValue: number) => string
-  getActionTypeName: (typeValue: number) => string
+  getActionTypeName: (typeValue: FilterActionType) => string
   onToggleEnabled: (filter: Filter) => void
   onTest: (filterId: number) => void
   onBackfill: (filterId: number) => void

@@ -126,7 +126,6 @@ module Api
         {
           id: action.id,
           action_type: action.action_type,
-          action_type_name: FilterAction::ACTION_TYPES.key(action.action_type),
           action_param: action.action_param
         }
       end
@@ -224,31 +223,31 @@ module Api
 
         @filter.filter_actions.each do |action|
           case action.action_type
-          when FilterAction::ACTION_TYPES[:mark_read]
+          when "mark_read"
             user_entry.update!(unread: false)
 
-          when FilterAction::ACTION_TYPES[:delete]
+          when "delete"
             user_entry.destroy!
             return # Stop processing, entry is gone
 
-          when FilterAction::ACTION_TYPES[:star]
+          when "star"
             user_entry.update!(marked: true)
 
-          when FilterAction::ACTION_TYPES[:publish]
+          when "publish"
             user_entry.update!(published: true)
 
-          when FilterAction::ACTION_TYPES[:score]
+          when "score"
             score_delta = action.action_param.to_i
             user_entry.update!(score: user_entry.score + score_delta)
 
-          when FilterAction::ACTION_TYPES[:label]
+          when "label"
             # Label action now uses Tag (labels have been consolidated into tags)
             tag = current_user.tags.find_by(id: action.action_param.to_i)
             if tag && !entry.tags.include?(tag)
               entry.tags << tag
             end
 
-          when FilterAction::ACTION_TYPES[:tag]
+          when "tag"
             tag_name = action.action_param.to_s.strip.downcase
             if tag_name.present?
               tag = current_user.tags.find_or_create_by!(name: tag_name) do |t|
@@ -258,11 +257,11 @@ module Api
               entry.tags << tag unless entry.tags.include?(tag)
             end
 
-          when FilterAction::ACTION_TYPES[:stop]
+          when "stop"
             # Stop action doesn't make sense in backfill context (no filter chain)
             # Just ignore it
 
-          when FilterAction::ACTION_TYPES[:ignore_tag]
+          when "ignore_tag"
             tag_name = action.action_param.to_s.strip.downcase
             tag = current_user.tags.find_by(name: tag_name)
             EntryTag.where(entry: entry, tag: tag).destroy_all if tag

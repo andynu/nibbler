@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_31_031536) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_31_054611) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -145,7 +145,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_031536) do
 
   create_table "filter_actions", force: :cascade do |t|
     t.string "action_param", default: "", null: false
-    t.integer "action_type", default: 1, null: false
+    t.string "action_type", default: "mark_read", null: false
     t.bigint "filter_id", null: false
     t.index ["filter_id"], name: "index_filter_actions_on_filter_id"
   end

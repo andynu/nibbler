@@ -116,8 +116,7 @@ export function mockFilterAction(
 ): FilterAction {
   return {
     id: 1,
-    action_type: 2,
-    action_type_name: "mark_read",
+    action_type: "mark_read",
     action_param: null,
     ...overrides,
   }

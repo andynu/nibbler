@@ -72,33 +72,33 @@ class FilterExecutor
 
     filter.filter_actions.each do |action|
       case action.action_type
-      when FilterAction::ACTION_TYPES[:mark_read]
+      when "mark_read"
         @user_entry.update!(unread: false)
         Rails.logger.info "Filter #{filter.id}: marked entry #{@entry.id} as read"
 
-      when FilterAction::ACTION_TYPES[:delete]
+      when "delete"
         @user_entry.destroy!
         Rails.logger.info "Filter #{filter.id}: deleted user_entry for entry #{@entry.id}"
         return true # Stop processing, entry is gone
 
-      when FilterAction::ACTION_TYPES[:star]
+      when "star"
         @user_entry.update!(marked: true)
         Rails.logger.info "Filter #{filter.id}: starred entry #{@entry.id}"
 
-      when FilterAction::ACTION_TYPES[:publish]
+      when "publish"
         @user_entry.update!(published: true)
         Rails.logger.info "Filter #{filter.id}: published entry #{@entry.id}"
 
-      when FilterAction::ACTION_TYPES[:score]
+      when "score"
         score_delta = action.action_param.to_i
         @user_entry.update!(score: @user_entry.score + score_delta)
         Rails.logger.info "Filter #{filter.id}: changed score by #{score_delta} for entry #{@entry.id}"
 
-      when FilterAction::ACTION_TYPES[:label]
+      when "label"
         # Label action now uses Tag (labels have been consolidated into tags)
         add_tag_to_entry(action.action_param.to_i, filter)
 
-      when FilterAction::ACTION_TYPES[:tag]
+      when "tag"
         tag_name = action.action_param.to_s.strip.downcase
         if tag_name.present?
           tag = @user.tags.find_or_create_by!(name: tag_name) do |t|
@@ -111,11 +111,11 @@ class FilterExecutor
           end
         end
 
-      when FilterAction::ACTION_TYPES[:stop]
+      when "stop"
         should_stop = true
         Rails.logger.info "Filter #{filter.id}: stop processing for entry #{@entry.id}"
 
-      when FilterAction::ACTION_TYPES[:ignore_tag]
+      when "ignore_tag"
         # Remove tag if present
         tag_name = action.action_param.to_s.strip.downcase
         tag = @user.tags.find_by(name: tag_name)
