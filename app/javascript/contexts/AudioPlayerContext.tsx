@@ -494,9 +494,23 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
       id: crypto.randomUUID(),
       status: input.source === "podcast" ? "ready" : "pending",
     }
+
+    // Check if queue is empty and nothing is playing
+    const shouldAutoPlay = queue.length === 0 && state === "idle"
+
     setQueue((prev) => [...prev, newItem])
     setIsVisible(true) // Show audio panel when adding to queue
-  }, [])
+
+    // Auto-play first item if nothing is playing
+    if (shouldAutoPlay) {
+      setCurrentQueueIndex(0)
+      if (newItem.source === "tts") {
+        requestTtsAudio(newItem.entryId, newItem.entryTitle, newItem.feedTitle)
+      } else if (newItem.source === "podcast" && newItem.audioUrl) {
+        requestPodcastAudio(newItem.entryId, newItem.entryTitle, newItem.audioUrl, newItem.feedTitle, newItem.duration)
+      }
+    }
+  }, [queue.length, state, requestTtsAudio, requestPodcastAudio])
 
   // Play item immediately (insert at current position and play)
   const playNow = useCallback((input: QueueItemInput) => {

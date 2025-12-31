@@ -37,6 +37,7 @@ export function AudioPanel() {
     skipToNext,
     skipToPrevious,
     toggleQueuePanel,
+    playQueueItem,
     error,
   } = useAudioPlayer()
 
@@ -48,6 +49,7 @@ export function AudioPanel() {
   const isLoading = state === "loading" || state === "generating"
   const isPlayable = state === "ready" || state === "playing" || state === "paused"
   const isError = state === "error"
+  const isIdleWithQueue = state === "idle" && queue.length > 0
   const hasNext = currentQueueIndex < queue.length - 1
   const hasPrevious = currentQueueIndex > 0 || currentTime > 3
 
@@ -80,6 +82,41 @@ export function AudioPanel() {
         {isError && (
           <div className="flex items-center gap-3 text-destructive">
             <span className="text-sm">{error || "Audio error"}</span>
+          </div>
+        )}
+
+        {/* Idle with queue - show play from queue button */}
+        {isIdleWithQueue && (
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => playQueueItem(0)}
+              className="h-9 w-9 shrink-0"
+              aria-label="Play from queue"
+            >
+              <Play className="h-5 w-5" />
+            </Button>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm truncate">{queue[0]?.entryTitle}</span>
+              <span className="text-xs text-muted-foreground">
+                {queue.length} {queue.length === 1 ? "item" : "items"} in queue
+              </span>
+            </div>
+            {/* Queue button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleQueuePanel}
+              className="h-8 w-8 shrink-0 relative"
+              aria-label="Open queue"
+              title={`Queue (${queue.length} items)`}
+            >
+              <ListMusic className="h-4 w-4" />
+              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+                {queue.length}
+              </span>
+            </Button>
           </div>
         )}
 
