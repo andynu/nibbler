@@ -55,6 +55,9 @@ group :development, :test do
   # Pin minitest to 5.x until Rails 8.1 supports 6.0
   gem "minitest", "~> 5.25"
 
+  # Code coverage reporting
+  gem "simplecov", require: false
+
   # Audits gems for known security defects (use config/bundler-audit.yml to ignore issues)
   gem "bundler-audit", require: false
 
@@ -78,4 +81,7 @@ group :development do
 
   # View sent emails in browser instead of sending
   gem "letter_opener"
+
+  # Ruby language server for IDE/LSP integration
+  gem "solargraph"
 end
