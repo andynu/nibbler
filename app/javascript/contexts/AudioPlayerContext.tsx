@@ -216,6 +216,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
 
               audio.addEventListener("canplaythrough", () => {
                 setState("ready")
+                // Auto-play when ready (for queue playback)
+                audio.play().then(() => {
+                  setState("playing")
+                }).catch((err) => {
+                  console.warn("Auto-play failed:", err)
+                  // Stay in ready state, user can manually play
+                })
               })
 
               audio.addEventListener("timeupdate", () => {
@@ -252,6 +259,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
 
         audio.addEventListener("canplaythrough", () => {
           setState("ready")
+          // Auto-play when ready (for queue playback)
+          audio.play().then(() => {
+            setState("playing")
+          }).catch((err) => {
+            console.warn("Auto-play failed:", err)
+            // Stay in ready state, user can manually play
+          })
         })
 
         audio.addEventListener("timeupdate", () => {
@@ -315,6 +329,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
         setDuration(audio.duration)
       }
       setState("ready")
+      // Auto-play when ready (for queue playback)
+      audio.play().then(() => {
+        setState("playing")
+      }).catch((err) => {
+        console.warn("Auto-play failed:", err)
+        // Stay in ready state, user can manually play
+      })
     })
 
     audio.addEventListener("loadedmetadata", () => {
@@ -441,6 +462,51 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     setIsQueuePanelOpen((prev) => !prev)
   }, [])
 
+  // Pre-generate TTS for a queue item in the background
+  const preGenerateQueueItem = useCallback(async (item: QueueItem) => {
+    // Skip if already pre-generating, ready, or not TTS
+    if (item.source !== "tts" || item.status === "ready" || item.audioUrl) return
+    if (preGeneratingRef.current.has(item.id)) return
+
+    preGeneratingRef.current.add(item.id)
+
+    try {
+      // Update item status to generating
+      setQueue((prev) =>
+        prev.map((q) => (q.id === item.id ? { ...q, status: "generating" as const } : q))
+      )
+
+      // Poll for audio generation
+      const pollForAudio = async (): Promise<{ audioUrl: string; duration?: number }> => {
+        const response = await api.entries.audio(item.entryId)
+        if (response.status === "ready" && response.audio_url) {
+          return { audioUrl: response.audio_url, duration: response.duration }
+        }
+        // Wait and try again
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
+        return pollForAudio()
+      }
+
+      const result = await pollForAudio()
+
+      // Update item with audio URL
+      setQueue((prev) =>
+        prev.map((q) =>
+          q.id === item.id
+            ? { ...q, status: "ready" as const, audioUrl: result.audioUrl, duration: result.duration }
+            : q
+        )
+      )
+    } catch (err) {
+      console.warn("Pre-generation failed:", err)
+      setQueue((prev) =>
+        prev.map((q) => (q.id === item.id ? { ...q, status: "error" as const } : q))
+      )
+    } finally {
+      preGeneratingRef.current.delete(item.id)
+    }
+  }, [])
+
   // Helper to play a queue item by index
   const playQueueItem = useCallback((index: number) => {
     if (index < 0 || index >= queue.length) return
@@ -453,7 +519,16 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     } else if (item.source === "podcast" && item.audioUrl) {
       requestPodcastAudio(item.entryId, item.entryTitle, item.audioUrl, item.feedTitle, item.duration)
     }
-  }, [queue, requestTtsAudio, requestPodcastAudio])
+
+    // Pre-generate next item if it exists and is TTS
+    const nextIndex = index + 1
+    if (nextIndex < queue.length) {
+      const nextItem = queue[nextIndex]
+      if (nextItem.source === "tts" && nextItem.status === "pending") {
+        preGenerateQueueItem(nextItem)
+      }
+    }
+  }, [queue, requestTtsAudio, requestPodcastAudio, preGenerateQueueItem])
 
   // Skip to next item in queue
   const skipToNext = useCallback(() => {
