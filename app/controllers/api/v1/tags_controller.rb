@@ -2,14 +2,17 @@ module Api
   module V1
     class TagsController < BaseController
       # GET /api/v1/tags
-      # Returns list of unique tag names for the current user
+      # Returns list of unique tag names with counts for the current user
       def index
-        tag_names = current_user.tags
-          .distinct
+        tags_with_counts = current_user.tags
+          .group(:tag_name)
           .order(:tag_name)
-          .pluck(:tag_name)
+          .count
 
-        render json: { tags: tag_names }
+        render json: {
+          tags: tags_with_counts.keys,
+          tags_with_counts: tags_with_counts.map { |name, count| { name: name, count: count } }
+        }
       end
     end
   end

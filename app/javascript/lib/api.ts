@@ -414,7 +414,8 @@ export const api = {
   },
 
   tags: {
-    list: () => request<{ tags: string[] }>("/tags"),
+    list: () =>
+      request<{ tags: string[]; tags_with_counts: Array<{ name: string; count: number }> }>("/tags"),
   },
 
   entryTags: {

@@ -28,7 +28,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Crosshair, GripVertical } from "lucide-react"
+import { Rss, Folder, FolderOpen, RefreshCw, Star, Clock, Send, Plus, MoreHorizontal, Settings, AlertCircle, Cog, FolderPlus, Pencil, Trash2, Eye, EyeOff, ArrowUpDown, PanelLeftClose, PanelLeft, ChevronsUpDown, ChevronsDownUp, Crosshair, GripVertical, Tags, Tag } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -51,9 +51,12 @@ interface FeedSidebarProps {
   selectedFeedId: number | null
   selectedCategoryId: number | null
   virtualFeed: VirtualFeed
+  selectedTag: string | null
+  tagsWithCounts: Array<{ name: string; count: number }>
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
   onSelectVirtualFeed: (feed: VirtualFeed) => void
+  onSelectTag: (tag: string | null) => void
   onRefreshAll: () => void
   isRefreshing: boolean
   onSubscribe: () => void
@@ -73,9 +76,12 @@ export function FeedSidebar({
   selectedFeedId,
   selectedCategoryId,
   virtualFeed,
+  selectedTag,
+  tagsWithCounts,
   onSelectFeed,
   onSelectCategory,
   onSelectVirtualFeed,
+  onSelectTag,
   onRefreshAll,
   isRefreshing,
   onSubscribe,
@@ -129,6 +135,14 @@ export function FeedSidebar({
       }
     } catch {}
     return new Set()
+  })
+
+  // Track whether the tags folder is expanded
+  const [tagsExpanded, setTagsExpanded] = useState(() => {
+    try {
+      return localStorage.getItem("nibbler:tagsExpanded") === "true"
+    } catch {}
+    return false
   })
 
   // Track which error categories are expanded
@@ -223,6 +237,13 @@ export function FeedSidebar({
       localStorage.setItem("nibbler:expandedSmartFolders", JSON.stringify([...expandedSmartFolders]))
     } catch {}
   }, [expandedSmartFolders])
+
+  // Persist tags folder expansion
+  useEffect(() => {
+    try {
+      localStorage.setItem("nibbler:tagsExpanded", String(tagsExpanded))
+    } catch {}
+  }, [tagsExpanded])
 
   // When new categories are added, default them to expanded (but not collapsed ones)
   useEffect(() => {
@@ -947,6 +968,51 @@ export function FeedSidebar({
               </ContextMenu>
             )
           })}
+
+          {/* Tags virtual folder */}
+          {tagsWithCounts.length > 0 && (
+            <div className="group/tagsfolder">
+              <div className="flex items-center">
+                <Button
+                  variant="ghost"
+                  className="flex-1 justify-start gap-2 mb-1"
+                  onClick={() => setTagsExpanded((prev) => !prev)}
+                >
+                  <span className="shrink-0">
+                    {tagsExpanded ? (
+                      <FolderOpen className="h-4 w-4" />
+                    ) : (
+                      <Folder className="h-4 w-4" />
+                    )}
+                  </span>
+                  <SmartFolderIcon icon={Tags} className="h-4 w-4" />
+                  <span className="flex-1 text-left">Tags</span>
+                  <Badge variant="secondary">{tagsWithCounts.length}</Badge>
+                </Button>
+              </div>
+              {tagsExpanded && (
+                <div className="ml-6 space-y-0.5">
+                  {tagsWithCounts.map((tag) => (
+                    <Button
+                      key={tag.name}
+                      variant="ghost"
+                      className={cn(
+                        "w-full justify-start gap-2 h-8 text-sm",
+                        selectedTag === tag.name && "bg-accent text-accent-foreground"
+                      )}
+                      onClick={() => onSelectTag(tag.name)}
+                    >
+                      <Tag className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left truncate">{tag.name}</span>
+                      <Badge variant="secondary" className="ml-auto">
+                        {tag.count}
+                      </Badge>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {feedsWithErrors.length > 0 && (
             <>

@@ -32,10 +32,12 @@ function App() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
   const [allTags, setAllTags] = useState<string[]>([])
+  const [allTagsWithCounts, setAllTagsWithCounts] = useState<Array<{ name: string; count: number }>>([])
 
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
   const [virtualFeed, setVirtualFeed] = useState<string | null>(null)
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   // Fresh view parameters (session-only, not persisted)
   const [freshMaxAge, setFreshMaxAge] = useState<"week" | "month" | "all">("week")
@@ -109,6 +111,7 @@ function App() {
     try {
       const result = await api.tags.list()
       setAllTags(result.tags)
+      setAllTagsWithCounts(result.tags_with_counts)
     } catch (error) {
       console.error("Failed to load tags:", error)
     }
@@ -129,7 +132,7 @@ function App() {
   // Load entries when selection, sort order, filter preferences, or fresh params change
   useEffect(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, virtualFeed, preferences.entries_sort_config, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred, freshMaxAge, freshPerFeed])
+  }, [selectedFeedId, selectedCategoryId, virtualFeed, selectedTag, preferences.entries_sort_config, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred, freshMaxAge, freshPerFeed])
 
   // Reset iframe view to default when entry changes
   useEffect(() => {
@@ -174,6 +177,8 @@ function App() {
         // Fresh view parameters
         fresh_max_age: virtualFeed === "fresh" ? freshMaxAge : undefined,
         fresh_per_feed: virtualFeed === "fresh" && freshPerFeed ? freshPerFeed : undefined,
+        // Tag filter
+        tag: selectedTag || undefined,
       })
       setEntries(result.entries)
       setSelectedEntry(null)
@@ -209,6 +214,7 @@ function App() {
     setSelectedFeedId(feedId)
     setSelectedCategoryId(null)
     setVirtualFeed(null)
+    setSelectedTag(null)
     if (feedId !== null) {
       navigationHistory.navigateToFeed(feedId)
     } else {
@@ -220,6 +226,7 @@ function App() {
     setSelectedCategoryId(categoryId)
     setSelectedFeedId(null)
     setVirtualFeed(null)
+    setSelectedTag(null)
     if (categoryId !== null) {
       navigationHistory.navigateToCategory(categoryId)
     } else {
@@ -231,11 +238,20 @@ function App() {
     setVirtualFeed(feed)
     setSelectedFeedId(null)
     setSelectedCategoryId(null)
+    setSelectedTag(null)
     if (feed !== null && feed !== "") {
       navigationHistory.navigateToVirtualFeed(feed)
     } else {
       navigationHistory.navigateToRoot()
     }
+  }
+
+  const handleSelectTag = (tag: string | null) => {
+    setSelectedTag(tag)
+    setSelectedFeedId(null)
+    setSelectedCategoryId(null)
+    setVirtualFeed(null)
+    // No navigation history for tags (yet)
   }
 
   const handleRefreshAll = async () => {
@@ -568,7 +584,7 @@ function App() {
 
   const handleKeyboardRefresh = useCallback(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, virtualFeed])
+  }, [selectedFeedId, selectedCategoryId, virtualFeed, selectedTag])
 
   // Handle multi-column sort changes from EntryList
   const handleSortChange = useCallback((newSort: SortConfig[]) => {
@@ -690,6 +706,9 @@ function App() {
   useKeyboardCommands(keyboardCommands)
 
   const getListTitle = () => {
+    if (selectedTag) {
+      return `Tag: ${selectedTag}`
+    }
     if (virtualFeed !== null) {
       const vf = getVirtualFolder(virtualFeed)
       return vf?.name || "All Feeds"
@@ -774,6 +793,13 @@ function App() {
     }
   }
 
+  const handleSelectTagWithNav = (tag: string | null) => {
+    handleSelectTag(tag)
+    if (layout.isMobile) {
+      layout.goToList()
+    }
+  }
+
   // Calculate main container height based on audio player and mobile nav bar
   const getMainHeight = () => {
     let height = "100vh"
@@ -812,9 +838,12 @@ function App() {
             selectedFeedId={selectedFeedId}
             selectedCategoryId={selectedCategoryId}
             virtualFeed={virtualFeed}
+            selectedTag={selectedTag}
+            tagsWithCounts={allTagsWithCounts}
             onSelectFeed={handleSelectFeedWithNav}
             onSelectCategory={handleSelectCategoryWithNav}
             onSelectVirtualFeed={handleSelectVirtualFeedWithNav}
+            onSelectTag={handleSelectTagWithNav}
             onRefreshAll={handleRefreshAll}
             isRefreshing={isRefreshing}
             onSubscribe={() => {
@@ -848,9 +877,12 @@ function App() {
             selectedFeedId={selectedFeedId}
             selectedCategoryId={selectedCategoryId}
             virtualFeed={virtualFeed}
+            selectedTag={selectedTag}
+            tagsWithCounts={allTagsWithCounts}
             onSelectFeed={handleSelectFeedWithNav}
             onSelectCategory={handleSelectCategoryWithNav}
             onSelectVirtualFeed={handleSelectVirtualFeedWithNav}
+            onSelectTag={handleSelectTagWithNav}
             onRefreshAll={handleRefreshAll}
             isRefreshing={isRefreshing}
             onSubscribe={() => {
