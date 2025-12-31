@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react"
+import { useAltKeyHeld } from "@/hooks/useAltKeyHeld"
 import {
   DndContext,
   DragOverlay,
@@ -95,6 +96,9 @@ export function FeedSidebar({
   trackedFeedId,
 }: FeedSidebarProps) {
   const { preferences, updatePreference } = usePreferences()
+
+  // Track Alt key for switching between unread and total counts
+  const showTotalCount = useAltKeyHeld()
 
   // Track whether we've completed initial load (to avoid auto-expanding on first render)
   const hasInitializedRef = useRef(false)
@@ -417,6 +421,7 @@ export function FeedSidebar({
 
   const uncategorizedFeeds = filterAndSortFeeds(feeds.filter((f) => !f.category_id))
   const totalUnread = feeds.reduce((sum, f) => sum + f.unread_count, 0)
+  const totalEntryCount = feeds.reduce((sum, f) => sum + f.entry_count, 0)
   const feedsWithErrors = feeds.filter((f) => f.last_error)
 
   // Group error feeds by error type
@@ -861,8 +866,8 @@ export function FeedSidebar({
                   "flex-1 text-left",
                   folder.id === "" && totalUnread > 0 ? "font-medium" : undefined
                 )}>{folder.name}</span>
-                {folder.id === "" && totalUnread > 0 && (
-                  <Badge variant="secondary">{totalUnread}</Badge>
+                {folder.id === "" && (showTotalCount ? totalEntryCount > 0 : totalUnread > 0) && (
+                  <Badge variant="secondary">{showTotalCount ? totalEntryCount : totalUnread}</Badge>
                 )}
               </Button>
             )
@@ -950,6 +955,7 @@ export function FeedSidebar({
                             onRefresh={() => handleRefresh(feed)}
                             onUnsubscribe={() => handleUnsubscribeFeed(feed)}
                             isRefreshing={refreshingFeedId === feed.id}
+                            showTotalCount={showTotalCount}
                           />
                         ))}
                       </div>
@@ -1127,6 +1133,7 @@ export function FeedSidebar({
                 onAddChildCategory={handleAddChildCategory}
                 hideReadFeeds={hideReadFeeds}
                 filterAndSortFeeds={filterAndSortFeeds}
+                showTotalCount={showTotalCount}
               />
             )
           })}
@@ -1146,6 +1153,7 @@ export function FeedSidebar({
                   onRefresh={() => handleRefreshFeed(feed)}
                   onUnsubscribe={() => handleUnsubscribeFeed(feed)}
                   isRefreshing={refreshingFeedId === feed.id}
+                  showTotalCount={showTotalCount}
                 />
               ))}
             </>
@@ -1217,6 +1225,7 @@ interface CategoryItemProps {
   onAddChildCategory: (parentCategory: Category) => void
   hideReadFeeds: boolean
   filterAndSortFeeds: (feeds: Feed[]) => Feed[]
+  showTotalCount: boolean
 }
 
 function CategoryItem({
@@ -1246,6 +1255,7 @@ function CategoryItem({
   onAddChildCategory,
   hideReadFeeds,
   filterAndSortFeeds,
+  showTotalCount,
 }: CategoryItemProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
@@ -1255,16 +1265,17 @@ function CategoryItem({
     id: `category-${category.id}`,
   })
 
-  // Calculate unread count including all descendants
-  const getDescendantUnreadCount = (cat: Category): number => {
+  // Calculate count including all descendants (either unread or total based on showTotalCount)
+  const getDescendantCount = (cat: Category, useTotal: boolean): number => {
     const directFeeds = allFeeds.filter((f) => f.category_id === cat.id)
-    const directUnread = directFeeds.reduce((sum, f) => sum + f.unread_count, 0)
+    const directCount = directFeeds.reduce((sum, f) => sum + (useTotal ? f.entry_count : f.unread_count), 0)
     const children = childrenByParent.get(cat.id) || []
-    const childUnread = children.reduce((sum, child) => sum + getDescendantUnreadCount(child), 0)
-    return directUnread + childUnread
+    const childCount = children.reduce((sum, child) => sum + getDescendantCount(child, useTotal), 0)
+    return directCount + childCount
   }
 
-  const unreadCount = getDescendantUnreadCount(category)
+  const displayCount = getDescendantCount(category, showTotalCount)
+  const unreadCount = getDescendantCount(category, false)
 
   // Check if any descendant feed is selected
   const hasSelectedDescendant = (cat: Category): boolean => {
@@ -1339,7 +1350,7 @@ function CategoryItem({
                 "flex-1 text-left truncate",
                 unreadCount > 0 ? "font-medium" : "text-muted-foreground"
               )}>{category.title}</span>
-              {unreadCount > 0 && <Badge variant="secondary" className="shrink-0">{unreadCount}</Badge>}
+              {displayCount > 0 && <Badge variant="secondary" className="shrink-0">{displayCount}</Badge>}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1431,6 +1442,7 @@ function CategoryItem({
                 onAddChildCategory={onAddChildCategory}
                 hideReadFeeds={hideReadFeeds}
                 filterAndSortFeeds={filterAndSortFeeds}
+                showTotalCount={showTotalCount}
               />
             )
           })}
@@ -1448,6 +1460,7 @@ function CategoryItem({
                 onRefresh={() => onRefreshFeed(feed)}
                 onUnsubscribe={() => onUnsubscribeFeed(feed)}
                 isRefreshing={refreshingFeedId === feed.id}
+                showTotalCount={showTotalCount}
               />
             ))}
           </div>
@@ -1467,9 +1480,10 @@ interface FeedItemProps {
   onRefresh: () => void
   onUnsubscribe: () => void
   isRefreshing?: boolean
+  showTotalCount?: boolean
 }
 
-function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, onRefresh, onUnsubscribe, isRefreshing }: FeedItemProps) {
+function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, onRefresh, onUnsubscribe, isRefreshing, showTotalCount }: FeedItemProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
 
@@ -1551,7 +1565,11 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
                 </Tooltip>
               </TooltipProvider>
             )}
-            {feed.unread_count > 0 && <Badge variant="secondary" className="shrink-0">{feed.unread_count}</Badge>}
+            {(showTotalCount ? feed.entry_count > 0 : feed.unread_count > 0) && (
+              <Badge variant="secondary" className="shrink-0">
+                {showTotalCount ? feed.entry_count : feed.unread_count}
+              </Badge>
+            )}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
