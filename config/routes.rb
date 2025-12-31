@@ -47,6 +47,7 @@ Rails.application.routes.draw do
       resources :filters do
         member do
           post :test
+          post :backfill
         end
       end
 

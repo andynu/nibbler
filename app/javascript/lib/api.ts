@@ -225,6 +225,10 @@ export interface FilterTestResult {
   matched_articles: Array<{ id: number; title: string }>
 }
 
+export interface FilterBackfillResult {
+  affected_count: number
+}
+
 export interface WordTimestamp {
   word: string
   start: number
@@ -405,6 +409,8 @@ export const api = {
       request<Filter>(`/filters/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/filters/${id}`, { method: "DELETE" }),
     test: (id: number) => request<FilterTestResult>(`/filters/${id}/test`, { method: "POST" }),
+    backfill: (id: number) =>
+      request<FilterBackfillResult>(`/filters/${id}/backfill`, { method: "POST" }),
   },
 
   tags: {

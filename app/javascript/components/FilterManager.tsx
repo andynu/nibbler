@@ -48,7 +48,7 @@ import {
   FilterActionUpdateData,
   FilterUpdateData,
 } from "@/lib/api"
-import { Plus, Pencil, Trash2, GripVertical, Play, X } from "lucide-react"
+import { Plus, Pencil, Trash2, GripVertical, Play, X, RotateCcw } from "lucide-react"
 
 const FILTER_TYPES = [
   { value: 1, label: "Title", name: "title" },
@@ -109,6 +109,11 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
     matches: number
     total: number
   } | null>(null)
+  const [backfillResult, setBackfillResult] = useState<{
+    filterId: number
+    affectedCount: number
+  } | null>(null)
+  const [backfillInProgress, setBackfillInProgress] = useState<number | null>(null)
   const [availableTags, setAvailableTags] = useState<string[]>([])
   const [availableLabels, setAvailableLabels] = useState<Array<{ id: number; caption: string }>>([])
 
@@ -220,6 +225,23 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
     }
   }
 
+  const handleBackfill = async (filterId: number) => {
+    setBackfillInProgress(filterId)
+    setBackfillResult(null)
+    try {
+      const result = await api.filters.backfill(filterId)
+      setBackfillResult({
+        filterId,
+        affectedCount: result.affected_count,
+      })
+      setTimeout(() => setBackfillResult(null), 5000)
+    } catch (error) {
+      console.error("Failed to backfill filter:", error)
+    } finally {
+      setBackfillInProgress(null)
+    }
+  }
+
   const getFilterTypeName = (typeValue: number) => {
     return FILTER_TYPES.find((t) => t.value === typeValue)?.label || "Unknown"
   }
@@ -273,10 +295,13 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
                     key={filter.id}
                     filter={filter}
                     testResult={testResult}
+                    backfillResult={backfillResult}
+                    backfillInProgress={backfillInProgress}
                     getFilterTypeName={getFilterTypeName}
                     getActionTypeName={getActionTypeName}
                     onToggleEnabled={handleToggleEnabled}
                     onTest={handleTest}
+                    onBackfill={handleBackfill}
                     onEdit={setEditingFilter}
                     onDelete={handleDelete}
                   />
@@ -924,10 +949,13 @@ function FilterEditorDialog({
 interface SortableFilterItemProps {
   filter: Filter
   testResult: { filterId: number; matches: number; total: number } | null
+  backfillResult: { filterId: number; affectedCount: number } | null
+  backfillInProgress: number | null
   getFilterTypeName: (typeValue: number) => string
   getActionTypeName: (typeValue: number) => string
   onToggleEnabled: (filter: Filter) => void
   onTest: (filterId: number) => void
+  onBackfill: (filterId: number) => void
   onEdit: (filter: Filter) => void
   onDelete: (filterId: number) => void
 }
@@ -935,10 +963,13 @@ interface SortableFilterItemProps {
 function SortableFilterItem({
   filter,
   testResult,
+  backfillResult,
+  backfillInProgress,
   getFilterTypeName,
   getActionTypeName,
   onToggleEnabled,
   onTest,
+  onBackfill,
   onEdit,
   onDelete,
 }: SortableFilterItemProps) {
@@ -982,6 +1013,14 @@ function SortableFilterItem({
             <Badge variant="outline">
               {testResult.matches}/{testResult.total} matched
             </Badge>
+          )}
+          {backfillResult?.filterId === filter.id && (
+            <Badge variant="default">
+              {backfillResult.affectedCount} articles updated
+            </Badge>
+          )}
+          {backfillInProgress === filter.id && (
+            <Badge variant="secondary">Running...</Badge>
           )}
         </div>
 
@@ -1031,6 +1070,16 @@ function SortableFilterItem({
           aria-label={`Test ${filter.title}`}
         >
           <Play className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onBackfill(filter.id)}
+          disabled={backfillInProgress !== null}
+          aria-label={`Apply ${filter.title} to existing articles`}
+          title="Apply to existing articles"
+        >
+          <RotateCcw className="w-4 h-4" />
         </Button>
         <Button
           variant="ghost"
