@@ -66,7 +66,6 @@ const ACTION_TYPES = [
   { value: "star", label: "Star article" },
   { value: "tag", label: "Add tag", hasParam: true },
   { value: "score", label: "Adjust score", hasParam: true },
-  { value: "label", label: "Apply label", hasParam: true },
   { value: "delete", label: "Delete article" },
   { value: "stop", label: "Stop processing" },
 ]
@@ -116,7 +115,6 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
   } | null>(null)
   const [backfillInProgress, setBackfillInProgress] = useState<number | null>(null)
   const [availableTags, setAvailableTags] = useState<string[]>([])
-  const [availableLabels, setAvailableLabels] = useState<Array<{ id: number; caption: string }>>([])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -131,19 +129,15 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
 
   useEffect(() => {
     loadFilters()
-    loadTagsAndLabels()
+    loadTags()
   }, [])
 
-  const loadTagsAndLabels = async () => {
+  const loadTags = async () => {
     try {
-      const [tagsData, labelsData] = await Promise.all([
-        api.tags.list(),
-        api.labels.list(),
-      ])
+      const tagsData = await api.tags.list()
       setAvailableTags(tagsData.tags)
-      setAvailableLabels(labelsData.map((l) => ({ id: l.id, caption: l.name || l.caption })))
     } catch (error) {
-      console.error("Failed to load tags/labels:", error)
+      console.error("Failed to load tags:", error)
     }
   }
 
@@ -325,7 +319,6 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
         feeds={feeds}
         categories={categories}
         availableTags={availableTags}
-        availableLabels={availableLabels}
         onSave={async (data) => {
           if (editingFilter) {
             const updated = await api.filters.update(editingFilter.id, {
@@ -367,7 +360,6 @@ interface FilterEditorDialogProps {
   feeds: Feed[]
   categories: Category[]
   availableTags: string[]
-  availableLabels: Array<{ id: number; caption: string }>
   onSave: (data: FilterUpdateData) => Promise<void>
 }
 
@@ -378,7 +370,6 @@ function FilterEditorDialog({
   feeds,
   categories,
   availableTags,
-  availableLabels,
   onSave,
 }: FilterEditorDialogProps) {
   const [form, setForm] = useState<FilterFormData>({
@@ -876,27 +867,6 @@ function FilterEditorDialog({
                         ))}
                       </datalist>
                     </>
-                  )}
-
-                  {/* Label action - show select from available labels */}
-                  {action.action_type === "label" && (
-                    <Select
-                      value={action.action_param || ""}
-                      onValueChange={(value) =>
-                        handleUpdateAction(index, { action_param: value })
-                      }
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select a label" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableLabels.map((label) => (
-                          <SelectItem key={label.id} value={String(label.id)}>
-                            {label.caption}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   )}
 
                   {/* Score action - show number input */}
