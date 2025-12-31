@@ -83,7 +83,7 @@ describe("SettingsDialog", () => {
 
       expect(screen.getByRole("tab", { name: /feeds/i })).toBeInTheDocument()
       expect(screen.getByRole("tab", { name: /filters/i })).toBeInTheDocument()
-      expect(screen.getByRole("tab", { name: /labels/i })).toBeInTheDocument()
+      expect(screen.getByRole("tab", { name: /tags/i })).toBeInTheDocument()
       expect(screen.getByRole("tab", { name: /import\/export/i })).toBeInTheDocument()
       expect(screen.getByRole("tab", { name: /tools/i })).toBeInTheDocument()
       expect(screen.getByRole("tab", { name: /preferences/i })).toBeInTheDocument()
@@ -107,11 +107,11 @@ describe("SettingsDialog", () => {
       expect(screen.getByTestId("filter-manager")).toBeInTheDocument()
     })
 
-    it("clicking Labels tab shows LabelManager", async () => {
+    it("clicking Tags tab shows LabelManager", async () => {
       const user = userEvent.setup()
       render(<SettingsDialogWrapper {...defaultProps} />)
 
-      await user.click(screen.getByRole("tab", { name: /labels/i }))
+      await user.click(screen.getByRole("tab", { name: /tags/i }))
 
       expect(screen.getByTestId("label-manager")).toBeInTheDocument()
     })

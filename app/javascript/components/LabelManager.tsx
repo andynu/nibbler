@@ -74,7 +74,7 @@ export function LabelManager() {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b flex items-center justify-between">
         <div>
-          <h3 className="font-medium">Labels</h3>
+          <h3 className="font-medium">Tags</h3>
           <p className="text-sm text-muted-foreground">
             Organize articles with custom labels
           </p>

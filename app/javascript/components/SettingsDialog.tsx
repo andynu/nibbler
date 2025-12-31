@@ -49,7 +49,7 @@ export function SettingsDialog({
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="feeds">Feeds</TabsTrigger>
             <TabsTrigger value="filters">Filters</TabsTrigger>
-            <TabsTrigger value="labels">Labels</TabsTrigger>
+            <TabsTrigger value="labels">Tags</TabsTrigger>
             <TabsTrigger value="opml">Import/Export</TabsTrigger>
             <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="preferences">Preferences</TabsTrigger>

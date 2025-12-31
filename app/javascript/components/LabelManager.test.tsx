@@ -83,7 +83,7 @@ describe("LabelManager", () => {
       render(<LabelManager />)
 
       await waitFor(() => {
-        expect(screen.getByText("Labels")).toBeInTheDocument()
+        expect(screen.getByText("Tags")).toBeInTheDocument()
       })
     })
 
