@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_28_121443) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_31_031536) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -81,11 +81,10 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_121443) do
     t.index ["updated"], name: "index_entries_on_updated"
   end
 
-  create_table "entry_labels", force: :cascade do |t|
+  create_table "entry_tags", force: :cascade do |t|
     t.bigint "entry_id", null: false
-    t.bigint "label_id", null: false
-    t.index ["entry_id"], name: "index_entry_labels_on_entry_id"
-    t.index ["label_id"], name: "index_entry_labels_on_label_id"
+    t.bigint "tag_id", null: false
+    t.index ["entry_id", "tag_id"], name: "index_entry_tags_on_entry_id_and_tag_id", unique: true
   end
 
   create_table "feeds", force: :cascade do |t|
@@ -267,26 +266,18 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_121443) do
     t.index ["scheduled_at"], name: "index_good_jobs_on_scheduled_at", where: "(finished_at IS NULL)"
   end
 
-  create_table "labels", force: :cascade do |t|
-    t.string "bg_color", default: "", null: false
-    t.string "caption", null: false
-    t.string "fg_color", default: "", null: false
-    t.bigint "user_id", null: false
-    t.index ["user_id"], name: "index_labels_on_user_id"
-  end
-
   create_table "tags", force: :cascade do |t|
-    t.string "tag_name", null: false
-    t.bigint "user_entry_id", null: false
+    t.string "bg_color", default: "", null: false
+    t.string "fg_color", default: "", null: false
+    t.string "name", null: false
     t.bigint "user_id", null: false
-    t.index ["user_entry_id"], name: "index_tags_on_user_entry_id"
+    t.index ["user_id", "name"], name: "index_tags_on_user_id_and_name", unique: true
     t.index ["user_id"], name: "index_tags_on_user_id"
   end
 
   create_table "user_entries", force: :cascade do |t|
     t.bigint "entry_id", null: false
     t.bigint "feed_id"
-    t.text "label_cache", default: "", null: false
     t.datetime "last_marked"
     t.datetime "last_published"
     t.datetime "last_read"
@@ -295,7 +286,6 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_121443) do
     t.integer "orig_feed_id"
     t.boolean "published", default: false, null: false
     t.integer "score", default: 0, null: false
-    t.text "tag_cache", default: "", null: false
     t.boolean "unread", default: true, null: false
     t.bigint "user_id", null: false
     t.string "uuid", null: false
@@ -339,8 +329,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_121443) do
   add_foreign_key "categories", "categories", column: "parent_id", on_delete: :nullify
   add_foreign_key "categories", "users"
   add_foreign_key "enclosures", "entries", on_delete: :cascade
-  add_foreign_key "entry_labels", "entries", on_delete: :cascade
-  add_foreign_key "entry_labels", "labels", on_delete: :cascade
+  add_foreign_key "entry_tags", "entries", on_delete: :cascade
+  add_foreign_key "entry_tags", "tags", on_delete: :cascade
   add_foreign_key "feeds", "categories"
   add_foreign_key "feeds", "feeds", column: "parent_feed_id"
   add_foreign_key "feeds", "users"
@@ -349,8 +339,6 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_121443) do
   add_foreign_key "filter_rules", "feeds", on_delete: :cascade
   add_foreign_key "filter_rules", "filters", on_delete: :cascade
   add_foreign_key "filters", "users", on_delete: :cascade
-  add_foreign_key "labels", "users", on_delete: :cascade
-  add_foreign_key "tags", "user_entries", on_delete: :cascade
   add_foreign_key "tags", "users", on_delete: :cascade
   add_foreign_key "user_entries", "entries", on_delete: :cascade
   add_foreign_key "user_entries", "feeds", on_delete: :cascade

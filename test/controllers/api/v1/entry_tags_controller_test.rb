@@ -11,46 +11,46 @@ class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
       entry: @entry,
       feed: @feed,
       uuid: SecureRandom.uuid,
-      unread: true,
-      tag_cache: ""
+      unread: true
     )
   end
 
-  test "create adds a tag to an entry" do
-    assert_difference "@user_entry.tags.count", 1 do
-      post api_v1_entry_tags_url(@user_entry.id),
-        params: { tag_name: "tech" },
-        as: :json
+  def entry_tags_count
+    @entry.tags.where(user_id: @user.id).count
+  end
 
-      assert_response :success
-    end
+  test "create adds a tag to an entry" do
+    original_count = entry_tags_count
+
+    post api_v1_entry_tags_url(@user_entry.id),
+      params: { tag_name: "tech" },
+      as: :json
+
+    assert_response :success
+    assert_equal original_count + 1, entry_tags_count
 
     json = JSON.parse(response.body)
     assert_equal [ "tech" ], json["tags"]
     assert_equal @user_entry.id, json["entry_id"]
 
-    # Verify tag was created
-    assert @user_entry.tags.exists?(tag_name: "tech")
-
-    # Verify tag_cache was updated
-    @user_entry.reload
-    assert_equal "tech", @user_entry.tag_cache
+    # Verify tag was created and linked to entry
+    tag = @user.tags.find_by(name: "tech")
+    assert tag, "Tag should be created"
+    assert @entry.tags.include?(tag), "Entry should have the tag"
   end
 
   test "create adds multiple tags at once" do
-    assert_difference "@user_entry.tags.count", 3 do
-      post api_v1_entry_tags_url(@user_entry.id),
-        params: { tag_names: [ "tech", "news", "ruby" ] },
-        as: :json
+    original_count = entry_tags_count
 
-      assert_response :success
-    end
+    post api_v1_entry_tags_url(@user_entry.id),
+      params: { tag_names: [ "tech", "news", "ruby" ] },
+      as: :json
+
+    assert_response :success
+    assert_equal original_count + 3, entry_tags_count
 
     json = JSON.parse(response.body)
     assert_equal [ "news", "ruby", "tech" ], json["tags"].sort
-
-    @user_entry.reload
-    assert_equal "news,ruby,tech", @user_entry.tag_cache
   end
 
   test "create normalizes tag names to lowercase" do
@@ -65,53 +65,58 @@ class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create ignores duplicate tags" do
-    @user_entry.tags.create!(tag_name: "tech", user: @user)
+    # Create an existing tag and link it to the entry
+    tag = @user.tags.create!(name: "tech", bg_color: "#64748b", fg_color: "#ffffff")
+    EntryTag.create!(entry: @entry, tag: tag)
 
-    assert_no_difference "@user_entry.tags.count" do
-      post api_v1_entry_tags_url(@user_entry.id),
-        params: { tag_name: "tech" },
-        as: :json
+    original_count = entry_tags_count
 
-      assert_response :success
-    end
+    post api_v1_entry_tags_url(@user_entry.id),
+      params: { tag_name: "tech" },
+      as: :json
+
+    assert_response :success
+    assert_equal original_count, entry_tags_count
   end
 
   test "create ignores blank tag names" do
-    assert_no_difference "@user_entry.tags.count" do
-      post api_v1_entry_tags_url(@user_entry.id),
-        params: { tag_name: "  " },
-        as: :json
+    original_count = entry_tags_count
 
-      assert_response :success
-    end
+    post api_v1_entry_tags_url(@user_entry.id),
+      params: { tag_name: "  " },
+      as: :json
+
+    assert_response :success
+    assert_equal original_count, entry_tags_count
   end
 
   test "destroy removes a tag from an entry" do
-    @user_entry.tags.create!(tag_name: "tech", user: @user)
-    @user_entry.tags.create!(tag_name: "news", user: @user)
-    @user_entry.update!(tag_cache: "news,tech")
+    # Create tags and link them to the entry
+    tech_tag = @user.tags.create!(name: "tech", bg_color: "#64748b", fg_color: "#ffffff")
+    news_tag = @user.tags.create!(name: "news", bg_color: "#64748b", fg_color: "#ffffff")
+    EntryTag.create!(entry: @entry, tag: tech_tag)
+    EntryTag.create!(entry: @entry, tag: news_tag)
 
-    assert_difference "@user_entry.tags.count", -1 do
-      delete api_v1_entry_tag_url(@user_entry.id, "tech"),
-        as: :json
+    original_count = entry_tags_count
 
-      assert_response :success
-    end
+    delete api_v1_entry_tag_url(@user_entry.id, "tech"),
+      as: :json
+
+    assert_response :success
+    assert_equal original_count - 1, entry_tags_count
 
     json = JSON.parse(response.body)
     assert_equal [ "news" ], json["tags"]
-
-    @user_entry.reload
-    assert_equal "news", @user_entry.tag_cache
   end
 
   test "destroy handles non-existent tags gracefully" do
-    assert_no_difference "@user_entry.tags.count" do
-      delete api_v1_entry_tag_url(@user_entry.id, "nonexistent"),
-        as: :json
+    original_count = entry_tags_count
 
-      assert_response :success
-    end
+    delete api_v1_entry_tag_url(@user_entry.id, "nonexistent"),
+      as: :json
+
+    assert_response :success
+    assert_equal original_count, entry_tags_count
   end
 
   test "returns 404 for non-existent user_entry" do

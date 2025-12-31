@@ -36,7 +36,7 @@ class FilterExecutor
       content: @entry.content,
       link: @entry.link,
       author: @entry.author,
-      tags: @user_entry.tag_cache.to_s.split(",").map(&:strip)
+      tags: @entry.tags.where(user_id: @user.id).pluck(:name)
     }
   end
 
@@ -95,17 +95,20 @@ class FilterExecutor
         Rails.logger.info "Filter #{filter.id}: changed score by #{score_delta} for entry #{@entry.id}"
 
       when FilterAction::ACTION_TYPES[:label]
-        label = @user.labels.find_by(id: action.action_param.to_i)
-        if label && !@entry.labels.include?(label)
-          @entry.labels << label
-          Rails.logger.info "Filter #{filter.id}: added label '#{label.caption}' to entry #{@entry.id}"
-        end
+        # Label action now uses Tag (labels have been consolidated into tags)
+        add_tag_to_entry(action.action_param.to_i, filter)
 
       when FilterAction::ACTION_TYPES[:tag]
-        tag_name = action.action_param.to_s.strip
-        if tag_name.present? && !@user_entry.tags.exists?(tag_name: tag_name)
-          @user_entry.tags.create!(tag_name: tag_name, user: @user)
-          Rails.logger.info "Filter #{filter.id}: added tag '#{tag_name}' to entry #{@entry.id}"
+        tag_name = action.action_param.to_s.strip.downcase
+        if tag_name.present?
+          tag = @user.tags.find_or_create_by!(name: tag_name) do |t|
+            t.bg_color = "#64748b"
+            t.fg_color = "#ffffff"
+          end
+          unless @entry.tags.include?(tag)
+            @entry.tags << tag
+            Rails.logger.info "Filter #{filter.id}: added tag '#{tag_name}' to entry #{@entry.id}"
+          end
         end
 
       when FilterAction::ACTION_TYPES[:stop]
@@ -114,12 +117,23 @@ class FilterExecutor
 
       when FilterAction::ACTION_TYPES[:ignore_tag]
         # Remove tag if present
-        tag_name = action.action_param.to_s.strip
-        @user_entry.tags.where(tag_name: tag_name).destroy_all
-        Rails.logger.info "Filter #{filter.id}: removed tag '#{tag_name}' from entry #{@entry.id}"
+        tag_name = action.action_param.to_s.strip.downcase
+        tag = @user.tags.find_by(name: tag_name)
+        if tag
+          EntryTag.where(entry: @entry, tag: tag).destroy_all
+          Rails.logger.info "Filter #{filter.id}: removed tag '#{tag_name}' from entry #{@entry.id}"
+        end
       end
     end
 
     should_stop
+  end
+
+  def add_tag_to_entry(tag_id, filter)
+    tag = @user.tags.find_by(id: tag_id)
+    if tag && !@entry.tags.include?(tag)
+      @entry.tags << tag
+      Rails.logger.info "Filter #{filter.id}: added tag '#{tag.name}' to entry #{@entry.id}"
+    end
   end
 end

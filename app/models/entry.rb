@@ -10,13 +10,13 @@
 #
 # @see UserEntry for per-user read state and interaction
 # @see Enclosure for attached media (audio, video, images)
-# @see Label for user-applied classification
+# @see Tag for user-applied classification
 class Entry < ApplicationRecord
   has_many :user_entries, dependent: :destroy
   has_many :users, through: :user_entries
   has_many :enclosures, dependent: :destroy
-  has_many :entry_labels, dependent: :destroy
-  has_many :labels, through: :entry_labels
+  has_many :entry_tags, dependent: :destroy
+  has_many :tags, through: :entry_tags
   has_many :cached_images, dependent: :destroy
   has_one :cached_audio, dependent: :destroy
 

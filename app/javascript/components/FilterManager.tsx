@@ -140,7 +140,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
         api.labels.list(),
       ])
       setAvailableTags(tagsData.tags)
-      setAvailableLabels(labelsData.map((l) => ({ id: l.id, caption: l.caption })))
+      setAvailableLabels(labelsData.map((l) => ({ id: l.id, caption: l.name || l.caption })))
     } catch (error) {
       console.error("Failed to load tags/labels:", error)
     }

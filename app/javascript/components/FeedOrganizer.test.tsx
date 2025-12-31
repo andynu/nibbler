@@ -25,6 +25,15 @@ vi.mock("@/components/CommandPalette", () => ({
   CommandPalette: () => null,
 }))
 
+// Mock PreferencesContext
+vi.mock("@/contexts/PreferencesContext", () => ({
+  usePreferences: () => ({
+    preferences: {},
+    updatePreference: vi.fn(),
+    isLoading: false,
+  }),
+}))
+
 describe("FeedOrganizer", () => {
   const defaultProps = {
     feeds: [],

@@ -1,17 +1,21 @@
-# Represents a user-applied tag on a specific entry instance.
+# Represents a user-defined tag for classifying entries.
 #
-# Tags are lightweight, user-scoped keywords attached to UserEntry records.
-# Unlike Labels (which link directly to Entry), tags are specific to how a
-# particular user has categorized a particular entry in their collection.
+# Tags are user-scoped classification markers that can be applied to entries
+# across any feed. They are linked directly to Entry records via the EntryTag
+# join model.
 #
-# Tags can be applied manually by users or automatically via filter actions.
+# Tags support custom colors (foreground and background) for visual
+# differentiation in the UI. They can be applied manually by users or
+# automatically via filter actions.
 #
-# @see UserEntry for the tagged entry instance
-# @see Label for an alternative classification mechanism at the Entry level
+# @see EntryTag for the join relationship
+# @see Entry for tagged articles
 # @see FilterAction for automated tagging
 class Tag < ApplicationRecord
   belongs_to :user
-  belongs_to :user_entry
+  has_many :entry_tags, dependent: :destroy
+  has_many :entries, through: :entry_tags
 
-  validates :tag_name, presence: true
+  validates :name, presence: true
+  validates :name, uniqueness: { scope: :user_id }
 end

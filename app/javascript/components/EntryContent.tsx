@@ -323,17 +323,17 @@ export function EntryContent({
               <span>·</span>
               <time dateTime={entry.published}>{formattedDate}</time>
             </div>
-            {entry.labels && entry.labels.length > 0 && (
-              <div className="flex gap-1 mt-2">
-                {entry.labels.map((label) => (
+            {entry.tags && entry.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {entry.tags.map((tag) => (
                   <Badge
-                    key={label.id}
+                    key={tag.id}
                     style={{
-                      backgroundColor: label.bg_color,
-                      color: label.fg_color,
+                      backgroundColor: tag.bg_color,
+                      color: tag.fg_color,
                     }}
                   >
-                    {label.caption}
+                    {tag.name}
                   </Badge>
                 ))}
               </div>
@@ -341,7 +341,7 @@ export function EntryContent({
             {onAddTag && onRemoveTag && (
               <div className="mt-2">
                 <TagEditor
-                  tags={entry.tags || []}
+                  tags={(entry.tags || []).map(t => t.name)}
                   allTags={allTags}
                   onAddTag={onAddTag}
                   onRemoveTag={onRemoveTag}

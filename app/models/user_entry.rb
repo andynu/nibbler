@@ -5,17 +5,15 @@
 # This allows multiple users to have independent read states for shared entries.
 #
 # Each UserEntry has a UUID for external API references and belongs to the feed
-# through which the user received the entry. Tags are attached at this level
-# since they represent user-specific classification.
+# through which the user received the entry.
 #
 # @see Entry for the underlying article content
 # @see Feed for the source subscription
-# @see Tag for user-applied tags on this specific entry
+# @see Tag for user-applied tags (attached at Entry level)
 class UserEntry < ApplicationRecord
   belongs_to :entry
   belongs_to :feed, optional: true
   belongs_to :user
-  has_many :tags, dependent: :destroy
 
   validates :uuid, presence: true
 

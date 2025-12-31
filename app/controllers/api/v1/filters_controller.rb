@@ -191,7 +191,7 @@ module Api
           content: entry.content,
           link: entry.link,
           author: entry.author,
-          tags: user_entry.tags.pluck(:tag_name),
+          tags: entry.tags.where(user_id: current_user.id).pluck(:name),
           published: entry.updated,
           updated: entry.updated
         }
@@ -242,15 +242,20 @@ module Api
             user_entry.update!(score: user_entry.score + score_delta)
 
           when FilterAction::ACTION_TYPES[:label]
-            label = current_user.labels.find_by(id: action.action_param.to_i)
-            if label && !entry.labels.include?(label)
-              entry.labels << label
+            # Label action now uses Tag (labels have been consolidated into tags)
+            tag = current_user.tags.find_by(id: action.action_param.to_i)
+            if tag && !entry.tags.include?(tag)
+              entry.tags << tag
             end
 
           when FilterAction::ACTION_TYPES[:tag]
-            tag_name = action.action_param.to_s.strip
-            if tag_name.present? && !user_entry.tags.exists?(tag_name: tag_name)
-              user_entry.tags.create!(tag_name: tag_name, user: current_user)
+            tag_name = action.action_param.to_s.strip.downcase
+            if tag_name.present?
+              tag = current_user.tags.find_or_create_by!(name: tag_name) do |t|
+                t.bg_color = "#64748b"
+                t.fg_color = "#ffffff"
+              end
+              entry.tags << tag unless entry.tags.include?(tag)
             end
 
           when FilterAction::ACTION_TYPES[:stop]
@@ -258,8 +263,9 @@ module Api
             # Just ignore it
 
           when FilterAction::ACTION_TYPES[:ignore_tag]
-            tag_name = action.action_param.to_s.strip
-            user_entry.tags.where(tag_name: tag_name).destroy_all
+            tag_name = action.action_param.to_s.strip.downcase
+            tag = current_user.tags.find_by(name: tag_name)
+            EntryTag.where(entry: entry, tag: tag).destroy_all if tag
           end
         end
       end

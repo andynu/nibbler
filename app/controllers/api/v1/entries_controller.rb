@@ -299,8 +299,7 @@ module Api
           # Use cached_content (with locally cached images) if available
           json[:content] = entry.cached_content.presence || entry.content
           json[:note] = user_entry.note
-          json[:labels] = entry.labels.map { |l| { id: l.id, caption: l.caption, fg_color: l.fg_color, bg_color: l.bg_color } }
-          json[:tags] = user_entry.tags.pluck(:tag_name)
+          json[:tags] = entry.tags.where(user_id: user_entry.user_id).map { |t| { id: t.id, name: t.name, fg_color: t.fg_color, bg_color: t.bg_color } }
           json[:enclosures] = entry.enclosures.map { |e| enclosure_json(e) }
         end
 

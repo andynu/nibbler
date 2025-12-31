@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { api, Label } from "@/lib/api"
+import { api, Tag } from "@/lib/api"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 
 const DEFAULT_COLORS = [
@@ -26,9 +26,9 @@ const DEFAULT_COLORS = [
 ]
 
 export function LabelManager() {
-  const [labels, setLabels] = useState<Label[]>([])
+  const [labels, setLabels] = useState<Tag[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [editingLabel, setEditingLabel] = useState<Label | null>(null)
+  const [editingLabel, setEditingLabel] = useState<Tag | null>(null)
   const [isCreating, setIsCreating] = useState(false)
 
   useEffect(() => {
@@ -50,10 +50,11 @@ export function LabelManager() {
     const label = labels.find((l) => l.id === labelId)
     if (!label) return
 
+    const name = label.name || label.caption || ""
     const msg =
       label.entry_count > 0
-        ? `Delete "${label.caption}"? It is currently applied to ${label.entry_count} article(s).`
-        : `Delete "${label.caption}"?`
+        ? `Delete "${name}"? It is currently applied to ${label.entry_count} article(s).`
+        : `Delete "${name}"?`
 
     if (!confirm(msg)) return
 
@@ -108,7 +109,7 @@ export function LabelManager() {
                     }}
                     className="text-sm"
                   >
-                    {label.caption}
+                    {label.name || label.caption}
                   </Badge>
                   <span className="text-sm text-muted-foreground">
                     {label.entry_count} article{label.entry_count !== 1 ? "s" : ""}
@@ -119,7 +120,7 @@ export function LabelManager() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setEditingLabel(label)}
-                    aria-label={`Edit ${label.caption}`}
+                    aria-label={`Edit ${label.name || label.caption}`}
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
@@ -127,7 +128,7 @@ export function LabelManager() {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDelete(label.id)}
-                    aria-label={`Delete ${label.caption}`}
+                    aria-label={`Delete ${label.name || label.caption}`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -168,7 +169,7 @@ export function LabelManager() {
 interface LabelEditorDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  label: Label | null
+  label: Tag | null
   onSave: (data: { caption: string; fg_color: string; bg_color: string }) => Promise<void>
 }
 
@@ -185,7 +186,7 @@ function LabelEditorDialog({
 
   useEffect(() => {
     if (label) {
-      setCaption(label.caption)
+      setCaption(label.name || label.caption || "")
       setFgColor(label.fg_color || "#ffffff")
       setBgColor(label.bg_color || "#3b82f6")
     } else {

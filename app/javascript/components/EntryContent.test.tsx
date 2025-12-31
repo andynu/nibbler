@@ -233,8 +233,8 @@ describe("EntryContent", () => {
 
     it("renders labels with correct colors", () => {
       const entry = mockEntryWithContent({
-        labels: [
-          { id: 1, caption: "Important", fg_color: "#ffffff", bg_color: "#ff0000" },
+        tags: [
+          { id: 1, name: "Important", fg_color: "#ffffff", bg_color: "#ff0000" },
         ],
       })
 
@@ -249,7 +249,10 @@ describe("EntryContent", () => {
 
     it("renders tags as badges when tag callbacks are provided", () => {
       const entry = mockEntryWithContent({
-        tags: ["tech", "news"],
+        tags: [
+          { id: 1, name: "tech", fg_color: "#ffffff", bg_color: "#64748b" },
+          { id: 2, name: "news", fg_color: "#ffffff", bg_color: "#64748b" },
+        ],
       })
 
       render(
@@ -262,8 +265,11 @@ describe("EntryContent", () => {
         />
       )
 
-      expect(screen.getByText("tech")).toBeInTheDocument()
-      expect(screen.getByText("news")).toBeInTheDocument()
+      // Tags appear both as colored badges and in the TagEditor
+      const techElements = screen.getAllByText("tech")
+      const newsElements = screen.getAllByText("news")
+      expect(techElements.length).toBeGreaterThan(0)
+      expect(newsElements.length).toBeGreaterThan(0)
     })
 
     it("renders HTML content", () => {
@@ -396,15 +402,6 @@ describe("EntryContent", () => {
       render(<EntryContent {...defaultProps} entry={entry} />)
 
       // Should still render without error
-      expect(screen.getByText(entry.title)).toBeInTheDocument()
-    })
-
-    it("handles empty labels array", () => {
-      const entry = mockEntryWithContent({ labels: [] })
-
-      render(<EntryContent {...defaultProps} entry={entry} />)
-
-      // Should render without labels section causing issues
       expect(screen.getByText(entry.title)).toBeInTheDocument()
     })
 

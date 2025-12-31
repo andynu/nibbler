@@ -1,8 +1,8 @@
 # Represents an account holder in the feed reader system.
 #
 # Users are the central entity that owns all user-specific data: feed subscriptions,
-# categories for organizing feeds, entries they've received, labels and tags for
-# classification, filters for automated article processing, and preferences.
+# categories for organizing feeds, entries they've received, tags for classification,
+# filters for automated article processing, and preferences.
 #
 # Authentication uses SHA256 hashing with optional salt for password storage.
 # Access levels support basic user vs admin role differentiation.
@@ -15,7 +15,6 @@ class User < ApplicationRecord
   has_many :feeds, dependent: :destroy
   has_many :user_entries, dependent: :destroy
   has_many :entries, through: :user_entries
-  has_many :labels, dependent: :destroy
   has_many :tags, dependent: :destroy
   has_many :filters, dependent: :destroy
   has_many :user_preferences, dependent: :destroy

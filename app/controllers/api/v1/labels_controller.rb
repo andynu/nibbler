@@ -1,63 +1,72 @@
 module Api
   module V1
+    # Legacy endpoint for tag management (previously "labels")
+    # TODO: Rename to /api/v1/tags after frontend migration
     class LabelsController < BaseController
-      before_action :set_label, only: [ :show, :update, :destroy ]
+      before_action :set_tag, only: [ :show, :update, :destroy ]
 
       # GET /api/v1/labels
       def index
-        @labels = current_user.labels
+        @tags = current_user.tags
 
-        render json: @labels.map { |label| label_json(label) }
+        render json: @tags.map { |tag| tag_json(tag) }
       end
 
       # GET /api/v1/labels/:id
       def show
-        render json: label_json(@label)
+        render json: tag_json(@tag)
       end
 
       # POST /api/v1/labels
       def create
-        @label = current_user.labels.build(label_params)
+        @tag = current_user.tags.build(tag_params)
 
-        if @label.save
-          render json: label_json(@label), status: :created
+        if @tag.save
+          render json: tag_json(@tag), status: :created
         else
-          render json: { errors: @label.errors.full_messages }, status: :unprocessable_entity
+          render json: { errors: @tag.errors.full_messages }, status: :unprocessable_entity
         end
       end
 
       # PATCH/PUT /api/v1/labels/:id
       def update
-        if @label.update(label_params)
-          render json: label_json(@label)
+        if @tag.update(tag_params)
+          render json: tag_json(@tag)
         else
-          render json: { errors: @label.errors.full_messages }, status: :unprocessable_entity
+          render json: { errors: @tag.errors.full_messages }, status: :unprocessable_entity
         end
       end
 
       # DELETE /api/v1/labels/:id
       def destroy
-        @label.destroy
+        @tag.destroy
         head :no_content
       end
 
       private
 
-      def set_label
-        @label = current_user.labels.find(params[:id])
+      def set_tag
+        @tag = current_user.tags.find(params[:id])
       end
 
-      def label_params
-        params.require(:label).permit(:caption, :fg_color, :bg_color)
+      def tag_params
+        # Accept both old (caption) and new (name) field names
+        permitted = params.require(:label).permit(:caption, :name, :fg_color, :bg_color)
+        # Normalize caption to name if present
+        if permitted[:caption].present? && permitted[:name].blank?
+          permitted[:name] = permitted.delete(:caption)
+        end
+        permitted.except(:caption)
       end
 
-      def label_json(label)
+      def tag_json(tag)
         {
-          id: label.id,
-          caption: label.caption,
-          fg_color: label.fg_color,
-          bg_color: label.bg_color,
-          entry_count: label.entries.count
+          id: tag.id,
+          caption: tag.name,  # Keep caption for backwards compatibility
+          name: tag.name,
+          fg_color: tag.fg_color,
+          bg_color: tag.bg_color,
+          entry_count: tag.entries.count
         }
       end
     end

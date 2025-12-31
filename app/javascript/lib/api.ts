@@ -66,13 +66,12 @@ export interface Entry {
   content_preview?: string | null
   content?: string
   note?: string
-  labels?: Array<{
+  tags?: Array<{
     id: number
-    caption: string
+    name: string
     fg_color: string
     bg_color: string
   }>
-  tags?: string[]
   enclosures?: Enclosure[]
 }
 
@@ -88,13 +87,17 @@ export interface Category {
   children?: Category[]
 }
 
-export interface Label {
+export interface Tag {
   id: number
-  caption: string
+  name: string
+  caption?: string  // Deprecated: use name instead
   fg_color: string
   bg_color: string
   entry_count: number
 }
+
+// Deprecated: use Tag instead
+export type Label = Tag
 
 export interface PaginatedEntries {
   entries: Entry[]
