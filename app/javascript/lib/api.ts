@@ -245,6 +245,19 @@ export interface AudioResponse {
   timestamps?: WordTimestamp[]
 }
 
+export type AudioSource = "tts" | "podcast"
+
+export interface QueueItem {
+  id: string              // crypto.randomUUID()
+  entryId: number
+  entryTitle: string
+  feedTitle?: string
+  source: AudioSource
+  audioUrl?: string       // for podcasts; TTS fetched when needed
+  duration?: number
+  status: "pending" | "generating" | "ready" | "error"
+}
+
 export type FilterRuleCreateData = {
   filter_type: number
   reg_exp: string

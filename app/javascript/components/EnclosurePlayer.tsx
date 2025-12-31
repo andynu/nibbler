@@ -1,5 +1,11 @@
-import { Download, FileAudio, FileVideo, Image as ImageIcon, ExternalLink, Play, Pause } from "lucide-react"
+import { Download, FileAudio, FileVideo, Image as ImageIcon, ExternalLink, Play, Pause, Headphones, ListPlus, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import type { Enclosure } from "@/lib/api"
 
@@ -50,23 +56,37 @@ function AudioPlayer({ enclosure, entryId, entryTitle, feedTitle }: AudioPlayerI
     audioPlayer.activeEntryId === entryId &&
     audioPlayer.state !== "idle"
 
-  const handlePlay = () => {
-    if (entryId && entryTitle) {
-      audioPlayer.requestPodcastAudio(
-        entryId,
-        enclosure.title || entryTitle,
-        enclosure.content_url,
-        feedTitle,
-        durationSeconds
-      )
-    }
-  }
-
   const handleTogglePlayback = () => {
     if (audioPlayer.state === "playing") {
       audioPlayer.pause()
     } else {
       audioPlayer.play()
+    }
+  }
+
+  const handlePlayNow = () => {
+    if (entryId && entryTitle) {
+      audioPlayer.playNow({
+        entryId,
+        entryTitle: enclosure.title || entryTitle,
+        feedTitle,
+        source: "podcast",
+        audioUrl: enclosure.content_url,
+        duration: durationSeconds,
+      })
+    }
+  }
+
+  const handleAddToQueue = () => {
+    if (entryId && entryTitle) {
+      audioPlayer.addToQueue({
+        entryId,
+        entryTitle: enclosure.title || entryTitle,
+        feedTitle,
+        source: "podcast",
+        audioUrl: enclosure.content_url,
+        duration: durationSeconds,
+      })
     }
   }
 
@@ -90,39 +110,49 @@ function AudioPlayer({ enclosure, entryId, entryTitle, feedTitle }: AudioPlayerI
       {entryId && entryTitle ? (
         <div className="flex items-center gap-2">
           {isPlayingInPanel ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTogglePlayback}
-              className="gap-2"
-            >
-              {audioPlayer.state === "playing" ? (
-                <>
-                  <Pause className="h-4 w-4" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Resume
-                </>
-              )}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTogglePlayback}
+                className="gap-2"
+              >
+                {audioPlayer.state === "playing" ? (
+                  <>
+                    <Pause className="h-4 w-4" />
+                    Pause
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Resume
+                  </>
+                )}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Playing in audio panel
+              </span>
+            </>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePlay}
-              className="gap-2"
-            >
-              <Play className="h-4 w-4" />
-              Play in panel
-            </Button>
-          )}
-          {isPlayingInPanel && (
-            <span className="text-xs text-muted-foreground">
-              Playing in audio panel
-            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Headphones className="h-4 w-4" />
+                  Listen
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={handlePlayNow}>
+                  <Play className="h-4 w-4 mr-2" />
+                  Play now
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleAddToQueue}>
+                  <ListPlus className="h-4 w-4 mr-2" />
+                  Add to queue
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       ) : (

@@ -3,7 +3,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, Volume2, ArrowLeft } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Bot, Play, ListPlus, ChevronDown } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
@@ -348,18 +354,42 @@ export function EntryContent({
                 />
               </div>
             )}
-            {/* TTS Listen Button - only shown when TTS is not active for this entry */}
+            {/* TTS Listen Button - dropdown with play now / add to queue */}
             {!isTtsActiveForThisEntry && (
               <div className="mt-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => audioPlayer.requestTtsAudio(entry.id, entry.title, entry.feed_title)}
-                  className="gap-2"
-                >
-                  <Volume2 className="h-4 w-4" />
-                  Listen
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Bot className="h-4 w-4" />
+                      Listen
+                      <ChevronDown className="h-3 w-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem
+                      onClick={() => audioPlayer.playNow({
+                        entryId: entry.id,
+                        entryTitle: entry.title,
+                        feedTitle: entry.feed_title || undefined,
+                        source: "tts",
+                      })}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Play now
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => audioPlayer.addToQueue({
+                        entryId: entry.id,
+                        entryTitle: entry.title,
+                        feedTitle: entry.feed_title || undefined,
+                        source: "tts",
+                      })}
+                    >
+                      <ListPlus className="h-4 w-4 mr-2" />
+                      Add to queue
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </header>

@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react"
-import { api, type WordTimestamp } from "@/lib/api"
+import { api, type WordTimestamp, type QueueItem, type AudioSource } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
 
 export type AudioState = "idle" | "loading" | "generating" | "ready" | "playing" | "paused" | "error"
 
-export type AudioSource = "tts" | "podcast"
+export type { AudioSource }
+
+export type QueueItemInput = Omit<QueueItem, "id" | "status">
 
 interface AudioPlayerContextValue {
   // State
@@ -22,6 +24,11 @@ interface AudioPlayerContextValue {
   activeEntryTitle: string | null
   activeFeedTitle: string | null
 
+  // Queue state
+  queue: QueueItem[]
+  currentQueueIndex: number
+  isQueuePanelOpen: boolean
+
   // Controls
   play: () => void
   pause: () => void
@@ -33,6 +40,17 @@ interface AudioPlayerContextValue {
   pauseAutoScroll: () => void
   setPlaybackSpeed: (speed: number) => void
   dismiss: () => void
+
+  // Queue controls
+  addToQueue: (item: QueueItemInput) => void
+  playNow: (item: QueueItemInput) => void
+  removeFromQueue: (id: string) => void
+  clearQueue: () => void
+  skipToNext: () => void
+  skipToPrevious: () => void
+  reorderQueue: (fromIndex: number, toIndex: number) => void
+  playQueueItem: (index: number) => void
+  toggleQueuePanel: () => void
 
   // TTS-specific
   requestTtsAudio: (entryId: number, entryTitle: string, feedTitle?: string) => Promise<void>
@@ -75,10 +93,24 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
   const [activeFeedTitle, setActiveFeedTitle] = useState<string | null>(null)
   const [onJumpToEntry, setOnJumpToEntry] = useState<((entryId: number) => void) | null>(null)
 
+  // Queue state
+  const [queue, setQueue] = useState<QueueItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("nibbler:audioQueue")
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(-1)
+  const [isQueuePanelOpen, setIsQueuePanelOpen] = useState(false)
+
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const entryIdRef = useRef<number | null>(null)
   const pollIntervalRef = useRef<number | null>(null)
+  const preGeneratingRef = useRef<Set<string>>(new Set())
+  const skipToNextRef = useRef<(() => void) | null>(null)
 
   // Get playback speed from preferences
   const playbackSpeed = parseFloat(preferences.tts_playback_speed) || 1
@@ -115,6 +147,15 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
       setIsVisible(true)
     }
   }, [state])
+
+  // Persist queue to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("nibbler:audioQueue", JSON.stringify(queue))
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [queue])
 
   // Update current word index based on playback time
   const updateCurrentWord = useCallback((time: number) => {
@@ -186,6 +227,8 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
                 setState("ready")
                 setCurrentTime(0)
                 setCurrentWordIndex(-1)
+                // Auto-advance to next in queue
+                skipToNextRef.current?.()
               })
 
               audio.addEventListener("error", () => {
@@ -220,6 +263,8 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
           setState("ready")
           setCurrentTime(0)
           setCurrentWordIndex(-1)
+          // Auto-advance to next in queue
+          skipToNextRef.current?.()
         })
 
         audio.addEventListener("error", () => {
@@ -286,6 +331,8 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     audio.addEventListener("ended", () => {
       setState("ready")
       setCurrentTime(0)
+      // Auto-advance to next in queue
+      skipToNextRef.current?.()
     })
 
     audio.addEventListener("error", () => {
@@ -389,6 +436,192 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     }
   }, [activeEntryId, onJumpToEntry])
 
+  // Toggle queue panel visibility
+  const toggleQueuePanel = useCallback(() => {
+    setIsQueuePanelOpen((prev) => !prev)
+  }, [])
+
+  // Helper to play a queue item by index
+  const playQueueItem = useCallback((index: number) => {
+    if (index < 0 || index >= queue.length) return
+
+    const item = queue[index]
+    setCurrentQueueIndex(index)
+
+    if (item.source === "tts") {
+      requestTtsAudio(item.entryId, item.entryTitle, item.feedTitle)
+    } else if (item.source === "podcast" && item.audioUrl) {
+      requestPodcastAudio(item.entryId, item.entryTitle, item.audioUrl, item.feedTitle, item.duration)
+    }
+  }, [queue, requestTtsAudio, requestPodcastAudio])
+
+  // Skip to next item in queue
+  const skipToNext = useCallback(() => {
+    const nextIndex = currentQueueIndex + 1
+    if (nextIndex < queue.length) {
+      playQueueItem(nextIndex)
+    } else {
+      // End of queue
+      reset()
+      setCurrentQueueIndex(-1)
+    }
+  }, [currentQueueIndex, queue.length, playQueueItem, reset])
+
+  // Keep ref updated for use in audio event handlers
+  useEffect(() => {
+    skipToNextRef.current = skipToNext
+  }, [skipToNext])
+
+  // Skip to previous item in queue
+  const skipToPrevious = useCallback(() => {
+    // If we're more than 3 seconds in, restart current. Otherwise go to previous
+    if (currentTime > 3 && audioRef.current) {
+      audioRef.current.currentTime = 0
+      setCurrentTime(0)
+      return
+    }
+
+    const prevIndex = currentQueueIndex - 1
+    if (prevIndex >= 0) {
+      playQueueItem(prevIndex)
+    }
+  }, [currentQueueIndex, currentTime, playQueueItem])
+
+  // Add item to end of queue
+  const addToQueue = useCallback((input: QueueItemInput) => {
+    const newItem: QueueItem = {
+      ...input,
+      id: crypto.randomUUID(),
+      status: input.source === "podcast" ? "ready" : "pending",
+    }
+    setQueue((prev) => [...prev, newItem])
+    setIsVisible(true) // Show audio panel when adding to queue
+  }, [])
+
+  // Play item immediately (insert at current position and play)
+  const playNow = useCallback((input: QueueItemInput) => {
+    const newItem: QueueItem = {
+      ...input,
+      id: crypto.randomUUID(),
+      status: input.source === "podcast" ? "ready" : "pending",
+    }
+
+    // Insert at current position + 1 (or at 0 if nothing playing)
+    const insertIndex = currentQueueIndex >= 0 ? currentQueueIndex + 1 : 0
+    setQueue((prev) => {
+      const newQueue = [...prev]
+      newQueue.splice(insertIndex, 0, newItem)
+      return newQueue
+    })
+
+    // Play the newly inserted item
+    setCurrentQueueIndex(insertIndex)
+    if (newItem.source === "tts") {
+      requestTtsAudio(newItem.entryId, newItem.entryTitle, newItem.feedTitle)
+    } else if (newItem.source === "podcast" && newItem.audioUrl) {
+      requestPodcastAudio(newItem.entryId, newItem.entryTitle, newItem.audioUrl, newItem.feedTitle, newItem.duration)
+    }
+  }, [currentQueueIndex, requestTtsAudio, requestPodcastAudio])
+
+  // Remove item from queue
+  const removeFromQueue = useCallback((id: string) => {
+    setQueue((prev) => {
+      const index = prev.findIndex((item) => item.id === id)
+      if (index === -1) return prev
+
+      // Adjust current index if needed
+      if (index < currentQueueIndex) {
+        setCurrentQueueIndex((curr) => curr - 1)
+      } else if (index === currentQueueIndex) {
+        // Removing currently playing item - skip to next or stop
+        skipToNext()
+      }
+
+      return prev.filter((item) => item.id !== id)
+    })
+  }, [currentQueueIndex, skipToNext])
+
+  // Clear entire queue
+  const clearQueue = useCallback(() => {
+    reset()
+    setQueue([])
+    setCurrentQueueIndex(-1)
+  }, [reset])
+
+  // Reorder queue (for drag and drop)
+  const reorderQueue = useCallback((fromIndex: number, toIndex: number) => {
+    setQueue((prev) => {
+      const newQueue = [...prev]
+      const [removed] = newQueue.splice(fromIndex, 1)
+      newQueue.splice(toIndex, 0, removed)
+
+      // Adjust current index if needed
+      if (currentQueueIndex === fromIndex) {
+        setCurrentQueueIndex(toIndex)
+      } else if (fromIndex < currentQueueIndex && toIndex >= currentQueueIndex) {
+        setCurrentQueueIndex((curr) => curr - 1)
+      } else if (fromIndex > currentQueueIndex && toIndex <= currentQueueIndex) {
+        setCurrentQueueIndex((curr) => curr + 1)
+      }
+
+      return newQueue
+    })
+  }, [currentQueueIndex])
+
+  // Pre-generate TTS for upcoming items
+  useEffect(() => {
+    const preGenerate = async (item: QueueItem) => {
+      if (preGeneratingRef.current.has(item.id)) return
+      preGeneratingRef.current.add(item.id)
+
+      try {
+        const response = await api.entries.audio(item.entryId)
+        setQueue((prev) =>
+          prev.map((q) =>
+            q.id === item.id
+              ? { ...q, status: response.status === "ready" ? "ready" : "generating" }
+              : q
+          )
+        )
+
+        // If generating, poll for completion
+        if (response.status === "generating") {
+          const pollForReady = async () => {
+            const pollResponse = await api.entries.audio(item.entryId)
+            if (pollResponse.status === "ready") {
+              setQueue((prev) =>
+                prev.map((q) =>
+                  q.id === item.id ? { ...q, status: "ready" } : q
+                )
+              )
+            } else {
+              // Keep polling
+              setTimeout(pollForReady, POLL_INTERVAL)
+            }
+          }
+          setTimeout(pollForReady, POLL_INTERVAL)
+        }
+      } catch {
+        setQueue((prev) =>
+          prev.map((q) =>
+            q.id === item.id ? { ...q, status: "error" } : q
+          )
+        )
+      }
+    }
+
+    // Pre-generate for items at currentQueueIndex + 1 and + 2
+    const indicesToPreGen = [currentQueueIndex + 1, currentQueueIndex + 2]
+    for (const idx of indicesToPreGen) {
+      if (idx >= 0 && idx < queue.length) {
+        const item = queue[idx]
+        if (item.source === "tts" && item.status === "pending") {
+          preGenerate(item)
+        }
+      }
+    }
+  }, [queue, currentQueueIndex])
+
   const isActive = state !== "idle" && state !== "error"
 
   const value: AudioPlayerContextValue = {
@@ -405,6 +638,11 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     activeEntryId,
     activeEntryTitle,
     activeFeedTitle,
+    // Queue state
+    queue,
+    currentQueueIndex,
+    isQueuePanelOpen,
+    // Controls
     play,
     pause,
     stop,
@@ -415,6 +653,17 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     pauseAutoScroll,
     setPlaybackSpeed,
     dismiss,
+    // Queue controls
+    addToQueue,
+    playNow,
+    removeFromQueue,
+    clearQueue,
+    skipToNext,
+    skipToPrevious,
+    reorderQueue,
+    playQueueItem,
+    toggleQueuePanel,
+    // Audio requests
     requestTtsAudio,
     requestPodcastAudio,
     jumpToSource,
