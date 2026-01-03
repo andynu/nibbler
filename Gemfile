@@ -53,7 +53,7 @@ group :development, :test do
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
 
   # Pin minitest to 5.x until Rails 8.1 supports 6.0
-  gem "minitest", "~> 5.25"
+  gem "minitest", "~> 6.0"
 
   # Code coverage reporting
   gem "simplecov", require: false
