@@ -19,9 +19,11 @@ proxy:
   host: nibbler.mac
   app_port: 3000
 
-# Local Docker registry (Kamal manages this automatically)
+# Local Docker registry - exposed on all interfaces to avoid port forwarding issues
 registry:
-  server: localhost:5555
+  server: 192.168.1.208:5555
+  username: _
+  password: _
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
