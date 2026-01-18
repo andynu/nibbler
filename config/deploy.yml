@@ -1,62 +1,43 @@
 # Name of your application. Used to uniquely configure containers.
-service: ttrb
+service: nibbler
 
-# Name of the container image (use your-user/app-name on external registries).
-image: ttrb
+# Name of the container image.
+image: nibbler
 
 # Deploy to these servers.
 servers:
   web:
-    - 192.168.0.1
+    - 192.168.1.208
   # job:
   #   hosts:
-  #     - 192.168.0.1
+  #     - 192.168.1.208
   #   cmd: bin/jobs
 
-# Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
-# If used with Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
-#
-# Using an SSL proxy like this requires turning on config.assume_ssl and config.force_ssl in production.rb!
-#
-# Don't use this when deploying to multiple web servers (then you have to terminate SSL at your load balancer).
-#
-# proxy:
-#   ssl: true
-#   host: app.example.com
+# Proxy configuration for kamal-proxy routing
+# nginx routes *.mac subdomains to kamal-proxy on port 8089
+proxy:
+  host: nibbler.mac
+  app_port: 3000
 
-# Where you keep your container images.
+# Local Docker registry (Kamal manages this automatically)
 registry:
-  # Alternatives: hub.docker.com / registry.digitalocean.com / ghcr.io / ...
   server: localhost:5555
-
-  # Needed for authenticated registries.
-  # username: your-user
-
-  # Always use an access token rather than real password when possible.
-  # password:
-  #   - KAMAL_REGISTRY_PASSWORD
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
   secret:
-    - RAILS_MASTER_KEY
+    - SECRET_KEY_BASE
+    - TTRB_DATABASE_PASSWORD
   clear:
+    # Database connection - points to the db accessory on kamal network
+    DATABASE_URL: postgres://nibbler:${TTRB_DATABASE_PASSWORD}@nibbler-db:5432/nibbler_production
+
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
-    # When you start using multiple servers, you should split out job processing to a dedicated machine.
     SOLID_QUEUE_IN_PUMA: true
 
-    # Set number of processes dedicated to Solid Queue (default: 1)
-    # JOB_CONCURRENCY: 3
-
-    # Set number of cores available to the application on each server (default: 1).
-    # WEB_CONCURRENCY: 2
-
-    # Match this to any external database server to configure Active Record correctly
-    # Use ttrb-db for a db accessory server on same machine via local kamal docker network.
-    # DB_HOST: 192.168.0.2
-
-    # Log everything from Rails
-    # RAILS_LOG_LEVEL: debug
+    # Rails production settings
+    RAILS_ENV: production
+    RAILS_LOG_TO_STDOUT: true
 
 # Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
 # "bin/kamal logs -r job" will tail logs from the first server in the job section.
@@ -86,30 +67,22 @@ builder:
   #   - GITHUB_TOKEN
   #   - RAILS_MASTER_KEY
 
-# Use a different ssh user than root
-# ssh:
-#   user: app
+# SSH as andy (not root)
+ssh:
+  user: andy
 
-# Use accessory services (secrets come from .kamal/secrets).
-# accessories:
-#   db:
-#     image: mysql:8.0
-#     host: 192.168.0.2
-#     # Change to 3306 to expose port to the world instead of just local network.
-#     port: "127.0.0.1:3306:3306"
-#     env:
-#       clear:
-#         MYSQL_ROOT_HOST: '%'
-#       secret:
-#         - MYSQL_ROOT_PASSWORD
-#     files:
-#       - config/mysql/production.cnf:/etc/mysql/my.cnf
-#       - db/production.sql:/docker-entrypoint-initdb.d/setup.sql
-#     directories:
-#       - data:/var/lib/mysql
-#   redis:
-#     image: valkey/valkey:8
-#     host: 192.168.0.2
-#     port: 6379
-#     directories:
-#       - data:/data
+# Accessory services
+accessories:
+  db:
+    image: postgres:17
+    host: 192.168.1.208
+    # Only accessible from kamal network, not exposed to host
+    port: 5432
+    env:
+      clear:
+        POSTGRES_USER: nibbler
+        POSTGRES_DB: nibbler_production
+      secret:
+        - TTRB_DATABASE_PASSWORD:POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql/data

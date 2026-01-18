@@ -58,3 +58,4 @@ coverage/
 # Local Claude Code tooling config
 .lsp.json
 .mcp.json
+.kamal/secrets.env
