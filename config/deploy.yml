@@ -29,10 +29,8 @@ registry:
 env:
   secret:
     - SECRET_KEY_BASE
-    - TTRB_DATABASE_PASSWORD
+    - DATABASE_URL
   clear:
-    # Database connection - points to the db accessory on kamal network
-    DATABASE_URL: postgres://nibbler:${TTRB_DATABASE_PASSWORD}@nibbler-db:5432/nibbler_production
 
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     SOLID_QUEUE_IN_PUMA: true
