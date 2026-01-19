@@ -85,6 +85,6 @@ accessories:
         POSTGRES_USER: nibbler
         POSTGRES_DB: nibbler_production
       secret:
-        - TTRB_DATABASE_PASSWORD:POSTGRES_PASSWORD
+        - POSTGRES_PASSWORD
     directories:
       - data:/var/lib/postgresql/data
