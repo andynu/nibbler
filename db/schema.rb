@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_20_164835) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_20_172029) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -292,6 +292,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_20_164835) do
     t.index ["entry_id"], name: "index_user_entries_on_entry_id"
     t.index ["feed_id"], name: "index_user_entries_on_feed_id"
     t.index ["unread"], name: "index_user_entries_on_unread"
+    t.index ["user_id", "unread"], name: "index_user_entries_on_user_id_and_unread"
     t.index ["user_id"], name: "index_user_entries_on_user_id"
   end
 
