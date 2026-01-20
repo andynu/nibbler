@@ -1,13 +1,11 @@
 one:
   login: test_user1
   email: user1@example.com
-  pwd_hash: "$2a$12$abcdefghijklmnopqrstuvwxyz1234567890ABCD"
-  salt: "testsalt1"
+  password_digest: <%= BCrypt::Password.create('password') %>
   access_level: 10
 
 two:
   login: test_user2
   email: user2@example.com
-  pwd_hash: "$2a$12$abcdefghijklmnopqrstuvwxyz1234567890ABCD"
-  salt: "testsalt2"
+  password_digest: <%= BCrypt::Password.create('password') %>
   access_level: 10

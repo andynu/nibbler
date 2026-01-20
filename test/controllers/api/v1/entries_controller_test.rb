@@ -296,7 +296,7 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
 
   test "tag filter only shows entries tagged by current user" do
     # Create another user
-    other_user = User.create!(login: "other_user", pwd_hash: Digest::SHA256.hexdigest("test"))
+    other_user = User.create!(login: "other_user", password: "password123")
 
     entry = Entry.create!(
       guid: "multi-user-#{SecureRandom.uuid}",
