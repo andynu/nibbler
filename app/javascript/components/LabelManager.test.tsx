@@ -3,29 +3,29 @@ import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import React from "react"
 import { LabelManager } from "./LabelManager"
-import { mockLabel } from "../../../test/fixtures/data"
+import { mockTag } from "../../../test/fixtures/data"
 
 // Mock API
-const mockApiLabelsList = vi.fn()
-const mockApiLabelsCreate = vi.fn()
-const mockApiLabelsUpdate = vi.fn()
-const mockApiLabelsDelete = vi.fn()
+const mockApiTagsList = vi.fn()
+const mockApiTagsCreate = vi.fn()
+const mockApiTagsUpdate = vi.fn()
+const mockApiTagsDelete = vi.fn()
 
 vi.mock("@/lib/api", () => ({
   api: {
-    labels: {
-      list: () => mockApiLabelsList(),
-      create: (...args: unknown[]) => mockApiLabelsCreate(...args),
-      update: (...args: unknown[]) => mockApiLabelsUpdate(...args),
-      delete: (...args: unknown[]) => mockApiLabelsDelete(...args),
+    tags: {
+      list: () => mockApiTagsList(),
+      create: (...args: unknown[]) => mockApiTagsCreate(...args),
+      update: (...args: unknown[]) => mockApiTagsUpdate(...args),
+      delete: (...args: unknown[]) => mockApiTagsDelete(...args),
     },
   },
 }))
 
 describe("LabelManager", () => {
-  const testLabel = mockLabel({
+  const testTag = mockTag({
     id: 1,
-    caption: "Important",
+    name: "Important",
     fg_color: "#ffffff",
     bg_color: "#ef4444",
     entry_count: 42,
@@ -33,10 +33,10 @@ describe("LabelManager", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockApiLabelsList.mockResolvedValue([])
-    mockApiLabelsCreate.mockResolvedValue(testLabel)
-    mockApiLabelsUpdate.mockResolvedValue(testLabel)
-    mockApiLabelsDelete.mockResolvedValue({})
+    mockApiTagsList.mockResolvedValue([])
+    mockApiTagsCreate.mockResolvedValue(testTag)
+    mockApiTagsUpdate.mockResolvedValue(testTag)
+    mockApiTagsDelete.mockResolvedValue({})
 
     // Mock window.confirm
     vi.spyOn(window, "confirm").mockReturnValue(true)
@@ -45,41 +45,41 @@ describe("LabelManager", () => {
 
   describe("loading state", () => {
     it("shows loading message initially", () => {
-      mockApiLabelsList.mockReturnValue(new Promise(() => {}))
+      mockApiTagsList.mockReturnValue(new Promise(() => {}))
 
       render(<LabelManager />)
 
-      expect(screen.getByText("Loading labels...")).toBeInTheDocument()
+      expect(screen.getByText("Loading tags...")).toBeInTheDocument()
     })
   })
 
   describe("empty state", () => {
-    it("shows empty message when no labels", async () => {
-      mockApiLabelsList.mockResolvedValue([])
+    it("shows empty message when no tags", async () => {
+      mockApiTagsList.mockResolvedValue([])
 
       render(<LabelManager />)
 
       await waitFor(() => {
-        expect(screen.getByText("No labels yet.")).toBeInTheDocument()
+        expect(screen.getByText("No tags yet.")).toBeInTheDocument()
       })
     })
 
     it("shows help text in empty state", async () => {
-      mockApiLabelsList.mockResolvedValue([])
+      mockApiTagsList.mockResolvedValue([])
 
       render(<LabelManager />)
 
       await waitFor(() => {
         expect(
-          screen.getByText(/create labels to organize and classify articles/i)
+          screen.getByText(/create tags to organize and classify articles/i)
         ).toBeInTheDocument()
       })
     })
   })
 
-  describe("label list rendering", () => {
+  describe("tag list rendering", () => {
     it("shows header", async () => {
-      mockApiLabelsList.mockResolvedValue([])
+      mockApiTagsList.mockResolvedValue([])
       render(<LabelManager />)
 
       await waitFor(() => {
@@ -87,17 +87,17 @@ describe("LabelManager", () => {
       })
     })
 
-    it("shows New Label button", async () => {
-      mockApiLabelsList.mockResolvedValue([])
+    it("shows New Tag button", async () => {
+      mockApiTagsList.mockResolvedValue([])
       render(<LabelManager />)
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /new label/i })).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /new tag/i })).toBeInTheDocument()
       })
     })
 
-    it("renders label caption", async () => {
-      mockApiLabelsList.mockResolvedValue([testLabel])
+    it("renders tag name", async () => {
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -107,7 +107,7 @@ describe("LabelManager", () => {
     })
 
     it("shows entry count", async () => {
-      mockApiLabelsList.mockResolvedValue([testLabel])
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -117,8 +117,8 @@ describe("LabelManager", () => {
     })
 
     it("shows singular article count", async () => {
-      const singleLabel = { ...testLabel, entry_count: 1 }
-      mockApiLabelsList.mockResolvedValue([singleLabel])
+      const singleTag = { ...testTag, entry_count: 1 }
+      mockApiTagsList.mockResolvedValue([singleTag])
 
       render(<LabelManager />)
 
@@ -127,8 +127,8 @@ describe("LabelManager", () => {
       })
     })
 
-    it("renders label with correct colors", async () => {
-      mockApiLabelsList.mockResolvedValue([testLabel])
+    it("renders tag with correct colors", async () => {
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -141,8 +141,8 @@ describe("LabelManager", () => {
       })
     })
 
-    it("shows edit button for each label", async () => {
-      mockApiLabelsList.mockResolvedValue([testLabel])
+    it("shows edit button for each tag", async () => {
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -151,8 +151,8 @@ describe("LabelManager", () => {
       })
     })
 
-    it("shows delete button for each label", async () => {
-      mockApiLabelsList.mockResolvedValue([testLabel])
+    it("shows delete button for each tag", async () => {
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -162,8 +162,8 @@ describe("LabelManager", () => {
     })
 
     it("shows zero articles count", async () => {
-      const emptyLabel = { ...testLabel, entry_count: 0 }
-      mockApiLabelsList.mockResolvedValue([emptyLabel])
+      const emptyTag = { ...testTag, entry_count: 0 }
+      mockApiTagsList.mockResolvedValue([emptyTag])
 
       render(<LabelManager />)
 
@@ -172,13 +172,13 @@ describe("LabelManager", () => {
       })
     })
 
-    it("renders multiple labels", async () => {
-      const labels = [
-        testLabel,
-        mockLabel({ id: 2, caption: "Read Later", entry_count: 10 }),
-        mockLabel({ id: 3, caption: "Archive", entry_count: 5 }),
+    it("renders multiple tags", async () => {
+      const tags = [
+        testTag,
+        mockTag({ id: 2, name: "Read Later", entry_count: 10 }),
+        mockTag({ id: 3, name: "Archive", entry_count: 5 }),
       ]
-      mockApiLabelsList.mockResolvedValue(labels)
+      mockApiTagsList.mockResolvedValue(tags)
 
       render(<LabelManager />)
 
@@ -190,10 +190,10 @@ describe("LabelManager", () => {
     })
   })
 
-  describe("delete label", () => {
+  describe("delete tag", () => {
     it("shows confirmation message with entry count", async () => {
       const user = userEvent.setup()
-      mockApiLabelsList.mockResolvedValue([testLabel])
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -207,8 +207,8 @@ describe("LabelManager", () => {
 
     it("shows simple confirmation when no entries", async () => {
       const user = userEvent.setup()
-      const emptyLabel = { ...testLabel, entry_count: 0 }
-      mockApiLabelsList.mockResolvedValue([emptyLabel])
+      const emptyTag = { ...testTag, entry_count: 0 }
+      mockApiTagsList.mockResolvedValue([emptyTag])
 
       render(<LabelManager />)
 
@@ -220,32 +220,32 @@ describe("LabelManager", () => {
 
     it("calls delete API when confirmed", async () => {
       const user = userEvent.setup()
-      mockApiLabelsList.mockResolvedValue([testLabel])
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
       const deleteButton = await screen.findByRole("button", { name: /delete important/i })
       await user.click(deleteButton)
 
-      expect(mockApiLabelsDelete).toHaveBeenCalledWith(1)
+      expect(mockApiTagsDelete).toHaveBeenCalledWith(1)
     })
 
     it("does not call delete when cancelled", async () => {
       const user = userEvent.setup()
       vi.mocked(window.confirm).mockReturnValue(false)
-      mockApiLabelsList.mockResolvedValue([testLabel])
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
       const deleteButton = await screen.findByRole("button", { name: /delete important/i })
       await user.click(deleteButton)
 
-      expect(mockApiLabelsDelete).not.toHaveBeenCalled()
+      expect(mockApiTagsDelete).not.toHaveBeenCalled()
     })
 
-    it("removes label from list after deletion", async () => {
+    it("removes tag from list after deletion", async () => {
       const user = userEvent.setup()
-      mockApiLabelsList.mockResolvedValue([testLabel])
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -262,30 +262,30 @@ describe("LabelManager", () => {
     })
   })
 
-  describe("New Label button", () => {
-    it("clicking New Label opens create label dialog", async () => {
+  describe("New Tag button", () => {
+    it("clicking New Tag opens create tag dialog", async () => {
       const user = userEvent.setup()
-      mockApiLabelsList.mockResolvedValue([])
+      mockApiTagsList.mockResolvedValue([])
 
       render(<LabelManager />)
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /new label/i })).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /new tag/i })).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole("button", { name: /new label/i }))
+      await user.click(screen.getByRole("button", { name: /new tag/i }))
 
-      // Create Label dialog should open
+      // Create Tag dialog should open
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /create label/i })).toBeInTheDocument()
+        expect(screen.getByRole("heading", { name: /create tag/i })).toBeInTheDocument()
       })
     })
   })
 
-  describe("edit label button", () => {
+  describe("edit tag button", () => {
     it("clicking edit button sets editing state", async () => {
       const user = userEvent.setup()
-      mockApiLabelsList.mockResolvedValue([testLabel])
+      mockApiTagsList.mockResolvedValue([testTag])
 
       render(<LabelManager />)
 
@@ -294,7 +294,7 @@ describe("LabelManager", () => {
 
       // Edit dialog should open
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /edit label/i })).toBeInTheDocument()
+        expect(screen.getByRole("heading", { name: /edit tag/i })).toBeInTheDocument()
       })
     })
   })

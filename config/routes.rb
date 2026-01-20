@@ -37,12 +37,10 @@ Rails.application.routes.draw do
           get :keywords
           post :mark_all_read
         end
-        resources :labels, only: [ :create, :destroy ], controller: "entry_labels"
         resources :tags, only: [ :create, :destroy ], controller: "entry_tags"
       end
 
-      resources :labels
-      resources :tags, only: [ :index ]
+      resources :tags
 
       resources :filters do
         member do
