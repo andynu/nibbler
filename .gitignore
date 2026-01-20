@@ -58,3 +58,9 @@ coverage/
 # Local Claude Code tooling config
 .lsp.json
 .mcp.json
+
+# Editor tags file
+tags
+
+# Playwright MCP state
+.playwright-mcp/
