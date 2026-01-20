@@ -1,0 +1,137 @@
+# C4 Level 4: Code Diagram
+# Nibbler - Feed Fetch Service Classes
+
+direction: down
+
+# Title
+title: |md
+  ## Code Diagram: Feed Fetch Services
+  Class structure and data flow
+|
+
+# Result Types
+results: Result Types {
+  style.fill: "#f5f5f5"
+  style.stroke: "#666666"
+
+  fetch_result: FetchResult {
+    shape: class
+    style.fill: "#d4edda"
+    style.font-color: "#000000"
+    label: "FetchResult [Struct]\n---\nstatus: Symbol\nbody: String?\netag: String?\nlast_modified: String?\nretry_after: Time?"
+  }
+
+  parse_result: ParseResult {
+    shape: class
+    style.fill: "#d4edda"
+    style.font-color: "#000000"
+    label: "ParseResult [Struct]\n---\ntitle: String\nsite_url: String?\nentries: Array"
+  }
+
+  update_result: UpdateResult {
+    shape: class
+    style.fill: "#d4edda"
+    style.font-color: "#000000"
+    label: "UpdateResult [Struct]\n---\nstatus: Symbol\nnew_entries_count: Integer\nerror: String?"
+  }
+}
+
+# Service Classes
+services: Services {
+  style.fill: "#f5f5f5"
+  style.stroke: "#1168bd"
+
+  feed_fetcher: FeedFetcher {
+    shape: class
+    style.fill: "#cce5ff"
+    style.font-color: "#000000"
+    label: "FeedFetcher [Service]\n---\nTIMEOUT: 30\nOPEN_TIMEOUT: 10\n---\n+fetch(url, etag?, last_mod?)\n-build_connection()\n-handle_response(resp)"
+  }
+
+  cached_fetcher: CachedFeedFetcher {
+    shape: class
+    style.fill: "#cce5ff"
+    style.font-color: "#000000"
+    label: "CachedFeedFetcher [Service]\n---\nCACHE_TTL: 1 hour\n---\n+fetch(url, etag?, last_mod?)\n-cache_key(url)\n-cached?(url)"
+  }
+
+  feed_parser: FeedParser {
+    shape: class
+    style.fill: "#cce5ff"
+    style.font-color: "#000000"
+    label: "FeedParser [Service]\n---\n+parse(xml_string)\n-normalize_entry(raw)\n-extract_guid(entry)\n-extract_content(entry)"
+  }
+
+  content_sanitizer: ContentSanitizer {
+    shape: class
+    style.fill: "#cce5ff"
+    style.font-color: "#000000"
+    label: "ContentSanitizer [Service]\n---\nALLOWED_TAGS: Array\n---\n+sanitize(html)\n-strip_scripts(html)\n-unwrap_cdata(text)"
+  }
+
+  domain_throttler: DomainThrottler {
+    shape: class
+    style.fill: "#cce5ff"
+    style.font-color: "#000000"
+    label: "DomainThrottler [Service]\n---\nMIN_DELAY: 5 sec\n---\n+throttled?(domain)\n+record_request!(domain)"
+  }
+
+  feed_updater: FeedUpdater {
+    shape: class
+    style.fill: "#cce5ff"
+    style.font-color: "#000000"
+    label: "FeedUpdater [Orchestrator]\n---\n+update(feed)\n-fetch_feed(feed)\n-handle_rate_limit(feed)\n-create_entries(feed, parsed)"
+  }
+
+  # Dependencies
+  cached_fetcher -> feed_fetcher: "delegates on miss"
+  feed_parser -> content_sanitizer: uses
+  feed_updater -> feed_fetcher: "uses [prod]"
+  feed_updater -> cached_fetcher: "uses [dev]"
+  feed_updater -> feed_parser: uses
+}
+
+# Return type relationships
+services.feed_fetcher -> results.fetch_result: returns
+services.cached_fetcher -> results.fetch_result: returns
+services.feed_parser -> results.parse_result: returns
+services.feed_updater -> results.update_result: returns
+
+# External dependencies
+deps: External Gems {
+  style.fill: "#fff3cd"
+  style.stroke: "#856404"
+
+  faraday: Faraday {
+    shape: hexagon
+    style.fill: "#ffeeba"
+    style.font-color: "#000000"
+    label: "Faraday\n[HTTP Client]"
+  }
+
+  feedjira: Feedjira {
+    shape: hexagon
+    style.fill: "#ffeeba"
+    style.font-color: "#000000"
+    label: "Feedjira\n[RSS Parser]"
+  }
+
+  rails_cache: RailsCache {
+    shape: hexagon
+    style.fill: "#ffeeba"
+    style.font-color: "#000000"
+    label: "Rails.cache\n[Cache Store]"
+  }
+}
+
+services.feed_fetcher -> deps.faraday: uses
+services.feed_parser -> deps.feedjira: uses
+services.domain_throttler -> deps.rails_cache: uses
+
+# Legend
+legend: |md
+  **Legend**
+  - Blue: Service classes
+  - Green: Data structs
+  - Yellow: External gems
+|
