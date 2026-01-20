@@ -13,6 +13,7 @@ SimpleCov.start "rails" do
 end
 
 ENV["RAILS_ENV"] ||= "test"
+ENV["ALLOW_DEV_AUTH"] ||= "1"
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
