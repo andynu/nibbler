@@ -37,8 +37,8 @@ class Entry < ApplicationRecord
       .order(Arel.sql("ts_rank(tsvector_combined, plainto_tsquery('english', #{connection.quote(sanitized)})) DESC"))
   }
 
-  # Update tsvector when saving
-  before_save :update_tsvector
+  # Update tsvector when saving (only when searchable fields change)
+  before_save :update_tsvector, if: -> { title_changed? || content_changed? }
 
   private
 
