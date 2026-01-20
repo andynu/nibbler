@@ -263,7 +263,9 @@ module Api
       private
 
       def set_user_entry
-        @user_entry = current_user.user_entries.find(params[:id])
+        @user_entry = current_user.user_entries
+          .includes(:feed, entry: [ :tags, :enclosures ])
+          .find(params[:id])
       end
 
       def user_entry_params

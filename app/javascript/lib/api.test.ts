@@ -5,7 +5,7 @@ import {
   mockEntry,
   mockEntryWithContent,
   mockCategory,
-  mockLabel,
+  mockTag,
   mockFilter,
   mockPreferences,
   mockPaginatedEntries,
@@ -242,14 +242,27 @@ describe("api.filters", () => {
 
 describe("api.tags", () => {
   describe("list", () => {
-    it("returns tag names array", async () => {
-      const tagsResponse = { tags: ["news", "tech", "sports"] }
-      mockFetch.mockResolvedValue(jsonResponse(tagsResponse))
+    it("returns tag list with entry counts", async () => {
+      const tags = [mockTag(), mockTag({ id: 2, name: "tech" })]
+      mockFetch.mockResolvedValue(jsonResponse(tags))
 
       const result = await api.tags.list()
 
-      expect(result.tags).toHaveLength(3)
-      expect(result.tags).toContain("tech")
+      expect(result).toHaveLength(2)
+    })
+  })
+
+  describe("create", () => {
+    it("returns created tag with colors", async () => {
+      const tag = mockTag({ fg_color: "#000", bg_color: "#fff" })
+      mockFetch.mockResolvedValue(jsonResponse(tag))
+
+      const result = await api.tags.create({
+        tag: { name: "Styled", fg_color: "#000", bg_color: "#fff" },
+      })
+
+      expect(result.fg_color).toBe("#000")
+      expect(result.bg_color).toBe("#fff")
     })
   })
 })
@@ -286,33 +299,6 @@ describe("api.entryTags", () => {
       const result = await api.entryTags.remove(1, "removed")
 
       expect(result.tags).not.toContain("removed")
-    })
-  })
-})
-
-describe("api.labels", () => {
-  describe("list", () => {
-    it("returns label list", async () => {
-      const labels = [mockLabel(), mockLabel({ id: 2, caption: "Urgent" })]
-      mockFetch.mockResolvedValue(jsonResponse(labels))
-
-      const result = await api.labels.list()
-
-      expect(result).toHaveLength(2)
-    })
-  })
-
-  describe("create", () => {
-    it("returns created label with colors", async () => {
-      const label = mockLabel({ fg_color: "#000", bg_color: "#fff" })
-      mockFetch.mockResolvedValue(jsonResponse(label))
-
-      const result = await api.labels.create({
-        label: { caption: "Styled", fg_color: "#000", bg_color: "#fff" },
-      })
-
-      expect(result.fg_color).toBe("#000")
-      expect(result.bg_color).toBe("#fff")
     })
   })
 })

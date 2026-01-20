@@ -1,0 +1,96 @@
+# C4 Level 2: Container Diagram
+# Nibbler - Self-hosted RSS/Atom Feed Reader
+
+direction: down
+
+# Title
+title: |md
+  ## Container Diagram: Nibbler
+  Internal structure of the system
+|
+
+# External actors
+user: User {
+  shape: person
+  style.fill: "#08427b"
+  style.font-color: "#ffffff"
+}
+
+# External systems
+feeds: FeedPublishers {
+  style.fill: "#6c757d"
+  style.font-color: "#ffffff"
+  style.stroke-dash: 3
+  label: "RSS/Atom Publishers\n[External]"
+}
+
+email: EmailServer {
+  style.fill: "#6c757d"
+  style.font-color: "#ffffff"
+  style.stroke-dash: 3
+  label: "Email Server\n[External]"
+}
+
+# System boundary
+nibbler: Nibbler {
+  style.fill: "#f0f7ff"
+  style.stroke: "#1168bd"
+  style.stroke-width: 2
+
+  # React SPA
+  spa: SPA {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "Single Page Application\n[React 19 / TypeScript]\nFeed browsing UI"
+  }
+
+  # Rails API
+  api: API {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "API Application\n[Ruby / Rails 8.1]\nREST API for feeds, entries"
+  }
+
+  # Background Workers
+  workers: Workers {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "Background Workers\n[GoodJob / Ruby]\nFeed fetching, caching"
+  }
+
+  # Database
+  db: Database {
+    shape: cylinder
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "Database\n[PostgreSQL]\nUsers, feeds, entries"
+  }
+
+  # File Storage
+  files: Files {
+    shape: cylinder
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "File Storage\n[Local FS]\nFavicons, images"
+  }
+
+  # Internal connections
+  spa -> api: "API calls [JSON/HTTPS]"
+  api -> db: "Reads/writes [ActiveRecord]"
+  api -> files: "Stores/retrieves media"
+  workers -> db: "Reads configs, writes entries"
+  workers -> files: "Caches favicons and images"
+}
+
+# External connections
+user -> nibbler.spa: "Browses feeds [HTTPS]"
+nibbler.workers -> feeds: "Fetches RSS/Atom [Faraday]"
+nibbler.api -> email: "Sends notifications [SMTP]"
+
+# Legend
+legend: |md
+  **Legend**
+  - Blue boxes: Containers
+  - Cylinders: Data stores
+  - Gray dashed: External
+|

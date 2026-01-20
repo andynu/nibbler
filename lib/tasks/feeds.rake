@@ -112,7 +112,7 @@ namespace :feeds do
         email: "admin@example.com",
         full_name: "Administrator",
         access_level: 10,
-        pwd_hash: BCrypt::Password.create("admin")
+        password: "admin"
       )
     end
 

@@ -2,7 +2,7 @@ import type {
   Feed,
   Entry,
   Category,
-  Label,
+  Tag,
   Filter,
   FilterRule,
   FilterAction,
@@ -83,10 +83,10 @@ export function mockCategoryWithChildren(
   }
 }
 
-export function mockLabel(overrides: Partial<Label> = {}): Label {
+export function mockTag(overrides: Partial<Tag> = {}): Tag {
   return {
     id: 1,
-    caption: "Important",
+    name: "Important",
     fg_color: "#ffffff",
     bg_color: "#ff0000",
     entry_count: 5,

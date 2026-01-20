@@ -90,14 +90,10 @@ export interface Category {
 export interface Tag {
   id: number
   name: string
-  caption?: string  // Deprecated: use name instead
   fg_color: string
   bg_color: string
   entry_count: number
 }
-
-// Deprecated: use Tag instead
-export type Label = Tag
 
 export interface PaginatedEntries {
   entries: Entry[]
@@ -187,7 +183,7 @@ export interface Preferences {
 }
 
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"
-export type FilterActionType = "delete" | "mark_read" | "star" | "tag" | "publish" | "score" | "label" | "stop" | "ignore_tag"
+export type FilterActionType = "delete" | "mark_read" | "star" | "tag" | "publish" | "score" | "stop" | "ignore_tag"
 
 export interface FilterRule {
   id?: number
@@ -428,8 +424,13 @@ export const api = {
   },
 
   tags: {
-    list: () =>
-      request<{ tags: string[]; tags_with_counts: Array<{ name: string; count: number }> }>("/tags"),
+    list: () => request<Tag[]>("/tags"),
+    get: (id: number) => request<Tag>(`/tags/${id}`),
+    create: (data: { tag: { name: string; fg_color?: string; bg_color?: string } }) =>
+      request<Tag>("/tags", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: { tag: { name?: string; fg_color?: string; bg_color?: string } }) =>
+      request<Tag>(`/tags/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: number) => request<void>(`/tags/${id}`, { method: "DELETE" }),
   },
 
   entryTags: {
@@ -447,23 +448,6 @@ export const api = {
       request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags/${encodeURIComponent(tagName)}`, {
         method: "DELETE",
       }),
-  },
-
-  labels: {
-    list: () => request<Label[]>("/labels"),
-    get: (id: number) => request<Label>(`/labels/${id}`),
-    create: (data: { label: { caption: string; fg_color?: string; bg_color?: string } }) =>
-      request<Label>("/labels", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: number, data: { label: { caption?: string; fg_color?: string; bg_color?: string } }) =>
-      request<Label>(`/labels/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: number) => request<void>(`/labels/${id}`, { method: "DELETE" }),
-  },
-
-  entryLabels: {
-    add: (entryId: number, labelId: number) =>
-      request<void>(`/entries/${entryId}/labels`, { method: "POST", body: JSON.stringify({ label_id: labelId }) }),
-    remove: (entryId: number, labelId: number) =>
-      request<void>(`/entries/${entryId}/labels/${labelId}`, { method: "DELETE" }),
   },
 
   counters: {

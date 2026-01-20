@@ -45,7 +45,7 @@ module Api
 
       # POST /api/v1/auth/change_password
       def change_password
-        unless current_user.authenticate_password(params[:current_password])
+        unless current_user.authenticate(params[:current_password])
           return render json: { error: "Current password is incorrect" }, status: :unprocessable_entity
         end
 

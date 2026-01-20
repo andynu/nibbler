@@ -1,0 +1,138 @@
+# C4 Level 3: Component Diagram
+# Nibbler - Background Workers Container
+
+direction: right
+
+# Title
+title: |md
+  ## Component Diagram: Background Workers
+  Feed Fetch Infrastructure
+|
+
+# Container boundary
+workers: Background Workers {
+  style.fill: "#f0f7ff"
+  style.stroke: "#1168bd"
+  style.stroke-width: 2
+
+  # Job Scheduling
+  update_feeds_job: UpdateFeedsJob {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "UpdateFeedsJob\n[GoodJob Cron]\nRuns every 5 min"
+  }
+
+  update_feed_job: UpdateFeedJob {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "UpdateFeedJob\n[GoodJob Worker]\nProcesses single feed"
+  }
+
+  # Fetch Components
+  domain_throttler: DomainThrottler {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "DomainThrottler\n[Service]\n5-sec domain delay"
+  }
+
+  feed_fetcher: FeedFetcher {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "FeedFetcher\n[Service]\nHTTP with ETag"
+  }
+
+  cached_fetcher: CachedFeedFetcher {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "CachedFeedFetcher\n[Service / Dev]\nDisk cache 1hr"
+  }
+
+  # Parse Components
+  feed_parser: FeedParser {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "FeedParser\n[Service]\nRSS/Atom via Feedjira"
+  }
+
+  content_sanitizer: ContentSanitizer {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "ContentSanitizer\n[Service]\nXSS prevention"
+  }
+
+  # Orchestration
+  feed_updater: FeedUpdater {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "FeedUpdater\n[Service]\nOrchestrates flow"
+  }
+
+  # Supporting Jobs
+  favicon_job: FetchFaviconJob {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "FetchFaviconJob\n[GoodJob]\nFetches favicons"
+  }
+
+  cache_images_job: CacheImagesJob {
+    style.fill: "#1168bd"
+    style.font-color: "#ffffff"
+    label: "CacheArticleImagesJob\n[GoodJob]\nCaches images"
+  }
+
+  # Internal flows
+  update_feeds_job -> update_feed_job: enqueues
+  update_feed_job -> domain_throttler: checks
+  update_feed_job -> feed_updater: delegates
+  feed_updater -> feed_fetcher: "fetch [prod]"
+  feed_updater -> cached_fetcher: "fetch [dev]"
+  feed_updater -> feed_parser: parse
+  feed_parser -> content_sanitizer: sanitize
+  feed_updater -> cache_images_job: enqueue
+  update_feed_job -> favicon_job: enqueue
+}
+
+# External elements
+feeds: FeedPublishers {
+  style.fill: "#6c757d"
+  style.font-color: "#ffffff"
+  style.stroke-dash: 3
+  label: "RSS/Atom Publishers\n[External]"
+}
+
+db: Database {
+  shape: cylinder
+  style.fill: "#1168bd"
+  style.font-color: "#ffffff"
+  label: "Database\n[PostgreSQL]"
+}
+
+cache: Cache {
+  shape: cylinder
+  style.fill: "#1168bd"
+  style.font-color: "#ffffff"
+  label: "Rails Cache\n[Solid Cache]"
+}
+
+files: FileStorage {
+  shape: cylinder
+  style.fill: "#1168bd"
+  style.font-color: "#ffffff"
+  label: "File Storage\n[Local FS]"
+}
+
+# External connections
+workers.feed_fetcher -> feeds: "HTTP GET [Faraday]"
+workers.cached_fetcher -> feeds: "HTTP GET [dev]"
+workers.feed_updater -> db: "read/write"
+workers.domain_throttler -> cache: throttle state
+workers.favicon_job -> files: store
+workers.cache_images_job -> files: store
+
+# Legend
+legend: |md
+  **Legend**
+  - Blue boxes: Components
+  - Cylinders: Data stores
+  - Gray dashed: External
+|

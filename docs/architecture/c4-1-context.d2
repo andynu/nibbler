@@ -1,0 +1,63 @@
+# C4 Level 1: System Context Diagram
+# Nibbler - Self-hosted RSS/Atom Feed Reader
+
+direction: right
+
+# Title
+title: |md
+  ## System Context: Nibbler
+  Self-hosted RSS/Atom Feed Reader
+|
+
+# People
+user: User {
+  shape: person
+  style.fill: "#08427b"
+  style.font-color: "#ffffff"
+  label: "User\n[Person]\nSubscribes to feeds,\nreads articles"
+}
+
+admin: Administrator {
+  shape: person
+  style.fill: "#08427b"
+  style.font-color: "#ffffff"
+  label: "Administrator\n[Person]\nManages system settings"
+}
+
+# The System (focus)
+nibbler: Nibbler {
+  shape: rectangle
+  style.fill: "#1168bd"
+  style.font-color: "#ffffff"
+  style.double-border: true
+  label: "Nibbler\n[Software System]\nSelf-hosted RSS/Atom reader\nwith adaptive polling"
+}
+
+# External Systems
+feeds: FeedPublishers {
+  style.fill: "#6c757d"
+  style.font-color: "#ffffff"
+  style.stroke-dash: 3
+  label: "RSS/Atom Publishers\n[External System]\nBlogs, news, podcasts"
+}
+
+email: EmailServer {
+  style.fill: "#6c757d"
+  style.font-color: "#ffffff"
+  style.stroke-dash: 3
+  label: "Email Server\n[External System]\nSMTP for notifications"
+}
+
+# Relationships
+user -> nibbler: "Browses feeds, reads articles [HTTPS]"
+admin -> nibbler: "Configures system, manages users"
+nibbler -> feeds: "Fetches RSS/Atom feeds [HTTP/HTTPS]"
+nibbler -> email: "Sends notifications [SMTP]"
+
+# Legend
+legend: |md
+  **Legend**
+  - Blue person: User/Actor
+  - Blue box (double): System in focus
+  - Gray dashed: External system
+|

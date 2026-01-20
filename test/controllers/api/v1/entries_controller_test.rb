@@ -294,9 +294,61 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_includes titles, "Case Test Article"
   end
 
+  test "show returns entry with tags and enclosures" do
+    # Create entry for the current user (User.first used by ALLOW_DEV_AUTH)
+    entry = Entry.create!(
+      guid: "show-test-#{SecureRandom.uuid}",
+      title: "Show Test Entry",
+      link: "https://example.com/show-test",
+      content: "<p>Test content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    user_entry = @user.user_entries.create!(
+      entry: entry,
+      feed: @feed,
+      uuid: SecureRandom.uuid,
+      unread: true
+    )
+
+    # Create a tag and enclosure for this entry
+    tag = Tag.create!(name: "test-tag", user: @user, fg_color: "#ffffff", bg_color: "#000000")
+    EntryTag.create!(entry: entry, tag: tag)
+
+    Enclosure.create!(
+      entry: entry,
+      content_url: "https://example.com/audio.mp3",
+      content_type: "audio/mpeg",
+      duration: "1234",
+      title: "Test Audio"
+    )
+
+    get api_v1_entry_url(user_entry), as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+
+    # Verify tags are returned
+    assert json["tags"].is_a?(Array)
+    assert_equal 1, json["tags"].length
+    assert_equal "test-tag", json["tags"].first["name"]
+    assert_equal "#ffffff", json["tags"].first["fg_color"]
+    assert_equal "#000000", json["tags"].first["bg_color"]
+
+    # Verify enclosures are returned
+    assert json["enclosures"].is_a?(Array)
+    assert_equal 1, json["enclosures"].length
+    assert_equal "https://example.com/audio.mp3", json["enclosures"].first["content_url"]
+    assert_equal "audio/mpeg", json["enclosures"].first["content_type"]
+    assert_equal "1234", json["enclosures"].first["duration"]
+  end
+
   test "tag filter only shows entries tagged by current user" do
     # Create another user
-    other_user = User.create!(login: "other_user", pwd_hash: Digest::SHA256.hexdigest("test"))
+    other_user = User.create!(login: "other_user", password: "password123")
 
     entry = Entry.create!(
       guid: "multi-user-#{SecureRandom.uuid}",
