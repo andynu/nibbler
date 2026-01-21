@@ -47,10 +47,10 @@ module Api
 
       def render_tags
         # Get tags for this entry that belong to the current user
-        tags = @entry.tags.where(user_id: current_user.id).order(:name).pluck(:name)
+        tags = @entry.tags.where(user_id: current_user.id).order(:name)
         render json: {
           entry_id: params[:entry_id].to_i,
-          tags: tags
+          tags: tags.map { |t| { id: t.id, name: t.name, fg_color: t.fg_color, bg_color: t.bg_color } }
         }
       end
     end

@@ -364,8 +364,9 @@ function App() {
       const result = await api.entryTags.add(selectedEntry.id, tagName)
       setSelectedEntry({ ...selectedEntry, tags: result.tags })
       // If this is a new tag, add it to allTags
-      if (!allTags.includes(tagName.toLowerCase())) {
-        setAllTags((prev) => [...prev, tagName.toLowerCase()].sort())
+      const normalizedName = tagName.toLowerCase()
+      if (!allTags?.includes(normalizedName)) {
+        setAllTags((prev) => [...(prev || []), normalizedName].sort())
       }
     } catch (error) {
       console.error("Failed to add tag:", error)

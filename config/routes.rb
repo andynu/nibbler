@@ -31,6 +31,7 @@ Rails.application.routes.draw do
           post :toggle_read
           post :toggle_starred
           get :audio
+          get :info
         end
         collection do
           get :headlines

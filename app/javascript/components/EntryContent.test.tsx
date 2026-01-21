@@ -231,23 +231,7 @@ describe("EntryContent", () => {
       )
     })
 
-    it("renders labels with correct colors", () => {
-      const entry = mockEntryWithContent({
-        tags: [
-          { id: 1, name: "Important", fg_color: "#ffffff", bg_color: "#ff0000" },
-        ],
-      })
-
-      render(<EntryContent {...defaultProps} entry={entry} />)
-
-      const badge = screen.getByText("Important")
-      expect(badge).toHaveStyle({
-        backgroundColor: "#ff0000",
-        color: "#ffffff",
-      })
-    })
-
-    it("renders tags as badges when tag callbacks are provided", () => {
+    it("renders tags in SuggestedTags component", () => {
       const entry = mockEntryWithContent({
         tags: [
           { id: 1, name: "tech", fg_color: "#ffffff", bg_color: "#64748b" },
@@ -265,11 +249,9 @@ describe("EntryContent", () => {
         />
       )
 
-      // Tags appear both as colored badges and in the TagEditor
-      const techElements = screen.getAllByText("tech")
-      const newsElements = screen.getAllByText("news")
-      expect(techElements.length).toBeGreaterThan(0)
-      expect(newsElements.length).toBeGreaterThan(0)
+      // Tags appear in the SuggestedTags component
+      expect(screen.getByText("tech")).toBeInTheDocument()
+      expect(screen.getByText("news")).toBeInTheDocument()
     })
 
     it("renders HTML content", () => {

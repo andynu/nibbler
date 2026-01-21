@@ -1,7 +1,7 @@
 module Api
   module V1
     class EntriesController < BaseController
-      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :audio ]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :audio, :info ]
 
       # GET /api/v1/entries
       def index
@@ -153,6 +153,14 @@ module Api
         render json: { status: "generating" }
       end
 
+      # GET /api/v1/entries/:id/info
+      # Returns word frequency analysis for a single entry (for tag suggestions)
+      def info
+        entry = @user_entry.entry
+        analyzer = EntryWordFrequencyAnalyzer.new(entry)
+        render json: { top_words: analyzer.analyze }
+      end
+
       # POST /api/v1/entries/mark_all_read
       def mark_all_read
         scope = current_user.user_entries.unread
@@ -296,6 +304,7 @@ module Api
           json[:content] = entry.cached_content.presence || entry.content
           json[:note] = user_entry.note
           json[:tags] = entry.tags.where(user_id: user_entry.user_id).map { |t| { id: t.id, name: t.name, fg_color: t.fg_color, bg_color: t.bg_color } }
+          json[:detected_tags] = detect_tags_in_content(entry, user_entry.user_id)
           json[:enclosures] = entry.enclosures.map { |e| enclosure_json(e) }
         end
 
@@ -434,6 +443,17 @@ module Api
         return false unless params[:sort].present?
 
         params[:sort].downcase.include?("feed")
+      end
+
+      # Detect which of the user's tags appear in the entry content but aren't explicitly applied
+      def detect_tags_in_content(entry, user_id)
+        user_tags = Tag.where(user_id: user_id).pluck(:id, :name)
+        applied_tag_ids = entry.tags.where(user_id: user_id).pluck(:id)
+        content = "#{entry.title} #{ActionController::Base.helpers.strip_tags(entry.content || '')}".downcase
+
+        user_tags.reject { |id, _| applied_tag_ids.include?(id) }
+                 .select { |_, name| content.include?(name.downcase) }
+                 .map { |id, name| { id: id, name: name } }
       end
     end
   end

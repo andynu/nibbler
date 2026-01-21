@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import {
   DropdownMenu,
@@ -15,7 +14,7 @@ import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
-import { TagEditor } from "@/components/TagEditor"
+import { SuggestedTags } from "@/components/SuggestedTags"
 import { HighlightedContent } from "@/components/HighlightedContent"
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
 import type { Entry } from "@/lib/api"
@@ -329,25 +328,11 @@ export function EntryContent({
               <span>·</span>
               <time dateTime={entry.published}>{formattedDate}</time>
             </div>
-            {entry.tags && entry.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {entry.tags.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    style={{
-                      backgroundColor: tag.bg_color,
-                      color: tag.fg_color,
-                    }}
-                  >
-                    {tag.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
             {onAddTag && onRemoveTag && (
               <div className="mt-2">
-                <TagEditor
-                  tags={(entry.tags || []).map(t => t.name)}
+                <SuggestedTags
+                  entryId={entry.id}
+                  existingTags={(entry.tags || []).map(t => t.name)}
                   allTags={allTags}
                   onAddTag={onAddTag}
                   onRemoveTag={onRemoveTag}

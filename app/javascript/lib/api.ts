@@ -72,6 +72,10 @@ export interface Entry {
     fg_color: string
     bg_color: string
   }>
+  detected_tags?: Array<{
+    id: number
+    name: string
+  }>
   enclosures?: Enclosure[]
 }
 
@@ -146,6 +150,10 @@ export interface FeedInfo {
   frequency_by_day: Record<number, number>
 
   // Word frequency for categorization hints
+  top_words: Array<{ word: string; count: number }>
+}
+
+export interface EntryInfo {
   top_words: Array<{ word: string; count: number }>
 }
 
@@ -401,6 +409,7 @@ export const api = {
       const query = searchParams.toString()
       return request<{ keywords: Array<{ word: string; count: number }> }>(`/entries/keywords${query ? `?${query}` : ""}`)
     },
+    info: (id: number) => request<EntryInfo>(`/entries/${id}/info`),
   },
 
   categories: {
@@ -445,17 +454,17 @@ export const api = {
 
   entryTags: {
     add: (entryId: number, tagName: string) =>
-      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags`, {
+      request<{ entry_id: number; tags: Array<{ id: number; name: string; fg_color: string; bg_color: string }> }>(`/entries/${entryId}/tags`, {
         method: "POST",
         body: JSON.stringify({ tag_name: tagName }),
       }),
     addMultiple: (entryId: number, tagNames: string[]) =>
-      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags`, {
+      request<{ entry_id: number; tags: Array<{ id: number; name: string; fg_color: string; bg_color: string }> }>(`/entries/${entryId}/tags`, {
         method: "POST",
         body: JSON.stringify({ tag_names: tagNames }),
       }),
     remove: (entryId: number, tagName: string) =>
-      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags/${encodeURIComponent(tagName)}`, {
+      request<{ entry_id: number; tags: Array<{ id: number; name: string; fg_color: string; bg_color: string }> }>(`/entries/${entryId}/tags/${encodeURIComponent(tagName)}`, {
         method: "DELETE",
       }),
   },

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { CheckCheck, Star, Circle, StickyNote, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Rss, AlertCircle, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getTagColor } from "@/lib/tag-colors"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
 import { ScoreBadge } from "@/components/ScoreButtons"
@@ -49,6 +50,8 @@ interface EntryListProps {
   onSortChange?: (newSort: SortConfig[]) => void
   // Mobile navigation
   onShowSidebar?: () => void
+  // Tag management
+  onAddTag?: (entryId: number, tagName: string) => void
 }
 
 export function EntryList({
@@ -76,6 +79,7 @@ export function EntryList({
   sortConfig = [],
   onSortChange,
   onShowSidebar,
+  onAddTag,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
@@ -419,6 +423,7 @@ export function EntryList({
                       (boundaryHit === "start" && index === 0) ||
                       (boundaryHit === "end" && index === entries.length - 1)
                     }
+                    onAddTag={onAddTag ? (tagName) => onAddTag(entry.id, tagName) : undefined}
                   />
                 ))}
               </div>
@@ -439,12 +444,14 @@ interface EntryItemProps {
   displayDensity: "small" | "medium" | "large"
   formatDate: (date: Date | string) => string
   showBoundaryFlash?: boolean
+  onAddTag?: (tagName: string) => void
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, displayDensity, formatDate, showBoundaryFlash }: EntryItemProps) {
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, displayDensity, formatDate, showBoundaryFlash, onAddTag }: EntryItemProps) {
   const formattedDate = formatDate(entry.published)
   const showFeedAndDate = displayDensity !== "small"
   const showContentPreview = displayDensity === "large"
+  const showTags = displayDensity === "large" && ((entry.tags && entry.tags.length > 0) || (entry.detected_tags && entry.detected_tags.length > 0))
 
   return (
     <div
@@ -494,6 +501,42 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
           {showContentPreview && entry.content_preview && (
             <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
               {entry.content_preview}
+            </div>
+          )}
+          {showTags && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {/* Detected tags - italic text, clickable to promote */}
+              {entry.detected_tags?.map((tag) => {
+                const colors = getTagColor(tag.name)
+                return (
+                  <button
+                    key={`detected-${tag.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAddTag?.(tag.name)
+                    }}
+                    className="text-xs italic hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                    style={{ color: colors.bg }}
+                    title={`Add "${tag.name}" tag`}
+                    disabled={!onAddTag}
+                  >
+                    {tag.name}
+                  </button>
+                )
+              })}
+              {/* Explicit tags - pill style with rainbow colors */}
+              {entry.tags?.map((tag) => {
+                const colors = getTagColor(tag.name)
+                return (
+                  <Badge
+                    key={tag.id}
+                    className="text-xs px-1.5 py-0"
+                    style={{ backgroundColor: colors.bg, color: colors.fg }}
+                  >
+                    {tag.name}
+                  </Badge>
+                )
+              })}
             </div>
           )}
           {showFeedAndDate && (
