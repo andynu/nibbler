@@ -1,0 +1,19 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+HIDE_STEREOTYPE()
+
+title Nibbler - System Context (Level 1)
+
+Person(user, "User", "A person who wants to read and organize RSS/Atom feeds")
+
+System(nibbler, "Nibbler", "Modern RSS feed reader that fetches, parses, and organizes content from RSS/Atom feeds")
+
+System_Ext(feed_sources, "RSS/Atom Feed Sources", "External websites and services publishing RSS/Atom feeds")
+System_Ext(email_service, "Email Service", "SMTP server for sending digest emails")
+
+Rel(user, nibbler, "Subscribes to feeds, reads articles, organizes content", "HTTPS")
+Rel(nibbler, feed_sources, "Fetches RSS/Atom feeds", "HTTP/HTTPS")
+Rel(nibbler, email_service, "Sends digest emails", "SMTP")
+Rel(nibbler, user, "Displays feed entries, notifications", "HTTPS")
+
+@enduml
