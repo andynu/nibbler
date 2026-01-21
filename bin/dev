@@ -9,6 +9,6 @@ fi
 export PORT="${PORT:-3000}"
 
 # Enable dev auth bypass (auto-login as first user when not authenticated)
-export ALLOW_DEV_AUTH=1
+#export ALLOW_DEV_AUTH=1
 
 exec foreman start -f Procfile.dev --env /dev/null "$@"

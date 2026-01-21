@@ -13,11 +13,13 @@ import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { AudioPanel } from "@/components/AudioPanel"
 import { MobileNavBar } from "@/components/mobile/MobileNavBar"
 import { SidebarDrawer } from "@/components/mobile/SidebarDrawer"
+import { LoginPage } from "@/components/LoginPage"
 import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { I18nProvider } from "@/contexts/I18nContext"
 import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
+import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -1082,22 +1084,44 @@ function App() {
   )
 }
 
+function AuthenticatedApp() {
+  const { isLoading, isAuthenticated } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
+
+  return (
+    <PreferencesProvider>
+      <LayoutProvider>
+        <AudioPlayerProvider>
+          <App />
+        </AudioPlayerProvider>
+      </LayoutProvider>
+    </PreferencesProvider>
+  )
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("react-root")
   if (container) {
     const root = createRoot(container)
     root.render(
-      <PreferencesProvider>
-        <ThemeProvider>
-          <I18nProvider>
-            <LayoutProvider>
-              <AudioPlayerProvider>
-                <App />
-              </AudioPlayerProvider>
-            </LayoutProvider>
-          </I18nProvider>
-        </ThemeProvider>
-      </PreferencesProvider>
+      <ThemeProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <AuthenticatedApp />
+          </AuthProvider>
+        </I18nProvider>
+      </ThemeProvider>
     )
   }
 })

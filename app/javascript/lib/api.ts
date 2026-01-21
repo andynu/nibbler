@@ -149,6 +149,16 @@ export interface FeedInfo {
   top_words: Array<{ word: string; count: number }>
 }
 
+export interface User {
+  id: number
+  login: string
+  email: string
+  full_name: string | null
+  access_level: number
+  is_admin: boolean
+  last_login: string | null
+}
+
 export interface Preferences {
   show_content_preview: string
   strip_images: string
@@ -512,5 +522,15 @@ export const api = {
       }>
     },
     exportUrl: () => `${API_BASE}/opml/export`,
+  },
+
+  auth: {
+    login: (login: string, password: string) =>
+      request<User>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ login, password }),
+      }),
+    logout: () => request<void>("/auth/logout", { method: "DELETE" }),
+    me: () => request<User>("/auth/me"),
   },
 }

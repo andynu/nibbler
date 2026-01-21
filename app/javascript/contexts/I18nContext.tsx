@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { initI18n, changeLanguage, SUPPORTED_LANGUAGES, LanguageCode } from "@/lib/i18n"
-import { usePreferences } from "@/contexts/PreferencesContext"
 
 interface I18nContextValue {
   currentLanguage: LanguageCode
@@ -12,32 +11,33 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
+const LANGUAGE_STORAGE_KEY = "nibbler-language"
+
+function getStoredLanguage(): LanguageCode | undefined {
+  if (typeof window === "undefined") return undefined
+  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
+  if (stored && SUPPORTED_LANGUAGES.some(l => l.code === stored)) {
+    return stored as LanguageCode
+  }
+  return undefined
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const { preferences, updatePreference, isLoading: prefsLoading } = usePreferences()
   const { i18n } = useTranslation()
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Initialize i18n once preferences are loaded
+  // Initialize i18n on mount
   useEffect(() => {
-    if (!prefsLoading && !isInitialized) {
-      const savedLanguage = preferences.user_language || undefined
+    if (!isInitialized) {
+      const savedLanguage = getStoredLanguage()
       initI18n(savedLanguage)
       setIsInitialized(true)
     }
-  }, [prefsLoading, isInitialized, preferences.user_language])
-
-  // Sync language when preference changes
-  useEffect(() => {
-    if (isInitialized && preferences.user_language) {
-      if (i18n.language !== preferences.user_language) {
-        changeLanguage(preferences.user_language as LanguageCode)
-      }
-    }
-  }, [isInitialized, preferences.user_language, i18n.language])
+  }, [isInitialized])
 
   const setLanguage = async (language: LanguageCode) => {
     await changeLanguage(language)
-    await updatePreference("user_language", language)
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language)
   }
 
   const value: I18nContextValue = {
