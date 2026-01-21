@@ -1,21 +1,6 @@
 import { render, screen, waitFor, act } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { I18nProvider, useI18n } from "./I18nContext"
-import { PreferencesProvider } from "./PreferencesContext"
-import { mockPreferences } from "../../../test/fixtures/data"
-
-// Mock API
-const mockApiPreferencesGet = vi.fn()
-const mockApiPreferencesUpdate = vi.fn()
-
-vi.mock("@/lib/api", () => ({
-  api: {
-    preferences: {
-      get: () => mockApiPreferencesGet(),
-      update: (...args: unknown[]) => mockApiPreferencesUpdate(...args),
-    },
-  },
-}))
 
 // Mock i18n module
 const mockInitI18n = vi.fn()
@@ -52,40 +37,34 @@ function TestConsumer() {
   )
 }
 
-function renderWithProviders() {
+function renderWithProvider() {
   return render(
-    <PreferencesProvider>
-      <I18nProvider>
-        <TestConsumer />
-      </I18nProvider>
-    </PreferencesProvider>
+    <I18nProvider>
+      <TestConsumer />
+    </I18nProvider>
   )
 }
 
 describe("I18nContext", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockApiPreferencesGet.mockResolvedValue(mockPreferences())
-    mockApiPreferencesUpdate.mockResolvedValue({})
+    localStorage.clear()
     mockChangeLanguage.mockResolvedValue(undefined)
   })
 
   describe("initialization", () => {
-    it("initializes i18n when preferences are loaded", async () => {
-      renderWithProviders()
+    it("initializes i18n on mount", async () => {
+      renderWithProvider()
 
       await waitFor(() => {
         expect(mockInitI18n).toHaveBeenCalled()
       })
     })
 
-    it("passes saved language to initI18n", async () => {
-      mockApiPreferencesGet.mockResolvedValue({
-        ...mockPreferences(),
-        user_language: "es",
-      })
+    it("passes saved language from localStorage to initI18n", async () => {
+      localStorage.setItem("nibbler-language", "es")
 
-      renderWithProviders()
+      renderWithProvider()
 
       await waitFor(() => {
         expect(mockInitI18n).toHaveBeenCalledWith("es")
@@ -93,12 +72,7 @@ describe("I18nContext", () => {
     })
 
     it("passes undefined when no language is saved", async () => {
-      mockApiPreferencesGet.mockResolvedValue({
-        ...mockPreferences(),
-        user_language: "",
-      })
-
-      renderWithProviders()
+      renderWithProvider()
 
       await waitFor(() => {
         expect(mockInitI18n).toHaveBeenCalledWith(undefined)
@@ -108,7 +82,7 @@ describe("I18nContext", () => {
 
   describe("context values", () => {
     it("exposes supported languages", async () => {
-      renderWithProviders()
+      renderWithProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("languages-count")).toHaveTextContent("2")
@@ -116,7 +90,7 @@ describe("I18nContext", () => {
     })
 
     it("shows initialized state after initialization", async () => {
-      renderWithProviders()
+      renderWithProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("initialized")).toHaveTextContent("yes")
@@ -124,7 +98,7 @@ describe("I18nContext", () => {
     })
 
     it("exposes current language", async () => {
-      renderWithProviders()
+      renderWithProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("current-language")).toHaveTextContent("en")
