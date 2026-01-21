@@ -6,7 +6,7 @@ module Api
       # GET /api/v1/entries
       def index
         @user_entries = current_user.user_entries
-          .includes(:entry, :feed)
+          .includes(:feed, entry: :tags)
           .joins(:entry)
 
         # Join feeds table if sorting by feed
@@ -283,6 +283,8 @@ module Api
       def user_entry_json(user_entry, full_content: false)
         entry = user_entry.entry
         feed = user_entry.feed
+        user_tags = entry.tags.select { |t| t.user_id == user_entry.user_id }
+
         json = {
           id: user_entry.id,
           entry_id: entry.id,
@@ -296,14 +298,14 @@ module Api
           starred: user_entry.marked,
           score: user_entry.score,
           last_read: user_entry.last_read,
-          content_preview: content_preview(entry.content)
+          content_preview: content_preview(entry.content),
+          tags: user_tags.map { |t| { id: t.id, name: t.name, fg_color: t.fg_color, bg_color: t.bg_color } }
         }
 
         if full_content
           # Use cached_content (with locally cached images) if available
           json[:content] = entry.cached_content.presence || entry.content
           json[:note] = user_entry.note
-          json[:tags] = entry.tags.where(user_id: user_entry.user_id).map { |t| { id: t.id, name: t.name, fg_color: t.fg_color, bg_color: t.bg_color } }
           json[:detected_tags] = detect_tags_in_content(entry, user_entry.user_id)
           json[:enclosures] = entry.enclosures.map { |e| enclosure_json(e) }
         end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_20_172029) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_21_022601) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -85,6 +85,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_20_172029) do
     t.bigint "entry_id", null: false
     t.bigint "tag_id", null: false
     t.index ["entry_id", "tag_id"], name: "index_entry_tags_on_entry_id_and_tag_id", unique: true
+  end
+
+  create_table "feed_tags", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "feed_id", null: false
+    t.bigint "tag_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["feed_id", "tag_id"], name: "index_feed_tags_on_feed_id_and_tag_id", unique: true
+    t.index ["feed_id"], name: "index_feed_tags_on_feed_id"
+    t.index ["tag_id"], name: "index_feed_tags_on_tag_id"
   end
 
   create_table "feeds", force: :cascade do |t|
@@ -333,6 +343,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_20_172029) do
   add_foreign_key "enclosures", "entries", on_delete: :cascade
   add_foreign_key "entry_tags", "entries", on_delete: :cascade
   add_foreign_key "entry_tags", "tags", on_delete: :cascade
+  add_foreign_key "feed_tags", "feeds", on_delete: :cascade
+  add_foreign_key "feed_tags", "tags", on_delete: :cascade
   add_foreign_key "feeds", "categories"
   add_foreign_key "feeds", "feeds", column: "parent_feed_id"
   add_foreign_key "feeds", "users"

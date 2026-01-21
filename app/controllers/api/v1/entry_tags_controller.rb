@@ -20,6 +20,9 @@ module Api
 
           # Link tag to entry if not already linked
           EntryTag.find_or_create_by!(entry: @entry, tag: tag)
+
+          # Propagate tag to feed level for auto-application
+          FeedTagPropagator.propagate(user_entry: @user_entry, tag: tag)
         end
 
         render_tags
@@ -41,8 +44,8 @@ module Api
       private
 
       def set_entry
-        user_entry = current_user.user_entries.find(params[:entry_id])
-        @entry = user_entry.entry
+        @user_entry = current_user.user_entries.find(params[:entry_id])
+        @entry = @user_entry.entry
       end
 
       def render_tags
