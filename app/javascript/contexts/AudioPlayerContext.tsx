@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react"
 import { api, type WordTimestamp, type QueueItem, type AudioSource } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
+import { generateUUID } from "@/lib/utils"
 
 export type AudioState = "idle" | "loading" | "generating" | "ready" | "playing" | "paused" | "error"
 
@@ -566,7 +567,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
   const addToQueue = useCallback((input: QueueItemInput) => {
     const newItem: QueueItem = {
       ...input,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       status: input.source === "podcast" ? "ready" : "pending",
     }
 
@@ -591,7 +592,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
   const playNow = useCallback((input: QueueItemInput) => {
     const newItem: QueueItem = {
       ...input,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       status: input.source === "podcast" ? "ready" : "pending",
     }
 
