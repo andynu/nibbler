@@ -344,6 +344,21 @@ function App() {
     }
   }
 
+  const handleTogglePublishedEntry = async (entryId: number) => {
+    try {
+      const result = await api.entries.togglePublished(entryId)
+      setEntries((prev) =>
+        prev.map((e) => (e.id === entryId ? { ...e, is_published: result.is_published } : e))
+      )
+      if (selectedEntry?.id === entryId) {
+        setSelectedEntry({ ...selectedEntry, is_published: result.is_published })
+      }
+      loadCounters() // Refresh published count
+    } catch (error) {
+      console.error("Failed to toggle published:", error)
+    }
+  }
+
   const handleUpdateNote = async (note: string) => {
     if (!selectedEntry) return
     try {
@@ -592,6 +607,12 @@ function App() {
     }
   }, [selectedEntry])
 
+  const handleKeyboardTogglePublished = useCallback(() => {
+    if (selectedEntry) {
+      handleTogglePublishedEntry(selectedEntry.id)
+    }
+  }, [selectedEntry])
+
   const handleKeyboardOpen = useCallback(() => {
     if (selectedEntry) {
       loadEntry(selectedEntry.id)
@@ -681,7 +702,6 @@ function App() {
       { key: "J", handler: handleKeyboardNextCategory, description: "Next category", modifiers: { shift: true } },
       { key: "K", handler: handleKeyboardPreviousCategory, description: "Previous category", modifiers: { shift: true } },
       { key: "n", handler: handleKeyboardNext, description: "Next entry" },
-      { key: "p", handler: handleKeyboardPrevious, description: "Previous entry" },
       { key: " ", handler: handleKeyboardNextUnread, description: "Next unread" },
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
@@ -690,6 +710,7 @@ function App() {
       { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "u", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
+      { key: "p", handler: handleKeyboardTogglePublished, description: "Toggle published" },
       { key: "i", handler: handleToggleIframe, description: "Toggle iframe/RSS view" },
       { key: "v", handler: handleKeyboardOpenOriginal, description: "Open original link" },
       { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
@@ -715,6 +736,7 @@ function App() {
       handleKeyboardPreviousCategory,
       handleKeyboardToggleRead,
       handleKeyboardToggleStarred,
+      handleKeyboardTogglePublished,
       handleToggleIframe,
       handleKeyboardOpen,
       handleKeyboardClose,
@@ -951,6 +973,7 @@ function App() {
           onSelectEntry={handleSelectEntryWithNav}
           onToggleRead={handleToggleRead}
           onToggleStarred={handleToggleStarredEntry}
+          onTogglePublished={handleTogglePublishedEntry}
           onMarkAllRead={handleMarkAllRead}
           isLoading={isLoadingEntries}
           title={getListTitle()}
@@ -986,6 +1009,7 @@ function App() {
           entry={selectedEntry}
           onToggleRead={() => selectedEntry && handleToggleRead(selectedEntry.id)}
           onToggleStarred={() => selectedEntry && handleToggleStarredEntry(selectedEntry.id)}
+          onTogglePublished={() => selectedEntry && handleTogglePublishedEntry(selectedEntry.id)}
           onScoreChange={(score) => selectedEntry && handleSetScore(selectedEntry.id, score)}
           onPrevious={handlePrevious}
           onNext={handleNext}

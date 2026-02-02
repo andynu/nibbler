@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Bot, Play, ListPlus, ChevronDown } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Bot, Play, ListPlus, ChevronDown, Rss } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
@@ -23,6 +23,7 @@ interface EntryContentProps {
   entry: Entry | null
   onToggleRead: () => void
   onToggleStarred: () => void
+  onTogglePublished?: () => void
   onScoreChange?: (score: number) => void
   onPrevious: () => void
   onNext: () => void
@@ -51,6 +52,7 @@ export function EntryContent({
   entry,
   onToggleRead,
   onToggleStarred,
+  onTogglePublished,
   onScoreChange,
   onPrevious,
   onNext,
@@ -201,6 +203,23 @@ export function EntryContent({
               } : undefined}
             />
           </Button>
+          {onTogglePublished && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onTogglePublished}
+              aria-label={entry.is_published ? "Remove from public feed" : "Add to public feed"}
+              title={entry.is_published ? "Remove from public feed" : "Add to public feed"}
+            >
+              <Rss
+                className="h-4 w-4"
+                style={entry.is_published ? {
+                  fill: "var(--color-accent-secondary)",
+                  color: "var(--color-accent-secondary)",
+                } : undefined}
+              />
+            </Button>
+          )}
           {/* Note button - hidden on small mobile */}
           {onUpdateNote && (
             <Button

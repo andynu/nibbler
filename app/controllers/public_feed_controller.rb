@@ -1,3 +1,5 @@
+require "builder"
+
 # Serves public RSS/Atom feeds for published articles.
 #
 # Articles marked as "published" by a user become available through a public

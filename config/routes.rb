@@ -6,7 +6,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   # Public feed for published articles (no auth required)
-  get "public/feed/:access_key", to: "public_feed#show", as: :public_feed, defaults: { format: :atom }
+  get "public/feed/:access_key.atom", to: "public_feed#show", as: :public_feed, defaults: { format: :atom }
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
@@ -31,6 +31,7 @@ Rails.application.routes.draw do
         member do
           post :toggle_read
           post :toggle_starred
+          post :toggle_published
           get :audio
           get :info
         end

@@ -61,6 +61,7 @@ export interface Entry {
   published: string
   unread: boolean
   starred: boolean
+  is_published: boolean
   score: number
   last_read: string | null
   content_preview?: string | null
@@ -251,10 +252,11 @@ export interface WordTimestamp {
 }
 
 export interface AudioResponse {
-  status: "ready" | "generating"
+  status: "ready" | "generating" | "error"
   audio_url?: string
   duration?: number
   timestamps?: WordTimestamp[]
+  error?: string
 }
 
 export type AudioSource = "tts" | "podcast"
@@ -393,6 +395,8 @@ export const api = {
       request<{ id: number; unread: boolean }>(`/entries/${id}/toggle_read`, { method: "POST" }),
     toggleStarred: (id: number) =>
       request<{ id: number; starred: boolean }>(`/entries/${id}/toggle_starred`, { method: "POST" }),
+    togglePublished: (id: number) =>
+      request<{ id: number; is_published: boolean }>(`/entries/${id}/toggle_published`, { method: "POST" }),
     markAllRead: (params?: { feed_id?: number; category_id?: number }) =>
       request<{ marked_read: number }>("/entries/mark_all_read", {
         method: "POST",
@@ -541,5 +545,11 @@ export const api = {
       }),
     logout: () => request<void>("/auth/logout", { method: "DELETE" }),
     me: () => request<User>("/auth/me"),
+    publicFeedKey: () =>
+      request<{ access_key: string; feed_url: string }>("/auth/public_feed_key"),
+    regeneratePublicFeedKey: () =>
+      request<{ access_key: string; feed_url: string }>("/auth/regenerate_public_feed_key", {
+        method: "POST",
+      }),
   },
 }

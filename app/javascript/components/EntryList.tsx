@@ -25,6 +25,7 @@ interface EntryListProps {
   onSelectEntry: (entryId: number) => void
   onToggleRead: (entryId: number) => void
   onToggleStarred: (entryId: number) => void
+  onTogglePublished?: (entryId: number) => void
   onMarkAllRead: () => void
   isLoading: boolean
   title: string
@@ -60,6 +61,7 @@ export function EntryList({
   onSelectEntry,
   onToggleRead,
   onToggleStarred,
+  onTogglePublished,
   onMarkAllRead,
   isLoading,
   title,
@@ -417,6 +419,7 @@ export function EntryList({
                     onSelect={() => onSelectEntry(entry.id)}
                     onToggleRead={() => onToggleRead(entry.id)}
                     onToggleStarred={() => onToggleStarred(entry.id)}
+                    onTogglePublished={onTogglePublished ? () => onTogglePublished(entry.id) : undefined}
                     displayDensity={displayDensity}
                     formatDate={formatListDate}
                     showBoundaryFlash={
@@ -441,13 +444,14 @@ interface EntryItemProps {
   onSelect: () => void
   onToggleRead: () => void
   onToggleStarred: () => void
+  onTogglePublished?: () => void
   displayDensity: "small" | "medium" | "large"
   formatDate: (date: Date | string) => string
   showBoundaryFlash?: boolean
   onAddTag?: (tagName: string) => void
 }
 
-function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, displayDensity, formatDate, showBoundaryFlash, onAddTag }: EntryItemProps) {
+function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred, onTogglePublished, displayDensity, formatDate, showBoundaryFlash, onAddTag }: EntryItemProps) {
   const formattedDate = formatDate(entry.published)
   const showFeedAndDate = displayDensity !== "small"
   const showContentPreview = displayDensity === "large"
@@ -583,6 +587,25 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
               } : undefined}
             />
           </button>
+          {entry.is_published && onTogglePublished && (
+            <button
+              className="p-2 sm:p-0.5 -m-1 sm:m-0 hover:bg-background rounded min-w-[32px] sm:min-w-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                onTogglePublished()
+              }}
+              aria-label="Remove from public feed"
+              title="In public feed"
+            >
+              <Rss
+                className="h-5 w-5 sm:h-4 sm:w-4"
+                style={{
+                  fill: "var(--color-accent-secondary)",
+                  color: "var(--color-accent-secondary)",
+                }}
+              />
+            </button>
+          )}
         </div>
       </div>
     </div>

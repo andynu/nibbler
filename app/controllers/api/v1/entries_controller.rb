@@ -1,7 +1,7 @@
 module Api
   module V1
     class EntriesController < BaseController
-      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :audio, :info ]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info ]
 
       # GET /api/v1/entries
       def index
@@ -116,6 +116,12 @@ module Api
         render json: { id: @user_entry.id, starred: @user_entry.marked }
       end
 
+      # POST /api/v1/entries/:id/toggle_published
+      def toggle_published
+        @user_entry.toggle_published!
+        render json: { id: @user_entry.id, is_published: @user_entry.published }
+      end
+
       # GET /api/v1/entries/:id/audio
       # Returns audio URL and word-level timestamps for TTS playback.
       # If audio doesn't exist, starts generation and returns status.
@@ -137,14 +143,22 @@ module Api
         # Clean up stale cache
         cached&.destroy
 
-        # Check if generation is already in progress
-        pending_job = GoodJob::Job.where(job_class: "GenerateArticleAudioJob")
+        # Check for recent jobs (pending or failed) for this entry
+        recent_jobs = GoodJob::Job.where(job_class: "GenerateArticleAudioJob")
           .where("serialized_params->>'arguments' LIKE ?", "%#{entry.id}%")
-          .where(finished_at: nil)
-          .exists?
+          .where("created_at > ?", 1.hour.ago)
+          .order(created_at: :desc)
 
+        pending_job = recent_jobs.find { |j| j.finished_at.nil? }
         if pending_job
           render json: { status: "generating" }
+          return
+        end
+
+        # Check for recently failed job (has error within last hour)
+        failed_job = recent_jobs.find { |j| j.error.present? }
+        if failed_job
+          render json: { status: "error", error: failed_job.error.to_s.truncate(200) }
           return
         end
 
@@ -216,7 +230,7 @@ module Api
         @user_entries = current_user.user_entries
           .joins(:entry, :feed)
           .select(
-            "user_entries.id, user_entries.feed_id, user_entries.unread, user_entries.marked, user_entries.score",
+            "user_entries.id, user_entries.feed_id, user_entries.unread, user_entries.marked, user_entries.published, user_entries.score",
             "entries.id as entry_id, entries.title, entries.link, entries.author, entries.updated, entries.date_entered",
             "feeds.title as feed_title"
           )
@@ -296,6 +310,7 @@ module Api
           published: entry.updated,
           unread: user_entry.unread,
           starred: user_entry.marked,
+          is_published: user_entry.published,
           score: user_entry.score,
           last_read: user_entry.last_read,
           content_preview: content_preview(entry.content),
@@ -333,6 +348,7 @@ module Api
           published: ue.updated,
           unread: ue.unread,
           starred: ue.marked,
+          is_published: ue.published,
           score: ue.score
         }
       end
