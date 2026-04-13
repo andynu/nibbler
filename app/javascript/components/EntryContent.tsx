@@ -2,13 +2,14 @@ import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
 import { SuggestedTags } from "@/components/SuggestedTags"
+import { FollowStoryDialog } from "@/components/FollowStoryDialog"
 import { HighlightedContent } from "@/components/HighlightedContent"
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
 import type { Entry } from "@/lib/api"
@@ -72,6 +73,7 @@ export function EntryContent({
   const [noteText, setNoteText] = useState("")
   const [isSavingNote, setIsSavingNote] = useState(false)
   const [iframeError, setIframeError] = useState(false)
+  const [followStoryOpen, setFollowStoryOpen] = useState(false)
 
   // Check if TTS is active for this entry
   const isTtsActiveForThisEntry = audioPlayer.source === "tts" && audioPlayer.activeEntryId === entry?.id
@@ -256,6 +258,17 @@ export function EntryContent({
             ) : (
               <Globe className="h-4 w-4" />
             )}
+          </Button>
+          {/* Follow this story - hidden on small mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setFollowStoryOpen(true)}
+            aria-label="Follow this story"
+            title="Follow this story"
+            className="hidden xs:inline-flex"
+          >
+            <Bookmark className="h-4 w-4" />
           </Button>
           {/* External link - always visible */}
           <Button variant="ghost" size="icon" asChild>
@@ -500,6 +513,11 @@ export function EntryContent({
         </article>
       </ScrollArea>
       )}
+      <FollowStoryDialog
+        open={followStoryOpen}
+        onOpenChange={setFollowStoryOpen}
+        entryId={entry?.id ?? null}
+      />
     </div>
   )
 }

@@ -201,6 +201,23 @@ export interface Preferences {
   digest_min_score: string
 }
 
+export interface Story {
+  id: number
+  name: string
+  queries: string[]
+  summary: string | null
+  status: "active" | "concluded"
+  source_entry_id: number | null
+  concluded_at: string | null
+  created_at: string
+}
+
+export interface StoryExtraction {
+  topic: string
+  queries: string[]
+  source_entry_id: number
+}
+
 export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"
 export type FilterActionType = "delete" | "mark_read" | "star" | "tag" | "publish" | "score" | "stop" | "ignore_tag"
 
@@ -471,6 +488,21 @@ export const api = {
       request<{ entry_id: number; tags: Array<{ id: number; name: string; fg_color: string; bg_color: string }> }>(`/entries/${entryId}/tags/${encodeURIComponent(tagName)}`, {
         method: "DELETE",
       }),
+  },
+
+  stories: {
+    list: () => request<Story[]>("/stories"),
+    get: (id: number) => request<Story>(`/stories/${id}`),
+    extractFromEntry: (entryId: number) =>
+      request<StoryExtraction>("/stories/extract_from_entry", {
+        method: "POST",
+        body: JSON.stringify({ entry_id: entryId }),
+      }),
+    create: (data: { story: { name: string; queries: string[]; source_entry_id?: number } }) =>
+      request<Story>("/stories", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: { story: Partial<Pick<Story, "name" | "queries" | "status">> }) =>
+      request<Story>(`/stories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: number) => request<void>(`/stories/${id}`, { method: "DELETE" }),
   },
 
   counters: {
