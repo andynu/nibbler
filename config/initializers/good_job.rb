@@ -27,6 +27,11 @@ Rails.application.configure do
       cron: "0 2 * * *", # at 2am daily (overnight batch; baru is idle)
       class: "FetchStoriesJob",
       description: "Fetch Google News RSS results for each active Story's queries"
+    },
+    analyze_stories: {
+      cron: "0 5 * * *", # at 5am daily, after fetch_stories (2am) has settled
+      class: "AnalyzeStoriesJob",
+      description: "Run LLM analysis for each active Story and update summaries"
     }
   }
 
