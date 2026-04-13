@@ -25,7 +25,21 @@ class AnalyzeStoryJob < ApplicationJob
   # Retry on transient errors with exponential backoff. Don't retry on
   # AnalysisFailed — that's a deterministic "bad LLM response" and retrying
   # won't help; the next scheduled run will try again with fresh context.
+  #
+  # After attempts are exhausted (baru has been down for a while), discard
+  # the job rather than letting it rot in the failed queue. The next cron
+  # tick (tomorrow morning) will re-enqueue a fresh run. We explicitly do
+  # NOT do anything briefing-adjacent on discard — skipping cleanly beats
+  # sending an empty or misleading summary.
   retry_on LlmClient::Unreachable, wait: :polynomially_longer, attempts: 3
+
+  discard_on LlmClient::Unreachable do |job, error|
+    story_id = job.arguments.first
+    Rails.logger.warn(
+      "AnalyzeStoryJob: story #{story_id} giving up after retries — " \
+      "Ollama unreachable (#{error.message}). Will retry on next scheduled run."
+    )
+  end
 
   # Tests can override this to inject a stub analyzer without going through
   # ActiveJob serialization.

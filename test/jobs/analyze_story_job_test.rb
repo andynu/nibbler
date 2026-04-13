@@ -170,6 +170,28 @@ class AnalyzeStoryJobTest < ActiveJob::TestCase
     assert_nil analyzer.last_new_articles
   end
 
+  test "discards rather than failing after retries exhausted on LlmClient::Unreachable" do
+    stub_analyzer(raise: LlmClient::Unreachable.new("baru down"))
+
+    # discard_on swallows the exception after retries are exhausted. In perform_now
+    # with no retry queue, discard_on triggers immediately (bypassing retry_on's
+    # requeue path), so the job completes without raising and without persisting.
+    logged = StringIO.new
+    original_logger = Rails.logger
+    Rails.logger = Logger.new(logged)
+
+    begin
+      assert_no_difference -> { @story.story_analyses.count } do
+        AnalyzeStoryJob.perform_now(@story.id)
+      end
+    ensure
+      Rails.logger = original_logger
+    end
+
+    assert_match(/giving up after retries/, logged.string)
+    assert_match(/Ollama unreachable/, logged.string)
+  end
+
   test "does not change summary or status when analyzer raises" do
     original_summary = @story.summary
     stub_analyzer(raise: StoryAnalyzer::AnalysisFailed.new("bad"))

@@ -23,13 +23,21 @@ Rails.application.configure do
       class: "SendDigestsJob",
       description: "Send email digests to users at their preferred time"
     },
-    fetch_stories: {
+    # Fetch runs twice daily. RSS fetches are cheap (no LLM) so we can afford
+    # the extra pass to keep stories fresher through the day. The overnight
+    # analyze pass (5am) still sees the combined articles from both fetches.
+    fetch_stories_overnight: {
       cron: "0 2 * * *", # at 2am daily (overnight batch; baru is idle)
       class: "FetchStoriesJob",
-      description: "Fetch Google News RSS results for each active Story's queries"
+      description: "Fetch Google News RSS results for each active Story's queries (overnight pass)"
+    },
+    fetch_stories_midday: {
+      cron: "0 14 * * *", # at 2pm daily (second cheap RSS-only pass)
+      class: "FetchStoriesJob",
+      description: "Fetch Google News RSS results for each active Story's queries (midday pass)"
     },
     analyze_stories: {
-      cron: "0 5 * * *", # at 5am daily, after fetch_stories (2am) has settled
+      cron: "0 5 * * *", # at 5am daily, after fetch_stories_overnight (2am) has settled
       class: "AnalyzeStoriesJob",
       description: "Run LLM analysis for each active Story and update summaries"
     }

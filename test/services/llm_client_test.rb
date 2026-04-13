@@ -177,6 +177,63 @@ class LlmClientTest < ActiveSupport::TestCase
   end
 
   # ===================
+  # Metrics Logging
+  # ===================
+
+  test "logs metrics when Ollama returns eval_count and eval_duration" do
+    stub_request(:post, "#{@url}/api/generate")
+      .to_return(
+        status: 200,
+        body: {
+          response: "ok",
+          eval_count: 150,
+          eval_duration: 1_000_000_000 # 1 second in nanoseconds
+        }.to_json
+      )
+
+    assert_logs_match(/LlmClient metrics: model=test-model .* eval_count=150 eval_duration=1\.0s tokens_per_sec=150\.0/) do
+      @client.generate(prompt: "hello")
+    end
+  end
+
+  test "does not log metrics when eval_count is missing" do
+    stub_request(:post, "#{@url}/api/generate")
+      .to_return(status: 200, body: { response: "ok" }.to_json)
+
+    refute_logs_match(/LlmClient metrics:/) do
+      @client.generate(prompt: "hello")
+    end
+  end
+
+  test "does not log metrics when eval_duration is zero" do
+    stub_request(:post, "#{@url}/api/generate")
+      .to_return(
+        status: 200,
+        body: { response: "ok", eval_count: 10, eval_duration: 0 }.to_json
+      )
+
+    refute_logs_match(/LlmClient metrics:/) do
+      @client.generate(prompt: "hello")
+    end
+  end
+
+  test "metrics are logged even when format: :json response parsing occurs" do
+    stub_request(:post, "#{@url}/api/generate")
+      .to_return(
+        status: 200,
+        body: {
+          response: '{"k":"v"}',
+          eval_count: 50,
+          eval_duration: 2_000_000_000 # 2s
+        }.to_json
+      )
+
+    assert_logs_match(/eval_count=50 eval_duration=2\.0s tokens_per_sec=25\.0/) do
+      @client.generate(prompt: "hello", format: :json)
+    end
+  end
+
+  # ===================
   # Model Parameter
   # ===================
 
