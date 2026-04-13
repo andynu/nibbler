@@ -1,0 +1,17 @@
+first_article:
+  story: active_story
+  url: "https://example.com/sec-crypto-1"
+  title: "SEC Announces New Framework"
+  snippet: "The SEC today announced..."
+  source: "example.com"
+  published_at: <%= 2.days.ago.to_fs(:db) %>
+  fetched_at: <%= 1.day.ago.to_fs(:db) %>
+
+second_article:
+  story: active_story
+  url: "https://example.com/sec-crypto-2"
+  title: "Follow-up Reactions"
+  snippet: "Industry reactions poured in..."
+  source: "example.com"
+  published_at: <%= 1.day.ago.to_fs(:db) %>
+  fetched_at: <%= 12.hours.ago.to_fs(:db) %>

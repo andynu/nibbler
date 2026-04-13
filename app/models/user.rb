@@ -20,6 +20,7 @@ class User < ApplicationRecord
   has_many :tags, dependent: :destroy
   has_many :filters, dependent: :destroy
   has_many :user_preferences, dependent: :destroy
+  has_many :stories, dependent: :destroy
 
   validates :login, presence: true, uniqueness: true
 
