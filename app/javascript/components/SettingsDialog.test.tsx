@@ -143,13 +143,13 @@ describe("SettingsDialog", () => {
       expect(screen.getByTestId("preferences-panel")).toBeInTheDocument()
     })
 
-    it("clicking Account tab shows coming soon message", async () => {
+    it("clicking Account tab shows public feed settings", async () => {
       const user = userEvent.setup()
       render(<SettingsDialogWrapper {...defaultProps} />)
 
       await user.click(screen.getByRole("tab", { name: /account/i }))
 
-      expect(screen.getByText(/account settings coming soon/i)).toBeInTheDocument()
+      expect(screen.getByText(/share your published articles/i)).toBeInTheDocument()
     })
 
     it("selected tab has correct state", async () => {

@@ -1,0 +1,30 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+HIDE_STEREOTYPE()
+
+title Nibbler - Container Diagram (Level 2)
+
+Person(user, "User", "A person who wants to read and organize RSS/Atom feeds")
+
+System_Boundary(nibbler, "Nibbler System") {
+  Container(spa, "Single Page Application", "React 19, TypeScript", "Provides feed reading UI with shadcn/ui components")
+  Container(api, "Rails API", "Ruby on Rails 8.1", "Handles API requests, authentication, feed management")
+  Container(background, "Background Workers", "GoodJob", "Scheduled feed fetching, digest emails, image caching")
+  ContainerDb(database, "Database", "PostgreSQL", "Stores users, feeds, entries, filters, preferences")
+  ContainerDb(cache, "Cache", "Rails Cache", "Domain throttling, session data")
+}
+
+System_Ext(feed_sources, "RSS/Atom Feed Sources", "External websites publishing feeds")
+System_Ext(email_service, "Email Service", "SMTP server")
+
+Rel(user, spa, "Uses", "HTTPS")
+Rel(spa, api, "Makes API calls", "REST/JSON")
+Rel(api, database, "Reads/writes", "ActiveRecord")
+Rel(api, cache, "Reads/writes", "Rails Cache API")
+Rel(background, database, "Reads/writes", "ActiveRecord")
+Rel(background, cache, "Reads/writes throttle state", "Rails Cache API")
+Rel(background, feed_sources, "Fetches feeds", "HTTP/HTTPS")
+Rel(background, email_service, "Sends digests", "SMTP")
+Rel(api, background, "Enqueues jobs", "GoodJob")
+
+@enduml

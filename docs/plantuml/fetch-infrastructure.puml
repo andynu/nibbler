@@ -1,0 +1,60 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+HIDE_STEREOTYPE()
+
+title Nibbler - Fetching Infrastructure Components (Level 3)
+
+Container_Boundary(background, "Background Workers Container") {
+  Component(update_feeds_job, "UpdateFeedsJob", "GoodJob Cron", "Runs every 5 minutes, queries feeds needing updates, enqueues individual jobs")
+  Component(update_feed_job, "UpdateFeedJob", "GoodJob", "Processes single feed update with retry logic and domain throttling")
+  Component(cache_images_job, "CacheArticleImagesJob", "GoodJob", "Downloads and caches article images locally")
+}
+
+Container_Boundary(services, "Feed Services") {
+  Component(feed_updater, "FeedUpdater", "Ruby Service", "Orchestrates fetch, parse, entry creation, filter execution")
+  Component(feed_fetcher, "FeedFetcher", "Ruby Service", "HTTP client with conditional GET (ETag, Last-Modified)")
+  Component(feed_parser, "FeedParser", "Ruby/Feedjira", "Parses RSS/Atom XML into normalized entry structures")
+  Component(domain_throttler, "DomainThrottler", "Ruby Service", "Enforces 5-second minimum between requests to same domain")
+  Component(filter_executor, "FilterExecutor", "Ruby Service", "Runs user filters on new entries (mark read, star, tag, etc.)")
+  Component(content_sanitizer, "ContentSanitizer", "Ruby/Loofah", "XSS protection, HTML cleanup, iframe whitelisting")
+  Component(image_cacher, "ImageCacher", "Ruby Service", "Downloads and stores article images")
+}
+
+Container_Boundary(models, "Domain Models") {
+  Component(feed_model, "Feed", "ActiveRecord", "Stores feed URL, caching headers, adaptive polling state, backoff")
+  Component(entry_model, "Entry", "ActiveRecord", "Stores article content, GUID for deduplication")
+  Component(user_entry_model, "UserEntry", "ActiveRecord", "Per-user read state, starred, published, score")
+}
+
+ContainerDb(database, "PostgreSQL", "PostgreSQL", "Persistent storage")
+ContainerDb(cache, "Rails Cache", "Memory/Redis", "Domain throttle timestamps")
+System_Ext(feed_sources, "Feed Sources", "External RSS/Atom feeds")
+
+' Job flow
+Rel(update_feeds_job, update_feed_job, "Enqueues", "GoodJob")
+Rel(update_feed_job, domain_throttler, "Waits for throttle", "")
+Rel(update_feed_job, feed_updater, "Calls update", "")
+
+' FeedUpdater orchestration
+Rel(feed_updater, feed_fetcher, "Fetches raw feed", "")
+Rel(feed_updater, feed_parser, "Parses content", "")
+Rel(feed_updater, content_sanitizer, "Sanitizes HTML", "")
+Rel(feed_updater, filter_executor, "Applies filters", "")
+Rel(feed_updater, cache_images_job, "Enqueues", "GoodJob")
+
+' External calls
+Rel(feed_fetcher, feed_sources, "HTTP GET", "If-Modified-Since, If-None-Match")
+
+' Domain throttler
+Rel(domain_throttler, cache, "Reads/writes timestamps", "")
+
+' Model persistence
+Rel(feed_updater, feed_model, "Updates polling state", "")
+Rel(feed_updater, entry_model, "Creates entries", "")
+Rel(feed_updater, user_entry_model, "Creates user entries", "")
+
+Rel(feed_model, database, "Persists", "")
+Rel(entry_model, database, "Persists", "")
+Rel(user_entry_model, database, "Persists", "")
+
+@enduml

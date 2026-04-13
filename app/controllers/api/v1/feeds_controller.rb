@@ -19,12 +19,22 @@ module Api
       def create
         @feed = current_user.feeds.build(feed_params)
 
+        # Auto-detect title from feed if not provided
+        if @feed.title.blank? && @feed.feed_url.present?
+          result = auto_detect_feed_metadata(@feed.feed_url)
+          if result[:error]
+            return render json: { error: result[:error], title_required: true }, status: :unprocessable_entity
+          end
+          @feed.title = result[:title]
+          @feed.site_url ||= result[:site_url]
+        end
+
         if @feed.save
-          # Optionally fetch the feed immediately
-          FeedUpdater.new(@feed).update if params[:fetch_now]
+          # Fetch entries for the new feed
+          FeedUpdater.new(@feed).update
           render json: feed_json(@feed), status: :created
         else
-          render json: { errors: @feed.errors.full_messages }, status: :unprocessable_entity
+          render json: { error: @feed.errors.full_messages.join(", ") }, status: :unprocessable_entity
         end
       end
 
@@ -215,6 +225,31 @@ module Api
           :cache_images, :mark_unread_on_update,
           :include_in_digest, :always_display_enclosures
         )
+      end
+
+      def auto_detect_feed_metadata(url)
+        url = "https://#{url}" unless url.match?(%r{\Ahttps?://}i)
+
+        temp_feed = Feed.new(feed_url: url)
+        fetcher = FeedFetcher.new(temp_feed)
+        fetch_result = fetcher.fetch
+
+        if fetch_result.error?
+          return { error: "Could not fetch feed: #{fetch_result.error}" }
+        end
+
+        parse_result = FeedParser.new(fetch_result.body, feed_url: url).parse
+
+        if !parse_result.success?
+          return { error: "Could not parse feed: #{parse_result.error}" }
+        end
+
+        {
+          title: parse_result.title.presence || "Untitled Feed",
+          site_url: parse_result.site_url
+        }
+      rescue StandardError => e
+        { error: "Failed to detect feed title: #{e.message}" }
       end
 
       def feed_json(feed, include_entries: false)

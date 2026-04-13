@@ -11,6 +11,7 @@ import { FilterManager } from "@/components/FilterManager"
 import { LabelManager } from "@/components/LabelManager"
 import { OpmlPanel } from "@/components/OpmlPanel"
 import { ToolsPanel } from "@/components/ToolsPanel"
+import { AccountPanel } from "@/components/AccountPanel"
 import { Feed, Category, api } from "@/lib/api"
 
 interface SettingsDialogProps {
@@ -99,10 +100,8 @@ export function SettingsDialog({
           <TabsContent value="preferences" className="flex-1 overflow-auto">
             <PreferencesPanel />
           </TabsContent>
-          <TabsContent value="account" className="flex-1">
-            <div className="p-4 text-muted-foreground">
-              Account settings coming soon...
-            </div>
+          <TabsContent value="account" className="flex-1 overflow-auto border rounded-md">
+            <AccountPanel />
           </TabsContent>
         </Tabs>
       </DialogContent>

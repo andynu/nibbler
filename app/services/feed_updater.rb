@@ -186,6 +186,9 @@ class FeedUpdater
       # Execute user's filters on the new entry
       FilterExecutor.execute(user_entry)
 
+      # Apply feed-level tags to the new entry
+      FeedTagsForEntryApplier.apply(user_entry: user_entry)
+
       # Enqueue image caching if enabled for this feed and entry is new
       if new_entry && @feed.cache_images?
         CacheArticleImagesJob.perform_later(entry.id)

@@ -1,0 +1,78 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Sequence.puml
+HIDE_STEREOTYPE()
+
+title Nibbler - Feed Fetch Flow (Level 4 - Code)
+
+' Participants (flat list, no boundaries)
+Component(cron, "Cron Scheduler", "GoodJob", "Every 5 minutes")
+Component(update_feeds_job, "UpdateFeedsJob", "GoodJob", "Batch scheduler")
+Component(update_feed_job, "UpdateFeedJob", "GoodJob", "Single feed processor")
+Component(domain_throttler, "DomainThrottler", "Service", "Rate limiter")
+Component(feed_updater, "FeedUpdater", "Service", "Orchestrator")
+Component(feed_fetcher, "FeedFetcher", "Service", "HTTP client")
+Component(feed_parser, "FeedParser", "Feedjira", "RSS/Atom parser")
+Component(content_sanitizer, "ContentSanitizer", "Loofah", "HTML cleaner")
+Component(filter_executor, "FilterExecutor", "Service", "Filter runner")
+ContainerDb(database, "PostgreSQL", "PostgreSQL", "Storage")
+ContainerDb(cache, "Rails Cache", "Memory", "Throttle state")
+Container(feed_source, "Feed Source", "HTTP Server", "External RSS feed")
+
+== Scheduled Trigger ==
+
+Rel(cron, update_feeds_job, "Triggers", "*/5 * * * *")
+Rel(update_feeds_job, database, "Query feeds needing update", "next_poll_at <= now")
+Rel(database, update_feeds_job, "Returns feed list", "")
+
+group For each feed
+  Rel(update_feeds_job, update_feed_job, "Enqueue", "GoodJob async")
+end
+
+== Individual Feed Processing ==
+
+Rel(update_feed_job, database, "Check if already updating", "last_update_started")
+Rel(update_feed_job, database, "Check backoff period", "retry_after")
+
+group Domain Throttling
+  Rel(update_feed_job, domain_throttler, "Wait for domain", "")
+  Rel(domain_throttler, cache, "Get last request time", "domain key")
+  Rel(domain_throttler, update_feed_job, "OK to proceed", "after 5s min")
+end
+
+Rel(update_feed_job, feed_updater, "Update feed", "")
+Rel(feed_updater, database, "Set last_update_started", "now")
+
+== HTTP Fetch ==
+
+Rel(feed_updater, feed_fetcher, "Fetch feed", "")
+Rel(feed_fetcher, feed_source, "HTTP GET", "If-Modified-Since, If-None-Match")
+
+group Response Handling
+  Rel(feed_source, feed_fetcher, "200 OK / 304 Not Modified / 429 Rate Limited", "XML/Atom")
+end
+
+Rel(feed_fetcher, feed_updater, "FetchResult", "status, body, headers")
+Rel(update_feed_job, domain_throttler, "Record request time", "")
+Rel(domain_throttler, cache, "Store timestamp", "domain key")
+
+== Parse & Process (if 200 OK) ==
+
+Rel(feed_updater, feed_parser, "Parse XML", "")
+Rel(feed_parser, feed_updater, "ParsedEntry[]", "normalized entries")
+
+group For each entry
+  Rel(feed_updater, content_sanitizer, "Sanitize HTML", "")
+  Rel(content_sanitizer, feed_updater, "Clean content", "")
+  Rel(feed_updater, database, "Find or create Entry", "by GUID")
+  Rel(feed_updater, database, "Create UserEntry", "per user")
+  Rel(feed_updater, filter_executor, "Execute filters", "")
+  Rel(filter_executor, database, "Apply filter actions", "mark read, star, tag")
+end
+
+== Update Feed State ==
+
+Rel(feed_updater, database, "Update feed metadata", "etag, last_modified, site_url")
+Rel(feed_updater, database, "Update adaptive polling", "next_poll_at, avg_posts_per_day")
+Rel(feed_updater, database, "Reset backoff on success", "consecutive_failures = 0")
+
+@enduml

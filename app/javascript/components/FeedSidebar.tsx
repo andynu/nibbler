@@ -83,7 +83,7 @@ export function FeedSidebar({
   selectedCategoryId,
   virtualFeed,
   selectedTag,
-  tagsWithCounts,
+  tagsWithCounts = [],
   virtualFolderCounts,
   onSelectFeed,
   onSelectCategory,

@@ -61,6 +61,7 @@ export interface Entry {
   published: string
   unread: boolean
   starred: boolean
+  is_published: boolean
   score: number
   last_read: string | null
   content_preview?: string | null
@@ -71,6 +72,10 @@ export interface Entry {
     name: string
     fg_color: string
     bg_color: string
+  }>
+  detected_tags?: Array<{
+    id: number
+    name: string
   }>
   enclosures?: Enclosure[]
 }
@@ -147,6 +152,20 @@ export interface FeedInfo {
 
   // Word frequency for categorization hints
   top_words: Array<{ word: string; count: number }>
+}
+
+export interface EntryInfo {
+  top_words: Array<{ word: string; count: number }>
+}
+
+export interface User {
+  id: number
+  login: string
+  email: string
+  full_name: string | null
+  access_level: number
+  is_admin: boolean
+  last_login: string | null
 }
 
 export interface Preferences {
@@ -233,10 +252,11 @@ export interface WordTimestamp {
 }
 
 export interface AudioResponse {
-  status: "ready" | "generating"
+  status: "ready" | "generating" | "error"
   audio_url?: string
   duration?: number
   timestamps?: WordTimestamp[]
+  error?: string
 }
 
 export type AudioSource = "tts" | "podcast"
@@ -375,6 +395,8 @@ export const api = {
       request<{ id: number; unread: boolean }>(`/entries/${id}/toggle_read`, { method: "POST" }),
     toggleStarred: (id: number) =>
       request<{ id: number; starred: boolean }>(`/entries/${id}/toggle_starred`, { method: "POST" }),
+    togglePublished: (id: number) =>
+      request<{ id: number; is_published: boolean }>(`/entries/${id}/toggle_published`, { method: "POST" }),
     markAllRead: (params?: { feed_id?: number; category_id?: number }) =>
       request<{ marked_read: number }>("/entries/mark_all_read", {
         method: "POST",
@@ -391,6 +413,7 @@ export const api = {
       const query = searchParams.toString()
       return request<{ keywords: Array<{ word: string; count: number }> }>(`/entries/keywords${query ? `?${query}` : ""}`)
     },
+    info: (id: number) => request<EntryInfo>(`/entries/${id}/info`),
   },
 
   categories: {
@@ -435,17 +458,17 @@ export const api = {
 
   entryTags: {
     add: (entryId: number, tagName: string) =>
-      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags`, {
+      request<{ entry_id: number; tags: Array<{ id: number; name: string; fg_color: string; bg_color: string }> }>(`/entries/${entryId}/tags`, {
         method: "POST",
         body: JSON.stringify({ tag_name: tagName }),
       }),
     addMultiple: (entryId: number, tagNames: string[]) =>
-      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags`, {
+      request<{ entry_id: number; tags: Array<{ id: number; name: string; fg_color: string; bg_color: string }> }>(`/entries/${entryId}/tags`, {
         method: "POST",
         body: JSON.stringify({ tag_names: tagNames }),
       }),
     remove: (entryId: number, tagName: string) =>
-      request<{ entry_id: number; tags: string[] }>(`/entries/${entryId}/tags/${encodeURIComponent(tagName)}`, {
+      request<{ entry_id: number; tags: Array<{ id: number; name: string; fg_color: string; bg_color: string }> }>(`/entries/${entryId}/tags/${encodeURIComponent(tagName)}`, {
         method: "DELETE",
       }),
   },
@@ -512,5 +535,21 @@ export const api = {
       }>
     },
     exportUrl: () => `${API_BASE}/opml/export`,
+  },
+
+  auth: {
+    login: (login: string, password: string) =>
+      request<User>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ login, password }),
+      }),
+    logout: () => request<void>("/auth/logout", { method: "DELETE" }),
+    me: () => request<User>("/auth/me"),
+    publicFeedKey: () =>
+      request<{ access_key: string; feed_url: string }>("/auth/public_feed_key"),
+    regeneratePublicFeedKey: () =>
+      request<{ access_key: string; feed_url: string }>("/auth/regenerate_public_feed_key", {
+        method: "POST",
+      }),
   },
 }

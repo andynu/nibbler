@@ -119,7 +119,13 @@ export function useTtsPlayer(): UseTtsPlayerResult {
 
           try {
             const pollResponse = await api.entries.audio(entryId)
-            if (pollResponse.status === "ready" && pollResponse.audio_url) {
+            if (pollResponse.status === "error") {
+              // Generation failed - stop polling and show error
+              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+              pollIntervalRef.current = null
+              setState("error")
+              setError(pollResponse.error || "Audio generation failed")
+            } else if (pollResponse.status === "ready" && pollResponse.audio_url) {
               if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
               pollIntervalRef.current = null
 
@@ -159,6 +165,10 @@ export function useTtsPlayer(): UseTtsPlayerResult {
             // Ignore polling errors, keep trying
           }
         }, POLL_INTERVAL)
+      } else if (response.status === "error") {
+        // Generation previously failed - show error immediately
+        setState("error")
+        setError(response.error || "Audio generation failed")
       } else if (response.status === "ready" && response.audio_url) {
         setTimestamps(response.timestamps || [])
         setDuration(response.duration || 0)

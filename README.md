@@ -1,5 +1,7 @@
 # Nibbler
 
+[![Personal Software](http://andynu.com/personalsoftware/badge.svg)](http://andynu.com/personalsoftware)
+
 A modern RSS reader built with Rails and React.
 
 ## Development Setup

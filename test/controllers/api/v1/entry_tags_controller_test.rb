@@ -30,7 +30,11 @@ class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
     assert_equal original_count + 1, entry_tags_count
 
     json = JSON.parse(response.body)
-    assert_equal [ "tech" ], json["tags"]
+    assert_equal 1, json["tags"].length
+    assert_equal "tech", json["tags"].first["name"]
+    assert json["tags"].first["id"].present?, "Tag should have an id"
+    assert json["tags"].first["fg_color"].present?, "Tag should have fg_color"
+    assert json["tags"].first["bg_color"].present?, "Tag should have bg_color"
     assert_equal @user_entry.id, json["entry_id"]
 
     # Verify tag was created and linked to entry
@@ -50,7 +54,8 @@ class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
     assert_equal original_count + 3, entry_tags_count
 
     json = JSON.parse(response.body)
-    assert_equal [ "news", "ruby", "tech" ], json["tags"].sort
+    tag_names = json["tags"].map { |t| t["name"] }.sort
+    assert_equal [ "news", "ruby", "tech" ], tag_names
   end
 
   test "create normalizes tag names to lowercase" do
@@ -61,7 +66,8 @@ class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     json = JSON.parse(response.body)
-    assert_equal [ "tech" ], json["tags"]
+    tag_names = json["tags"].map { |t| t["name"] }
+    assert_equal [ "tech" ], tag_names
   end
 
   test "create ignores duplicate tags" do
@@ -106,7 +112,8 @@ class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
     assert_equal original_count - 1, entry_tags_count
 
     json = JSON.parse(response.body)
-    assert_equal [ "news" ], json["tags"]
+    tag_names = json["tags"].map { |t| t["name"] }
+    assert_equal [ "news" ], tag_names
   end
 
   test "destroy handles non-existent tags gracefully" do

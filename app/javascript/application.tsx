@@ -13,11 +13,13 @@ import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { AudioPanel } from "@/components/AudioPanel"
 import { MobileNavBar } from "@/components/mobile/MobileNavBar"
 import { SidebarDrawer } from "@/components/mobile/SidebarDrawer"
+import { LoginPage } from "@/components/LoginPage"
 import { PreferencesProvider, usePreferences } from "@/contexts/PreferencesContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { I18nProvider } from "@/contexts/I18nContext"
 import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
+import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -342,6 +344,21 @@ function App() {
     }
   }
 
+  const handleTogglePublishedEntry = async (entryId: number) => {
+    try {
+      const result = await api.entries.togglePublished(entryId)
+      setEntries((prev) =>
+        prev.map((e) => (e.id === entryId ? { ...e, is_published: result.is_published } : e))
+      )
+      if (selectedEntry?.id === entryId) {
+        setSelectedEntry({ ...selectedEntry, is_published: result.is_published })
+      }
+      loadCounters() // Refresh published count
+    } catch (error) {
+      console.error("Failed to toggle published:", error)
+    }
+  }
+
   const handleUpdateNote = async (note: string) => {
     if (!selectedEntry) return
     try {
@@ -362,8 +379,9 @@ function App() {
       const result = await api.entryTags.add(selectedEntry.id, tagName)
       setSelectedEntry({ ...selectedEntry, tags: result.tags })
       // If this is a new tag, add it to allTags
-      if (!allTags.includes(tagName.toLowerCase())) {
-        setAllTags((prev) => [...prev, tagName.toLowerCase()].sort())
+      const normalizedName = tagName.toLowerCase()
+      if (!allTags?.includes(normalizedName)) {
+        setAllTags((prev) => [...(prev || []), normalizedName].sort())
       }
     } catch (error) {
       console.error("Failed to add tag:", error)
@@ -589,6 +607,12 @@ function App() {
     }
   }, [selectedEntry])
 
+  const handleKeyboardTogglePublished = useCallback(() => {
+    if (selectedEntry) {
+      handleTogglePublishedEntry(selectedEntry.id)
+    }
+  }, [selectedEntry])
+
   const handleKeyboardOpen = useCallback(() => {
     if (selectedEntry) {
       loadEntry(selectedEntry.id)
@@ -678,7 +702,6 @@ function App() {
       { key: "J", handler: handleKeyboardNextCategory, description: "Next category", modifiers: { shift: true } },
       { key: "K", handler: handleKeyboardPreviousCategory, description: "Previous category", modifiers: { shift: true } },
       { key: "n", handler: handleKeyboardNext, description: "Next entry" },
-      { key: "p", handler: handleKeyboardPrevious, description: "Previous entry" },
       { key: " ", handler: handleKeyboardNextUnread, description: "Next unread" },
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
@@ -687,6 +710,7 @@ function App() {
       { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "u", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
       { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
+      { key: "p", handler: handleKeyboardTogglePublished, description: "Toggle published" },
       { key: "i", handler: handleToggleIframe, description: "Toggle iframe/RSS view" },
       { key: "v", handler: handleKeyboardOpenOriginal, description: "Open original link" },
       { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
@@ -712,6 +736,7 @@ function App() {
       handleKeyboardPreviousCategory,
       handleKeyboardToggleRead,
       handleKeyboardToggleStarred,
+      handleKeyboardTogglePublished,
       handleToggleIframe,
       handleKeyboardOpen,
       handleKeyboardClose,
@@ -948,6 +973,7 @@ function App() {
           onSelectEntry={handleSelectEntryWithNav}
           onToggleRead={handleToggleRead}
           onToggleStarred={handleToggleStarredEntry}
+          onTogglePublished={handleTogglePublishedEntry}
           onMarkAllRead={handleMarkAllRead}
           isLoading={isLoadingEntries}
           title={getListTitle()}
@@ -983,6 +1009,7 @@ function App() {
           entry={selectedEntry}
           onToggleRead={() => selectedEntry && handleToggleRead(selectedEntry.id)}
           onToggleStarred={() => selectedEntry && handleToggleStarredEntry(selectedEntry.id)}
+          onTogglePublished={() => selectedEntry && handleTogglePublishedEntry(selectedEntry.id)}
           onScoreChange={(score) => selectedEntry && handleSetScore(selectedEntry.id, score)}
           onPrevious={handlePrevious}
           onNext={handleNext}
@@ -1082,22 +1109,44 @@ function App() {
   )
 }
 
+function AuthenticatedApp() {
+  const { isLoading, isAuthenticated } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
+
+  return (
+    <PreferencesProvider>
+      <LayoutProvider>
+        <AudioPlayerProvider>
+          <App />
+        </AudioPlayerProvider>
+      </LayoutProvider>
+    </PreferencesProvider>
+  )
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("react-root")
   if (container) {
     const root = createRoot(container)
     root.render(
-      <PreferencesProvider>
-        <ThemeProvider>
-          <I18nProvider>
-            <LayoutProvider>
-              <AudioPlayerProvider>
-                <App />
-              </AudioPlayerProvider>
-            </LayoutProvider>
-          </I18nProvider>
-        </ThemeProvider>
-      </PreferencesProvider>
+      <ThemeProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <AuthenticatedApp />
+          </AuthProvider>
+        </I18nProvider>
+      </ThemeProvider>
     )
   }
 })

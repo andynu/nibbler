@@ -1,5 +1,4 @@
-import { createContext, useContext, useEffect, ReactNode } from "react"
-import { usePreferences } from "./PreferencesContext"
+import { createContext, useContext, useEffect, useState, ReactNode } from "react"
 
 type Theme = "light" | "dark" | "system"
 
@@ -10,6 +9,8 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
+
+const THEME_STORAGE_KEY = "nibbler-theme"
 
 function getSystemTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light"
@@ -23,9 +24,17 @@ function getResolvedTheme(theme: Theme): "light" | "dark" {
   return theme
 }
 
+function getStoredTheme(): Theme {
+  if (typeof window === "undefined") return "system"
+  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+  if (stored === "light" || stored === "dark" || stored === "system") {
+    return stored
+  }
+  return "system"
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { preferences, updatePreference, isLoading } = usePreferences()
-  const theme = (preferences.theme as Theme) || "system"
+  const [theme, setThemeState] = useState<Theme>(getStoredTheme)
   const resolvedTheme = getResolvedTheme(theme)
 
   // Apply theme class to document root
@@ -59,12 +68,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme])
 
   const setTheme = (newTheme: Theme) => {
-    updatePreference("theme", newTheme)
-  }
-
-  // Don't render until preferences are loaded to avoid flash
-  if (isLoading) {
-    return null
+    setThemeState(newTheme)
+    localStorage.setItem(THEME_STORAGE_KEY, newTheme)
   }
 
   return (

@@ -1,12 +1,12 @@
 module Api
   module V1
     class EntriesController < BaseController
-      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :audio ]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info ]
 
       # GET /api/v1/entries
       def index
         @user_entries = current_user.user_entries
-          .includes(:entry, :feed)
+          .includes(:feed, entry: :tags)
           .joins(:entry)
 
         # Join feeds table if sorting by feed
@@ -116,6 +116,12 @@ module Api
         render json: { id: @user_entry.id, starred: @user_entry.marked }
       end
 
+      # POST /api/v1/entries/:id/toggle_published
+      def toggle_published
+        @user_entry.toggle_published!
+        render json: { id: @user_entry.id, is_published: @user_entry.published }
+      end
+
       # GET /api/v1/entries/:id/audio
       # Returns audio URL and word-level timestamps for TTS playback.
       # If audio doesn't exist, starts generation and returns status.
@@ -137,20 +143,36 @@ module Api
         # Clean up stale cache
         cached&.destroy
 
-        # Check if generation is already in progress
-        pending_job = GoodJob::Job.where(job_class: "GenerateArticleAudioJob")
+        # Check for recent jobs (pending or failed) for this entry
+        recent_jobs = GoodJob::Job.where(job_class: "GenerateArticleAudioJob")
           .where("serialized_params->>'arguments' LIKE ?", "%#{entry.id}%")
-          .where(finished_at: nil)
-          .exists?
+          .where("created_at > ?", 1.hour.ago)
+          .order(created_at: :desc)
 
+        pending_job = recent_jobs.find { |j| j.finished_at.nil? }
         if pending_job
           render json: { status: "generating" }
+          return
+        end
+
+        # Check for recently failed job (has error within last hour)
+        failed_job = recent_jobs.find { |j| j.error.present? }
+        if failed_job
+          render json: { status: "error", error: failed_job.error.to_s.truncate(200) }
           return
         end
 
         # Start generation
         GenerateArticleAudioJob.perform_later(entry.id)
         render json: { status: "generating" }
+      end
+
+      # GET /api/v1/entries/:id/info
+      # Returns word frequency analysis for a single entry (for tag suggestions)
+      def info
+        entry = @user_entry.entry
+        analyzer = EntryWordFrequencyAnalyzer.new(entry)
+        render json: { top_words: analyzer.analyze }
       end
 
       # POST /api/v1/entries/mark_all_read
@@ -208,7 +230,7 @@ module Api
         @user_entries = current_user.user_entries
           .joins(:entry, :feed)
           .select(
-            "user_entries.id, user_entries.feed_id, user_entries.unread, user_entries.marked, user_entries.score",
+            "user_entries.id, user_entries.feed_id, user_entries.unread, user_entries.marked, user_entries.published, user_entries.score",
             "entries.id as entry_id, entries.title, entries.link, entries.author, entries.updated, entries.date_entered",
             "feeds.title as feed_title"
           )
@@ -275,6 +297,8 @@ module Api
       def user_entry_json(user_entry, full_content: false)
         entry = user_entry.entry
         feed = user_entry.feed
+        user_tags = entry.tags.select { |t| t.user_id == user_entry.user_id }
+
         json = {
           id: user_entry.id,
           entry_id: entry.id,
@@ -286,16 +310,18 @@ module Api
           published: entry.updated,
           unread: user_entry.unread,
           starred: user_entry.marked,
+          is_published: user_entry.published,
           score: user_entry.score,
           last_read: user_entry.last_read,
-          content_preview: content_preview(entry.content)
+          content_preview: content_preview(entry.content),
+          tags: user_tags.map { |t| { id: t.id, name: t.name, fg_color: t.fg_color, bg_color: t.bg_color } }
         }
 
         if full_content
           # Use cached_content (with locally cached images) if available
           json[:content] = entry.cached_content.presence || entry.content
           json[:note] = user_entry.note
-          json[:tags] = entry.tags.where(user_id: user_entry.user_id).map { |t| { id: t.id, name: t.name, fg_color: t.fg_color, bg_color: t.bg_color } }
+          json[:detected_tags] = detect_tags_in_content(entry, user_entry.user_id)
           json[:enclosures] = entry.enclosures.map { |e| enclosure_json(e) }
         end
 
@@ -322,6 +348,7 @@ module Api
           published: ue.updated,
           unread: ue.unread,
           starred: ue.marked,
+          is_published: ue.published,
           score: ue.score
         }
       end
@@ -434,6 +461,17 @@ module Api
         return false unless params[:sort].present?
 
         params[:sort].downcase.include?("feed")
+      end
+
+      # Detect which of the user's tags appear in the entry content but aren't explicitly applied
+      def detect_tags_in_content(entry, user_id)
+        user_tags = Tag.where(user_id: user_id).pluck(:id, :name)
+        applied_tag_ids = entry.tags.where(user_id: user_id).pluck(:id)
+        content = "#{entry.title} #{ActionController::Base.helpers.strip_tags(entry.content || '')}".downcase
+
+        user_tags.reject { |id, _| applied_tag_ids.include?(id) }
+                 .select { |_, name| content.include?(name.downcase) }
+                 .map { |id, name| { id: id, name: name } }
       end
     end
   end
