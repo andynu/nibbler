@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_20_172029) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_13_122702) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -266,6 +266,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_20_172029) do
     t.index ["scheduled_at"], name: "index_good_jobs_on_scheduled_at", where: "(finished_at IS NULL)"
   end
 
+  create_table "stories", force: :cascade do |t|
+    t.datetime "concluded_at"
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.jsonb "queries", default: [], null: false
+    t.bigint "source_entry_id"
+    t.string "status", default: "active", null: false
+    t.text "summary"
+    t.bigint "user_id", null: false
+    t.index ["source_entry_id"], name: "index_stories_on_source_entry_id"
+    t.index ["status"], name: "index_stories_on_status"
+    t.index ["user_id"], name: "index_stories_on_user_id"
+  end
+
+  create_table "story_analyses", force: :cascade do |t|
+    t.jsonb "article_ids", default: [], null: false
+    t.boolean "concluded", default: false, null: false
+    t.datetime "created_at", null: false
+    t.boolean "new_development", default: false, null: false
+    t.text "rationale"
+    t.bigint "story_id", null: false
+    t.text "summary"
+    t.string "timeline_label"
+    t.index ["story_id", "created_at"], name: "index_story_analyses_on_story_id_and_created_at"
+    t.index ["story_id"], name: "index_story_analyses_on_story_id"
+  end
+
+  create_table "story_articles", force: :cascade do |t|
+    t.datetime "fetched_at"
+    t.datetime "published_at"
+    t.text "snippet"
+    t.string "source"
+    t.bigint "story_id", null: false
+    t.string "title"
+    t.string "url", null: false
+    t.index ["story_id", "url"], name: "index_story_articles_on_story_id_and_url", unique: true
+    t.index ["story_id"], name: "index_story_articles_on_story_id"
+  end
+
   create_table "tags", force: :cascade do |t|
     t.string "bg_color", default: "", null: false
     t.string "fg_color", default: "", null: false
@@ -341,6 +380,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_20_172029) do
   add_foreign_key "filter_rules", "feeds", on_delete: :cascade
   add_foreign_key "filter_rules", "filters", on_delete: :cascade
   add_foreign_key "filters", "users", on_delete: :cascade
+  add_foreign_key "stories", "entries", column: "source_entry_id", on_delete: :nullify
+  add_foreign_key "stories", "users", on_delete: :cascade
+  add_foreign_key "story_analyses", "stories", on_delete: :cascade
+  add_foreign_key "story_articles", "stories", on_delete: :cascade
   add_foreign_key "tags", "users", on_delete: :cascade
   add_foreign_key "user_entries", "entries", on_delete: :cascade
   add_foreign_key "user_entries", "feeds", on_delete: :cascade

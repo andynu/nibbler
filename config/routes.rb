@@ -58,6 +58,12 @@ Rails.application.routes.draw do
         end
       end
 
+      resources :stories, only: [ :index, :show, :create, :update, :destroy ] do
+        collection do
+          post :extract_from_entry
+        end
+      end
+
       get :counters, to: "counters#index"
       get :search, to: "search#index"
       get :preferences, to: "preferences#index"
