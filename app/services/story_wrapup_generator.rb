@@ -56,9 +56,12 @@ class StoryWrapupGenerator
 
   def build_prompt(story)
     analyses = story.story_analyses.order(created_at: :asc).to_a
+    total_articles = story.story_articles.count
+    # Keep the newest articles (most informative for concluded stories),
+    # but display them oldest-first in the prompt for narrative flow.
     articles = story.story_articles.order(
-      Arel.sql("COALESCE(published_at, fetched_at) ASC")
-    ).to_a
+      Arel.sql("COALESCE(published_at, fetched_at) DESC")
+    ).limit(MAX_ARTICLES_IN_PROMPT).to_a.reverse
 
     <<~PROMPT
       Write a comprehensive narrative summary of the following news story, from
@@ -79,7 +82,7 @@ class StoryWrapupGenerator
       Timeline of analyses (#{analyses.size} entries, oldest first):
       #{format_analyses(analyses)}
 
-      Articles (#{articles.size} total, showing up to #{MAX_ARTICLES_IN_PROMPT}, oldest first):
+      Articles (#{total_articles} total, showing up to #{MAX_ARTICLES_IN_PROMPT} most recent, oldest first):
       #{format_articles(articles)}
 
       Write the narrative summary now. Markdown only. No preamble.
@@ -116,10 +119,7 @@ class StoryWrapupGenerator
   def format_articles(articles)
     return "(none)" if articles.empty?
 
-    articles
-      .first(MAX_ARTICLES_IN_PROMPT)
-      .map { |a| format_article(a) }
-      .join("\n\n")
+    articles.map { |a| format_article(a) }.join("\n\n")
   end
 
   def format_article(article)

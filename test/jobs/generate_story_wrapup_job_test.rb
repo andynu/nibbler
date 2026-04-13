@@ -56,11 +56,11 @@ class GenerateStoryWrapupJobTest < ActiveJob::TestCase
   end
 
   test "retries on LlmClient::Unreachable" do
-    # retry_on is configured; just verify the error bubbles when we run
-    # perform_now (which doesn't actually retry, but will raise).
+    # retry_on with perform_now swallows the exception and re-enqueues the job
+    # instead of raising. Verify the job is re-enqueued when Ollama is down.
     stub_generator(raise: LlmClient::Unreachable.new("down"))
 
-    assert_raises(LlmClient::Unreachable) do
+    assert_enqueued_with(job: GenerateStoryWrapupJob) do
       GenerateStoryWrapupJob.perform_now(@story.id)
     end
   end
