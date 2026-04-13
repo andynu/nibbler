@@ -12,7 +12,7 @@ import { SuggestedTags } from "@/components/SuggestedTags"
 import { FollowStoryDialog } from "@/components/FollowStoryDialog"
 import { HighlightedContent } from "@/components/HighlightedContent"
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
-import type { Entry } from "@/lib/api"
+import type { Entry, Story } from "@/lib/api"
 
 interface EntryContentProps {
   entry: Entry | null
@@ -36,6 +36,9 @@ interface EntryContentProps {
   onToggleFocusMode?: () => void
   // Mobile navigation
   onBack?: () => void
+  // Called when a story is created from the "Follow this story" flow.
+  // Parent should navigate to the stories view with this story selected.
+  onFollowStoryCreated?: (story: Story) => void
 }
 
 function stripImages(html: string): string {
@@ -64,6 +67,7 @@ export function EntryContent({
   focusMode = false,
   onToggleFocusMode,
   onBack,
+  onFollowStoryCreated,
 }: EntryContentProps) {
   const { preferences } = usePreferences()
   const audioPlayer = useAudioPlayer()
@@ -517,6 +521,7 @@ export function EntryContent({
         open={followStoryOpen}
         onOpenChange={setFollowStoryOpen}
         entryId={entry?.id ?? null}
+        onStoryCreated={onFollowStoryCreated}
       />
     </div>
   )

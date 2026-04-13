@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { FeedSidebar } from "@/components/FeedSidebar"
 import { EntryList } from "@/components/EntryList"
 import { EntryContent } from "@/components/EntryContent"
+import { StoriesPanel, StoryDetail } from "@/components/StoriesPanel"
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog"
 import { SubscribeFeedDialog } from "@/components/SubscribeFeedDialog"
 import { EditFeedDialog } from "@/components/EditFeedDialog"
@@ -64,6 +65,9 @@ function App() {
   const [showIframe, setShowIframe] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [boundaryHit, setBoundaryHit] = useState<"start" | "end" | null>(null)
+  // Stories view state (only used when virtualFeed === "stories")
+  const [selectedStoryId, setSelectedStoryId] = useState<number | null>(null)
+  const [storiesReloadKey, setStoriesReloadKey] = useState(0)
   const commandPalette = useCommandPalette()
   const moveFeedDialog = useMoveFeedDialog()
   const contentScrollRef = useRef<HTMLDivElement>(null)
@@ -177,6 +181,13 @@ function App() {
   }
 
   const loadEntries = async () => {
+    // The stories view is not backed by the entries API; skip loading.
+    if (virtualFeed === "stories") {
+      setEntries([])
+      setSelectedEntry(null)
+      setIsLoadingEntries(false)
+      return
+    }
     setIsLoadingEntries(true)
     try {
       const perPage = parseInt(preferences.default_view_limit, 10) || 30
@@ -266,6 +277,14 @@ function App() {
     } else {
       navigationHistory.navigateToRoot()
     }
+  }
+
+  const handleFollowStoryCreated = (story: { id: number }) => {
+    // Navigate to the stories view with the newly created story selected,
+    // matching the "redirect to /stories/:id" behavior from the spec.
+    setSelectedStoryId(story.id)
+    setStoriesReloadKey((k) => k + 1)
+    handleSelectVirtualFeed("stories")
   }
 
   const handleSelectTag = (tag: string | null) => {
@@ -967,30 +986,38 @@ function App() {
         zIndex: layout.isMobile ? 10 : "auto",
         backgroundColor: layout.isMobile ? "var(--color-background)" : "transparent",
       }}>
-        <EntryList
-          entries={entries}
-          selectedEntryId={selectedEntry?.id || null}
-          onSelectEntry={handleSelectEntryWithNav}
-          onToggleRead={handleToggleRead}
-          onToggleStarred={handleToggleStarredEntry}
-          onTogglePublished={handleTogglePublishedEntry}
-          onMarkAllRead={handleMarkAllRead}
-          isLoading={isLoadingEntries}
-          title={getListTitle()}
-          isFreshView={virtualFeed === "fresh"}
-          freshMaxAge={freshMaxAge}
-          freshPerFeed={freshPerFeed}
-          onFreshMaxAgeChange={setFreshMaxAge}
-          onFreshPerFeedChange={setFreshPerFeed}
-          selectedFeed={selectedFeedId ? feeds.find((f) => f.id === selectedFeedId) : null}
-          onRefreshFeed={handleRefreshFeed}
-          onEditFeed={setEditingFeed}
-          onDeleteFeed={handleDeleteFeed}
-          boundaryHit={boundaryHit}
-          sortConfig={sortConfig}
-          onSortChange={handleSortChange}
-          onShowSidebar={layout.isMobile ? layout.goToSidebar : undefined}
-        />
+        {virtualFeed === "stories" ? (
+          <StoriesPanel
+            selectedStoryId={selectedStoryId}
+            onSelectStory={setSelectedStoryId}
+            reloadKey={storiesReloadKey}
+          />
+        ) : (
+          <EntryList
+            entries={entries}
+            selectedEntryId={selectedEntry?.id || null}
+            onSelectEntry={handleSelectEntryWithNav}
+            onToggleRead={handleToggleRead}
+            onToggleStarred={handleToggleStarredEntry}
+            onTogglePublished={handleTogglePublishedEntry}
+            onMarkAllRead={handleMarkAllRead}
+            isLoading={isLoadingEntries}
+            title={getListTitle()}
+            isFreshView={virtualFeed === "fresh"}
+            freshMaxAge={freshMaxAge}
+            freshPerFeed={freshPerFeed}
+            onFreshMaxAgeChange={setFreshMaxAge}
+            onFreshPerFeedChange={setFreshPerFeed}
+            selectedFeed={selectedFeedId ? feeds.find((f) => f.id === selectedFeedId) : null}
+            onRefreshFeed={handleRefreshFeed}
+            onEditFeed={setEditingFeed}
+            onDeleteFeed={handleDeleteFeed}
+            boundaryHit={boundaryHit}
+            sortConfig={sortConfig}
+            onSortChange={handleSortChange}
+            onShowSidebar={layout.isMobile ? layout.goToSidebar : undefined}
+          />
+        )}
       </div>
       <div style={{
         flex: 1,
@@ -1005,28 +1032,48 @@ function App() {
         zIndex: layout.isMobile ? 5 : "auto",
         backgroundColor: layout.isMobile ? "var(--color-background)" : "transparent",
       }}>
-        <EntryContent
-          entry={selectedEntry}
-          onToggleRead={() => selectedEntry && handleToggleRead(selectedEntry.id)}
-          onToggleStarred={() => selectedEntry && handleToggleStarredEntry(selectedEntry.id)}
-          onTogglePublished={() => selectedEntry && handleTogglePublishedEntry(selectedEntry.id)}
-          onScoreChange={(score) => selectedEntry && handleSetScore(selectedEntry.id, score)}
-          onPrevious={handlePrevious}
-          onNext={handleNext}
-          hasPrevious={currentIndex > 0}
-          hasNext={currentIndex < entries.length - 1}
-          isLoading={isLoadingEntry}
-          scrollViewportRef={contentScrollRef}
-          onUpdateNote={handleUpdateNote}
-          showIframe={showIframe}
-          onToggleIframe={handleToggleIframe}
-          allTags={allTags}
-          onAddTag={handleAddTag}
-          onRemoveTag={handleRemoveTag}
-          focusMode={focusMode}
-          onToggleFocusMode={handleToggleFocusMode}
-          onBack={layout.isMobile ? layout.goToList : undefined}
-        />
+        {virtualFeed === "stories" ? (
+          selectedStoryId ? (
+            <StoryDetail
+              key={selectedStoryId}
+              storyId={selectedStoryId}
+              reloadKey={storiesReloadKey}
+              onClose={layout.isMobile ? layout.goToList : undefined}
+              onDeleted={(deletedId) => {
+                if (selectedStoryId === deletedId) setSelectedStoryId(null)
+                setStoriesReloadKey((k) => k + 1)
+              }}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+              Select a story to see its timeline.
+            </div>
+          )
+        ) : (
+          <EntryContent
+            entry={selectedEntry}
+            onToggleRead={() => selectedEntry && handleToggleRead(selectedEntry.id)}
+            onToggleStarred={() => selectedEntry && handleToggleStarredEntry(selectedEntry.id)}
+            onTogglePublished={() => selectedEntry && handleTogglePublishedEntry(selectedEntry.id)}
+            onScoreChange={(score) => selectedEntry && handleSetScore(selectedEntry.id, score)}
+            onPrevious={handlePrevious}
+            onNext={handleNext}
+            hasPrevious={currentIndex > 0}
+            hasNext={currentIndex < entries.length - 1}
+            isLoading={isLoadingEntry}
+            scrollViewportRef={contentScrollRef}
+            onUpdateNote={handleUpdateNote}
+            showIframe={showIframe}
+            onToggleIframe={handleToggleIframe}
+            allTags={allTags}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+            focusMode={focusMode}
+            onToggleFocusMode={handleToggleFocusMode}
+            onBack={layout.isMobile ? layout.goToList : undefined}
+            onFollowStoryCreated={handleFollowStoryCreated}
+          />
+        )}
       </div>
       <KeyboardShortcutsDialog
         open={showKeyboardShortcuts}

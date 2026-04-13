@@ -835,8 +835,11 @@ export function FeedSidebar({
           onDragEnd={handleDragEnd}
         >
         <div className="p-2">
-          {/* Item-list virtual folders (All Feeds, Fresh, Starred, Published) */}
-          {getVirtualFoldersByMode("item-list").map((folder) => {
+          {/* Item-list and stories virtual folders (All Feeds, Fresh, Starred, Published, Stories) */}
+          {[
+            ...getVirtualFoldersByMode("item-list"),
+            ...getVirtualFoldersByMode("stories"),
+          ].map((folder) => {
             const Icon = folder.icon
             // Special case: empty string id means "All Feeds" (no virtual feed selected)
             const isSelected = folder.id === ""

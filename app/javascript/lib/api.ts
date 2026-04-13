@@ -201,6 +201,12 @@ export interface Preferences {
   digest_min_score: string
 }
 
+export interface StoryLatestAnalysis {
+  timeline_label: string | null
+  new_development: boolean
+  created_at: string
+}
+
 export interface Story {
   id: number
   name: string
@@ -210,6 +216,35 @@ export interface Story {
   source_entry_id: number | null
   concluded_at: string | null
   created_at: string
+  // Present on index responses; absent on show.
+  latest_analysis?: StoryLatestAnalysis | null
+  updated_at?: string
+}
+
+export interface StoryAnalysis {
+  id: number
+  new_development: boolean
+  concluded: boolean
+  timeline_label: string | null
+  summary: string | null
+  rationale: string | null
+  article_ids: number[]
+  created_at: string
+}
+
+export interface StoryArticle {
+  id: number
+  url: string
+  title: string | null
+  snippet: string | null
+  source: string | null
+  published_at: string | null
+  fetched_at: string | null
+}
+
+export interface StoryDetail extends Story {
+  analyses: StoryAnalysis[]
+  articles: StoryArticle[]
 }
 
 export interface StoryExtraction {
@@ -492,7 +527,7 @@ export const api = {
 
   stories: {
     list: () => request<Story[]>("/stories"),
-    get: (id: number) => request<Story>(`/stories/${id}`),
+    get: (id: number) => request<StoryDetail>(`/stories/${id}`),
     extractFromEntry: (entryId: number) =>
       request<StoryExtraction>("/stories/extract_from_entry", {
         method: "POST",

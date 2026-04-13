@@ -8,7 +8,7 @@ export interface NavigationState {
   type: "feed" | "category" | "virtual" | "dialog" | "root"
   feedId?: number
   categoryId?: number
-  virtualFeed?: "starred" | "fresh" | "published"
+  virtualFeed?: "starred" | "fresh" | "published" | "stories"
   dialog?: "settings" | "subscribe"
   settingsTab?: string
 }
@@ -16,7 +16,7 @@ export interface NavigationState {
 interface NavigationHandlers {
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
-  onSelectVirtualFeed: (feed: "starred" | "fresh" | "published" | null) => void
+  onSelectVirtualFeed: (feed: "starred" | "fresh" | "published" | "stories" | null) => void
   onShowSettings: (show: boolean, tab?: string) => void
   onShowSubscribe: (show: boolean) => void
 }
@@ -113,7 +113,7 @@ export function useNavigationHistory(handlers: NavigationHandlers) {
   )
 
   const navigateToVirtualFeed = useCallback(
-    (virtualFeed: "starred" | "fresh" | "published") => {
+    (virtualFeed: "starred" | "fresh" | "published" | "stories") => {
       pushState({ type: "virtual", virtualFeed })
     },
     [pushState]

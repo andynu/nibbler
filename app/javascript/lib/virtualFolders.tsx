@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import { Rss, Clock, Star, Send, FolderMinus, Archive, Sparkles } from "lucide-react"
+import { Rss, Clock, Star, Send, FolderMinus, Archive, Sparkles, BookMarked } from "lucide-react"
 import type { Feed } from "@/lib/api"
 
 /**
@@ -11,7 +11,7 @@ import type { Feed } from "@/lib/api"
  * - "feed-list": Shows feeds matching criteria (like Uncategorized, Dead Letter Box)
  */
 
-export type VirtualFolderMode = "item-list" | "feed-list"
+export type VirtualFolderMode = "item-list" | "feed-list" | "stories"
 
 export interface VirtualFolder {
   id: string
@@ -93,6 +93,15 @@ registerVirtualFolder({
   icon: Send,
   mode: "item-list",
   order: 30,
+})
+
+// Stories - tracked stories (handled separately from entry-based virtual feeds)
+registerVirtualFolder({
+  id: "stories",
+  name: "Stories",
+  icon: BookMarked,
+  mode: "stories",
+  order: 40,
 })
 
 // ----- Smart Folders (feed-list mode) -----
