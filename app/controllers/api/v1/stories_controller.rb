@@ -13,13 +13,24 @@ module Api
 
       # GET /api/v1/stories
       def index
-        stories = current_user.stories.order(created_at: :desc)
-        render json: stories.map { |s| story_json(s) }
+        stories = current_user.stories
+          .includes(:story_analyses)
+          .order(created_at: :desc)
+        render json: stories.map { |s| story_json(s, include_latest_analysis: true) }
       end
 
       # GET /api/v1/stories/:id
+      # Returns the story plus its full timeline (analyses ordered by created_at
+      # ascending) and its collected articles. Includes enough for the detail UI
+      # to render without additional requests.
       def show
-        render json: story_json(@story)
+        analyses = @story.story_analyses.order(created_at: :asc)
+        articles = @story.story_articles.order(Arel.sql("COALESCE(published_at, fetched_at) DESC"))
+
+        render json: story_json(@story).merge(
+          analyses: analyses.map { |a| analysis_json(a) },
+          articles: articles.map { |a| article_json(a) }
+        )
       end
 
       # POST /api/v1/stories/extract_from_entry
@@ -118,8 +129,8 @@ module Api
         params.require(:story).permit(:name, :status, queries: []).to_h.symbolize_keys
       end
 
-      def story_json(story)
-        {
+      def story_json(story, include_latest_analysis: false)
+        base = {
           id: story.id,
           name: story.name,
           queries: story.queries,
@@ -129,6 +140,59 @@ module Api
           concluded_at: story.concluded_at,
           created_at: story.created_at
         }
+
+        if include_latest_analysis
+          latest = story.story_analyses.max_by(&:created_at)
+          base[:latest_analysis] = latest && {
+            timeline_label: latest.timeline_label,
+            new_development: latest.new_development,
+            created_at: latest.created_at
+          }
+          base[:updated_at] = latest&.created_at || story.created_at
+        end
+
+        base
+      end
+
+      def analysis_json(analysis)
+        {
+          id: analysis.id,
+          new_development: analysis.new_development,
+          concluded: analysis.concluded,
+          timeline_label: analysis.timeline_label,
+          summary: analysis.summary,
+          rationale: analysis.rationale,
+          article_ids: parse_article_ids(analysis.article_ids),
+          created_at: analysis.created_at
+        }
+      end
+
+      def article_json(article)
+        {
+          id: article.id,
+          url: article.url,
+          title: article.title,
+          snippet: article.snippet,
+          source: article.source,
+          published_at: article.published_at,
+          fetched_at: article.fetched_at
+        }
+      end
+
+      # article_ids is jsonb in Postgres but may be stored as a JSON string in
+      # some environments (notably fixtures). Normalize to a plain array.
+      def parse_article_ids(value)
+        case value
+        when Array then value
+        when String
+          begin
+            parsed = JSON.parse(value)
+            parsed.is_a?(Array) ? parsed : []
+          rescue JSON::ParserError
+            []
+          end
+        else []
+        end
       end
     end
   end

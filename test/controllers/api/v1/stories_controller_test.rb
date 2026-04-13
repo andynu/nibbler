@@ -55,6 +55,46 @@ class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "q" ], json["queries"]
   end
 
+  test "show returns analyses and articles for the detail view" do
+    story = @user.stories.create!(name: "Detail", queries: [ "q" ], status: "active")
+    a1 = story.story_analyses.create!(
+      new_development: false, concluded: false, timeline_label: "no_change",
+      summary: "Nothing new", rationale: "n/a", article_ids: [], created_at: 1.day.ago
+    )
+    a2 = story.story_analyses.create!(
+      new_development: true, concluded: false, timeline_label: "new_development",
+      summary: "Change!", rationale: "sources", article_ids: [ 1, 2 ], created_at: 1.hour.ago
+    )
+    story.story_articles.create!(url: "https://example.com/1", title: "One")
+
+    get api_v1_story_url(story), as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_kind_of Array, json["analyses"]
+    assert_kind_of Array, json["articles"]
+    assert_equal [ "no_change", "new_development" ], json["analyses"].map { |a| a["timeline_label"] }
+    assert_includes json["articles"].map { |a| a["url"] }, "https://example.com/1"
+  end
+
+  test "index includes latest_analysis summary for each story" do
+    story = @user.stories.create!(name: "With Analyses", queries: [ "q" ], status: "active")
+    story.story_analyses.create!(
+      new_development: true, concluded: false, timeline_label: "new_development",
+      summary: "s", rationale: "r", article_ids: [], created_at: 1.hour.ago
+    )
+
+    get api_v1_stories_url, as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    entry = json.find { |s| s["name"] == "With Analyses" }
+    assert_not_nil entry
+    assert_not_nil entry["latest_analysis"]
+    assert_equal "new_development", entry["latest_analysis"]["timeline_label"]
+    assert_not_nil entry["updated_at"]
+  end
+
   test "show returns 404 for other user's story" do
     other_story = @other_user.stories.create!(name: "Theirs", queries: [ "q" ], status: "active")
 
