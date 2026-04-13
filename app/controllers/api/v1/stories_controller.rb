@@ -9,7 +9,7 @@ module Api
     # @see Story
     # @see StoryQueryExtractor
     class StoriesController < BaseController
-      before_action :set_story, only: [ :show, :update, :destroy ]
+      before_action :set_story, only: [ :show, :update, :destroy, :wrapup ]
 
       # GET /api/v1/stories
       def index
@@ -110,7 +110,43 @@ module Api
         head :no_content
       end
 
+      # POST /api/v1/stories/:id/wrapup
+      # Generates a narrative markdown summary of the story's full arc and
+      # persists it to story.wrapup. Intended for stories the user has
+      # marked (or analyze auto-marked) as concluded, but we allow active
+      # stories too — e.g. if the user wants a mid-story recap.
+      #
+      # Runs synchronously: wrapup prompts can take tens of seconds against a
+      # local Ollama, which is acceptable for a user-initiated button click
+      # (matches the existing pattern of extract_from_entry).
+      #
+      # Returns:
+      #   { wrapup: String, wrapup_generated_at: ISO8601 }
+      def wrapup
+        begin
+          narrative = wrapup_generator.generate(@story)
+        rescue LlmClient::Unreachable => e
+          return render json: { error: "LLM unreachable: #{e.message}" }, status: :service_unavailable
+        rescue StoryWrapupGenerator::WrapupFailed => e
+          return render json: { error: "Wrapup failed: #{e.message}" }, status: :unprocessable_entity
+        end
+
+        @story.update!(
+          wrapup: narrative,
+          wrapup_generated_at: Time.current
+        )
+
+        render json: {
+          wrapup: @story.wrapup,
+          wrapup_generated_at: @story.wrapup_generated_at
+        }
+      end
+
       private
+
+      def wrapup_generator
+        @wrapup_generator ||= StoryWrapupGenerator.new
+      end
 
       def set_story
         @story = current_user.stories.find_by(id: params[:id])
@@ -138,6 +174,8 @@ module Api
           status: story.status,
           source_entry_id: story.source_entry_id,
           concluded_at: story.concluded_at,
+          wrapup: story.wrapup,
+          wrapup_generated_at: story.wrapup_generated_at,
           created_at: story.created_at
         }
 

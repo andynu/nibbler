@@ -229,6 +229,82 @@ class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   # =====================
+  # POST /api/v1/stories/:id/wrapup
+  # =====================
+
+  test "wrapup generates and persists a narrative" do
+    story = @user.stories.create!(name: "W", queries: [ "q" ], status: "concluded",
+      concluded_at: 1.hour.ago)
+
+    stub_wrapup_generator(narrative: "# W\n\nNarrative body.") do
+      post wrapup_api_v1_story_url(story), as: :json
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "# W\n\nNarrative body.", json["wrapup"]
+    assert_not_nil json["wrapup_generated_at"]
+
+    story.reload
+    assert_equal "# W\n\nNarrative body.", story.wrapup
+    assert_not_nil story.wrapup_generated_at
+  end
+
+  test "wrapup works on active stories too" do
+    story = @user.stories.create!(name: "Active W", queries: [ "q" ], status: "active")
+
+    stub_wrapup_generator(narrative: "narrative text") do
+      post wrapup_api_v1_story_url(story), as: :json
+    end
+
+    assert_response :success
+    assert_equal "narrative text", JSON.parse(response.body)["wrapup"]
+  end
+
+  test "wrapup returns 404 for other user's story" do
+    other_story = @other_user.stories.create!(name: "Theirs", queries: [ "q" ], status: "concluded")
+
+    post wrapup_api_v1_story_url(other_story), as: :json
+    assert_response :not_found
+  end
+
+  test "wrapup returns 503 when LLM is unreachable" do
+    story = @user.stories.create!(name: "W", queries: [ "q" ], status: "concluded")
+
+    stub_wrapup_generator(error: LlmClient::Unreachable.new("down")) do
+      post wrapup_api_v1_story_url(story), as: :json
+    end
+
+    assert_response :service_unavailable
+    json = JSON.parse(response.body)
+    assert_match(/unreachable/i, json["error"])
+  end
+
+  test "wrapup returns 422 when generator fails" do
+    story = @user.stories.create!(name: "W", queries: [ "q" ], status: "concluded")
+
+    stub_wrapup_generator(error: StoryWrapupGenerator::WrapupFailed.new("empty")) do
+      post wrapup_api_v1_story_url(story), as: :json
+    end
+
+    assert_response :unprocessable_entity
+  end
+
+  test "show includes wrapup fields in the json" do
+    story = @user.stories.create!(
+      name: "WithWrapup", queries: [ "q" ], status: "concluded",
+      wrapup: "# summary", wrapup_generated_at: 1.hour.ago
+    )
+
+    get api_v1_story_url(story), as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_equal "# summary", json["wrapup"]
+    assert_not_nil json["wrapup_generated_at"]
+  end
+
+  # =====================
   # DELETE /api/v1/stories/:id
   # =====================
 
@@ -255,6 +331,21 @@ class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
     end
 
     StoryQueryExtractor.stub :new, fake do
+      yield
+    end
+  end
+
+  # Stubs StoryWrapupGenerator#generate for the duration of the block by
+  # replacing the instance-level generator with a fake.
+  def stub_wrapup_generator(narrative: nil, error: nil)
+    fake = Object.new
+    fake.define_singleton_method(:generate) do |_story|
+      Kernel.raise(error) if error
+
+      narrative
+    end
+
+    StoryWrapupGenerator.stub :new, fake do
       yield
     end
   end

@@ -280,6 +280,27 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
     }
   }
 
+  const [isGeneratingWrapup, setIsGeneratingWrapup] = useState(false)
+  const [wrapupError, setWrapupError] = useState<string | null>(null)
+
+  const handleGenerateWrapup = async () => {
+    if (!detail) return
+    setIsGeneratingWrapup(true)
+    setWrapupError(null)
+    try {
+      const result = await api.stories.generateWrapup(detail.id)
+      setDetail({
+        ...detail,
+        wrapup: result.wrapup,
+        wrapup_generated_at: result.wrapup_generated_at,
+      })
+    } catch (err) {
+      setWrapupError(err instanceof Error ? err.message : "Failed to generate wrapup")
+    } finally {
+      setIsGeneratingWrapup(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -309,6 +330,23 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
                   Mark concluded
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateWrapup}
+                disabled={isGeneratingWrapup}
+              >
+                {isGeneratingWrapup ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    Generating...
+                  </>
+                ) : detail.wrapup ? (
+                  "Regenerate wrapup"
+                ) : (
+                  "Generate wrapup"
+                )}
+              </Button>
               <Button variant="outline" size="sm" onClick={handleDelete}>
                 Delete
               </Button>
@@ -336,6 +374,30 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
             ))}
           </div>
         </header>
+
+        {wrapupError && (
+          <div className="p-3 text-sm text-destructive border border-destructive/30 rounded-md">
+            {wrapupError}
+          </div>
+        )}
+
+        {detail.wrapup && (
+          <section>
+            <div className="flex items-baseline justify-between mb-1">
+              <h2 className="text-sm font-semibold uppercase text-muted-foreground">
+                Wrapup
+              </h2>
+              {detail.wrapup_generated_at && (
+                <span className="text-xs text-muted-foreground">
+                  Generated {formatReaderDate(detail.wrapup_generated_at)}
+                </span>
+              )}
+            </div>
+            <div className="text-sm whitespace-pre-wrap border rounded-md p-3 bg-muted/30">
+              {detail.wrapup}
+            </div>
+          </section>
+        )}
 
         {detail.summary && (
           <section>

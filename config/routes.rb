@@ -65,6 +65,9 @@ Rails.application.routes.draw do
         collection do
           post :extract_from_entry
         end
+        member do
+          post :wrapup
+        end
       end
 
       get :counters, to: "counters#index"

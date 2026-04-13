@@ -18,6 +18,7 @@ vi.mock('@/lib/api', () => ({
       get: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      generateWrapup: vi.fn(),
     },
   },
 }));
@@ -27,6 +28,7 @@ const mockedList = api.stories.list as unknown as ReturnType<typeof vi.fn>;
 const mockedGet = api.stories.get as unknown as ReturnType<typeof vi.fn>;
 const mockedUpdate = api.stories.update as unknown as ReturnType<typeof vi.fn>;
 const mockedDelete = api.stories.delete as unknown as ReturnType<typeof vi.fn>;
+const mockedGenerateWrapup = api.stories.generateWrapup as unknown as ReturnType<typeof vi.fn>;
 
 describe('StoriesPanel', () => {
   beforeEach(() => {
@@ -34,6 +36,7 @@ describe('StoriesPanel', () => {
     mockedGet.mockReset();
     mockedUpdate.mockReset();
     mockedDelete.mockReset();
+    mockedGenerateWrapup.mockReset();
   });
 
   it('shows empty state when no stories exist', async () => {
@@ -103,6 +106,7 @@ describe('StoryDetail', () => {
     mockedGet.mockReset();
     mockedUpdate.mockReset();
     mockedDelete.mockReset();
+    mockedGenerateWrapup.mockReset();
   });
 
   it('renders name, summary, timeline entries, and grouped articles', async () => {
@@ -205,6 +209,59 @@ describe('StoryDetail', () => {
     await waitFor(() => {
       expect(mockedUpdate).toHaveBeenCalledWith(5, { story: { status: 'concluded' } });
     });
+  });
+
+  it('generates a wrapup and renders it after clicking the button', async () => {
+    mockedGet.mockResolvedValue({
+      id: 5,
+      name: 'Story',
+      queries: ['q'],
+      summary: null,
+      status: 'concluded',
+      source_entry_id: null,
+      concluded_at: '2026-04-10T00:00:00Z',
+      wrapup: null,
+      wrapup_generated_at: null,
+      created_at: '2026-04-01T00:00:00Z',
+      analyses: [],
+      articles: [],
+    });
+    mockedGenerateWrapup.mockResolvedValue({
+      wrapup: '# Story\n\nThe full narrative arc.',
+      wrapup_generated_at: '2026-04-13T12:00:00Z',
+    });
+
+    render(<StoryDetail storyId={5} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /generate wrapup/i }));
+
+    await waitFor(() => {
+      expect(mockedGenerateWrapup).toHaveBeenCalledWith(5);
+    });
+    expect(await screen.findByText(/full narrative arc/)).toBeInTheDocument();
+    // Button should now say "Regenerate wrapup" since a wrapup exists.
+    expect(screen.getByRole('button', { name: /regenerate wrapup/i })).toBeInTheDocument();
+  });
+
+  it('shows an existing wrapup when the story has one', async () => {
+    mockedGet.mockResolvedValue({
+      id: 6,
+      name: 'Has Wrapup',
+      queries: ['q'],
+      summary: 'short summary',
+      status: 'concluded',
+      source_entry_id: null,
+      concluded_at: '2026-04-10T00:00:00Z',
+      wrapup: '# Has Wrapup\n\nAlready done.',
+      wrapup_generated_at: '2026-04-13T00:00:00Z',
+      created_at: '2026-04-01T00:00:00Z',
+      analyses: [],
+      articles: [],
+    });
+
+    render(<StoryDetail storyId={6} />);
+    expect(await screen.findByText(/Already done\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /regenerate wrapup/i })).toBeInTheDocument();
   });
 
   it('deletes via the Delete button and fires onDeleted', async () => {

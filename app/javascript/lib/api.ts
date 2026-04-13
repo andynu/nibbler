@@ -215,10 +215,17 @@ export interface Story {
   status: "active" | "concluded"
   source_entry_id: number | null
   concluded_at: string | null
+  wrapup: string | null
+  wrapup_generated_at: string | null
   created_at: string
   // Present on index responses; absent on show.
   latest_analysis?: StoryLatestAnalysis | null
   updated_at?: string
+}
+
+export interface StoryWrapupResponse {
+  wrapup: string
+  wrapup_generated_at: string
 }
 
 export interface StoryAnalysis {
@@ -538,6 +545,8 @@ export const api = {
     update: (id: number, data: { story: Partial<Pick<Story, "name" | "queries" | "status">> }) =>
       request<Story>(`/stories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/stories/${id}`, { method: "DELETE" }),
+    generateWrapup: (id: number) =>
+      request<StoryWrapupResponse>(`/stories/${id}/wrapup`, { method: "POST" }),
   },
 
   counters: {
