@@ -5,7 +5,9 @@ latest:
   timeline_label: "new_development"
   summary: "A new development has emerged in the story."
   rationale: "Multiple sources report a policy shift."
-  article_ids: '[1, 2]'
+  article_ids:
+    - 1
+    - 2
   created_at: <%= 1.hour.ago.to_fs(:db) %>
 
 previous:
@@ -15,5 +17,5 @@ previous:
   timeline_label: "no_change"
   summary: "Nothing new to report."
   rationale: "No new articles matched the queries."
-  article_ids: '[]'
+  article_ids: []
   created_at: <%= 1.day.ago.to_fs(:db) %>
