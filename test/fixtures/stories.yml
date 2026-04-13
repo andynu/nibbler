@@ -1,7 +1,9 @@
 active_story:
   user: one
   name: "SEC Crypto Regulation 2026"
-  queries: '["SEC crypto regulation", "crypto enforcement 2026"]'
+  queries:
+    - "SEC crypto regulation"
+    - "crypto enforcement 2026"
   summary: "Ongoing changes to SEC crypto enforcement posture."
   status: active
   created_at: <%= Time.current.to_fs(:db) %>
@@ -9,7 +11,8 @@ active_story:
 concluded_story:
   user: one
   name: "Wrapped 2025 Spotify Rollout"
-  queries: '["Spotify Wrapped 2025"]'
+  queries:
+    - "Spotify Wrapped 2025"
   summary: "Spotify completed the annual Wrapped rollout."
   status: concluded
   concluded_at: <%= 1.day.ago.to_fs(:db) %>
@@ -18,7 +21,8 @@ concluded_story:
 sourced_story:
   user: two
   name: "Fed Rate Decision"
-  queries: '["Federal Reserve rate"]'
+  queries:
+    - "Federal Reserve rate"
   status: active
   source_entry: basic
   created_at: <%= Time.current.to_fs(:db) %>

@@ -22,6 +22,11 @@ Rails.application.configure do
       cron: "0 * * * *", # every hour at minute 0
       class: "SendDigestsJob",
       description: "Send email digests to users at their preferred time"
+    },
+    fetch_stories: {
+      cron: "0 2 * * *", # at 2am daily (overnight batch; baru is idle)
+      class: "FetchStoriesJob",
+      description: "Fetch Google News RSS results for each active Story's queries"
     }
   }
 
