@@ -2,6 +2,8 @@ require "test_helper"
 require "minitest/mock"
 
 class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
   def setup
     # The test env uses ALLOW_DEV_AUTH=1 which authenticates as User.first.
     @user = User.first
@@ -189,6 +191,29 @@ class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
     post api_v1_stories_url,
       params: { story: { name: "N", queries: [ "", "  " ] } },
       as: :json
+
+    assert_response :unprocessable_entity
+  end
+
+  test "create enqueues an immediate fetch so the user sees initial articles" do
+    assert_enqueued_with(job: FetchStoryArticlesJob) do
+      post api_v1_stories_url,
+        params: { story: { name: "Fetch Me", queries: [ "q1" ] } },
+        as: :json
+    end
+
+    assert_response :created
+    story = @user.stories.find_by(name: "Fetch Me")
+    assert_not_nil story
+    assert_enqueued_with(job: FetchStoryArticlesJob, args: [ story.id ])
+  end
+
+  test "create does not enqueue a fetch when save fails" do
+    assert_no_enqueued_jobs only: FetchStoryArticlesJob do
+      post api_v1_stories_url,
+        params: { story: { queries: [ "q" ] } },
+        as: :json
+    end
 
     assert_response :unprocessable_entity
   end

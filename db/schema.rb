@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_13_122702) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_13_131412) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -285,6 +285,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_13_122702) do
     t.string "status", default: "active", null: false
     t.text "summary"
     t.bigint "user_id", null: false
+    t.text "wrapup"
+    t.datetime "wrapup_generated_at"
     t.index ["source_entry_id"], name: "index_stories_on_source_entry_id"
     t.index ["status"], name: "index_stories_on_status"
     t.index ["user_id"], name: "index_stories_on_user_id"

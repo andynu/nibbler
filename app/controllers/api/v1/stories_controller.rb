@@ -84,6 +84,9 @@ module Api
         end
 
         if story.save
+          # Kick off the initial article fetch immediately so the user sees
+          # articles without waiting for the overnight scheduler (FetchStoriesJob).
+          FetchStoryArticlesJob.perform_later(story.id)
           render json: story_json(story), status: :created
         else
           render json: { errors: story.errors.full_messages }, status: :unprocessable_entity
