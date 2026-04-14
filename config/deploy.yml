@@ -39,6 +39,10 @@ env:
     RAILS_ENV: production
     RAILS_LOG_TO_STDOUT: true
 
+    # Ollama (LLM backend for Story follow/analyze/wrapup) — runs on baru
+    OLLAMA_URL: http://baru:11434
+    OLLAMA_MODEL: gemma4:e4b
+
 # Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
 # "bin/kamal logs -r job" will tail logs from the first server in the job section.
 aliases:
