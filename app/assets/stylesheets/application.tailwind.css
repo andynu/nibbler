@@ -30,6 +30,13 @@
   --color-accent-secondary: hsl(30, 70%, 50%);
   --color-accent-secondary-light: hsl(30, 60%, 70%);
   --color-accent-secondary-dark: hsl(30, 75%, 35%);
+
+  /* Extra-small breakpoint for narrow mobile (below Tailwind's default sm=40rem).
+     Used by EntryContent action-bar buttons (note, iframe toggle, follow story)
+     that should hide on very narrow phones but show on everything else.
+     Without this definition, `xs:inline-flex` produces no media query, so
+     sibling `hidden` classes win unconditionally and the buttons never appear. */
+  --breakpoint-xs: 30rem;
 }
 
 @layer base {
