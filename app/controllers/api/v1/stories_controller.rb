@@ -9,7 +9,7 @@ module Api
     # @see Story
     # @see StoryQueryExtractor
     class StoriesController < BaseController
-      before_action :set_story, only: [ :show, :update, :destroy, :wrapup ]
+      before_action :set_story, only: [ :show, :update, :destroy, :wrapup, :fetch ]
 
       # GET /api/v1/stories
       def index
@@ -105,6 +105,16 @@ module Api
         else
           render json: { errors: @story.errors.full_messages }, status: :unprocessable_entity
         end
+      end
+
+      # POST /api/v1/stories/:id/fetch
+      # Enqueues an on-demand FetchStoryArticlesJob for this story. Returns
+      # immediately; new articles appear once the background job completes.
+      # Intended for a "Fetch now" button in the story detail UI when the
+      # user doesn't want to wait for the next scheduled pass.
+      def fetch
+        FetchStoryArticlesJob.perform_later(@story.id)
+        render json: { status: "queued", story_id: @story.id }, status: :accepted
       end
 
       # DELETE /api/v1/stories/:id

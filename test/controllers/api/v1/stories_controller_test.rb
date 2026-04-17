@@ -330,6 +330,33 @@ class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   # =====================
+  # POST /api/v1/stories/:id/fetch
+  # =====================
+
+  test "fetch enqueues FetchStoryArticlesJob for the story" do
+    story = @user.stories.create!(name: "OnDemand", queries: [ "q" ], status: "active")
+
+    assert_enqueued_with(job: FetchStoryArticlesJob, args: [ story.id ]) do
+      post fetch_api_v1_story_url(story), as: :json
+    end
+
+    assert_response :accepted
+    json = JSON.parse(response.body)
+    assert_equal "queued", json["status"]
+    assert_equal story.id, json["story_id"]
+  end
+
+  test "fetch returns 404 for another user's story" do
+    story = @other_user.stories.create!(name: "NotMine", queries: [ "q" ], status: "active")
+
+    assert_no_enqueued_jobs only: FetchStoryArticlesJob do
+      post fetch_api_v1_story_url(story), as: :json
+    end
+
+    assert_response :not_found
+  end
+
+  # =====================
   # DELETE /api/v1/stories/:id
   # =====================
 

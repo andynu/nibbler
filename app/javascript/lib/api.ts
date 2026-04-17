@@ -547,6 +547,8 @@ export const api = {
     delete: (id: number) => request<void>(`/stories/${id}`, { method: "DELETE" }),
     generateWrapup: (id: number) =>
       request<StoryWrapupResponse>(`/stories/${id}/wrapup`, { method: "POST" }),
+    fetch: (id: number) =>
+      request<{ status: string; story_id: number }>(`/stories/${id}/fetch`, { method: "POST" }),
   },
 
   counters: {

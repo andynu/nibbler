@@ -67,6 +67,7 @@ Rails.application.routes.draw do
         end
         member do
           post :wrapup
+          post :fetch
         end
       end
 

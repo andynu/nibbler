@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, CircleDashed, CircleCheck, ChevronRight } from "lucide-react"
+import { Loader2, CircleDashed, CircleCheck, ChevronRight, RefreshCw } from "lucide-react"
 import { api, Story } from "@/lib/api"
 import type { StoryAnalysis, StoryArticle, StoryDetail as StoryDetailType } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -283,6 +283,37 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
   const [isGeneratingWrapup, setIsGeneratingWrapup] = useState(false)
   const [wrapupError, setWrapupError] = useState<string | null>(null)
 
+  const [fetchState, setFetchState] = useState<"idle" | "queueing" | "queued" | "reloading">("idle")
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  const handleFetchNow = async () => {
+    if (!detail) return
+    setFetchError(null)
+    setFetchState("queueing")
+    try {
+      await api.stories.fetch(detail.id)
+      setFetchState("queued")
+      // Give the job a chance to run, then reload the detail so new articles
+      // appear without a manual refresh. The job sleeps 1.5s between queries,
+      // so ~6s covers typical 1-3 query stories; longer ones may need another
+      // click or the user can wait for the next reload on navigation.
+      setTimeout(async () => {
+        setFetchState("reloading")
+        try {
+          const refreshed = await api.stories.get(detail.id)
+          setDetail(refreshed)
+        } catch {
+          // Ignore reload errors — the job may still be running.
+        } finally {
+          setFetchState("idle")
+        }
+      }, 6000)
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Failed to queue fetch")
+      setFetchState("idle")
+    }
+  }
+
   const handleGenerateWrapup = async () => {
     if (!detail) return
     setIsGeneratingWrapup(true)
@@ -326,9 +357,40 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
             <h1 className="text-2xl font-semibold">{detail.name}</h1>
             <div className="flex gap-2">
               {detail.status === "active" && (
-                <Button variant="outline" size="sm" onClick={handleConclude}>
-                  Mark concluded
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFetchNow}
+                    disabled={fetchState !== "idle"}
+                    title="Queue a fresh Google News RSS fetch for this story's queries"
+                  >
+                    {fetchState === "queueing" ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Queueing...
+                      </>
+                    ) : fetchState === "queued" ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Fetching...
+                      </>
+                    ) : fetchState === "reloading" ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Reloading...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Fetch now
+                      </>
+                    )}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleConclude}>
+                    Mark concluded
+                  </Button>
+                </>
               )}
               <Button
                 variant="outline"
@@ -378,6 +440,12 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
         {wrapupError && (
           <div className="p-3 text-sm text-destructive border border-destructive/30 rounded-md">
             {wrapupError}
+          </div>
+        )}
+
+        {fetchError && (
+          <div className="p-3 text-sm text-destructive border border-destructive/30 rounded-md">
+            {fetchError}
           </div>
         )}
 
