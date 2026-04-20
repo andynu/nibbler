@@ -53,7 +53,7 @@ group :development, :test do
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
 
   # Pin minitest to 5.x - minitest 6.0 breaks with Ruby 4.x
-  gem "minitest", "< 6.0"
+  gem "minitest", "< 7.0"
 
   # Code coverage reporting
   gem "simplecov", require: false
