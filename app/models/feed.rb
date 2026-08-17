@@ -49,8 +49,18 @@ class Feed < ApplicationRecord
 
   # Adaptive polling interval bounds (in seconds)
   MIN_POLL_INTERVAL = 5.minutes.to_i
-  MAX_POLL_INTERVAL = 7.days.to_i  # Support weekly/monthly feeds
+
+  # Ceiling on how stale any feed is allowed to get, regardless of how rarely it
+  # posts. A weekly or monthly feed still gets checked 4x/day: fetches send
+  # If-None-Match/If-Modified-Since (see FeedFetcher), so a quiet feed costs a
+  # 304 with no body. Long caps here are what made a "Fresh" folder show
+  # days-old items even with the scheduler running.
+  MAX_POLL_INTERVAL = 6.hours.to_i
   DEFAULT_NEW_FEED_INTERVAL = 15.minutes.to_i
+
+  # How many times to poll per expected post. Higher means new entries are
+  # picked up sooner after publication, at the cost of more conditional GETs.
+  POLLS_PER_POST = 4
 
   # Number of days to consider for rolling average of posts per day
   ROLLING_AVERAGE_DAYS = 30
@@ -121,6 +131,24 @@ class Feed < ApplicationRecord
     update!(updates)
   end
 
+  # Re-derive the polling interval from the already measured publication rate and
+  # pull next_poll_at in if it now sits beyond that interval. Used by
+  # feeds:recalculate_poll_intervals after the tuning constants change: a feed
+  # parked days out would otherwise keep its old schedule until it happened to
+  # come due. Leaves next_poll_at nil where it is nil, so feeds that have never
+  # polled are not pushed into the future.
+  def recalculate_polling_interval!
+    interval = calculate_optimal_interval(avg_posts_per_day)
+    updates = { calculated_interval_seconds: interval }
+
+    if next_poll_at
+      latest_acceptable = Time.current + effective_poll_interval_seconds(interval)
+      updates[:next_poll_at] = [ next_poll_at, latest_acceptable ].min
+    end
+
+    update!(updates)
+  end
+
   # Get the effective poll interval in seconds
   # Respects manual update_interval override if set
   def effective_poll_interval_seconds(calculated = nil)
@@ -144,21 +172,17 @@ class Feed < ApplicationRecord
       .where("entries.updated >= ?", cutoff)
       .count
 
-    # Avoid division by zero, return small value for feeds with no recent entries
-    return 0.01 if entry_count.zero?
-
     entry_count.to_f / ROLLING_AVERAGE_DAYS
   end
 
   # Calculate optimal polling interval based on posts per day
   # Higher frequency = shorter interval
   def calculate_optimal_interval(posts_per_day)
-    return MAX_POLL_INTERVAL if posts_per_day <= 0.01
+    return MAX_POLL_INTERVAL if posts_per_day <= 0
 
-    # Target: check roughly 2x as often as posts arrive (to catch updates promptly)
-    # posts_per_day = N means N posts in 24 hours
-    # Ideal interval = 24 hours / (2 * N) = 12 hours / N
-    ideal_seconds = (12.hours.to_i / posts_per_day).to_i
+    # posts_per_day = N means N posts in 24 hours, and we want POLLS_PER_POST
+    # checks per post, so ideal interval = 24 hours / (POLLS_PER_POST * N).
+    ideal_seconds = (1.day.to_i / (POLLS_PER_POST * posts_per_day)).to_i
 
     # Clamp to reasonable bounds
     ideal_seconds.clamp(MIN_POLL_INTERVAL, MAX_POLL_INTERVAL)

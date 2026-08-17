@@ -176,6 +176,30 @@ namespace :feeds do
     puts "\nDone! Refreshed #{count} feeds."
   end
 
+  desc "Recompute adaptive polling intervals for all feeds"
+  task recalculate_poll_intervals: :environment do
+    puts "Recalculating poll intervals for all feeds..."
+    pulled_in = 0
+    count = 0
+
+    # Only feeds whose interval was already computed; a never-polled feed keeps
+    # DEFAULT_NEW_FEED_INTERVAL rather than being scheduled out.
+    Feed.where.not(calculated_interval_seconds: nil).find_each do |feed|
+      was = feed.next_poll_at
+      feed.recalculate_polling_interval!
+      pulled_in += 1 if was && feed.next_poll_at < was
+      count += 1
+      print "." if (count % 10).zero?
+    end
+
+    intervals = Feed.where.not(calculated_interval_seconds: nil).pluck(:calculated_interval_seconds)
+    puts "\nDone! #{count} feeds, #{pulled_in} rescheduled earlier."
+    if intervals.any?
+      puts "  Interval range: #{(intervals.min / 60.0).round(1)}m to #{(intervals.max / 3600.0).round(1)}h"
+      puts "  At MAX_POLL_INTERVAL: #{intervals.count { |i| i >= Feed::MAX_POLL_INTERVAL }}"
+    end
+  end
+
   desc "Show feed update stats"
   task stats: :environment do
     puts "Feed Statistics:"
