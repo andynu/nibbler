@@ -8,10 +8,13 @@ image: nibbler
 servers:
   web:
     - 192.168.1.208
-  # job:
-  #   hosts:
-  #     - 192.168.1.208
-  #   cmd: bin/jobs
+  # Background jobs and the GoodJob cron scheduler run here, not in Puma.
+  # production.rb sets execution_mode = :external so the web role executes
+  # neither. Only this role gets a GoodJob capsule, so cron registers once.
+  job:
+    hosts:
+      - 192.168.1.208
+    cmd: bin/jobs
 
 # Proxy configuration for kamal-proxy routing
 # nginx routes *.mac subdomains to kamal-proxy on port 8089
@@ -31,9 +34,6 @@ env:
     - SECRET_KEY_BASE
     - DATABASE_URL
   clear:
-
-    # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
-    SOLID_QUEUE_IN_PUMA: true
 
     # Rails production settings
     RAILS_ENV: production

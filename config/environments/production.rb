@@ -46,9 +46,16 @@ Rails.application.configure do
   # Replace the default in-process memory cache store with a durable alternative.
   config.cache_store = :solid_cache_store
 
-  # Use GoodJob for background jobs with in-process async execution (Passenger-compatible)
+  # Use GoodJob for background jobs, executed by a dedicated worker process.
+  #
+  # :external means the Rails web process starts no GoodJob capsule at all
+  # (GoodJob::Adapter#start_async is a no-op outside :async/:async_all), so it
+  # runs neither jobs nor the cron scheduler. Both live in the `job` Kamal role
+  # (config/deploy.yml), which runs `bin/jobs` -> GoodJob::CLI. The CLI always
+  # starts a capsule, and that capsule builds the CronManager because
+  # enable_cron is true. Cron therefore registers in exactly one process.
   config.active_job.queue_adapter = :good_job
-  config.good_job.execution_mode = :async
+  config.good_job.execution_mode = :external
   config.good_job.max_threads = 2
   config.good_job.poll_interval = 30
   config.good_job.enable_cron = true
