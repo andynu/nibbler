@@ -114,22 +114,58 @@ jobs:
       - name: Run component tests
         run: npm run test:run
 
-  # Playwright end-to-end tests (npm run test:e2e) are deliberately NOT run on
-  # pull requests. They are written to drive a `bin/rails server` instance
-  # against a populated developer database, which makes them unfit for PR CI
-  # as they stand today:
-  #
-  #   - They read and mutate live data (mark all read, star/unstar, create and
-  #     delete labels and categories). A clean CI database makes roughly half of
-  #     the 213 specs no-op via their `test.skip` data guards, so a green run
-  #     would not mean much.
-  #   - e2e/smoke.spec.ts drives the refresh button, which fetches real feed
-  #     URLs over the public internet. That is a flaky and slow dependency to
-  #     put in front of every merge.
-  #   - Auto-authentication relies on ALLOW_DEV_AUTH=1 plus a pre-existing user;
-  #     db/seeds.rb creates the admin user but no feeds or entries.
-  #
-  # Making the suite hermetic (fixture-seeded database, no external network)
-  # is tracked separately; add the job here once that work lands. Until then
-  # run them locally with `npm run test:e2e`.
+  test_e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        # bin/e2e-server creates ttrb_e2e itself; these credentials are the ones
+        # the `test:` section of config/database.yml reads.
+        env:
+          POSTGRES_USER: ttrb
+          POSTGRES_PASSWORD: ttrb_dev
+          POSTGRES_DB: ttrb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ttrb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts starts bin/e2e-server, which builds assets,
+      # creates and seeds ttrb_e2e, and boots the server with feed fetching
+      # stubbed out. Nothing here reaches the public internet.
+      - name: Run end-to-end tests
+        run: npx playwright test
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
 

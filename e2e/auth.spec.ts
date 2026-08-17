@@ -1,10 +1,12 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, SEEDED_ADMIN } from "./fixtures"
 import { loginViaApi, logoutViaApi, getCurrentUser, waitForAppLoad } from "./fixtures/auth"
 
 /**
  * Authentication E2E tests.
  *
- * Note: The app currently auto-authenticates in dev/test mode.
+ * The shared fixtures sign the browser context in as the seeded admin before
+ * every test, so tests that want anonymous behaviour log out first.
+ *
  * These tests focus on:
  * 1. App loads correctly when authenticated
  * 2. API auth endpoints work
@@ -33,29 +35,37 @@ test.describe("App authentication (auto-auth in dev/test)", () => {
     expect(Array.isArray(feeds)).toBe(true)
   })
 
-  test("API /me endpoint returns 401 without session", async ({ page }) => {
-    // Note: The /me endpoint uses SessionsController which doesn't have
-    // the dev/test mode auto-auth fallback. It requires a real session.
+  test("API /me endpoint returns the signed in user", async ({ page }) => {
     await page.goto("/")
 
     const response = await page.request.get("/api/v1/auth/me")
-    // Without logging in first, this should return 401
+    expect(response.ok()).toBe(true)
+    expect((await response.json()).login).toBe(SEEDED_ADMIN.login)
+  })
+
+  test("API /me endpoint returns 401 once logged out", async ({ page }) => {
+    // Api::V1::SessionsController has no ALLOW_DEV_AUTH fallback, unlike the
+    // rest of /api/v1, so it needs a real session.
+    await page.goto("/")
+    await logoutViaApi(page)
+
+    const response = await page.request.get("/api/v1/auth/me")
     expect(response.status()).toBe(401)
   })
 })
 
 test.describe("API auth endpoints", () => {
   test("login with valid credentials returns user info", async ({ page }) => {
-    // Note: This requires a test user to exist. In dev mode we typically have one.
-    // The actual credentials depend on the seed data.
-    const response = await loginViaApi(page, "test_user", "password")
+    const response = await loginViaApi(
+      page,
+      SEEDED_ADMIN.login,
+      SEEDED_ADMIN.password
+    )
 
-    // In dev mode this may fail if no user exists - that's expected
-    if (response.ok()) {
-      const data = await response.json()
-      expect(data.login).toBeDefined()
-      expect(data.email).toBeDefined()
-    }
+    expect(response.ok()).toBe(true)
+    const data = await response.json()
+    expect(data.login).toBe(SEEDED_ADMIN.login)
+    expect(data.email).toBeDefined()
   })
 
   test("login with invalid credentials returns 401", async ({ page }) => {
@@ -66,10 +76,14 @@ test.describe("API auth endpoints", () => {
     expect(data.error).toBe("Invalid username or password")
   })
 
-  test("logout endpoint requires authentication", async ({ page }) => {
-    // Logout requires a session - should return 401 without one
-    const logoutResponse = await logoutViaApi(page)
-    expect(logoutResponse.status()).toBe(401)
+  test("logout ends the session and then requires authentication", async ({
+    page,
+  }) => {
+    // The fixtures leave us signed in, so the first logout succeeds
+    expect((await logoutViaApi(page)).status()).toBe(204)
+
+    // A second one has no session to end
+    expect((await logoutViaApi(page)).status()).toBe(401)
   })
 })
 

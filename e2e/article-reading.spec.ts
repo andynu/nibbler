@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test"
+import { test, expect, type Page } from "./fixtures"
 
 /**
  * Article reading flow E2E tests.
@@ -23,10 +23,13 @@ test.describe("Browse Articles", () => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    test.skip(feeds.length === 0, "No feeds available in database")
+    expect(feeds.length).toBeGreaterThan(0)
 
-    // Click on first feed
-    const feedButton = page.getByRole("button", { name: feeds[0].title })
+    // Click on first feed. Each sidebar row also has a "<title> menu" button,
+    // so the name alone matches two elements.
+    const feedButton = page
+      .getByRole("button", { name: feeds[0].title, exact: false })
+      .first()
     await expect(feedButton).toBeVisible()
     await feedButton.click()
     // Feed button should remain visible after click
@@ -244,27 +247,27 @@ test.describe("Navigation UI", () => {
   })
 })
 
-test.describe("Labels", () => {
-  test("can list labels via API", async ({ page }) => {
-    const response = await page.request.get("/api/v1/labels")
+test.describe("Tags", () => {
+  test("can list tags via API", async ({ page }) => {
+    const response = await page.request.get("/api/v1/tags")
     expect(response.ok()).toBe(true)
 
-    const labels = await response.json()
-    expect(Array.isArray(labels)).toBe(true)
+    const tags = await response.json()
+    expect(Array.isArray(tags)).toBe(true)
   })
 
-  test("can create a label via API", async ({ page }) => {
-    const uniqueName = `Test Label ${Date.now()}`
-    const response = await page.request.post("/api/v1/labels", {
-      data: { caption: uniqueName, fg_color: "#ffffff", bg_color: "#3b82f6" },
+  test("can create a tag via API", async ({ page }) => {
+    const uniqueName = `test-tag-${Date.now()}`
+    const response = await page.request.post("/api/v1/tags", {
+      data: { tag: { name: uniqueName, fg_color: "#ffffff", bg_color: "#3b82f6" } },
     })
 
     expect(response.ok()).toBe(true)
-    const label = await response.json()
-    expect(label.caption).toBe(uniqueName)
+    const tag = await response.json()
+    expect(tag.name).toBe(uniqueName)
 
     // Clean up
-    await page.request.delete(`/api/v1/labels/${label.id}`)
+    await page.request.delete(`/api/v1/tags/${tag.id}`)
   })
 })
 

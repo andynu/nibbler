@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Boots the application server the Playwright suite runs against.
+#
+# Playwright starts this via the `webServer` block in playwright.config.ts; it
+# is not meant to be run by hand. Everything the suite needs to be hermetic is
+# set here rather than inherited from the developer's shell:
+#
+#   RAILS_ENV=test           the E2E server is never the development server
+#   E2E_DATABASE_NAME        its own database, so it cannot truncate ttrb_test
+#   ALLOW_DEV_AUTH=1         API requests authenticate as the seeded admin
+#   ALLOW_E2E_RESET=1        draws POST /e2e/reset, used between examples
+#   OFFLINE_FEED_FETCH=1     feed fetches are stubbed; nothing leaves the host
+#
+# The port deliberately differs from the development server's 3000 so a running
+# `bin/dev` is never mistaken for the E2E server.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+export RAILS_ENV=test
+export E2E_DATABASE_NAME="${E2E_DATABASE_NAME:-ttrb_e2e}"
+export ALLOW_DEV_AUTH=1
+export ALLOW_E2E_RESET=1
+export OFFLINE_FEED_FETCH=1
+
+PORT="${E2E_PORT:-3001}"
+
+echo "==> Building assets"
+npm run build --silent
+npm run build:css --silent
+
+echo "==> Preparing ${E2E_DATABASE_NAME}"
+bin/rails db:prepare
+
+echo "==> Seeding E2E fixtures"
+bin/rails e2e:seed
+
+echo "==> Starting server on port ${PORT}"
+exec bin/rails server -p "${PORT}" -b 127.0.0.1

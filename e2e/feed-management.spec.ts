@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test"
+import { test, expect, type Page } from "./fixtures"
 
 /**
  * Feed management E2E tests.
@@ -47,11 +47,14 @@ test.describe("Feed Sidebar", () => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    test.skip(feeds.length === 0, "No feeds available in database")
+    expect(feeds.length).toBeGreaterThan(0)
 
     const firstFeed = feeds[0]
-    // Find and click the feed in sidebar
-    const feedButton = page.getByRole("button", { name: firstFeed.title })
+    // Find and click the feed in sidebar. Each sidebar row also has a
+    // "<title> menu" button, so the name alone matches two elements.
+    const feedButton = page
+      .getByRole("button", { name: firstFeed.title, exact: false })
+      .first()
     await expect(feedButton).toBeVisible()
     await feedButton.click()
     // Feed button should remain visible after click
@@ -138,7 +141,7 @@ test.describe("Feed API operations", () => {
     const listResponse = await page.request.get("/api/v1/feeds")
     const feeds = await listResponse.json()
 
-    test.skip(feeds.length === 0, "No feeds available in database")
+    expect(feeds.length).toBeGreaterThan(0)
 
     const feedId = feeds[0].id
     const detailResponse = await page.request.get(`/api/v1/feeds/${feedId}`)

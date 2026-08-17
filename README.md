@@ -49,3 +49,8 @@ npm run test
 # E2E tests
 npm run test:e2e
 ```
+
+The E2E run starts its own server on port 3001 via `bin/e2e-server`, against a
+`ttrb_e2e` database it seeds itself. It does not touch a running `bin/dev` or
+the Minitest database, and it makes no outbound network requests. See
+[docs/playwright-testing-guide.md](docs/playwright-testing-guide.md).

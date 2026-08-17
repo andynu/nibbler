@@ -211,18 +211,18 @@ test.describe("Feed Selection", () => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    if (feeds.length > 0) {
-      await commandPalette.open()
-      // Use exact match to avoid matching "All Feeds"
-      await expect(page.getByText("Feeds", { exact: true })).toBeVisible()
-    }
+    expect(feeds.length).toBeGreaterThan(0)
+
+    await commandPalette.open()
+    // Use exact match to avoid matching "All Feeds"
+    await expect(page.getByText("Feeds", { exact: true })).toBeVisible()
   })
 
   test("clicking feed closes palette", async ({ commandPalette, page }) => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    test.skip(feeds.length === 0, "No feeds available in database")
+    expect(feeds.length).toBeGreaterThan(0)
 
     await commandPalette.open()
 
@@ -236,7 +236,7 @@ test.describe("Feed Selection", () => {
     const response = await page.request.get("/api/v1/feeds")
     const feeds = await response.json()
 
-    test.skip(feeds.length === 0, "No feeds available in database")
+    expect(feeds.length).toBeGreaterThan(0)
 
     await commandPalette.open()
 
@@ -257,7 +257,7 @@ test.describe("Category Selection", () => {
     const response = await page.request.get("/api/v1/categories")
     const categories = await response.json()
 
-    test.skip(categories.length === 0, "No categories available in database")
+    expect(categories.length).toBeGreaterThan(0)
 
     await commandPalette.open()
     await expect(page.getByText("Categories")).toBeVisible()
@@ -267,7 +267,7 @@ test.describe("Category Selection", () => {
     const response = await page.request.get("/api/v1/categories")
     const categories = await response.json()
 
-    test.skip(categories.length === 0, "No categories available in database")
+    expect(categories.length).toBeGreaterThan(0)
 
     await commandPalette.open()
 

@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test"
+import { test, expect, type Page } from "./fixtures"
 
 /**
  * Smoke tests for Nibbler RSS reader.
@@ -7,7 +7,10 @@ import { test, expect, Page } from "@playwright/test"
  * the detailed feature tests in other spec files. They provide confidence
  * that the core user flows work correctly.
  *
- * The app auto-authenticates in dev/test mode, so no explicit login is needed.
+ * The fixtures in e2e/fixtures sign in as the seeded admin and restore the
+ * E2eDataset fixture set before each test, so the feeds, articles, categories
+ * and tags these tests read are always present. Missing data is a failure, not
+ * a reason to skip.
  */
 
 // Helper to wait for app to fully load and be interactive
@@ -63,15 +66,17 @@ test.describe("Smoke Tests", () => {
   test("clicking a feed loads entries in list", async ({ page }) => {
     // Get feeds from API
     const response = await page.request.get("/api/v1/feeds")
-
-    // Skip if API returns error (e.g., auth not working in test environment)
-    test.skip(!response.ok(), "Feeds API not available")
+    expect(response.ok()).toBe(true)
 
     const feeds = await response.json()
-    test.skip(!Array.isArray(feeds) || feeds.length === 0, "No feeds available in database")
+    expect(Array.isArray(feeds)).toBe(true)
+    expect(feeds.length).toBeGreaterThan(0)
 
-    // Click on first feed
-    const feedButton = page.getByRole("button", { name: feeds[0].title })
+    // Click on first feed. Each sidebar row also carries a "<title> menu"
+    // button, so the name alone matches two elements.
+    const feedButton = page
+      .getByRole("button", { name: feeds[0].title, exact: false })
+      .first()
     await expect(feedButton).toBeVisible()
     await feedButton.click()
 
@@ -89,12 +94,10 @@ test.describe("Smoke Tests", () => {
   test("clicking an entry displays content", async ({ page }) => {
     // Get entries
     const response = await page.request.get("/api/v1/entries?per_page=1")
-
-    // Skip if API returns error
-    test.skip(!response.ok(), "Entries API not available")
+    expect(response.ok()).toBe(true)
 
     const data = await response.json()
-    test.skip(!data.entries || data.entries.length === 0, "No entries available in database")
+    expect(data.entries.length).toBeGreaterThan(0)
 
     const entry = data.entries[0]
 
@@ -120,12 +123,10 @@ test.describe("Smoke Tests", () => {
   test("marking entry read updates unread count", async ({ page }) => {
     // Get an entry to work with
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")
-
-    // Skip if API returns error
-    test.skip(!listResponse.ok(), "Entries API not available")
+    expect(listResponse.ok()).toBe(true)
 
     const data = await listResponse.json()
-    test.skip(!data.entries || data.entries.length === 0, "No entries available in database")
+    expect(data.entries.length).toBeGreaterThan(0)
 
     const entryId = data.entries[0].id
     const originalUnread = data.entries[0].unread
@@ -156,12 +157,10 @@ test.describe("Smoke Tests", () => {
   }) => {
     // Get an entry to star
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")
-
-    // Skip if API returns error
-    test.skip(!listResponse.ok(), "Entries API not available")
+    expect(listResponse.ok()).toBe(true)
 
     const data = await listResponse.json()
-    test.skip(!data.entries || data.entries.length === 0, "No entries available in database")
+    expect(data.entries.length).toBeGreaterThan(0)
 
     const entryId = data.entries[0].id
     const wasStarred = data.entries[0].starred
@@ -201,67 +200,54 @@ test.describe("Smoke Tests", () => {
     }
   })
 
-  test("adding a label to an entry", async ({ page }) => {
+  test("adding a tag to an entry", async ({ page }) => {
     // Get an entry
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")
-
-    // Skip if API returns error
-    test.skip(!listResponse.ok(), "Entries API not available")
+    expect(listResponse.ok()).toBe(true)
 
     const data = await listResponse.json()
-    test.skip(!data.entries || data.entries.length === 0, "No entries available in database")
+    expect(data.entries.length).toBeGreaterThan(0)
 
     const entryId = data.entries[0].id
 
-    // Create a test label via API
-    const uniqueCaption = `Smoke Test Label ${Date.now()}`
-    const createLabelResponse = await page.request.post("/api/v1/labels", {
-      data: {
-        label: {
-          caption: uniqueCaption,
-          fg_color: "#ffffff",
-          bg_color: "#3b82f6",
-        },
-      },
-    })
-    expect(createLabelResponse.ok()).toBe(true)
-    const label = await createLabelResponse.json()
+    // Tag names are normalised to lowercase by EntryTagsController.
+    const tagName = `smoke-tag-${Date.now()}`
+    const addTagResponse = await page.request.post(
+      `/api/v1/entries/${entryId}/tags`,
+      { data: { tag_name: tagName } }
+    )
+    expect(addTagResponse.ok()).toBe(true)
 
-    try {
-      // Add label to entry via API
-      const addLabelResponse = await page.request.post(
-        `/api/v1/entries/${entryId}/labels`,
-        {
-          data: { label_id: label.id },
-        }
-      )
-      expect(addLabelResponse.ok()).toBe(true)
+    const tagged = await addTagResponse.json()
+    expect(tagged.tags.map((t: { name: string }) => t.name)).toContain(tagName)
 
-      // Verify entry now has the label
-      const entryDetailResponse = await page.request.get(
-        `/api/v1/entries/${entryId}`
-      )
-      expect(entryDetailResponse.ok()).toBe(true)
-      const entryDetail = await entryDetailResponse.json()
-      const hasLabel = entryDetail.labels?.some(
-        (l: { id: number }) => l.id === label.id
-      )
-      expect(hasLabel).toBe(true)
+    // Verify the entry detail reports it too
+    const entryDetailResponse = await page.request.get(
+      `/api/v1/entries/${entryId}`
+    )
+    expect(entryDetailResponse.ok()).toBe(true)
+    const entryDetail = await entryDetailResponse.json()
+    expect(entryDetail.tags.map((t: { name: string }) => t.name)).toContain(
+      tagName
+    )
 
-      // Remove label from entry
-      await page.request.delete(`/api/v1/entries/${entryId}/labels/${label.id}`)
-    } finally {
-      // Clean up - delete the test label
-      await page.request.delete(`/api/v1/labels/${label.id}`)
-    }
+    // Remove tag from entry
+    const removeResponse = await page.request.delete(
+      `/api/v1/entries/${entryId}/tags/${tagName}`
+    )
+    expect(removeResponse.ok()).toBe(true)
+
+    const remaining = await removeResponse.json()
+    expect(remaining.tags.map((t: { name: string }) => t.name)).not.toContain(
+      tagName
+    )
   })
 
   test("mark all read works", async ({ page }) => {
-    // Get current unread count via counters
+    // The seeded dataset always has unread articles to clear
     const beforeCounters = await page.request.get("/api/v1/counters")
-
-    // Skip if API returns error
-    test.skip(!beforeCounters.ok(), "Counters API not available")
+    expect(beforeCounters.ok()).toBe(true)
+    expect((await beforeCounters.json()).total).toBeGreaterThan(0)
 
     // Call mark all read endpoint
     const markAllResponse = await page.request.post(
@@ -269,13 +255,16 @@ test.describe("Smoke Tests", () => {
     )
     expect(markAllResponse.ok()).toBe(true)
 
-    // Verify fresh view returns no unread entries
-    const freshResponse = await page.request.get("/api/v1/entries?view=fresh")
-    expect(freshResponse.ok()).toBe(true)
+    // Nothing should be left unread. Note this asks for unread=true rather than
+    // view=fresh: the Fresh view filters on publication date only, so it still
+    // lists articles that have been read.
+    const unreadResponse = await page.request.get(
+      "/api/v1/entries?unread=true"
+    )
+    expect(unreadResponse.ok()).toBe(true)
 
-    const freshData = await freshResponse.json()
-    // All entries should now be read (fresh view shows unread only)
-    expect(freshData.entries.length).toBe(0)
+    const unreadData = await unreadResponse.json()
+    expect(unreadData.entries.length).toBe(0)
 
     // Click Fresh view in UI to verify it loads correctly
     await page.getByRole("button", { name: /fresh/i }).first().click()
@@ -285,7 +274,8 @@ test.describe("Smoke Tests", () => {
   })
 
   test("refresh button triggers feed refresh", async ({ page }) => {
-    // Find and click refresh button
+    // The server runs with OFFLINE_FEED_FETCH=1, so this exercises the refresh
+    // request and response handling without any feed being fetched for real.
     const refreshButton = page.getByRole("button", { name: /refresh/i }).first()
     await expect(refreshButton).toBeVisible()
 
@@ -299,7 +289,6 @@ test.describe("Smoke Tests", () => {
 
     await refreshButton.click()
 
-    // Wait for refresh response (may take time for external feed fetching)
     const refreshResponse = await refreshPromise
     // Accept any non-server-error response (200, 202, etc.)
     expect(refreshResponse.status()).toBeLessThan(500)

@@ -159,7 +159,7 @@ module Api
         begin
           # Create a temporary feed object to use with FeedFetcher
           temp_feed = Feed.new(feed_url: url)
-          fetcher = FeedFetcher.new(temp_feed)
+          fetcher = FeedFetcher.for(temp_feed)
           fetch_result = fetcher.fetch
 
           if fetch_result.error?
@@ -231,7 +231,7 @@ module Api
         url = "https://#{url}" unless url.match?(%r{\Ahttps?://}i)
 
         temp_feed = Feed.new(feed_url: url)
-        fetcher = FeedFetcher.new(temp_feed)
+        fetcher = FeedFetcher.for(temp_feed)
         fetch_result = fetcher.fetch
 
         if fetch_result.error?

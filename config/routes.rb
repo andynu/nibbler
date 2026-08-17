@@ -5,6 +5,13 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Test-support endpoint that restores the Playwright fixture set between
+  # examples. Drawn only for a server booted by bin/e2e-server, so it does not
+  # exist in a development or production boot.
+  if ENV["ALLOW_E2E_RESET"] == "1"
+    post "e2e/reset", to: "e2e_reset#create"
+  end
+
   # Public feed for published articles (no auth required)
   get "public/feed/:access_key.atom", to: "public_feed#show", as: :public_feed, defaults: { format: :atom }
 

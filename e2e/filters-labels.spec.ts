@@ -1,10 +1,14 @@
-import { test, expect, Page } from "@playwright/test"
+import { test, expect, type Page } from "./fixtures"
 
 /**
- * Filters and Labels E2E tests.
+ * Filters and Tags E2E tests.
  *
- * Tests filter CRUD operations, label management, and their interactions.
+ * Tests filter CRUD operations, tag management, and their interactions.
  * Each test is self-contained and cleans up after itself.
+ *
+ * "Labels" is the TT-RSS name for what this app calls tags: the API is
+ * /api/v1/tags, the settings tab reads "Tags", and the component that renders
+ * it is LabelManager. The specs use the API's vocabulary.
  */
 
 // Helper to wait for app to be ready
@@ -39,22 +43,24 @@ async function goToFiltersTab(page: Page) {
   ])
 }
 
-// Helper to navigate to Labels tab
-async function goToLabelsTab(page: Page) {
+// Helper to navigate to Tags tab
+async function goToTagsTab(page: Page) {
   await openSettings(page)
-  await page.getByRole("tab", { name: /labels/i }).click()
-  await expect(page.getByRole("tab", { name: /labels/i })).toHaveAttribute(
+  await page.getByRole("tab", { name: /tags/i }).click()
+  await expect(page.getByRole("tab", { name: /tags/i })).toHaveAttribute(
     "data-state",
     "active"
   )
-  // Wait for labels to finish loading
+  // Wait for tags to finish loading
   await Promise.race([
-    page.getByRole("heading", { name: /labels/i }).waitFor({ timeout: 10000 }),
-    page.getByText(/no labels yet/i).waitFor({ timeout: 10000 }),
+    page.getByRole("heading", { name: "Tags" }).waitFor({ timeout: 10000 }),
+    page.getByText(/no tags yet/i).waitFor({ timeout: 10000 }),
   ])
 }
 
-// Helper to create filter via API
+// Helper to create filter via API.
+// filter_type and action_type are the string names in FilterRule::FILTER_TYPES
+// and FilterAction::ACTION_TYPES; anything else fails validation.
 async function createFilterViaApi(
   page: Page,
   title: string,
@@ -67,9 +73,9 @@ async function createFilterViaApi(
         enabled: true,
         match_any_rule: false,
         filter_rules_attributes: [
-          { filter_type: 1, reg_exp: pattern, inverse: false },
+          { filter_type: "title", reg_exp: pattern, inverse: false },
         ],
-        filter_actions_attributes: [{ action_type: 2 }],
+        filter_actions_attributes: [{ action_type: "mark_read" }],
       },
     },
   })
@@ -81,12 +87,12 @@ async function deleteFilterViaApi(page: Page, filterId: number) {
   await page.request.delete(`/api/v1/filters/${filterId}`)
 }
 
-// Helper to create label via API
-async function createLabelViaApi(page: Page, caption: string) {
-  const response = await page.request.post("/api/v1/labels", {
+// Helper to create tag via API
+async function createTagViaApi(page: Page, name: string) {
+  const response = await page.request.post("/api/v1/tags", {
     data: {
-      label: {
-        caption,
+      tag: {
+        name,
         fg_color: "#ffffff",
         bg_color: "#3b82f6",
       },
@@ -95,9 +101,9 @@ async function createLabelViaApi(page: Page, caption: string) {
   return response.json()
 }
 
-// Helper to delete label via API
-async function deleteLabelViaApi(page: Page, labelId: number) {
-  await page.request.delete(`/api/v1/labels/${labelId}`)
+// Helper to delete tag via API
+async function deleteTagViaApi(page: Page, tagId: number) {
+  await page.request.delete(`/api/v1/tags/${tagId}`)
 }
 
 // =============================================================================
@@ -121,9 +127,9 @@ test.describe("Filter API", () => {
         enabled: true,
         match_any_rule: false,
         filter_rules_attributes: [
-          { filter_type: 1, reg_exp: "test-pattern", inverse: false },
+          { filter_type: "title", reg_exp: "test-pattern", inverse: false },
         ],
-        filter_actions_attributes: [{ action_type: 2 }],
+        filter_actions_attributes: [{ action_type: "mark_read" }],
       },
     }
 
@@ -292,8 +298,13 @@ test.describe("Filter List Operations", () => {
 
     await expect(filterRow).toBeVisible()
     await expect(filterRow.getByRole("switch")).toBeVisible()
-    // Toggle switch + 3 icon buttons (test, edit, delete) = 4 buttons
-    await expect(filterRow.locator("button")).toHaveCount(4)
+    // Enabled switch plus test, backfill, edit and delete icon buttons
+    await expect(filterRow.locator("button")).toHaveCount(5)
+    for (const action of ["Test", "Apply", "Edit", "Delete"]) {
+      await expect(
+        filterRow.getByRole("button", { name: new RegExp(`^${action} `) })
+      ).toBeVisible()
+    }
   })
 
   test("can toggle filter enabled state", async ({ page }) => {
@@ -325,8 +336,7 @@ test.describe("Filter List Operations", () => {
     // Set up dialog handler to confirm
     page.on("dialog", (dialog) => dialog.accept())
 
-    // Click delete button (last button)
-    await filterRow.locator("button").last().click()
+    await filterRow.getByRole("button", { name: /^Delete / }).click()
 
     // Filter should be removed
     await expect(filterRow).not.toBeVisible({ timeout: 5000 })
@@ -337,207 +347,193 @@ test.describe("Filter List Operations", () => {
 })
 
 // =============================================================================
-// LABEL API TESTS
+// TAG API TESTS
 // =============================================================================
 
-test.describe("Label API", () => {
-  test("can list labels via API", async ({ page }) => {
-    const response = await page.request.get("/api/v1/labels")
+test.describe("Tag API", () => {
+  test("can list tags via API", async ({ page }) => {
+    const response = await page.request.get("/api/v1/tags")
     expect(response.ok()).toBe(true)
 
-    const labels = await response.json()
-    expect(Array.isArray(labels)).toBe(true)
+    const tags = await response.json()
+    expect(Array.isArray(tags)).toBe(true)
   })
 
-  test("can create, update, and delete a label via API", async ({ page }) => {
+  test("can create, update, and delete a tag via API", async ({ page }) => {
     // Create
-    const labelData = {
-      label: {
-        caption: "E2E API Label " + Date.now(),
+    const tagData = {
+      tag: {
+        name: "e2e-api-tag-" + Date.now(),
         fg_color: "#ffffff",
         bg_color: "#3b82f6",
       },
     }
 
-    const createResponse = await page.request.post("/api/v1/labels", {
-      data: labelData,
+    const createResponse = await page.request.post("/api/v1/tags", {
+      data: tagData,
     })
     expect(createResponse.ok()).toBe(true)
 
     const created = await createResponse.json()
     expect(created.id).toBeDefined()
-    expect(created.caption).toBe(labelData.label.caption)
+    expect(created.name).toBe(tagData.tag.name)
     expect(created.entry_count).toBe(0)
 
     // Update
     const updateResponse = await page.request.patch(
-      `/api/v1/labels/${created.id}`,
+      `/api/v1/tags/${created.id}`,
       {
-        data: { label: { caption: "Updated Caption", bg_color: "#ef4444" } },
+        data: { tag: { name: "updated-tag-name", bg_color: "#ef4444" } },
       }
     )
     expect(updateResponse.ok()).toBe(true)
 
     const updated = await updateResponse.json()
-    expect(updated.caption).toBe("Updated Caption")
+    expect(updated.name).toBe("updated-tag-name")
     expect(updated.bg_color).toBe("#ef4444")
 
     // Delete
     const deleteResponse = await page.request.delete(
-      `/api/v1/labels/${created.id}`
+      `/api/v1/tags/${created.id}`
     )
     expect(deleteResponse.status()).toBe(204)
 
     // Verify gone
-    const getResponse = await page.request.get(`/api/v1/labels/${created.id}`)
+    const getResponse = await page.request.get(`/api/v1/tags/${created.id}`)
     expect(getResponse.status()).toBe(404)
   })
 })
 
 // =============================================================================
-// LABELS UI TESTS
+// TAGS UI TESTS
 // =============================================================================
 
-test.describe("Labels Tab UI", () => {
+test.describe("Tags Tab UI", () => {
   test.beforeEach(async ({ page }) => {
     await waitForAppReady(page)
   })
 
-  test("shows label management interface", async ({ page }) => {
-    await goToLabelsTab(page)
+  test("shows tag management interface", async ({ page }) => {
+    await goToTagsTab(page)
 
-    await expect(page.getByRole("heading", { name: /labels/i })).toBeVisible()
-    await expect(
-      page.getByRole("button", { name: /new label/i })
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Tags" })).toBeVisible()
+    await expect(page.getByRole("button", { name: /new tag/i })).toBeVisible()
   })
 
-  test("can open and close label creation dialog", async ({ page }) => {
-    await goToLabelsTab(page)
+  test("can open and close tag creation dialog", async ({ page }) => {
+    await goToTagsTab(page)
 
     // Open dialog
-    await page.getByRole("button", { name: /new label/i }).click()
-    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
+    await page.getByRole("button", { name: /new tag/i }).click()
+    await expect(page.getByLabel(/tag name/i)).toBeVisible({ timeout: 5000 })
 
     // Close dialog via Cancel
     await page.getByRole("button", { name: /cancel/i }).click()
-    await expect(page.getByLabel(/label name/i)).not.toBeVisible({ timeout: 3000 })
+    await expect(page.getByLabel(/tag name/i)).not.toBeVisible({ timeout: 3000 })
   })
 
-  test("can create a label through UI", async ({ page }) => {
-    const labelCaption = "E2E UI Label " + Date.now()
+  test("can create a tag through UI", async ({ page }) => {
+    const tagName = "e2e-ui-tag-" + Date.now()
 
-    await goToLabelsTab(page)
+    await goToTagsTab(page)
 
     // Open dialog
-    await page.getByRole("button", { name: /new label/i }).click()
+    await page.getByRole("button", { name: /new tag/i }).click()
 
-    // Wait for label name input to be visible
-    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
+    // Wait for tag name input to be visible
+    await expect(page.getByLabel(/tag name/i)).toBeVisible({ timeout: 5000 })
 
     // Fill form
-    await page.getByLabel(/label name/i).fill(labelCaption)
+    await page.getByLabel(/tag name/i).fill(tagName)
 
     // Submit
-    await page.getByRole("button", { name: /create label/i }).click()
+    await page.getByRole("button", { name: /^create tag$/i }).click()
 
     // Verify in list
-    await expect(page.getByText(labelCaption)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(tagName)).toBeVisible({ timeout: 5000 })
 
     // Cleanup
-    const listResponse = await page.request.get("/api/v1/labels")
-    const labels = await listResponse.json()
-    const created = labels.find(
-      (l: { caption: string }) => l.caption === labelCaption
-    )
+    const listResponse = await page.request.get("/api/v1/tags")
+    const tags = await listResponse.json()
+    const created = tags.find((t: { name: string }) => t.name === tagName)
     if (created) {
-      await deleteLabelViaApi(page, created.id)
+      await deleteTagViaApi(page, created.id)
     }
   })
 })
 
-test.describe("Label List Operations", () => {
-  let testLabelId: number
-  let testLabelCaption: string
+test.describe("Tag List Operations", () => {
+  let testTagId: number
+  let testTagName: string
 
   test.beforeEach(async ({ page }) => {
-    // Create a test label with a unique name
-    testLabelCaption = "E2E Label Ops " + Date.now() + Math.random().toString(36).slice(2, 8)
-    const label = await createLabelViaApi(page, testLabelCaption)
-    testLabelId = label.id
+    // Create a test tag with a unique name
+    testTagName = "e2e-tag-ops-" + Date.now() + Math.random().toString(36).slice(2, 8)
+    const tag = await createTagViaApi(page, testTagName)
+    testTagId = tag.id
     await waitForAppReady(page)
   })
 
   test.afterEach(async ({ page }) => {
-    // Cleanup test label
-    if (testLabelId) {
+    // Cleanup test tag
+    if (testTagId) {
       try {
-        await deleteLabelViaApi(page, testLabelId)
+        await deleteTagViaApi(page, testTagId)
       } catch {
         // Already deleted
       }
     }
   })
 
-  test("label appears in list with styled badge", async ({ page }) => {
-    await goToLabelsTab(page)
+  test("tag appears in list with styled badge", async ({ page }) => {
+    await goToTagsTab(page)
 
-    // Find the label row by testid and text
-    const labelRow = page.getByTestId("label-row").filter({
-      hasText: testLabelCaption,
-    })
-    await expect(labelRow).toBeVisible()
+    // Find the tag row by testid and text
+    const tagRow = page.getByTestId("tag-row").filter({ hasText: testTagName })
+    await expect(tagRow).toBeVisible()
 
     // Should show article count
-    await expect(labelRow.getByText(/article/i)).toBeVisible()
+    await expect(tagRow.getByText(/article/i)).toBeVisible()
     // Should have edit and delete buttons
-    await expect(labelRow.locator("button")).toHaveCount(2)
+    await expect(tagRow.locator("button")).toHaveCount(2)
   })
 
-  test("can edit label", async ({ page }) => {
-    await goToLabelsTab(page)
+  test("can edit tag", async ({ page }) => {
+    await goToTagsTab(page)
 
-    const labelRow = page.getByTestId("label-row").filter({
-      hasText: testLabelCaption,
-    })
+    const tagRow = page.getByTestId("tag-row").filter({ hasText: testTagName })
 
-    // Click edit button
-    await labelRow.locator("button").first().click()
+    await tagRow.getByRole("button", { name: /^Edit / }).click()
 
     // Dialog should open
-    await expect(
-      page.getByRole("heading", { name: "Edit Label" })
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Edit Tag" })).toBeVisible()
 
     // Change the name
-    const nameInput = page.getByLabel(/label name/i)
+    const nameInput = page.getByLabel(/tag name/i)
     await nameInput.clear()
-    await nameInput.fill("Updated Label Name")
+    await nameInput.fill("updated-tag-name")
 
     await page.getByRole("button", { name: /save changes/i }).click()
 
     // Updated name should appear
-    await expect(page.getByText("Updated Label Name")).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText("updated-tag-name")).toBeVisible({ timeout: 5000 })
   })
 
-  test("can delete label with confirmation", async ({ page }) => {
-    await goToLabelsTab(page)
+  test("can delete tag with confirmation", async ({ page }) => {
+    await goToTagsTab(page)
 
-    const labelRow = page.getByTestId("label-row").filter({
-      hasText: testLabelCaption,
-    })
+    const tagRow = page.getByTestId("tag-row").filter({ hasText: testTagName })
 
     // Set up dialog handler to confirm
     page.on("dialog", (dialog) => dialog.accept())
 
-    // Click delete button
-    await labelRow.locator("button").last().click()
+    await tagRow.getByRole("button", { name: /^Delete / }).click()
 
-    // Label should be removed
-    await expect(labelRow).not.toBeVisible({ timeout: 5000 })
+    // Tag should be removed
+    await expect(tagRow).not.toBeVisible({ timeout: 5000 })
 
-    // Clear the testLabelId since it's already deleted
-    testLabelId = 0
+    // Clear the testTagId since it's already deleted
+    testTagId = 0
   })
 })
 
@@ -616,48 +612,49 @@ test.describe("Filter Form Elements", () => {
 })
 
 // =============================================================================
-// LABEL DIALOG FORM TESTS
+// TAG DIALOG FORM TESTS
 // =============================================================================
 
-test.describe("Label Form Elements", () => {
+test.describe("Tag Form Elements", () => {
   test.beforeEach(async ({ page }) => {
     await waitForAppReady(page)
   })
 
-  test("label dialog has all form elements", async ({ page }) => {
-    await goToLabelsTab(page)
-    await page.getByRole("button", { name: /new label/i }).click()
+  test("tag dialog has all form elements", async ({ page }) => {
+    await goToTagsTab(page)
+    await page.getByRole("button", { name: /new tag/i }).click()
 
     // Check for main form elements
-    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByLabel(/tag name/i)).toBeVisible({ timeout: 5000 })
     await expect(page.getByText(/preview/i)).toBeVisible()
     await expect(page.getByText(/color presets/i)).toBeVisible()
     await expect(page.getByLabel(/background/i)).toBeVisible()
     await expect(page.getByRole("button", { name: /cancel/i })).toBeVisible()
-    await expect(page.getByRole("button", { name: /create label/i })).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: /^create tag$/i })
+    ).toBeVisible()
   })
 
   test("color presets update the colors", async ({ page }) => {
-    await goToLabelsTab(page)
-    await page.getByRole("button", { name: /new label/i }).click()
+    await goToTagsTab(page)
+    await page.getByRole("button", { name: /new tag/i }).click()
 
     // Wait for dialog to be visible
-    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByLabel(/tag name/i)).toBeVisible({ timeout: 5000 })
 
-    // Click a color preset button
-    const colorPresets = page.getByTestId("color-preset")
-    await colorPresets.first().click()
+    // Clicking a preset writes its colours into both hex inputs
+    await page.getByTestId("color-preset").first().click()
 
-    // The background color should have changed (clicking preset should update the form)
-    // We just verify it didn't throw an error
+    await expect(page.locator("#bg-color")).toHaveValue("#ef4444")
+    await expect(page.locator("#fg-color")).toHaveValue("#ffffff")
   })
 
-  test("validation prevents empty label creation", async ({ page }) => {
-    await goToLabelsTab(page)
-    await page.getByRole("button", { name: /new label/i }).click()
+  test("validation prevents empty tag creation", async ({ page }) => {
+    await goToTagsTab(page)
+    await page.getByRole("button", { name: /new tag/i }).click()
 
     // Wait for dialog to be visible
-    await expect(page.getByLabel(/label name/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByLabel(/tag name/i)).toBeVisible({ timeout: 5000 })
 
     // Set up dialog handler for validation alert
     let alertShown = false
@@ -666,8 +663,8 @@ test.describe("Label Form Elements", () => {
       dialog.accept()
     })
 
-    // Try to create without filling caption
-    await page.getByRole("button", { name: /create label/i }).click()
+    // Try to create without filling the name
+    await page.getByRole("button", { name: /^create tag$/i }).click()
 
     expect(alertShown).toBe(true)
   })
@@ -700,10 +697,7 @@ test.describe("Filter Test Feature", () => {
       hasText: "E2E Test Filter",
     })
 
-    // Buttons in order: switch, play (test), pencil (edit), trash (delete)
-    // Click the second button (play icon for testing)
-    const testButton = filterRow.locator("button").nth(1)
-    await testButton.click()
+    await filterRow.getByRole("button", { name: /^Test / }).click()
 
     // Should show match results badge (e.g., "5 matched" or "X/Y matched")
     await expect(filterRow.getByText(/\d+.*matched/i)).toBeVisible({ timeout: 10000 })

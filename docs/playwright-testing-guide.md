@@ -2,6 +2,37 @@
 
 This document outlines the testing methodologies and best practices for writing robust, maintainable Playwright E2E tests in this project.
 
+## How the suite runs
+
+`npm run test:e2e` starts its own server through `bin/e2e-server`; it never talks
+to a `bin/dev` you already have running. That script builds the assets, creates
+and seeds the `ttrb_e2e` database, and boots Puma on port 3001 with four
+variables set:
+
+| Variable | Effect |
+|----------|--------|
+| `RAILS_ENV=test` | jobs use the test queue adapter, so nothing runs in the background |
+| `E2E_DATABASE_NAME=ttrb_e2e` | a database of its own, never the one Minitest owns |
+| `ALLOW_DEV_AUTH=1` | `/api/v1` controllers fall back to the first user |
+| `ALLOW_E2E_RESET=1` | draws `POST /e2e/reset` |
+| `OFFLINE_FEED_FETCH=1` | `FeedFetcher.for` returns a stub, so no request leaves the host |
+
+The fixture set lives in `lib/e2e_dataset.rb`: one admin, three categories, four
+feeds, twenty-four articles with a fixed read/starred pattern, three tags and one
+filter. Article timestamps are relative to `Time.current`, so seeded articles are
+always inside the 24 hour Fresh window.
+
+Two automatic fixtures in `e2e/fixtures/test.ts` run before every test: one POSTs
+to `/e2e/reset` to rebuild that data, the other signs in as the seeded admin.
+Import `test` from `./fixtures`, never from `@playwright/test`, or a spec will
+run against whatever the previous one left behind.
+
+Because the database is shared, `playwright.config.ts` sets `workers: 1` and
+`fullyParallel: false`.
+
+Since the data is guaranteed, assert on it. A spec that skips itself when a feed
+or article is missing hides a broken seed and passes for the wrong reason.
+
 ## Core Principles
 
 ### 1. Test Isolation

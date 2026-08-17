@@ -55,10 +55,10 @@ test.describe("Opening Settings", () => {
     await expect(settingsPage.filtersTab).toBeVisible()
   })
 
-  test("has Labels tab", async ({ feedsPage, settingsPage }) => {
+  test("has Tags tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
-    await expect(settingsPage.labelsTab).toBeVisible()
+    await expect(settingsPage.tagsTab).toBeVisible()
   })
 })
 
@@ -91,12 +91,12 @@ test.describe("Tab Navigation", () => {
     await expect(settingsPage.filtersTab).toHaveAttribute("data-state", "active")
   })
 
-  test("can switch to Labels tab", async ({ feedsPage, settingsPage }) => {
+  test("can switch to Tags tab", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
 
-    await settingsPage.goToLabelsTab()
+    await settingsPage.goToTagsTab()
 
-    await expect(settingsPage.labelsTab).toHaveAttribute("data-state", "active")
+    await expect(settingsPage.tagsTab).toHaveAttribute("data-state", "active")
   })
 
   test("can switch to Import/Export tab", async ({ feedsPage, settingsPage }) => {
@@ -272,17 +272,17 @@ test.describe("Filters Tab", () => {
   })
 })
 
-test.describe("Labels Tab", () => {
+test.describe("Tags Tab", () => {
   test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
   })
 
-  test("labels tab shows label content", async ({ feedsPage, settingsPage }) => {
+  test("tags tab shows tag content", async ({ feedsPage, settingsPage }) => {
     await feedsPage.openSettings()
-    await settingsPage.goToLabelsTab()
+    await settingsPage.goToTagsTab()
 
-    // Should show label management content (tab should be active)
-    await expect(settingsPage.labelsTab).toHaveAttribute("data-state", "active")
+    // Should show tag management content (tab should be active)
+    await expect(settingsPage.tagsTab).toHaveAttribute("data-state", "active")
   })
 })
 

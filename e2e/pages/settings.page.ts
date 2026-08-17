@@ -14,7 +14,7 @@ export class SettingsPage {
   // Tab triggers
   readonly feedsTab: Locator
   readonly filtersTab: Locator
-  readonly labelsTab: Locator
+  readonly tagsTab: Locator
   readonly importExportTab: Locator
   readonly toolsTab: Locator
   readonly preferencesTab: Locator
@@ -30,7 +30,7 @@ export class SettingsPage {
     // Tabs
     this.feedsTab = page.getByRole("tab", { name: /feeds/i })
     this.filtersTab = page.getByRole("tab", { name: /filters/i })
-    this.labelsTab = page.getByRole("tab", { name: /labels/i })
+    this.tagsTab = page.getByRole("tab", { name: /tags/i })
     this.importExportTab = page.getByRole("tab", { name: /import|export/i })
     this.toolsTab = page.getByRole("tab", { name: /tools/i })
     this.preferencesTab = page.getByRole("tab", { name: /preferences/i })
@@ -62,9 +62,9 @@ export class SettingsPage {
     await expect(this.filtersTab).toHaveAttribute("data-state", "active")
   }
 
-  async goToLabelsTab(): Promise<void> {
-    await this.labelsTab.click()
-    await expect(this.labelsTab).toHaveAttribute("data-state", "active")
+  async goToTagsTab(): Promise<void> {
+    await this.tagsTab.click()
+    await expect(this.tagsTab).toHaveAttribute("data-state", "active")
   }
 
   async goToImportExportTab(): Promise<void> {
@@ -91,7 +91,7 @@ export class SettingsPage {
     const tabs = [
       { tab: this.feedsTab, name: "feeds" },
       { tab: this.filtersTab, name: "filters" },
-      { tab: this.labelsTab, name: "labels" },
+      { tab: this.tagsTab, name: "tags" },
       { tab: this.importExportTab, name: "import-export" },
       { tab: this.toolsTab, name: "tools" },
       { tab: this.preferencesTab, name: "preferences" },

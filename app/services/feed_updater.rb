@@ -30,7 +30,7 @@ class FeedUpdater
   def update
     @feed.update!(last_update_started: Time.current)
 
-    fetcher = use_cache ? CachedFeedFetcher.new(@feed) : FeedFetcher.new(@feed)
+    fetcher = FeedFetcher.for(@feed, cache: use_cache)
     fetch_result = fetcher.fetch
 
     if fetch_result.rate_limited?

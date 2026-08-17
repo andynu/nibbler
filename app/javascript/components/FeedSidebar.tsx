@@ -257,11 +257,17 @@ export function FeedSidebar({
 
   // When new categories are added, default them to expanded (but not collapsed ones)
   useEffect(() => {
+    // The first render happens before the categories request comes back. Running
+    // the stale-id cleanup below against an empty list would treat every saved id
+    // as belonging to a deleted category and wipe the persisted expansion state,
+    // so folders collapsed on every page load. Wait for real data.
+    if (categories.length === 0) return
+
     const currentIds = new Set(categories.map((c) => c.id))
 
     // On first run with actual categories, just mark them all as known
     // Don't auto-expand - respect the localStorage state
-    if (!hasInitializedRef.current && categories.length > 0) {
+    if (!hasInitializedRef.current) {
       hasInitializedRef.current = true
       knownCategoryIds.current = currentIds
 

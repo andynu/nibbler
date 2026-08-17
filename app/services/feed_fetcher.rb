@@ -34,6 +34,24 @@ class FeedFetcher
   USER_AGENT = "Nibbler/1.0 (+https://github.com/andyjakubowski/nibbler)".freeze
   DEFAULT_TIMEOUT = 30
 
+  # Every outbound feed request in the app is built here, so a single switch can
+  # make a whole process hermetic. bin/e2e-server sets OFFLINE_FEED_FETCH=1 for
+  # the Playwright suite; nothing else sets it, so development and production
+  # behave exactly as before.
+  #
+  # @param feed [Feed] the feed to fetch (may be an unsaved Feed carrying only a URL)
+  # @param cache [Boolean] use the on-disk development cache instead of the network
+  def self.for(feed, cache: false)
+    return OfflineFeedFetcher.new(feed) if offline?
+    return CachedFeedFetcher.new(feed) if cache
+
+    new(feed)
+  end
+
+  def self.offline?
+    ENV["OFFLINE_FEED_FETCH"] == "1"
+  end
+
   def initialize(feed)
     @feed = feed
   end
