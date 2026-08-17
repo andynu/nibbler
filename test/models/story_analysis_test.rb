@@ -11,7 +11,7 @@ class StoryAnalysisTest < ActiveSupport::TestCase
   end
 
   test "article_ids persists as array" do
-    assert_equal [1, 2], @latest.article_ids
+    assert_equal [ 1, 2 ], @latest.article_ids
     assert_equal [], @previous.article_ids
   end
 

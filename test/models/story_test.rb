@@ -68,6 +68,6 @@ class StoryTest < ActiveSupport::TestCase
   end
 
   test "queries field persists as array" do
-    assert_equal ["SEC crypto regulation", "crypto enforcement 2026"], @active.queries
+    assert_equal [ "SEC crypto regulation", "crypto enforcement 2026" ], @active.queries
   end
 end

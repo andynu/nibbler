@@ -11,6 +11,6 @@ class CreateStoryAnalyses < ActiveRecord::Migration[8.1]
       t.datetime :created_at, null: false
     end
 
-    add_index :story_analyses, [:story_id, :created_at]
+    add_index :story_analyses, [ :story_id, :created_at ]
   end
 end

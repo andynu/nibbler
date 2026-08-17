@@ -104,7 +104,7 @@ class StoryWrapupGenerator
 
   def format_analysis(analysis)
     date = analysis.created_at&.utc&.strftime("%Y-%m-%d") || "(undated)"
-    parts = ["- [#{date}]"]
+    parts = [ "- [#{date}]" ]
     parts << "new_development" if analysis.new_development
     parts << "CONCLUDED" if analysis.concluded
     header = parts.join(" ")
@@ -113,7 +113,7 @@ class StoryWrapupGenerator
     body << "label: #{analysis.timeline_label}" if analysis.timeline_label.present?
     body << "summary: #{analysis.summary}" if analysis.summary.present?
     body << "rationale: #{analysis.rationale}" if analysis.rationale.present?
-    [header, *body.map { |line| "  #{line}" }].join("\n")
+    [ header, *body.map { |line| "  #{line}" } ].join("\n")
   end
 
   def format_articles(articles)

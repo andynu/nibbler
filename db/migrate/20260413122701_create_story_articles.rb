@@ -10,6 +10,6 @@ class CreateStoryArticles < ActiveRecord::Migration[8.1]
       t.datetime :fetched_at
     end
 
-    add_index :story_articles, [:story_id, :url], unique: true
+    add_index :story_articles, [ :story_id, :url ], unique: true
   end
 end
