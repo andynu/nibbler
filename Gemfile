@@ -52,8 +52,11 @@ group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
 
-  # Pin minitest to 5.x - minitest 6.0 breaks with Ruby 4.x
-  gem "minitest", "< 6.0"
+  gem "minitest"
+
+  # minitest 6.0 extracted minitest/mock into its own gem; the suite uses
+  # Object#stub, so this must stay as long as minitest >= 6.0 is resolved.
+  gem "minitest-mock"
 
   # Code coverage reporting
   gem "simplecov", require: false
