@@ -5,6 +5,30 @@ import React, { useState } from "react"
 import { SettingsDialog } from "./SettingsDialog"
 import { mockFeed, mockCategory, mockPreferences } from "../../../test/fixtures/data"
 
+// Mock the API boundary. AccountPanel loads the public feed key on mount and
+// SettingsDialog reloads feeds/categories after FeedOrganizer changes; without
+// this the relative API_BASE resolves against happy-dom's http://localhost:3000
+// and hits the network.
+const mockApiAuthPublicFeedKey = vi.fn()
+const mockApiAuthRegeneratePublicFeedKey = vi.fn()
+const mockApiFeedsList = vi.fn()
+const mockApiCategoriesList = vi.fn()
+
+vi.mock("@/lib/api", () => ({
+  api: {
+    auth: {
+      publicFeedKey: () => mockApiAuthPublicFeedKey(),
+      regeneratePublicFeedKey: () => mockApiAuthRegeneratePublicFeedKey(),
+    },
+    feeds: {
+      list: () => mockApiFeedsList(),
+    },
+    categories: {
+      list: () => mockApiCategoriesList(),
+    },
+  },
+}))
+
 // Wrapper component to provide controlled tab state for testing
 function SettingsDialogWrapper(props: React.ComponentProps<typeof SettingsDialog>) {
   const [activeTab, setActiveTab] = useState(props.activeTab ?? "feeds")
@@ -57,6 +81,16 @@ describe("SettingsDialog", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockApiAuthPublicFeedKey.mockResolvedValue({
+      access_key: "test-key",
+      feed_url: "https://example.com/public/test-key.xml",
+    })
+    mockApiAuthRegeneratePublicFeedKey.mockResolvedValue({
+      access_key: "new-key",
+      feed_url: "https://example.com/public/new-key.xml",
+    })
+    mockApiFeedsList.mockResolvedValue([mockFeed()])
+    mockApiCategoriesList.mockResolvedValue([mockCategory()])
   })
 
   describe("rendering", () => {

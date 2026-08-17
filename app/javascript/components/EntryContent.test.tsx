@@ -5,6 +5,24 @@ import React from "react"
 import { EntryContent } from "./EntryContent"
 import { mockEntryWithContent } from "../../../test/fixtures/data"
 
+// Mock the API boundary. SuggestedTags fetches entry info on mount and
+// FollowStoryDialog extracts queries when opened; without this the relative
+// API_BASE resolves against happy-dom's http://localhost:3000 and hits the network.
+const mockApiEntriesInfo = vi.fn()
+const mockApiStoriesExtractFromEntry = vi.fn()
+
+vi.mock("@/lib/api", () => ({
+  api: {
+    entries: {
+      info: (...args: unknown[]) => mockApiEntriesInfo(...args),
+    },
+    stories: {
+      extractFromEntry: (...args: unknown[]) =>
+        mockApiStoriesExtractFromEntry(...args),
+    },
+  },
+}))
+
 // Mock the preferences context
 const mockPreferences = {
   strip_images: "false",
@@ -97,6 +115,12 @@ describe("EntryContent", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPreferences.strip_images = "false"
+    mockApiEntriesInfo.mockResolvedValue({ top_words: [] })
+    mockApiStoriesExtractFromEntry.mockResolvedValue({
+      topic: "",
+      queries: [],
+      source_entry_id: null,
+    })
   })
 
   describe("empty and loading states", () => {
