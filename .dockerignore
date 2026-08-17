@@ -36,6 +36,31 @@
 !/app/assets/builds/.keep
 /public/assets
 
+# Ignore Python TTS environment. Docker does not read .gitignore, so these
+# have to be repeated here. .uv-cache is ~9G and .venv hardlinks into it,
+# which is what made the production image 10.8G.
+/.uv-cache
+/.venv
+/uv.lock
+
+# Ignore test and coverage artifacts.
+/test
+/e2e
+/test-results
+/coverage
+/playwright-report
+/.playwright-mcp
+
+# Ignore documentation.
+/docs
+
+# Ignore editor and local tooling state.
+/tags
+/.lsp.json
+/.mcp.json
+/.claude
+/.beads
+
 # Ignore CI service files.
 /.github
 
