@@ -1,22 +1,35 @@
 # Scheduler job that enqueues UpdateFeedJob for feeds that need updating
-# Runs every 5 minutes via GoodJob cron
+# Runs every 5 minutes via GoodJob cron.
+#
+# Also runs once each morning with force: true (the refresh_all_feeds_morning
+# cron entry). In that mode the adaptive polling window is ignored so every
+# feed is refreshed before the day starts, no matter how far next_poll_at has
+# drifted or how many consecutive failures pushed it out. Rate limiting
+# (retry_after) and the concurrent-update guard still apply, matching the
+# manual refresh path in Api::V1::FeedsController#refresh.
 class UpdateFeedsJob < ApplicationJob
   queue_as :default
 
-  def perform
-    feeds_to_update.find_each do |feed|
+  def perform(force: false)
+    feeds_to_update(force: force).find_each do |feed|
       UpdateFeedJob.perform_later(feed.id)
     end
   end
 
   private
 
-  def feeds_to_update
-    # Get feeds that need updating based on adaptive polling (next_poll_at)
-    # Falls back to legacy behavior for feeds without next_poll_at set
-    Feed.where(adaptive_polling_condition, Time.current)
+  def feeds_to_update(force: false)
+    # Never touch a feed that is rate limited or already mid-update, in either mode.
+    scope = Feed
       .where("last_update_started IS NULL OR last_update_started < ?", 5.minutes.ago)
       .where("retry_after IS NULL OR retry_after <= ?", Time.current)
+
+    # force: sweep everything else. Otherwise restrict to feeds due under
+    # adaptive polling (next_poll_at), falling back to legacy interval logic
+    # for feeds without next_poll_at set.
+    return scope if force
+
+    scope.where(adaptive_polling_condition, Time.current)
   end
 
   def adaptive_polling_condition

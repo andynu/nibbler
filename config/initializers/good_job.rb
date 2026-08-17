@@ -8,6 +8,20 @@ Rails.application.configure do
       class: "UpdateFeedsJob",
       description: "Check for feeds needing updates and enqueue individual feed jobs"
     },
+    # Guaranteed daily sweep so everything is fresh before the app is opened.
+    # The */5 entry above only picks feeds due under adaptive polling, which
+    # leaves a feed stale indefinitely if next_poll_at drifts out or repeated
+    # failures push it back. force: true ignores next_poll_at but still honors
+    # retry_after, so rate-limited hosts are not hammered.
+    #
+    # The trailing zone field is parsed by fugit (GoodJob calls Fugit.parse),
+    # so this is 6am Eastern year-round; the app itself runs in UTC.
+    refresh_all_feeds_morning: {
+      cron: "0 6 * * * America/New_York",
+      class: "UpdateFeedsJob",
+      kwargs: { force: true },
+      description: "Refresh every feed each morning, bypassing adaptive polling intervals"
+    },
     purge_articles: {
       cron: "0 3 * * *", # at 3am daily
       class: "PurgeArticlesJob",

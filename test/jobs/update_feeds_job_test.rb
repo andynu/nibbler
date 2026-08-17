@@ -64,4 +64,50 @@ class UpdateFeedsJobTest < ActiveJob::TestCase
       UpdateFeedsJob.perform_now
     end
   end
+
+  # force: true is the morning sweep (refresh_all_feeds_morning cron entry)
+  test "force enqueues a feed backed off far past its next_poll_at" do
+    @feed_ready.update!(next_poll_at: 7.days.from_now)
+    @feed_not_ready.destroy!
+
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "force enqueues every feed regardless of adaptive polling" do
+    @feed_ready.update!(next_poll_at: 1.hour.from_now)
+    @feed_not_ready.update!(next_poll_at: 30.days.from_now)
+
+    assert_enqueued_jobs 2, only: UpdateFeedJob do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "force still skips rate-limited feeds in backoff" do
+    @feed_ready.update!(next_poll_at: 7.days.from_now, retry_after: 1.hour.from_now)
+    @feed_not_ready.destroy!
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "force still skips feeds already mid-update" do
+    @feed_ready.update!(next_poll_at: 7.days.from_now, last_update_started: 1.minute.ago)
+    @feed_not_ready.destroy!
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "force enqueues a feed whose retry_after has expired" do
+    @feed_ready.update!(next_poll_at: 7.days.from_now, retry_after: 1.hour.ago)
+    @feed_not_ready.destroy!
+
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
 end
