@@ -66,10 +66,21 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
-  primary: &primary_production
+  primary:
     <<: *default
     url: <%= ENV["DATABASE_URL"] %>
+
+  # Solid Cache lives in its own database ("<primary>_cache"), sharing the
+  # primary's host and credentials unless CACHE_DATABASE_URL is set explicitly.
+  #
+  # Do NOT give this entry the primary's `url:` (e.g. by inheriting from an
+  # anchor on primary). Rails merges a `url:` on top of the rest of the config
+  # hash (ActiveRecord::DatabaseConfigurations::UrlConfig), so the URL's database
+  # name silently overrides any `database:` key here and the cache resolves to
+  # the primary database. db:prepare then finds schema_migrations already
+  # present, skips loading db/cache_schema.rb, and solid_cache_entries is never
+  # created -- every Rails.cache call raises PG::UndefinedTable at runtime.
   cache:
-    <<: *primary_production
-    database: nibbler_production_cache
+    <<: *default
+    url: <%= ENV.fetch("CACHE_DATABASE_URL") { ENV["DATABASE_URL"] && URI.parse(ENV["DATABASE_URL"]).tap { |u| u.path += "_cache" }.to_s } %>
     migrations_paths: db/cache_migrate
