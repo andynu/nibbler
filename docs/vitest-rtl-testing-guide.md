@@ -240,6 +240,28 @@ test('fetches feeds', async () => {
 })
 ```
 
+### Unmocked fetch Fails the Test
+
+`test/setup.ts` replaces `globalThis.fetch` with a guard that throws, logs the
+URL, and fails the test in `afterEach`:
+
+```
+Unmocked fetch during this test: /api/v1/feeds.
+Mock @/lib/api (or globalThis.fetch) at the boundary.
+```
+
+`API_BASE` in `@/lib/api` is the relative path `/api/v1`, and happy-dom resolves
+relative URLs against `http://localhost:3000`. Without the guard, a component
+that fires an unmocked fetch on mount sends a real HTTP request: connection
+noise when nothing is listening, a test silently exercising a live dev server
+when something is.
+
+The fix is to mock `@/lib/api` as above. Every component the test renders
+counts, including ones it pulls in indirectly (a dialog rendering a panel that
+loads its own data on mount), so mock each API call in the tree, not only the
+one the test asserts on. Tests whose subject *is* the request replace
+`globalThis.fetch` themselves; `app/javascript/lib/api.test.ts` does this.
+
 ### Mocking Context Providers
 
 ```typescript
