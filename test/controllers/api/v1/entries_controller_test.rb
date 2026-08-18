@@ -543,6 +543,68 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     refute_includes titles, "Multi User Article"
   end
 
+  test "headlines filters by tag like index does" do
+    tag = Tag.create!(name: "ruby", user: @user)
+
+    tagged = create_entry("Tagged Headline", updated: 1.hour.ago)
+    untagged = create_entry("Untagged Headline", updated: 1.hour.ago)
+    EntryTag.create!(entry: tagged, tag: tag)
+
+    @user.user_entries.create!(entry: tagged, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    @user.user_entries.create!(entry: untagged, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    get headlines_api_v1_entries_url, params: { tag: "Ruby" }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["headlines"].map { |h| h["title"] }
+    assert_includes titles, "Tagged Headline"
+    refute_includes titles, "Untagged Headline"
+  end
+
+  test "headlines tag filter only shows entries tagged by current user" do
+    other_user = User.create!(login: "other_headline_user", password: "password123")
+
+    entry = create_entry("Other User Tagged Headline", updated: 1.hour.ago)
+    @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    EntryTag.create!(entry: entry, tag: Tag.create!(name: "ruby", user: other_user))
+
+    get headlines_api_v1_entries_url, params: { tag: "ruby" }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["headlines"].map { |h| h["title"] }
+    refute_includes titles, "Other User Tagged Headline"
+  end
+
+  test "index and headlines agree when a tag filter meets a per-feed cap" do
+    tag = Tag.create!(name: "ruby", user: @user)
+
+    # Untagged articles rank ahead by import date, so a cap applied before the
+    # tag filter would consume the whole allowance and return nothing tagged.
+    5.times do |i|
+      entry = create_entry("Untagged Ahead #{i}", updated: 1.hour.ago, date_entered: (i + 1).seconds.ago)
+      @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    end
+
+    buried = create_entry("Tagged But Buried Headline", updated: 1.hour.ago, date_entered: 30.minutes.ago)
+    EntryTag.create!(entry: buried, tag: tag)
+    @user.user_entries.create!(entry: buried, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    params = { view: "fresh", fresh_per_feed: 5, tag: "ruby" }
+
+    get api_v1_entries_url, params: params, as: :json
+    assert_response :success
+    entries = JSON.parse(response.body)["entries"]
+
+    get headlines_api_v1_entries_url, params: params, as: :json
+    assert_response :success
+    headlines = JSON.parse(response.body)["headlines"]
+
+    assert_equal [ "Tagged But Buried Headline" ], headlines.map { |h| h["title"] },
+      "headlines must apply the tag filter before the per-feed cap"
+    assert_equal entries.map { |e| e["id"] }, headlines.map { |h| h["id"] },
+      "index and headlines must agree under a tag filter"
+  end
+
   # The audio endpoint resolves entries through current_user, so tests need an
   # entry owned by the user setup signed in as.
   def create_audio_user_entry

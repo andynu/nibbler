@@ -264,6 +264,14 @@ module Api
           end
         end
 
+        # Filter by tag via Entry -> EntryTag -> Tag join, matching #index
+        if params[:tag].present?
+          tag_name = params[:tag].downcase.strip
+          @user_entries = @user_entries
+            .joins(entry: :tags)
+            .where(tags: { user_id: current_user.id, name: tag_name })
+        end
+
         # Keep this block after the filters above, matching #index: the Fresh
         # per-feed cap must rank the final row set, not a superset of it.
         case params[:view]
