@@ -1,15 +1,15 @@
 require "simplecov"
 SimpleCov.start "rails" do
-  add_filter "/test/"
-  add_filter "/config/"
-  add_filter "/db/"
-  add_filter "/vendor/"
+  skip "/test/"
+  skip "/config/"
+  skip "/db/"
+  skip "/vendor/"
 
-  add_group "Controllers", "app/controllers"
-  add_group "Models", "app/models"
-  add_group "Services", "app/services"
-  add_group "Jobs", "app/jobs"
-  add_group "Mailers", "app/mailers"
+  group "Controllers", "app/controllers"
+  group "Models", "app/models"
+  group "Services", "app/services"
+  group "Jobs", "app/jobs"
+  group "Mailers", "app/mailers"
 end
 
 ENV["RAILS_ENV"] ||= "test"
