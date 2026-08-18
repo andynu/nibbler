@@ -122,9 +122,11 @@ function App() {
 
   const loadTags = async () => {
     try {
-      const result = await api.tags.list()
-      setAllTags(result.tags)
-      setAllTagsWithCounts(result.tags_with_counts)
+      const tags = await api.tags.list()
+      setAllTags(tags.map((tag) => tag.name).sort())
+      setAllTagsWithCounts(
+        tags.map((tag) => ({ name: tag.name, count: tag.entry_count }))
+      )
     } catch (error) {
       console.error("Failed to load tags:", error)
     }

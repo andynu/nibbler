@@ -136,7 +136,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
   const loadTags = async () => {
     try {
       const tagsData = await api.tags.list()
-      setAvailableTags(tagsData.tags)
+      setAvailableTags(tagsData.map((tag) => tag.name).sort())
     } catch (error) {
       console.error("Failed to load tags:", error)
     }

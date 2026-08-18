@@ -68,7 +68,7 @@ describe("FilterManager", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockApiFiltersList.mockResolvedValue([])
-    mockApiTagsList.mockResolvedValue({ tags: [] })
+    mockApiTagsList.mockResolvedValue([])
     mockApiLabelsList.mockResolvedValue([])
     mockApiFiltersUpdate.mockResolvedValue(testFilter)
     mockApiFiltersCreate.mockResolvedValue(testFilter)
@@ -350,6 +350,41 @@ describe("FilterManager", () => {
       await waitFor(() => {
         expect(screen.getByRole("heading", { name: /edit filter/i })).toBeInTheDocument()
       })
+    })
+  })
+
+  describe("tag suggestions", () => {
+    // api.tags.list() returns Tag objects, not { tags: string[] }. Reading a
+    // .tags property off the array yielded undefined and blanked the datalist.
+    it("offers tag names from the tags API as action suggestions", async () => {
+      const user = userEvent.setup()
+      mockApiTagsList.mockResolvedValue([
+        { id: 2, name: "rust", fg_color: "#fff", bg_color: "#000", entry_count: 4 },
+        { id: 1, name: "golang", fg_color: "#fff", bg_color: "#000", entry_count: 7 },
+      ])
+      mockApiFiltersList.mockResolvedValue([
+        mockFilter({
+          ...testFilter,
+          actions: [{ id: 1, action_type: "tag", action_param: "rust" }],
+        }),
+      ])
+
+      render(<FilterManager {...defaultProps} />)
+
+      const editButton = await screen.findByRole("button", { name: /edit test filter/i })
+      await user.click(editButton)
+
+      const suggestions = await waitFor(() => {
+        const list = document.querySelector("datalist[id^='tag-suggestions-']")
+        expect(list).not.toBeNull()
+        return list as HTMLDataListElement
+      })
+
+      const values = Array.from(suggestions.querySelectorAll("option")).map(
+        (option) => option.value
+      )
+      expect(values).toContain("golang")
+      expect(values).toContain("rust")
     })
   })
 })
