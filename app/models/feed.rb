@@ -38,6 +38,22 @@ class Feed < ApplicationRecord
   # genuinely in flight with room to spare.
   UPDATE_IN_PROGRESS_WINDOW = 2.minutes
 
+  # How far ahead the scheduler looks when deciding a feed is due.
+  #
+  # next_poll_at (and last_updated, for feeds still on the legacy path) is
+  # stamped when a poll *finished*, always some seconds after the cron tick
+  # that scheduled it. Without a lookahead any interval that is a multiple of
+  # the 5-minute cron period lands just past the matching tick and waits a
+  # whole extra cycle: a feed at MIN_POLL_INTERVAL polled at 22:05:07 is due
+  # 22:10:07, the 22:10:02 run skips it, and it polls at 22:15 on an effective
+  # 10-minute interval. DEFAULT_NEW_FEED_INTERVAL (15 min) became 20, and
+  # manual update_interval values of 5/10/15/30 were inflated the same way.
+  #
+  # A minute covers a full-timeout fetch (FeedFetcher::DEFAULT_TIMEOUT, 30s)
+  # plus queue latency, and stays far enough under MIN_POLL_INTERVAL that the
+  # worst case is polling a feed a few seconds early rather than a cycle late.
+  POLL_DUE_SLACK = 1.minute
+
   # Feeds that are not currently being updated by another job.
   scope :not_updating, -> {
     where("last_update_started IS NULL OR last_update_started < ?", UPDATE_IN_PROGRESS_WINDOW.ago)

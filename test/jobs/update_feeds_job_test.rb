@@ -81,6 +81,70 @@ class UpdateFeedsJobTest < ActiveJob::TestCase
     assert_operator Feed::UPDATE_IN_PROGRESS_WINDOW, :<, 5.minutes
   end
 
+  # Poll times are stamped when a poll finished, seconds after the cron tick
+  # that scheduled it, so an exact next_poll_at <= now comparison pushed every
+  # interval that is a multiple of the 5-minute period into the following
+  # cycle: a MIN_POLL_INTERVAL feed polled at 22:05:07 was due 22:10:07, the
+  # 22:10:02 run skipped it, and it ran at 22:15 on an effective 10 minutes.
+  test "enqueues a 5-minute feed on the tick matching its interval" do
+    tick = Time.utc(2026, 1, 1, 22, 5, 0)
+    @feed_ready.update!(update_interval: 5, next_poll_at: tick + 7.seconds + 5.minutes)
+    @feed_not_ready.destroy!
+
+    travel_to(tick + 5.minutes + 2.seconds) do
+      assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+        UpdateFeedsJob.perform_now
+      end
+    end
+  end
+
+  test "enqueues a feed coming due inside the slack window" do
+    @feed_ready.update!(next_poll_at: (Feed::POLL_DUE_SLACK - 10.seconds).from_now)
+    @feed_not_ready.destroy!
+
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+      UpdateFeedsJob.perform_now
+    end
+  end
+
+  test "does not enqueue a feed coming due beyond the slack window" do
+    @feed_ready.update!(next_poll_at: (Feed::POLL_DUE_SLACK + 10.seconds).from_now)
+    @feed_not_ready.destroy!
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now
+    end
+  end
+
+  # Same slip on the legacy path, where due-ness is derived from last_updated.
+  test "enqueues a legacy-interval feed on the tick matching its interval" do
+    tick = Time.utc(2026, 1, 1, 22, 5, 0)
+    @feed_ready.update!(next_poll_at: nil, update_interval: 5, last_updated: tick + 7.seconds)
+    @feed_not_ready.destroy!
+
+    travel_to(tick + 5.minutes + 2.seconds) do
+      assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+        UpdateFeedsJob.perform_now
+      end
+    end
+  end
+
+  test "legacy-interval feed polled this cycle is not enqueued again" do
+    @feed_ready.update!(next_poll_at: nil, update_interval: 30, last_updated: 1.minute.ago)
+    @feed_not_ready.destroy!
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now
+    end
+  end
+
+  # Slack has to absorb a full-timeout fetch without reaching far enough ahead
+  # to pull the shortest interval meaningfully early.
+  test "slack covers a full-timeout fetch and stays well under the minimum interval" do
+    assert_operator Feed::POLL_DUE_SLACK.to_i, :>=, FeedFetcher::DEFAULT_TIMEOUT
+    assert_operator Feed::POLL_DUE_SLACK.to_i, :<, Feed::MIN_POLL_INTERVAL / 2
+  end
+
   # force: true is the morning sweep (refresh_all_feeds_morning cron entry)
   test "force enqueues a feed backed off far past its next_poll_at" do
     @feed_ready.update!(next_poll_at: 7.days.from_now)
