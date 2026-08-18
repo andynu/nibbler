@@ -87,7 +87,7 @@ class TtsGeneratorTest < ActiveSupport::TestCase
   test "generate serves a cache record whose audio file is present" do
     Rails.configuration.x.tts.enabled = true
     cached = build_cached_audio
-    FileUtils.mkdir_p(CachedAudio::CACHE_DIR)
+    FileUtils.mkdir_p(Rails.configuration.x.audio_cache.dir)
     File.binwrite(cached.cached_path, "RIFF")
 
     begin

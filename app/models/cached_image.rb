@@ -12,15 +12,16 @@ class CachedImage < ApplicationRecord
   validates :original_url, presence: true, uniqueness: { scope: :entry_id }
   validates :cached_filename, presence: true
 
-  # Directory where cached images are stored
-  CACHE_DIR = Rails.root.join("public", "images", "cache")
-
   # URL path prefix for cached images
   URL_PREFIX = "/images/cache"
 
-  # Returns the full filesystem path to the cached image
+  # Returns the full filesystem path to the cached image.
+  #
+  # The directory comes from config.x.image_cache.dir on every call rather than
+  # from a constant frozen at load time: the parallel test workers each point at
+  # a directory of their own (see test/test_helper.rb).
   def cached_path
-    CACHE_DIR.join(cached_filename)
+    Rails.configuration.x.image_cache.dir.join(cached_filename)
   end
 
   # Returns the URL path for serving the cached image

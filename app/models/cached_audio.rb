@@ -15,15 +15,16 @@ class CachedAudio < ApplicationRecord
   validates :timestamps, presence: true
   validates :cached_at, presence: true
 
-  # Directory where cached audio files are stored
-  CACHE_DIR = Rails.root.join("public", "audio", "cache")
-
   # URL path prefix for cached audio
   URL_PREFIX = "/audio/cache"
 
-  # Returns the full filesystem path to the cached audio file
+  # Returns the full filesystem path to the cached audio file.
+  #
+  # The directory comes from config.x.audio_cache.dir on every call rather than
+  # from a constant frozen at load time: the parallel test workers each point at
+  # a directory of their own (see test/test_helper.rb).
   def cached_path
-    CACHE_DIR.join(audio_filename)
+    Rails.configuration.x.audio_cache.dir.join(audio_filename)
   end
 
   # Returns the URL path for serving the cached audio

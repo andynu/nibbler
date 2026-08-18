@@ -1,13 +1,9 @@
 require "test_helper"
 
 class ImageCacherTest < ActiveSupport::TestCase
-  # Disable parallel execution for this test class
-  # since it modifies shared fixture data (entries)
-  parallelize(workers: 1)
-
   setup do
     @entry = entries(:with_images)
-    @cache_dir = CachedImage::CACHE_DIR
+    @cache_dir = Rails.configuration.x.image_cache.dir
     FileUtils.mkdir_p(@cache_dir)
 
     # Clear any existing cached images for this entry

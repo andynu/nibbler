@@ -7,7 +7,6 @@
 # @see CachedImage for the database record
 # @see CacheArticleImagesJob for the background job that calls this
 class ImageCacher
-  CACHE_DIR = CachedImage::CACHE_DIR
   URL_PREFIX = CachedImage::URL_PREFIX
 
   # Maximum image size to cache (5MB)
@@ -62,7 +61,7 @@ class ImageCacher
   private
 
   def ensure_cache_dir_exists
-    FileUtils.mkdir_p(CACHE_DIR)
+    FileUtils.mkdir_p(Rails.configuration.x.image_cache.dir)
   end
 
   # Extract image URLs from HTML content
@@ -119,7 +118,7 @@ class ImageCacher
 
     # Generate unique filename
     filename = generate_filename(url, content_type)
-    filepath = CACHE_DIR.join(filename)
+    filepath = Rails.configuration.x.image_cache.dir.join(filename)
 
     # Write to disk
     File.binwrite(filepath, response[:body])

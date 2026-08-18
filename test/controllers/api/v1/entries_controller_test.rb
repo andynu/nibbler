@@ -643,9 +643,9 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     user_entry = create_audio_user_entry
     entry = user_entry.entry
 
-    FileUtils.mkdir_p(CachedAudio::CACHE_DIR)
+    FileUtils.mkdir_p(Rails.configuration.x.audio_cache.dir)
     filename = "test_#{SecureRandom.hex(8)}.wav"
-    File.binwrite(CachedAudio::CACHE_DIR.join(filename), "RIFF")
+    File.binwrite(Rails.configuration.x.audio_cache.dir.join(filename), "RIFF")
 
     cached = CachedAudio.create!(
       entry: entry,

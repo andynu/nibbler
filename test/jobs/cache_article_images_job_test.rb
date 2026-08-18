@@ -1,12 +1,9 @@
 require "test_helper"
 
 class CacheArticleImagesJobTest < ActiveJob::TestCase
-  # Disable parallel execution since it modifies shared fixture data
-  parallelize(workers: 1)
-
   setup do
     @entry = entries(:with_images)
-    @cache_dir = CachedImage::CACHE_DIR
+    @cache_dir = Rails.configuration.x.image_cache.dir
     FileUtils.mkdir_p(@cache_dir)
 
     # Clear any existing cached images for this entry

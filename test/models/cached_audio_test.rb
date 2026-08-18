@@ -3,7 +3,7 @@ require "test_helper"
 class CachedAudioTest < ActiveSupport::TestCase
   setup do
     @entry = entries(:basic)
-    @cache_dir = CachedAudio::CACHE_DIR
+    @cache_dir = Rails.configuration.x.audio_cache.dir
     FileUtils.mkdir_p(@cache_dir)
   end
 
@@ -86,8 +86,7 @@ class CachedAudioTest < ActiveSupport::TestCase
       cached_at: Time.current
     )
 
-    expected = Rails.root.join("public", "audio", "cache", "test_audio.wav")
-    assert_equal expected, cached.cached_path
+    assert_equal Rails.configuration.x.audio_cache.dir.join("test_audio.wav"), cached.cached_path
   end
 
   test "deletes cached file on destroy" do

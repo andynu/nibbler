@@ -9,7 +9,6 @@ require "open3"
 # @see CachedAudio for the database record
 # @see GenerateArticleAudioJob for the background job that calls this
 class TtsGenerator
-  CACHE_DIR = CachedAudio::CACHE_DIR
   PYTHON_SCRIPT = Rails.root.join("lib", "tts", "generate.py")
   VENV_PYTHON = Rails.root.join(".venv", "bin", "python3")
 
@@ -84,7 +83,7 @@ class TtsGenerator
   private
 
   def ensure_cache_dir_exists
-    FileUtils.mkdir_p(CACHE_DIR)
+    FileUtils.mkdir_p(Rails.configuration.x.audio_cache.dir)
   end
 
   # Extract plain text from HTML content
@@ -99,7 +98,7 @@ class TtsGenerator
   # Generate audio using Python TTS script
   def generate_audio(text, content_hash)
     filename = "#{@entry.id}_#{content_hash[0, 16]}"
-    output_base = CACHE_DIR.join(filename)
+    output_base = Rails.configuration.x.audio_cache.dir.join(filename)
 
     # Create temp file with text content
     text_file = Tempfile.new([ "tts_text", ".txt" ])
