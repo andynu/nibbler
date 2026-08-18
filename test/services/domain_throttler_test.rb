@@ -46,8 +46,14 @@ class DomainThrottlerTest < ActiveSupport::TestCase
 
     DomainThrottler.wait_for(URL)
 
-    assert_includes @log.string, "DomainThrottler#wait_for skipped for example.com"
+    assert_includes @log.string, "DomainThrottler#delay_for skipped for example.com"
     assert_includes @log.string, "solid_cache_entries"
+  end
+
+  test "delay_for reports no delay when the cache read fails" do
+    Rails.cache = BrokenCacheStore.new
+
+    assert_equal 0, DomainThrottler.delay_for(URL)
   end
 
   test "record does not raise when the cache write fails" do
@@ -74,7 +80,7 @@ class DomainThrottlerTest < ActiveSupport::TestCase
     Rails.cache.write(CACHE_KEY, "not a timestamp")
 
     assert_nothing_raised { DomainThrottler.wait_for(URL) }
-    assert_includes @log.string, "DomainThrottler#wait_for skipped for example.com"
+    assert_includes @log.string, "DomainThrottler#delay_for skipped for example.com"
   end
 
   # ===================
@@ -112,6 +118,37 @@ class DomainThrottlerTest < ActiveSupport::TestCase
     DomainThrottler.record(URL)
 
     assert_empty capture_sleeps { DomainThrottler.wait_for("https://other.example.org/feed.xml") }
+  end
+
+  # ==========================================
+  # delay_for: the non-blocking form used by
+  # jobs that reschedule instead of sleeping
+  # ==========================================
+
+  test "delay_for reports the remaining delay after a recent request" do
+    Rails.cache.write(CACHE_KEY, 2.seconds.ago)
+
+    assert_in_delta DomainThrottler::DOMAIN_DELAY - 2, DomainThrottler.delay_for(URL), 0.5
+  end
+
+  test "delay_for reports no delay with no recorded request" do
+    assert_equal 0, DomainThrottler.delay_for(URL)
+  end
+
+  test "delay_for reports no delay once the delay has elapsed" do
+    Rails.cache.write(CACHE_KEY, (DomainThrottler::DOMAIN_DELAY + 1).seconds.ago)
+
+    assert_equal 0, DomainThrottler.delay_for(URL)
+  end
+
+  test "delay_for never sleeps" do
+    Rails.cache.write(CACHE_KEY, Time.current)
+
+    assert_empty capture_sleeps { DomainThrottler.delay_for(URL) }
+  end
+
+  test "delay_for reports no delay for an unusable url" do
+    assert_equal 0, DomainThrottler.delay_for("::::")
   end
 
   # ===================

@@ -54,9 +54,15 @@ Rails.application.configure do
   # (config/deploy.yml), which runs `bin/jobs` -> GoodJob::CLI. The CLI always
   # starts a capsule, and that capsule builds the CronManager because
   # enable_cron is true. Cron therefore registers in exactly one process.
+  #
+  # A cycle enqueues one UpdateFeedJob per due feed (73 of them at last count)
+  # every 5 minutes, and the same pool also runs the LLM story jobs, so two
+  # threads is not enough headroom: one slow analyze job would halve feed
+  # throughput. Keep config/database.yml's max_connections at or above this
+  # plus GoodJob's 2 shared utility threads.
   config.active_job.queue_adapter = :good_job
   config.good_job.execution_mode = :external
-  config.good_job.max_threads = 2
+  config.good_job.max_threads = ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i
   config.good_job.poll_interval = 30
   config.good_job.enable_cron = true
   config.good_job.smaller_number_is_higher_priority = true

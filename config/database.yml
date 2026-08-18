@@ -17,7 +17,14 @@ default: &default
   encoding: unicode
   # For details on connection pooling, see Rails configuration guide
   # https://guides.rubyonrails.org/configuring.html#database-pooling
-  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  #
+  # One file is loaded by two kinds of process, so the pool has to cover
+  # whichever is larger: Puma's RAILS_MAX_THREADS in the `web` role, or
+  # GoodJob's max_threads plus its 2 shared utility threads
+  # (GoodJob::SharedExecutor::MAX_THREADS) in the `job` role. Undersizing the
+  # job side shows up as GoodJob's "more thread(s) than ActiveRecord's
+  # database connection pool size" warning and then as checkout timeouts.
+  max_connections: <%= [ ENV.fetch("RAILS_MAX_THREADS", 5).to_i, ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i + 2 ].max %>
 
 
 development:

@@ -10,20 +10,33 @@ class DomainThrottler
   DOMAIN_DELAY = 5
 
   class << self
-    # Wait until it's safe to make a request to the given URL's domain
-    # Returns immediately if enough time has passed, otherwise sleeps
-    def wait_for(url)
+    # Seconds that must still elapse before the given URL's domain may be
+    # requested again. Zero means go now.
+    #
+    # Prefer this over #wait_for anywhere the caller can yield instead of
+    # block (a background job can reschedule itself for this many seconds
+    # out, freeing its worker thread for another feed in the meantime).
+    def delay_for(url)
       domain = extract_domain(url)
-      return unless domain
+      return 0 unless domain
 
       last_request_time = Rails.cache.read(cache_key(domain))
-      return unless last_request_time
+      return 0 unless last_request_time
 
-      elapsed = Time.current - last_request_time
-      sleep(DOMAIN_DELAY - elapsed) if elapsed < DOMAIN_DELAY
-      nil
+      remaining = DOMAIN_DELAY - (Time.current - last_request_time)
+      remaining.positive? ? remaining : 0
     rescue StandardError => e
-      log_cache_failure("wait_for", domain, e)
+      log_cache_failure("delay_for", domain, e)
+      0
+    end
+
+    # Block the calling thread until it's safe to request the given URL's
+    # domain. Only for callers with nothing else to do with the thread, such
+    # as a loop over several queries inside one job.
+    def wait_for(url)
+      delay = delay_for(url)
+      sleep(delay) if delay.positive?
+      nil
     end
 
     # Record that a request to this domain was just completed
