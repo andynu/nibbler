@@ -378,4 +378,82 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     titles = json["entries"].map { |e| e["title"] }
     refute_includes titles, "Multi User Article"
   end
+
+  # The audio endpoint resolves entries through current_user, which the dev-auth
+  # fallback pins to User.first, so tests need an entry owned by that user.
+  def create_audio_user_entry
+    entry = Entry.create!(
+      guid: "audio-entry-#{SecureRandom.uuid}",
+      title: "Audio Article",
+      link: "https://example.com/audio-article",
+      content: "<p>Hello World</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+  end
+
+  test "audio reports unavailable and enqueues nothing without a TTS toolchain" do
+    user_entry = create_audio_user_entry
+
+    TtsGenerator.stub(:available?, false) do
+      assert_no_enqueued_jobs only: GenerateArticleAudioJob do
+        get audio_api_v1_entry_url(user_entry), as: :json
+      end
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "unavailable", json["status"]
+    assert_equal TtsGenerator::UNAVAILABLE_ERROR, json["error"]
+  end
+
+  test "audio serves already-cached audio even without a TTS toolchain" do
+    user_entry = create_audio_user_entry
+    entry = user_entry.entry
+
+    FileUtils.mkdir_p(CachedAudio::CACHE_DIR)
+    filename = "test_#{SecureRandom.hex(8)}.wav"
+    File.binwrite(CachedAudio::CACHE_DIR.join(filename), "RIFF")
+
+    cached = CachedAudio.create!(
+      entry: entry,
+      audio_filename: filename,
+      content_hash: CachedAudio.hash_content(entry.content),
+      duration: 1.5,
+      timestamps: [ { "word" => "Hello", "start" => 0.0, "end" => 0.5 } ],
+      cached_at: Time.current
+    )
+
+    begin
+      TtsGenerator.stub(:available?, false) do
+        get audio_api_v1_entry_url(user_entry), as: :json
+      end
+
+      assert_response :success
+      json = JSON.parse(response.body)
+      assert_equal "ready", json["status"]
+      assert_equal cached.audio_url, json["audio_url"]
+    ensure
+      cached.destroy
+    end
+  end
+
+  test "audio enqueues generation when TTS is available" do
+    user_entry = create_audio_user_entry
+
+    TtsGenerator.stub(:available?, true) do
+      assert_enqueued_with job: GenerateArticleAudioJob, args: [ user_entry.entry.id ] do
+        get audio_api_v1_entry_url(user_entry), as: :json
+      end
+    end
+
+    assert_response :success
+    assert_equal "generating", JSON.parse(response.body)["status"]
+  end
 end

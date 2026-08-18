@@ -38,5 +38,13 @@ module Ttrb
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    # Text-to-speech shells out to the Python virtualenv described by
+    # pyproject.toml. That venv is ~7G (forcealign pulls in torch and the CUDA
+    # runtime), it is excluded from the Docker build context, and it cannot be
+    # copied from a host because bin/python3 is an absolute symlink to the host
+    # interpreter. Leave this unset to auto-detect a usable interpreter; set
+    # TTS_ENABLED to force it on or off.
+    config.x.tts.enabled = ActiveModel::Type::Boolean.new.cast(ENV["TTS_ENABLED"]) if ENV.key?("TTS_ENABLED")
   end
 end

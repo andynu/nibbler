@@ -19,7 +19,28 @@ class TtsGenerator
   # Timeout for TTS generation (seconds)
   GENERATION_TIMEOUT = 300
 
+  # Returned when the Python TTS toolchain is not installed. Surfaced to the
+  # API as status "unavailable" so the UI can say so instead of reporting a
+  # subprocess failure.
+  UNAVAILABLE_ERROR = "Text-to-speech is not available in this environment"
+
   GenerationResult = Data.define(:success, :cached_audio, :error)
+
+  # Whether TTS can run here.
+  #
+  # config.x.tts.enabled (TTS_ENABLED) forces the answer either way. Otherwise
+  # it depends on the Python virtualenv actually being present: the production
+  # image ships neither the venv nor a Python interpreter, and a venv copied
+  # from a host has a dangling bin/python3 symlink, which #exist? reports as
+  # missing because it resolves the link.
+  #
+  # @return [Boolean]
+  def self.available?
+    configured = Rails.configuration.x.tts.enabled
+    return configured unless configured.nil?
+
+    VENV_PYTHON.exist? && PYTHON_SCRIPT.exist?
+  end
 
   def initialize(entry)
     @entry = entry
@@ -28,6 +49,8 @@ class TtsGenerator
   # Generate TTS audio for the entry's content
   # @return [GenerationResult]
   def generate
+    return error_result(UNAVAILABLE_ERROR) unless self.class.available?
+
     ensure_cache_dir_exists
 
     # Extract plain text from content

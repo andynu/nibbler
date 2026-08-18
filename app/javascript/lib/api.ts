@@ -311,7 +311,7 @@ export interface WordTimestamp {
 }
 
 export interface AudioResponse {
-  status: "ready" | "generating" | "error"
+  status: "ready" | "generating" | "error" | "unavailable"
   audio_url?: string
   duration?: number
   timestamps?: WordTimestamp[]

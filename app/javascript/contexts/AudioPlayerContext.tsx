@@ -192,7 +192,11 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     try {
       const response = await api.entries.audio(entryId)
 
-      if (response.status === "generating") {
+      if (response.status === "unavailable") {
+        // Server has no TTS toolchain - nothing to poll for
+        setState("error")
+        setError(response.error || "Text-to-speech is not available")
+      } else if (response.status === "generating") {
         setState("generating")
 
         // Poll for completion
@@ -666,11 +670,15 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
 
       try {
         const response = await api.entries.audio(item.entryId)
+        // "unavailable" and "error" are terminal - marking them "generating"
+        // would leave the item polling forever.
+        const queueStatus: QueueItem["status"] =
+          response.status === "ready" ? "ready"
+          : response.status === "generating" ? "generating"
+          : "error"
         setQueue((prev) =>
           prev.map((q) =>
-            q.id === item.id
-              ? { ...q, status: response.status === "ready" ? "ready" : "generating" }
-              : q
+            q.id === item.id ? { ...q, status: queueStatus } : q
           )
         )
 

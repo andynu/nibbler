@@ -128,9 +128,17 @@ module Api
       def audio
         entry = @user_entry.entry
         cached = entry.cached_audio
+        playable = cached&.valid_for_content?(entry.content) && File.exist?(cached.cached_path)
+
+        # Already-generated audio still plays where TTS itself cannot run, so
+        # only the generation paths below are gated.
+        if !playable && !TtsGenerator.available?
+          render json: { status: "unavailable", error: TtsGenerator::UNAVAILABLE_ERROR }
+          return
+        end
 
         # Check if we have valid cached audio
-        if cached&.valid_for_content?(entry.content) && File.exist?(cached.cached_path)
+        if playable
           render json: {
             status: "ready",
             audio_url: cached.audio_url,

@@ -43,6 +43,12 @@
 /.venv
 /uv.lock
 
+# Piper voice models, 61M of .onnx. The image has no Python interpreter, so
+# TtsGenerator reports itself unavailable there and never reads these.
+# lib/tts/generate.py stays for reference; it costs 7K.
+/lib/tts/models
+**/__pycache__
+
 # Ignore test and coverage artifacts.
 /test
 /e2e

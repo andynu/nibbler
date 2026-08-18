@@ -165,6 +165,10 @@ export function useTtsPlayer(): UseTtsPlayerResult {
             // Ignore polling errors, keep trying
           }
         }, POLL_INTERVAL)
+      } else if (response.status === "unavailable") {
+        // Server has no TTS toolchain - nothing to poll for
+        setState("error")
+        setError(response.error || "Text-to-speech is not available")
       } else if (response.status === "error") {
         // Generation previously failed - show error immediately
         setState("error")
