@@ -35,7 +35,7 @@ export function HighlightedContent({
   const lastScrollTimeRef = useRef(0)
 
   // Extract plain text and build word position map
-  const { processedHtml, wordCount } = useMemo(() => {
+  const { processedHtml } = useMemo(() => {
     if (!timestamps.length) {
       // No timestamps - just return original HTML
       return { processedHtml: html, wordCount: 0 }

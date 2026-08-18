@@ -99,7 +99,7 @@ const DIGEST_MIN_SCORE_OPTIONS = [
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
   const { theme, setTheme } = useTheme()
-  const { currentLanguage, supportedLanguages, setLanguage, isInitialized: i18nInitialized } = useI18n()
+  const { supportedLanguages, setLanguage, isInitialized: i18nInitialized } = useI18n()
 
   if (isLoading) {
     return (

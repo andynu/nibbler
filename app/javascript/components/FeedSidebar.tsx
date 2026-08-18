@@ -42,7 +42,7 @@ import { api } from "@/lib/api"
 import type { Feed, Category } from "@/lib/api"
 import { CategoryDialog } from "@/components/CategoryDialog"
 import { usePreferences } from "@/contexts/PreferencesContext"
-import { getAllVirtualFolders, getVirtualFoldersByMode, SmartFolderIcon, type VirtualFolder } from "@/lib/virtualFolders"
+import { getVirtualFoldersByMode, SmartFolderIcon } from "@/lib/virtualFolders"
 
 type VirtualFeed = string | null
 
@@ -453,7 +453,6 @@ export function FeedSidebar({
   }, [feedsWithErrors])
 
   const handleBulkUnsubscribe = async (feedsToDelete: Feed[], confirmMessage: string) => {
-    const count = feedsToDelete.length
     if (!confirm(confirmMessage)) {
       return
     }

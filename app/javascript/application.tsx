@@ -715,10 +715,6 @@ function App() {
     setFocusMode((prev) => !prev)
   }, [])
 
-  const handleExitFocusMode = useCallback(() => {
-    setFocusMode(false)
-  }, [])
-
   const keyboardCommands = useMemo<KeyboardCommand[]>(
     () => [
       // Navigation

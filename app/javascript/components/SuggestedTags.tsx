@@ -27,7 +27,6 @@ interface SuggestedTagsProps {
 
 export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, onRemoveTag }: SuggestedTagsProps) {
   const [topWords, setTopWords] = useState<Array<{ word: string; count: number }>>([])
-  const [loading, setLoading] = useState(true)
   const [pendingWord, setPendingWord] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
@@ -36,7 +35,6 @@ export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, o
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
 
     api.entries.info(entryId)
       .then((info) => {
@@ -48,11 +46,6 @@ export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, o
         console.error("Failed to fetch entry info:", err)
         if (!cancelled) {
           setTopWords([])
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
         }
       })
 

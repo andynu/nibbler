@@ -1,4 +1,4 @@
-import { X, Play, Pause, Square, Loader2, MousePointerClick, LocateFixed, SkipBack, SkipForward, ListMusic, Bot, Headphones } from "lucide-react"
+import { X, Play, Pause, Loader2, MousePointerClick, LocateFixed, SkipBack, SkipForward, ListMusic, Bot, Headphones } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { QueuePanel } from "@/components/QueuePanel"
@@ -27,7 +27,6 @@ export function AudioPanel() {
     currentQueueIndex,
     play,
     pause,
-    stop,
     seek,
     toggleAutoScroll,
     setPlaybackSpeed,

@@ -15,7 +15,6 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Tag, Plus, X } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 interface TagEditorProps {
   tags: string[]

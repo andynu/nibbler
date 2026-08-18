@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { api, Feed, Category, FeedPreview } from "@/lib/api"
-import { Loader2, CheckCircle, XCircle, Rss } from "lucide-react"
+import { Loader2, CheckCircle, Rss } from "lucide-react"
 
 // Build a flattened list of categories with depth for indentation
 function buildCategoryTree(categories: Category[]): Array<{ category: Category; depth: number }> {
