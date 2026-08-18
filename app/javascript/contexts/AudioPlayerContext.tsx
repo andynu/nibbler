@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react"
-import { api, type WordTimestamp, type QueueItem, type AudioSource } from "@/lib/api"
+import { api, type AudioResponse, type WordTimestamp, type QueueItem, type AudioSource } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { generateUUID } from "@/lib/utils"
 
@@ -71,6 +71,20 @@ interface AudioPlayerContextValue {
 const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null)
 
 const POLL_INTERVAL = 2000
+
+// "error" (a GenerateArticleAudioJob that failed) and "unavailable" (server has
+// no TTS toolchain) are both terminal: there is nothing left to poll for, so
+// every caller must stop and surface a message rather than keep waiting.
+function isTerminalAudioStatus(status: AudioResponse["status"]): boolean {
+  return status === "error" || status === "unavailable"
+}
+
+function terminalAudioMessage(response: AudioResponse): string {
+  if (response.error) return response.error
+  return response.status === "unavailable"
+    ? "Text-to-speech is not available"
+    : "Audio generation failed"
+}
 
 interface AudioPlayerProviderProps {
   children: ReactNode
@@ -192,10 +206,10 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     try {
       const response = await api.entries.audio(entryId)
 
-      if (response.status === "unavailable") {
-        // Server has no TTS toolchain - nothing to poll for
+      if (isTerminalAudioStatus(response.status)) {
+        // No toolchain, or a generation job that already failed - nothing to poll for
         setState("error")
-        setError(response.error || "Text-to-speech is not available")
+        setError(terminalAudioMessage(response))
       } else if (response.status === "generating") {
         setState("generating")
 
@@ -208,7 +222,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
 
           try {
             const pollResponse = await api.entries.audio(entryId)
-            if (pollResponse.status === "ready" && pollResponse.audio_url) {
+            if (isTerminalAudioStatus(pollResponse.status)) {
+              // Generation failed - stop polling and show the error
+              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+              pollIntervalRef.current = null
+              setState("error")
+              setError(terminalAudioMessage(pollResponse))
+            } else if (pollResponse.status === "ready" && pollResponse.audio_url) {
               if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
               pollIntervalRef.current = null
 
@@ -487,6 +507,10 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
         if (response.status === "ready" && response.audio_url) {
           return { audioUrl: response.audio_url, duration: response.duration }
         }
+        if (isTerminalAudioStatus(response.status)) {
+          // Stop recursing; the catch below marks the queue item errored
+          throw new Error(terminalAudioMessage(response))
+        }
         // Wait and try again
         await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
         return pollForAudio()
@@ -690,6 +714,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
               setQueue((prev) =>
                 prev.map((q) =>
                   q.id === item.id ? { ...q, status: "ready" } : q
+                )
+              )
+            } else if (isTerminalAudioStatus(pollResponse.status)) {
+              // Terminal - stop the setTimeout chain rather than poll forever
+              setQueue((prev) =>
+                prev.map((q) =>
+                  q.id === item.id ? { ...q, status: "error" } : q
                 )
               )
             } else {
