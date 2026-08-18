@@ -19,12 +19,16 @@ export class SidebarComponent {
 
   constructor(page: Page) {
     this.page = page
-    this.container = page.getByTestId("feed-sidebar")
+    // FeedSidebar's root is the "Feeds" navigation landmark in both the
+    // collapsed and expanded layouts, and only one is mounted at a time.
+    this.container = page.getByRole("navigation", { name: "Feeds" })
 
-    // Virtual feeds
-    this.allFeedsButton = page.getByRole("button", { name: /all feeds/i }).first()
-    this.freshButton = page.getByRole("button", { name: /fresh/i }).first()
-    this.starredButton = page.getByRole("button", { name: /starred/i }).first()
+    // Virtual feeds. Anchored and case-sensitive: /all feeds/i also matched the
+    // "Show all feeds" toggle and /fresh/i the "Refresh all feeds" button, both
+    // of which precede the folder list, so .first() clicked the wrong control.
+    this.allFeedsButton = page.getByRole("button", { name: /^All Feeds/ })
+    this.freshButton = page.getByRole("button", { name: /^Fresh/ })
+    this.starredButton = page.getByRole("button", { name: /^Starred/ })
 
     // Actions
     this.settingsButton = page.getByRole("button", { name: /settings|cog/i }).first()
@@ -71,9 +75,11 @@ export class SidebarComponent {
   }
 
   async isCollapsed(): Promise<boolean> {
-    // Check if sidebar is in collapsed state (narrow width)
-    const width = await this.container.evaluate((el) => el.clientWidth)
-    return width < 100 // Collapsed is typically ~48px
+    // The collapsed layout offers "Expand sidebar" and the expanded one
+    // "Collapse sidebar", and the swap is synchronous with the state change.
+    // Measuring clientWidth instead raced the 150ms width transition and
+    // reported the sidebar as expanded for the first frames after collapsing.
+    return this.container.getByRole("button", { name: "Expand sidebar" }).isVisible()
   }
 
   async toggle(): Promise<void> {

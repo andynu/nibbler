@@ -570,7 +570,7 @@ export function FeedSidebar({
   if (isCollapsed) {
     return (
       <TooltipProvider delayDuration={0}>
-        <div className="h-full flex flex-col border-r border-border bg-muted/30">
+        <div role="navigation" aria-label="Feeds" className="h-full flex flex-col border-r border-border bg-muted/30">
           <div className="h-12 px-1 flex items-center justify-center border-b border-border shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -727,7 +727,7 @@ export function FeedSidebar({
   }
 
   return (
-    <div className="h-full flex flex-col border-r border-border bg-muted/30">
+    <div role="navigation" aria-label="Feeds" className="h-full flex flex-col border-r border-border bg-muted/30">
       <div className="px-3 py-2 border-b border-border shrink-0">
         {/* Top toolbar row */}
         <div className="flex items-center justify-between gap-0.5 mb-2">

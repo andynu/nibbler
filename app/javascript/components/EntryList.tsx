@@ -149,7 +149,7 @@ export function EntryList({
               <Menu className="h-4 w-4" />
             </Button>
           )}
-          <span className="font-medium truncate">{title}</span>
+          <h2 className="font-medium truncate">{title}</h2>
           {unreadCount > 0 && (
             <Badge variant="secondary" className="shrink-0">
               {unreadCount}
@@ -408,11 +408,13 @@ export function EntryList({
           ) : (
             // Entry-list mode: show entries (default)
             isLoading ? (
-              <div className="p-4 text-center text-muted-foreground">Loading...</div>
+              <div role="status" aria-label="Loading entries" className="p-4 text-center text-muted-foreground">
+                Loading...
+              </div>
             ) : entries.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground">No entries</div>
             ) : (
-              <div className="p-1">
+              <div className="p-1" role="listbox" aria-label="Entries">
                 {entries.map((entry, index) => (
                   <EntryItem
                     key={entry.id}
@@ -462,6 +464,7 @@ function EntryItem({ entry, isSelected, onSelect, onToggleRead, onToggleStarred,
   return (
     <div
       data-entry-id={entry.id}
+      data-entry-title={entry.title}
       data-unread={entry.unread}
       role="option"
       aria-selected={isSelected}

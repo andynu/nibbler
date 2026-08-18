@@ -15,6 +15,29 @@ async function waitForAppReady(page: Page) {
   await expect(page.getByRole("button").first()).toBeEnabled()
 }
 
+/**
+ * The sidebar button that selects the seeded "Rust Weekly" feed.
+ *
+ * Filtered by text rather than accessible name because the feed's own button is
+ * named "Rust Weekly 4" (title plus unread badge) while its row also holds a
+ * "Rust Weekly menu" button and a dnd-kit drag handle that renders as
+ * role=button with no name at all. Text is what separates the three.
+ *
+ * E2eDataset seeds this feed for every example and the signedIn fixture expands
+ * its category, so it is always present - no visibility guard.
+ */
+function seededFeedButton(page: Page) {
+  return page
+    .getByRole("navigation", { name: "Feeds" })
+    .getByRole("button")
+    .filter({ hasText: "Rust Weekly" })
+}
+
+/** The entry list's title bar heading, which names the current selection. */
+function entryListTitle(page: Page) {
+  return page.getByRole("heading", { level: 2 }).first()
+}
+
 // =============================================================================
 // NETWORK ERROR SCENARIOS
 // =============================================================================
@@ -36,13 +59,12 @@ test.describe("Network Error Handling", () => {
     // Now abort entry requests
     await page.route("**/api/v1/entries*", (route) => route.abort())
 
-    // Try to load entries by clicking on a feed if available
-    const feedItem = page.locator('[data-testid="feed-item"]').first()
-    if (await feedItem.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await feedItem.click()
-      // App should remain interactive after error
-      await expect(page.getByRole("button").first()).toBeEnabled()
-    }
+    // Selecting a feed fires the aborted entries request
+    await seededFeedButton(page).click()
+
+    // The selection still lands and the app stays interactive after the error
+    await expect(entryListTitle(page)).toHaveText("Rust Weekly")
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
   test("shows loading states during slow requests", async ({ page }) => {
@@ -499,21 +521,19 @@ test.describe("Browser Edge Cases", () => {
   test("handles back/forward navigation", async ({ page }) => {
     await waitForAppReady(page)
 
-    // Navigate somewhere
-    const firstFeed = page.locator('[data-testid="feed-item"]').first()
-    if (await firstFeed.isVisible().catch(() => false)) {
-      await firstFeed.click()
-      // Wait for navigation to complete
-      await expect(page.getByRole("button").first()).toBeEnabled()
+    // Selecting a feed pushes a history entry (useNavigationHistory), so back
+    // and forward move between selections without changing the URL.
+    await expect(entryListTitle(page)).toHaveText("All Feeds")
+    await seededFeedButton(page).click()
+    await expect(entryListTitle(page)).toHaveText("Rust Weekly")
 
-      // Go back
-      await page.goBack()
-      await expect(page.getByRole("button").first()).toBeEnabled()
+    await page.goBack()
+    await expect(entryListTitle(page)).toHaveText("All Feeds")
+    await expect(page.getByRole("button").first()).toBeEnabled()
 
-      // Go forward
-      await page.goForward()
-      await expect(page.getByRole("button").first()).toBeEnabled()
-    }
+    await page.goForward()
+    await expect(entryListTitle(page)).toHaveText("Rust Weekly")
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
   test("handles local storage clearing", async ({ page }) => {

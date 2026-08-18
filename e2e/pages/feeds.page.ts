@@ -24,20 +24,29 @@ export class FeedsPage extends BasePage {
   constructor(page: Page) {
     super(page)
 
-    // Sidebar
-    this.sidebar = page.getByTestId("feed-sidebar")
-    this.allFeedsButton = page.getByRole("button", { name: /all feeds/i }).first()
-    this.freshButton = page.getByRole("button", { name: /fresh/i }).first()
-    this.starredButton = page.getByRole("button", { name: /starred/i }).first()
+    // Sidebar. FeedSidebar renders its root as the "Feeds" navigation landmark
+    // in both the collapsed and expanded layouts, and only one of them is
+    // mounted at a time.
+    this.sidebar = page.getByRole("navigation", { name: "Feeds" })
+    // Anchored and case-sensitive: the virtual-folder buttons are named after
+    // the folder plus its count ("All Feeds15"), and the loose forms collided
+    // with sidebar toggles that happen to contain the same words - /all feeds/i
+    // matched "Show all feeds" and /fresh/i matched "Refresh all feeds", both
+    // of which sort ahead of the folder list, so .first() clicked the toggle.
+    this.allFeedsButton = page.getByRole("button", { name: /^All Feeds/ })
+    this.freshButton = page.getByRole("button", { name: /^Fresh/ })
+    this.starredButton = page.getByRole("button", { name: /^Starred/ })
     this.settingsButton = page.getByRole("button", { name: /settings|cog/i }).first()
     this.subscribeButton = page.getByRole("button", { name: /subscribe|add.*feed|plus/i }).first()
     this.refreshButton = page.getByRole("button", { name: /refresh/i })
 
-    // Entry list
-    this.entryList = page.getByTestId("entry-list")
+    // Entry list. The listbox wraps the rendered entries, so it is absent while
+    // the list is loading, empty, or showing feeds instead of entries - which is
+    // what callers asserting on entries want.
+    this.entryList = page.getByRole("listbox", { name: "Entries" })
 
-    // Content
-    this.contentArea = page.getByTestId("entry-content")
+    // Content. EntryContent renders an <article> once an entry is selected.
+    this.contentArea = page.getByRole("article")
   }
 
   async goto(): Promise<void> {
@@ -102,18 +111,21 @@ export class FeedsPage extends BasePage {
   // Entry actions
 
   async selectEntryByTitle(title: string): Promise<void> {
-    await this.page.getByText(title).click()
+    // Scoped to the list: the same headline also appears in the article pane
+    // once an entry is open, and an unscoped getByText would go strict-mode
+    // ambiguous the moment a second entry is selected.
+    await this.entryList.getByText(title, { exact: true }).click()
   }
 
   async getEntryTitles(): Promise<string[]> {
-    const entries = this.entryList.locator("[data-entry-title]")
-    const count = await entries.count()
-    const titles: string[] = []
-    for (let i = 0; i < count; i++) {
-      const title = await entries.nth(i).getAttribute("data-entry-title")
-      if (title) titles.push(title)
-    }
-    return titles
+    // EntryItem carries the headline on data-entry-title. Reading the attribute
+    // beats reading text content, which also picks up the preview, feed name,
+    // date and tag badges at the wider display densities.
+    return this.entryList
+      .getByRole("option")
+      .evaluateAll((rows) =>
+        rows.map((row) => row.getAttribute("data-entry-title") ?? "").filter((title) => title !== "")
+      )
   }
 
   // Keyboard shortcuts
