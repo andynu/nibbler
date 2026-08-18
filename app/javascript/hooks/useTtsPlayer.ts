@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react"
-import { api, type WordTimestamp } from "@/lib/api"
+import { api, type AudioResponse, type WordTimestamp } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
 
 export type TtsState = "idle" | "loading" | "generating" | "ready" | "playing" | "paused" | "error"
@@ -33,6 +33,21 @@ interface UseTtsPlayerResult extends TtsPlayerState, TtsPlayerControls {
 }
 
 const POLL_INTERVAL = 2000 // Poll every 2 seconds while generating
+
+// "error" (a GenerateArticleAudioJob that failed) and "unavailable" (server has
+// no TTS toolchain) are both terminal: there is nothing left to poll for, so
+// every caller must stop and surface a message rather than keep waiting.
+// Mirrors the pair in AudioPlayerContext.tsx (see ttrb-53dc for consolidation).
+function isTerminalAudioStatus(status: AudioResponse["status"]): boolean {
+  return status === "error" || status === "unavailable"
+}
+
+function terminalAudioMessage(response: AudioResponse): string {
+  if (response.error) return response.error
+  return response.status === "unavailable"
+    ? "Text-to-speech is not available"
+    : "Audio generation failed"
+}
 
 export function useTtsPlayer(): UseTtsPlayerResult {
   const { preferences, updatePreference } = usePreferences()
@@ -107,7 +122,11 @@ export function useTtsPlayer(): UseTtsPlayerResult {
     try {
       const response = await api.entries.audio(entryId)
 
-      if (response.status === "generating") {
+      if (isTerminalAudioStatus(response.status)) {
+        // No toolchain, or a generation job that already failed - nothing to poll for
+        setState("error")
+        setError(terminalAudioMessage(response))
+      } else if (response.status === "generating") {
         setState("generating")
 
         // Poll for completion
@@ -119,12 +138,12 @@ export function useTtsPlayer(): UseTtsPlayerResult {
 
           try {
             const pollResponse = await api.entries.audio(entryId)
-            if (pollResponse.status === "error") {
-              // Generation failed - stop polling and show error
+            if (isTerminalAudioStatus(pollResponse.status)) {
+              // Generation failed, or the toolchain went away - stop polling
               if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
               pollIntervalRef.current = null
               setState("error")
-              setError(pollResponse.error || "Audio generation failed")
+              setError(terminalAudioMessage(pollResponse))
             } else if (pollResponse.status === "ready" && pollResponse.audio_url) {
               if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
               pollIntervalRef.current = null
@@ -165,14 +184,6 @@ export function useTtsPlayer(): UseTtsPlayerResult {
             // Ignore polling errors, keep trying
           }
         }, POLL_INTERVAL)
-      } else if (response.status === "unavailable") {
-        // Server has no TTS toolchain - nothing to poll for
-        setState("error")
-        setError(response.error || "Text-to-speech is not available")
-      } else if (response.status === "error") {
-        // Generation previously failed - show error immediately
-        setState("error")
-        setError(response.error || "Audio generation failed")
       } else if (response.status === "ready" && response.audio_url) {
         setTimestamps(response.timestamps || [])
         setDuration(response.duration || 0)
