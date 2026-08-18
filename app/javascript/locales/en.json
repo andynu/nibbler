@@ -201,33 +201,6 @@
       "count_100": "100 articles"
     }
   },
-  "keyboard": {
-    "title": "Keyboard Shortcuts",
-    "navigation": "Navigation",
-    "actions": "Actions",
-    "views": "Views",
-    "scrolling": "Scrolling",
-    "other": "Other",
-    "nextEntry": "Next entry",
-    "previousEntry": "Previous entry",
-    "nextCategory": "Next category",
-    "previousCategory": "Previous category",
-    "nextUnread": "Next unread",
-    "openEntry": "Open entry",
-    "closeEntry": "Close/deselect entry",
-    "toggleRead": "Toggle read/unread",
-    "toggleStarred": "Toggle starred",
-    "toggleIframe": "Toggle iframe/RSS view",
-    "openOriginal": "Open original link",
-    "refreshEntries": "Refresh entries",
-    "goToAll": "Go to All",
-    "goToFresh": "Go to Fresh",
-    "goToStarred": "Go to Starred",
-    "pageDown": "Page down content",
-    "pageUp": "Page up content",
-    "toggleSidebar": "Toggle sidebar",
-    "showKeyboardShortcuts": "Show keyboard shortcuts"
-  },
   "dialogs": {
     "markAllRead": {
       "title": "Mark all as read?",
