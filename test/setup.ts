@@ -60,7 +60,7 @@ class ResizeObserverMock {
   unobserve() {}
   disconnect() {}
 }
-global.ResizeObserver = ResizeObserverMock;
+globalThis.ResizeObserver = ResizeObserverMock;
 
 // Mock Element.scrollIntoView
 Element.prototype.scrollIntoView = () => {};
