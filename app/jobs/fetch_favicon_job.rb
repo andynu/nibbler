@@ -28,9 +28,8 @@ class FetchFaviconJob < ApplicationJob
   def save_favicon(feed, result)
     ensure_icons_dir_exists
 
-    # Determine file extension from content type
-    extension = extension_for_content_type(result.content_type)
-    filename = "#{feed.id}#{extension}"
+    previous_url = feed.icon_url
+    filename = filename_for(feed, result)
     filepath = ICONS_DIR.join(filename)
 
     # Write the icon file
@@ -46,7 +45,37 @@ class FetchFaviconJob < ApplicationJob
       favicon_last_checked: Time.current
     )
 
+    delete_superseded_icon(previous_url, filename)
+
     Rails.logger.info "Saved favicon for feed #{feed.id} (#{feed.title}) from #{result.source}"
+  end
+
+  # The content digest in the name is what lets the URL change when the bytes
+  # change. public/ is served with a one-year Cache-Control (see
+  # config/environments/production.rb), so a stable "#{feed.id}.png" would leave
+  # every browser that already fetched an icon showing the old one for up to a
+  # year after UpdateFaviconsJob refetched it.
+  def filename_for(feed, result)
+    digest = Digest::SHA256.hexdigest(result.image_data)[0, 16]
+    "#{feed.id}-#{digest}#{extension_for_content_type(result.content_type)}"
+  end
+
+  # Once icon_url moves to the new digest, the old file is unreachable and
+  # nothing else references it. Leaving it would grow the icons volume by one
+  # file per favicon change, forever.
+  #
+  # Resolved by basename through the icons dir so a stored icon_url can never
+  # aim the delete outside that directory.
+  def delete_superseded_icon(previous_url, current_filename)
+    return if previous_url.blank?
+
+    previous_filename = File.basename(previous_url)
+    return if previous_filename == current_filename
+
+    previous_path = ICONS_DIR.join(previous_filename)
+    File.delete(previous_path) if File.file?(previous_path)
+  rescue Errno::ENOENT
+    # Raced with another cleanup, or the volume is gone. Nothing to remove.
   end
 
   def ensure_icons_dir_exists

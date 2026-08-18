@@ -15,7 +15,17 @@ Rails.application.configure do
   # Turn on fragment caching in view templates.
   config.action_controller.perform_caching = true
 
-  # Cache assets for far-future expiry since they are all digest stamped.
+  # Far-future expiry for everything under public/. This is safe only because
+  # every path served from there is stamped with something that changes when the
+  # bytes do, and nothing rewrites a file in place:
+  #
+  #   /assets            Propshaft digest
+  #   /icons             content digest (FetchFaviconJob#filename_for)
+  #   /audio/cache       content hash (CachedAudio.hash_content)
+  #   /images/cache      source-URL hash; a given entry+URL is downloaded once
+  #
+  # Anything added later that reuses a filename for new content needs its own
+  # shorter max-age, or browsers keep the stale copy for a year.
   config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
 
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
