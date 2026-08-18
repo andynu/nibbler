@@ -16,7 +16,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['app/javascript/components/**/*.tsx'],
+      // Every directory that has tests, not just components/
+      include: [
+        'app/javascript/components/**/*.{ts,tsx}',
+        'app/javascript/contexts/**/*.{ts,tsx}',
+        'app/javascript/hooks/**/*.{ts,tsx}',
+        'app/javascript/lib/**/*.{ts,tsx}',
+      ],
+      exclude: ['**/*.test.{ts,tsx}'],
     },
   },
   resolve: {
