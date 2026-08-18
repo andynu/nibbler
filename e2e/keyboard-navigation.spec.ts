@@ -157,9 +157,14 @@ test.describe("Help Dialog", () => {
     await page.keyboard.press("Shift+?")
     await expect(page.getByRole("dialog")).toBeVisible()
 
-    // Check that navigation shortcuts are documented
-    await expect(page.getByText(/next entry/i)).toBeVisible()
-    await expect(page.getByText(/previous entry/i)).toBeVisible()
+    // Check that navigation shortcuts are documented. Match the row labels
+    // exactly: the dialog also lists "Page up, then previous entry", which a
+    // loose regex would collide with under Playwright strict mode.
+    const dialog = page.getByRole("dialog")
+    await expect(dialog.getByText("Next entry", { exact: true })).toBeVisible()
+    await expect(
+      dialog.getByText("Previous entry", { exact: true })
+    ).toBeVisible()
   })
 
   test("help dialog shows action shortcuts", async ({ page }) => {
