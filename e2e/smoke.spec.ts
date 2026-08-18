@@ -255,9 +255,7 @@ test.describe("Smoke Tests", () => {
     )
     expect(markAllResponse.ok()).toBe(true)
 
-    // Nothing should be left unread. Note this asks for unread=true rather than
-    // view=fresh: the Fresh view filters on publication date only, so it still
-    // lists articles that have been read.
+    // Nothing should be left unread
     const unreadResponse = await page.request.get(
       "/api/v1/entries?unread=true"
     )
@@ -265,6 +263,16 @@ test.describe("Smoke Tests", () => {
 
     const unreadData = await unreadResponse.json()
     expect(unreadData.entries.length).toBe(0)
+
+    // Fresh is unread plus recent, so it empties out too, and the sidebar
+    // badge agrees with the list
+    const freshResponse = await page.request.get("/api/v1/entries?view=fresh")
+    expect(freshResponse.ok()).toBe(true)
+    expect((await freshResponse.json()).entries.length).toBe(0)
+
+    const afterCounters = await page.request.get("/api/v1/counters")
+    expect(afterCounters.ok()).toBe(true)
+    expect((await afterCounters.json()).virtual.fresh).toBe(0)
 
     // Click Fresh view in UI to verify it loads correctly
     await page.getByRole("button", { name: /fresh/i }).first().click()

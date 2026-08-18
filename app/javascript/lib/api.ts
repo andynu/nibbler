@@ -552,8 +552,13 @@ export const api = {
   },
 
   counters: {
-    get: () =>
-      request<{
+    // fresh_max_age mirrors the Fresh view's own age selector so the sidebar
+    // badge counts the same window the list shows.
+    get: (params?: { fresh_max_age?: "week" | "month" | "all" }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.fresh_max_age) searchParams.set("fresh_max_age", params.fresh_max_age)
+      const query = searchParams.toString()
+      return request<{
         feeds: Record<number, number>
         categories: Record<number, number>
         virtual: {
@@ -563,7 +568,8 @@ export const api = {
           published: number
         }
         total: number
-      }>("/counters"),
+      }>(`/counters${query ? `?${query}` : ""}`)
+    },
   },
 
   opml: {

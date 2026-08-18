@@ -1,6 +1,8 @@
 module Api
   module V1
     class EntriesController < BaseController
+      include FreshArticleWindow
+
       before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info ]
 
       # GET /api/v1/entries
@@ -35,9 +37,7 @@ module Api
         # Virtual feeds
         case params[:view]
         when "fresh"
-          cutoff = fresh_article_cutoff_for_param(params[:fresh_max_age])
-          # Use entries.updated (publication date) for Fresh view filtering, not date_entered (import time)
-          @user_entries = @user_entries.where("entries.updated > ?", cutoff) if cutoff
+          @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
           if params[:fresh_per_feed].present? && params[:fresh_per_feed].to_i > 0
             @user_entries = limit_per_feed(@user_entries, params[:fresh_per_feed].to_i)
           end
@@ -261,8 +261,7 @@ module Api
 
         case params[:view]
         when "fresh"
-          # Use entries.updated (publication date) for Fresh view filtering
-          @user_entries = @user_entries.where("entries.updated > ?", fresh_article_cutoff)
+          @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
         when "starred"
           @user_entries = @user_entries.where(marked: true)
         when "published"
@@ -276,7 +275,9 @@ module Api
         per_page = [ (params[:per_page] || 100).to_i, 500 ].min
         offset = (page - 1) * per_page
 
-        total = @user_entries.count
+        # Name the column explicitly: a bare count on this relation would fold
+        # the multi-column select into COUNT(...) and blow up as invalid SQL.
+        total = @user_entries.count("user_entries.id")
         @user_entries = @user_entries.offset(offset).limit(per_page)
 
         render json: {
@@ -359,28 +360,6 @@ module Api
           is_published: ue.published,
           score: ue.score
         }
-      end
-
-      # Get the cutoff time for "fresh" articles based on user preference
-      def fresh_article_cutoff
-        pref = current_user.user_preferences.find_by(pref_name: "fresh_article_max_age")
-        hours = pref&.value&.to_i || 24
-        hours.hours.ago
-      end
-
-      # Get the cutoff time for "fresh" articles based on optional param or user preference
-      def fresh_article_cutoff_for_param(max_age_param)
-        case max_age_param
-        when "week"
-          1.week.ago
-        when "month"
-          1.month.ago
-        when "all"
-          nil # No time filter
-        else
-          # Default to user preference
-          fresh_article_cutoff
-        end
       end
 
       # Limit results to N per feed using window functions

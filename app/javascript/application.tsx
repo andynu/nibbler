@@ -112,12 +112,17 @@ function App() {
     onShowSubscribe: setShowSubscribeDialog,
   })
 
-  // Load feeds, categories, tags, and counters on mount
+  // Load feeds, categories, and tags on mount
   useEffect(() => {
     loadFeeds()
     loadTags()
-    loadCounters()
   }, [])
+
+  // Counters load on mount and again whenever the Fresh window changes, since
+  // the Fresh badge counts that window.
+  useEffect(() => {
+    loadCounters()
+  }, [freshMaxAge])
 
   // Register audio player navigation callback
   useEffect(() => {
@@ -143,7 +148,7 @@ function App() {
 
   const loadCounters = async () => {
     try {
-      const result = await api.counters.get()
+      const result = await api.counters.get({ fresh_max_age: freshMaxAge })
       setVirtualFolderCounts({
         fresh: result.virtual.fresh,
         starred: result.virtual.starred,

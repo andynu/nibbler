@@ -23,6 +23,18 @@ class UserEntry < ApplicationRecord
   scope :published, -> { where(published: true) }
   scope :recent, -> { joins(:entry).order("entries.date_entered DESC") }
 
+  # The Fresh virtual folder: unread articles published (entries.updated) since
+  # the cutoff. Publication date is used rather than date_entered so a backlog
+  # imported today does not read as fresh. A nil cutoff drops the age limit,
+  # which is what the "all" max-age option asks for.
+  #
+  # This is the single definition of "fresh" - counters, entry lists and
+  # headlines all go through it so the sidebar badge and the list agree.
+  scope :fresh, ->(cutoff) {
+    scoped = unread.joins(:entry)
+    cutoff ? scoped.where("entries.updated > ?", cutoff) : scoped
+  }
+
   def mark_read!
     update!(unread: false, last_read: Time.current)
   end

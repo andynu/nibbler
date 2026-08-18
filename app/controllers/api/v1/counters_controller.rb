@@ -1,6 +1,8 @@
 module Api
   module V1
     class CountersController < BaseController
+      include FreshArticleWindow
+
       # GET /api/v1/counters
       def index
         feed_counts = current_user.user_entries
@@ -18,9 +20,7 @@ module Api
         starred_count = current_user.user_entries.starred.count
         published_count = current_user.user_entries.published.count
         fresh_count = current_user.user_entries
-          .unread
-          .joins(:entry)
-          .where("entries.date_entered > ?", 24.hours.ago)
+          .fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
           .count
 
         render json: {

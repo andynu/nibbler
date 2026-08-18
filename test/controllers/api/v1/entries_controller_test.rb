@@ -6,6 +6,19 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     @feed = feeds(:high_frequency)
   end
 
+  def create_entry(title, updated:, date_entered: nil)
+    Entry.create!(
+      guid: "entry-#{SecureRandom.uuid}",
+      title: title,
+      link: "https://example.com/#{SecureRandom.hex(4)}",
+      content: "<p>Content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: updated,
+      date_entered: date_entered || updated,
+      date_updated: Time.current
+    )
+  end
+
   test "fresh view filters by publication date not import date" do
     # Create an entry that was published a month ago but imported today
     old_entry = Entry.create!(
@@ -118,6 +131,53 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     json = JSON.parse(response.body)
     titles = json["entries"].map { |e| e["title"] }
     assert_includes titles, "Very Old Article"
+  end
+
+  test "fresh view excludes articles that have already been read" do
+    read_entry = create_entry("Read Fresh Article", updated: 1.hour.ago)
+    unread_entry = create_entry("Unread Fresh Article", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: read_entry, feed: @feed, uuid: SecureRandom.uuid, unread: false)
+    @user.user_entries.create!(entry: unread_entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    get api_v1_entries_url, params: { view: "fresh" }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["entries"].map { |e| e["title"] }
+    assert_includes titles, "Unread Fresh Article"
+    refute_includes titles, "Read Fresh Article"
+  end
+
+  test "headlines fresh view excludes articles that have already been read" do
+    read_entry = create_entry("Read Fresh Headline", updated: 1.hour.ago)
+    unread_entry = create_entry("Unread Fresh Headline", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: read_entry, feed: @feed, uuid: SecureRandom.uuid, unread: false)
+    @user.user_entries.create!(entry: unread_entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    get headlines_api_v1_entries_url, params: { view: "fresh" }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["headlines"].map { |h| h["title"] }
+    assert_includes titles, "Unread Fresh Headline"
+    refute_includes titles, "Read Fresh Headline"
+  end
+
+  test "headlines fresh view filters by publication date and honours fresh_max_age" do
+    # Published two weeks ago but imported a minute ago
+    stale_entry = create_entry("Stale Headline", updated: 2.weeks.ago, date_entered: 1.minute.ago)
+    @user.user_entries.create!(entry: stale_entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    # Default window is the 24 hour preference, so recent import is not enough
+    get headlines_api_v1_entries_url, params: { view: "fresh" }, as: :json
+    assert_response :success
+    titles = JSON.parse(response.body)["headlines"].map { |h| h["title"] }
+    refute_includes titles, "Stale Headline"
+
+    get headlines_api_v1_entries_url, params: { view: "fresh", fresh_max_age: "month" }, as: :json
+    assert_response :success
+    titles = JSON.parse(response.body)["headlines"].map { |h| h["title"] }
+    assert_includes titles, "Stale Headline"
   end
 
   test "multi-column sort parameter works" do
