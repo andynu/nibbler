@@ -53,6 +53,12 @@ test-results/
 # Cached audio files
 /public/audio/cache/
 
+# Cached feed favicons. Written by FetchFaviconJob, which names each file after
+# a local Feed primary key, so the contents are meaningless against any other
+# database. Recreated on demand via mkdir_p and refreshed daily by
+# UpdateFaviconsJob.
+/public/icons/
+
 # TTS voice models (large files)
 /lib/tts/models/*.onnx
 
