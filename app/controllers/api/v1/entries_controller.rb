@@ -262,9 +262,7 @@ module Api
         when "fresh"
           @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
           per_feed = fresh_per_feed_limit(params[:fresh_per_feed])
-          if per_feed
-            @user_entries = @user_entries.where(id: UserEntry.top_per_feed_ids(@user_entries, per_feed))
-          end
+          @user_entries = limit_per_feed(@user_entries, per_feed) if per_feed
         when "starred"
           @user_entries = @user_entries.where(marked: true)
         when "published"
@@ -365,13 +363,12 @@ module Api
         }
       end
 
-      # Limit results to N per feed. The ranking lives on UserEntry so the
-      # counters endpoint can size the same cap without materialising the rows.
+      # Limit results to N per feed by filtering the relation down to the ranked
+      # ids, never by rebuilding it: the caller's ordering, eager loads and
+      # filters all have to survive the cap. The ranking lives on UserEntry so
+      # the counters endpoint can size the same cap without materialising rows.
       def limit_per_feed(user_entries, limit)
-        ids = UserEntry.top_per_feed_ids(user_entries, limit)
-        return user_entries if ids.empty?
-
-        current_user.user_entries.where(id: ids).includes(:entry, :feed).joins(:entry).order("entries.date_entered DESC")
+        user_entries.where(id: UserEntry.top_per_feed_ids(user_entries, limit))
       end
 
       def enclosure_json(enclosure)

@@ -180,6 +180,65 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_includes titles, "Stale Headline"
   end
 
+  test "fresh view honours the sort selection under a per-feed cap" do
+    low_score = create_entry("Capped Low Score", updated: 1.hour.ago, date_entered: 1.minute.ago)
+    high_score = create_entry("Capped High Score", updated: 1.hour.ago, date_entered: 2.minutes.ago)
+
+    @user.user_entries.create!(entry: low_score, feed: @feed, uuid: SecureRandom.uuid, unread: true, score: 1)
+    @user.user_entries.create!(entry: high_score, feed: @feed, uuid: SecureRandom.uuid, unread: true, score: 9)
+
+    get api_v1_entries_url, params: { view: "fresh", fresh_per_feed: 5, sort: "score:desc" }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["entries"].map { |e| e["title"] }
+    assert_operator titles.index("Capped High Score"), :<, titles.index("Capped Low Score"),
+      "per-feed cap must not discard the requested sort"
+  end
+
+  test "fresh view and headlines order identically under a per-feed cap" do
+    newest = create_entry("Cap Agreement Newest", updated: 1.hour.ago, date_entered: 1.minute.ago)
+    oldest = create_entry("Cap Agreement Oldest", updated: 1.hour.ago, date_entered: 2.minutes.ago)
+
+    @user.user_entries.create!(entry: newest, feed: @feed, uuid: SecureRandom.uuid, unread: true, score: 1)
+    @user.user_entries.create!(entry: oldest, feed: @feed, uuid: SecureRandom.uuid, unread: true, score: 9)
+
+    params = { view: "fresh", fresh_per_feed: 5, sort: "score:desc" }
+
+    get api_v1_entries_url, params: params, as: :json
+    assert_response :success
+    entry_ids = JSON.parse(response.body)["entries"].map { |e| e["id"] }
+
+    get headlines_api_v1_entries_url, params: params, as: :json
+    assert_response :success
+    headline_ids = JSON.parse(response.body)["headlines"].map { |h| h["id"] }
+
+    assert_equal headline_ids, entry_ids, "index and headlines must agree under a per-feed cap"
+  end
+
+  test "fresh view per-feed cap keeps the newest articles of each feed" do
+    other_feed = feeds(:low_frequency)
+
+    3.times do |i|
+      entry = create_entry("Capped Feed A #{i}", updated: 1.hour.ago, date_entered: (i + 1).minutes.ago)
+      @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    end
+
+    kept = create_entry("Capped Feed B Newest", updated: 1.hour.ago, date_entered: 1.minute.ago)
+    dropped = create_entry("Capped Feed B Oldest", updated: 1.hour.ago, date_entered: 30.minutes.ago)
+    @user.user_entries.create!(entry: kept, feed: other_feed, uuid: SecureRandom.uuid, unread: true)
+    @user.user_entries.create!(entry: dropped, feed: other_feed, uuid: SecureRandom.uuid, unread: true)
+
+    get api_v1_entries_url, params: { view: "fresh", fresh_per_feed: 1 }, as: :json
+    assert_response :success
+
+    entries = JSON.parse(response.body)["entries"]
+    titles = entries.map { |e| e["title"] }
+    assert_includes titles, "Capped Feed B Newest"
+    refute_includes titles, "Capped Feed B Oldest"
+    assert_equal 1, entries.count { |e| e["feed_id"] == @feed.id }
+    assert_equal 1, entries.count { |e| e["feed_id"] == other_feed.id }
+  end
+
   test "multi-column sort parameter works" do
     feed2 = feeds(:low_frequency)
 
