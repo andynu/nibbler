@@ -84,11 +84,44 @@ class FeedTest < ActiveSupport::TestCase
     end
   end
 
-  test "update_polling_stats! calculates interval based on frequency" do
+  test "update_polling_stats! leaves last_new_entry_at alone when nothing new arrived" do
+    before = @high_frequency.last_new_entry_at
+
     @high_frequency.update_polling_stats!(0)
-    assert_not_nil @high_frequency.calculated_interval_seconds
-    # High frequency feed should have short interval
-    assert @high_frequency.calculated_interval_seconds < 6.hours.to_i
+
+    assert_equal before.to_i, @high_frequency.last_new_entry_at.to_i
+  end
+
+  test "update_polling_stats! calculates interval based on frequency" do
+    # 60 posts over the 30-day window is 2/day, so 24h / (4 * 2) = 3 hours
+    create_recent_entries(@new_feed, 60)
+
+    @new_feed.update_polling_stats!(0)
+
+    assert_in_delta 2.0, @new_feed.avg_posts_per_day, 0.001
+    assert_equal 3.hours.to_i, @new_feed.calculated_interval_seconds
+  end
+
+  test "update_polling_stats! lowers avg_posts_per_day for a feed that has gone quiet" do
+    # The stored average is a 30-day rolling figure, so it has to roll down as
+    # the window slides past old posts. Recalculating only when new entries
+    # arrived pinned a formerly busy feed at its old rate indefinitely.
+    @high_frequency.update!(avg_posts_per_day: 10.0)
+
+    @high_frequency.update_polling_stats!(0)
+
+    # Two fixture entries inside the window: 2 / 30 days
+    assert_in_delta 2 / 30.0, @high_frequency.avg_posts_per_day, 0.001
+    assert_equal Feed::MAX_POLL_INTERVAL, @high_frequency.calculated_interval_seconds
+  end
+
+  test "update_polling_stats! drops a feed with no entries in the window to zero" do
+    @low_frequency.update!(avg_posts_per_day: 5.0, calculated_interval_seconds: 1.hour.to_i)
+
+    @low_frequency.update_polling_stats!(0)
+
+    assert_equal 0.0, @low_frequency.avg_posts_per_day
+    assert_equal Feed::MAX_POLL_INTERVAL, @low_frequency.calculated_interval_seconds
   end
 
   test "calculate_avg_posts_per_day reports zero for feeds with no recent entries" do
@@ -129,5 +162,26 @@ class FeedTest < ActiveSupport::TestCase
     @manual_override.recalculate_polling_interval!
 
     assert @manual_override.next_poll_at <= Time.current + 60.minutes
+  end
+
+  private
+
+  # Attach +count+ entries published inside the rolling average window to +feed+
+  # so calculate_avg_posts_per_day has something to count.
+  def create_recent_entries(feed, count)
+    count.times do |i|
+      entry = Entry.create!(
+        guid: "rolling-#{feed.id}-#{i}",
+        title: "Rolling entry #{i}",
+        link: "https://example.com/rolling/#{i}",
+        content: "body",
+        content_hash: "rolling-hash-#{feed.id}-#{i}",
+        updated: i.hours.ago,
+        date_entered: Time.current,
+        date_updated: Time.current
+      )
+
+      UserEntry.create!(entry: entry, feed: feed, user: feed.user, uuid: SecureRandom.uuid)
+    end
   end
 end

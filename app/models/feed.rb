@@ -129,20 +129,22 @@ class Feed < ApplicationRecord
   end
 
   # Calculate and update adaptive polling statistics after entries are processed
+  #
+  # avg_posts_per_day is recalculated on every poll, not only on polls that
+  # bring in entries. The rolling window slides with the clock, so a feed that
+  # goes quiet only sees its rate fall if something recomputes it while nothing
+  # is arriving. Recalculating solely on new entries left a feed that used to
+  # post 5x/day pinned at 5.0 forever, polled every ~1.2h until it posted again.
+  #
   # @param new_entries_count [Integer] number of new entries added this update
   def update_polling_stats!(new_entries_count)
-    updates = {}
+    updates = { avg_posts_per_day: calculate_avg_posts_per_day }
 
-    if new_entries_count > 0
-      updates[:last_new_entry_at] = Time.current
-
-      # Recalculate average posts per day based on recent entry dates
-      updates[:avg_posts_per_day] = calculate_avg_posts_per_day
-    end
+    updates[:last_new_entry_at] = Time.current if new_entries_count > 0
 
     # Calculate optimal interval based on publication frequency
     updates[:calculated_interval_seconds] = calculate_optimal_interval(
-      updates[:avg_posts_per_day] || avg_posts_per_day
+      updates[:avg_posts_per_day]
     )
 
     # Set next poll time (respects manual override if set)
