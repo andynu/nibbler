@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import React from "react"
 import { FeedSidebar } from "./FeedSidebar"
+import { api } from "@/lib/api"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
 
 // Mock ThemeContext
@@ -34,6 +35,10 @@ vi.mock("@/contexts/PreferencesContext", () => ({
 vi.mock("@/lib/api", () => ({
   api: {
     categories: {
+      delete: vi.fn().mockResolvedValue({}),
+    },
+    feeds: {
+      refresh: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
     },
   },
@@ -558,6 +563,58 @@ describe("FeedSidebar", () => {
       await user.click(screen.getByText("Edit Feed"))
 
       expect(onEditFeed).toHaveBeenCalledWith(feeds[0])
+    })
+  })
+
+  describe("feeds nested inside a smart folder", () => {
+    // A feed in a collapsed category with no newest_entry_date renders only
+    // inside the "Dead Letter Box" smart folder, so its menu is unambiguous.
+    const nestedFeed = mockFeed({ id: 7, title: "Nested Feed", category_id: 1 })
+    const categories = [mockCategory({ id: 1, title: "My Tech" })]
+
+    const renderExpanded = async (props = {}) => {
+      const user = userEvent.setup()
+      localStorage.setItem("nibbler:expandedCategories", "[]")
+
+      render(
+        <FeedSidebar
+          {...defaultProps}
+          feeds={[nestedFeed]}
+          categories={categories}
+          {...props}
+        />
+      )
+
+      await user.click(screen.getByRole("button", { name: /dead letter box/i }))
+
+      return user
+    }
+
+    it("renders the feed once the smart folder is expanded", async () => {
+      await renderExpanded()
+
+      expect(
+        screen.getByRole("button", { name: /nested feed menu/i })
+      ).toBeInTheDocument()
+    })
+
+    it("clicking Edit Feed calls onEditFeed with the feed", async () => {
+      const onEditFeed = vi.fn()
+      const user = await renderExpanded({ onEditFeed })
+
+      await user.click(screen.getByRole("button", { name: /nested feed menu/i }))
+      await user.click(screen.getByText("Edit Feed"))
+
+      expect(onEditFeed).toHaveBeenCalledWith(nestedFeed)
+    })
+
+    it("clicking Sync Now refreshes the feed", async () => {
+      const user = await renderExpanded()
+
+      await user.click(screen.getByRole("button", { name: /nested feed menu/i }))
+      await user.click(screen.getByText("Sync Now"))
+
+      expect(api.feeds.refresh).toHaveBeenCalledWith(nestedFeed.id)
     })
   })
 

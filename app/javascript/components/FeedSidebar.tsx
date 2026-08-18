@@ -986,8 +986,8 @@ export function FeedSidebar({
                             isTracked={trackedFeedId === feed.id}
                             isDragging={false}
                             onSelect={() => onSelectFeed(feed.id)}
-                            onEdit={() => handleEditFeed(feed)}
-                            onRefresh={() => handleRefresh(feed)}
+                            onEdit={() => onEditFeed(feed)}
+                            onRefresh={() => handleRefreshFeed(feed)}
                             onUnsubscribe={() => handleUnsubscribeFeed(feed)}
                             isRefreshing={refreshingFeedId === feed.id}
                             showTotalCount={showTotalCount}
