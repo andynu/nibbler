@@ -65,6 +65,22 @@ class UpdateFeedsJobTest < ActiveJob::TestCase
     end
   end
 
+  # The in-progress guard has to clear well inside the */5 cron period, or a
+  # feed polled on one cycle is still "mid-update" on the next and the run
+  # enqueues nothing at all.
+  test "enqueues a feed whose last update started before the in-progress window" do
+    @feed_ready.update!(next_poll_at: 1.minute.ago, last_update_started: 3.minutes.ago)
+    @feed_not_ready.update!(next_poll_at: 1.hour.from_now)
+
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+      UpdateFeedsJob.perform_now
+    end
+  end
+
+  test "in-progress window is shorter than the scheduler cron period" do
+    assert_operator Feed::UPDATE_IN_PROGRESS_WINDOW, :<, 5.minutes
+  end
+
   # force: true is the morning sweep (refresh_all_feeds_morning cron entry)
   test "force enqueues a feed backed off far past its next_poll_at" do
     @feed_ready.update!(next_poll_at: 7.days.from_now)

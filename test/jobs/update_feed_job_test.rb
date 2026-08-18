@@ -146,6 +146,18 @@ class UpdateFeedJobTest < ActiveJob::TestCase
     assert_empty updated
   end
 
+  # Must match the scheduler's guard: if UpdateFeedsJob enqueues a feed whose
+  # last update started outside the window, this job has to actually fetch it
+  # rather than silently drop the job.
+  test "updates a feed whose last update started before the in-progress window" do
+    @feed.update!(last_update_started: 3.minutes.ago)
+    updated = []
+
+    stub_updater(calls: updated) { UpdateFeedJob.perform_now(@feed.id) }
+
+    assert_equal [ @feed.id ], updated.map(&:id)
+  end
+
   test "skips a rate-limited feed in backoff" do
     @feed.update!(retry_after: 1.hour.from_now)
     updated = []

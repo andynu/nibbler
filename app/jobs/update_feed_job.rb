@@ -23,8 +23,10 @@ class UpdateFeedJob < ApplicationJob
     feed = Feed.find_by(id: feed_id)
     return unless feed
 
-    # Skip if already being updated (prevent concurrent updates)
-    return if feed.last_update_started && feed.last_update_started > 5.minutes.ago
+    # Skip if already being updated (prevent concurrent updates). Same window
+    # as the scheduler's not_updating scope, so a feed the scheduler considered
+    # free is never dropped here.
+    return if feed.update_in_progress?
 
     # Skip if feed is in backoff period (rate limited)
     if feed.in_backoff?

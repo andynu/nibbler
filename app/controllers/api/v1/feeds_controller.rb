@@ -65,7 +65,9 @@ module Api
           }, status: :too_many_requests
         end
 
-        # Prevent concurrent updates (5 minute window)
+        # Prevent concurrent updates. Deliberately a tighter window than
+        # Feed::UPDATE_IN_PROGRESS_WINDOW: a person clicking refresh should be
+        # told to wait for as short a time as is safe.
         if @feed.last_update_started.present? && @feed.last_update_started > 1.minute.ago
           return render json: {
             error: "Feed is currently being updated",

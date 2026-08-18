@@ -28,6 +28,21 @@ class Feed < ApplicationRecord
   scope :visible, -> { where(hidden: false) }
   scope :ordered, -> { order(:order_id, :title) }
 
+  # How long after last_update_started a feed still counts as mid-update.
+  #
+  # Must stay well under the 5-minute scheduler cron period. At exactly 5
+  # minutes the guard beat against the cron: a feed polled at 22:05:02 was
+  # still "updating" to the run at 22:10:00, so that run enqueued nothing and
+  # roughly every other cycle was silently skipped. An actual fetch is bounded
+  # by FeedFetcher::DEFAULT_TIMEOUT (30s), so two minutes covers anything
+  # genuinely in flight with room to spare.
+  UPDATE_IN_PROGRESS_WINDOW = 2.minutes
+
+  # Feeds that are not currently being updated by another job.
+  scope :not_updating, -> {
+    where("last_update_started IS NULL OR last_update_started < ?", UPDATE_IN_PROGRESS_WINDOW.ago)
+  }
+
   # Feeds that need updating based on their individual update_interval
   # If update_interval is 0, use the provided default (in minutes)
   scope :needs_update, ->(default_interval_minutes = 30) {
@@ -90,6 +105,13 @@ class Feed < ApplicationRecord
   # Whether the feed is currently in backoff period
   def in_backoff?
     retry_after.present? && retry_after > Time.current
+  end
+
+  # Whether another update is presumed to still be running for this feed.
+  # Row-level counterpart of the not_updating scope; both share one window so
+  # the scheduler and the per-feed job agree on what counts as in flight.
+  def update_in_progress?
+    last_update_started.present? && last_update_started > UPDATE_IN_PROGRESS_WINDOW.ago
   end
 
   # Refresh cached entry statistics (count and date range)

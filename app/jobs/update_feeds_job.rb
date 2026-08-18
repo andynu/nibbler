@@ -19,9 +19,13 @@ class UpdateFeedsJob < ApplicationJob
   private
 
   def feeds_to_update(force: false)
-    # Never touch a feed that is rate limited or already mid-update, in either mode.
+    # Never touch a feed that is rate limited or already mid-update, in either
+    # mode. The mid-update window (Feed::UPDATE_IN_PROGRESS_WINDOW) is shorter
+    # than this job's 5-minute cron period on purpose: matching the two made
+    # qualification depend on seconds of scheduler jitter and skipped whole
+    # cycles.
     scope = Feed
-      .where("last_update_started IS NULL OR last_update_started < ?", 5.minutes.ago)
+      .not_updating
       .where("retry_after IS NULL OR retry_after <= ?", Time.current)
 
     # force: sweep everything else. Otherwise restrict to feeds due under
