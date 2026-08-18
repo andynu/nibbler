@@ -97,6 +97,11 @@ class E2eDataset
       end
     end
 
+    # Brakeman flags the interpolated table list as possible SQL injection; the
+    # rationale for ignoring it is recorded in config/brakeman.ignore. Short
+    # version: the names come from the connection's own catalog and each is
+    # quoted, and connection.truncate_tables is not a substitute because it
+    # emits no RESTART IDENTITY.
     def truncate_all!
       tables = ActiveRecord::Base.connection.tables - PRESERVED_TABLES
       return if tables.empty?

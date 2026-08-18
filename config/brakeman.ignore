@@ -1,0 +1,28 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "9ee6341df942fbbad9f1fdf9e36a1936823f8114ff94b8a1d6de65f476c6401b",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "lib/e2e_dataset.rb",
+      "line": 110,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "ActiveRecord::Base.connection.execute(\"TRUNCATE TABLE #{(ActiveRecord::Base.connection.tables - [\"ar_internal_metadata\", \"schema_migrations\"]).map do\n ActiveRecord::Base.connection.quote_table_name(t)\n end.join(\", \")} RESTART IDENTITY CASCADE\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "E2eDataset",
+        "method": "self.truncate_all!"
+      },
+      "user_input": "(ActiveRecord::Base.connection.tables - [\"ar_internal_metadata\", \"schema_migrations\"]).map do\n ActiveRecord::Base.connection.quote_table_name(t)\n end.join(\", \")",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "The interpolated list is not user input. Names come from ActiveRecord::Base.connection.tables (the connection's own catalog), and each one is passed through quote_table_name before being joined, so nothing reaches the statement that the database did not report as an existing table. TRUNCATE takes no bind parameters for identifiers, so the table list has to be interpolated. Rails' own connection.truncate_tables is not a substitute here: it emits no RESTART IDENTITY, and the E2E fixtures depend on record ids being identical after every /e2e/reset. E2eDataset.reseed! is also inert unless the server was booted with ALLOW_E2E_RESET=1, which only bin/e2e-server sets."
+    }
+  ],
+  "brakeman_version": "8.0.6"
+}
