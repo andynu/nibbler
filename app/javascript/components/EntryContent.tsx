@@ -103,6 +103,11 @@ export function EntryContent({
     setIsEditingNote(false)
     setNoteText(entry?.note || "")
     setIframeError(false)
+    // The scroll viewport survives the entry swap, so a new article would
+    // otherwise open at the previous one's scroll position.
+    if (scrollViewportRef?.current) {
+      scrollViewportRef.current.scrollTop = 0
+    }
   }, [entry?.id])
 
   const handleStartEditNote = () => {

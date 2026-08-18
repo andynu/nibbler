@@ -17,6 +17,8 @@ const shortcuts = [
     { key: "k / p", description: "Previous entry" },
     { key: "Shift+J", description: "Next category" },
     { key: "Shift+K", description: "Previous category" },
+    { key: "Space", description: "Page down, then next unread" },
+    { key: "Shift+Space", description: "Page up, then previous entry" },
     { key: "Ctrl+F", description: "Page down content" },
     { key: "Ctrl+B", description: "Page up content" },
     { key: "a", description: "Go to All feeds" },

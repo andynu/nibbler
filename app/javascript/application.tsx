@@ -24,6 +24,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
+import { useContentPaging } from "@/hooks/useContentPaging"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 
 function App() {
@@ -682,23 +683,16 @@ function App() {
     handleSelectVirtualFeed("starred")
   }, [])
 
-  const handleContentPageDown = useCallback(() => {
-    if (contentScrollRef.current) {
-      contentScrollRef.current.scrollBy({
-        top: contentScrollRef.current.clientHeight * 0.9,
-        behavior: "smooth",
-      })
-    }
-  }, [])
-
-  const handleContentPageUp = useCallback(() => {
-    if (contentScrollRef.current) {
-      contentScrollRef.current.scrollBy({
-        top: -contentScrollRef.current.clientHeight * 0.9,
-        behavior: "smooth",
-      })
-    }
-  }, [])
+  // Space pages through the article body and only moves to another entry once
+  // the reader reaches the end. The iframe view holds cross-origin content whose
+  // scroll position cannot be read, so paging falls through to navigation there.
+  const contentPaging = useContentPaging({
+    scrollRef: contentScrollRef,
+    onPastEnd: handleKeyboardNextUnread,
+    onPastStart: handleKeyboardPrevious,
+    measurable: !showIframe,
+    resetKey: selectedEntry?.id,
+  })
 
   const handleToggleSidebar = useCallback(() => {
     const newValue = preferences.sidebar_collapsed === "true" ? "false" : "true"
@@ -721,7 +715,8 @@ function App() {
       { key: "J", handler: handleKeyboardNextCategory, description: "Next category", modifiers: { shift: true } },
       { key: "K", handler: handleKeyboardPreviousCategory, description: "Previous category", modifiers: { shift: true } },
       { key: "n", handler: handleKeyboardNext, description: "Next entry" },
-      { key: " ", handler: handleKeyboardNextUnread, description: "Next unread" },
+      { key: " ", handler: contentPaging.pageDownOrNext, description: "Page down / next unread" },
+      { key: " ", handler: contentPaging.pageUpOrPrevious, description: "Page up / previous entry", modifiers: { shift: true } },
       { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
       { key: "Escape", handler: handleKeyboardClose, description: "Close/deselect entry" },
@@ -738,8 +733,8 @@ function App() {
       { key: "f", handler: handleKeyboardGoFresh, description: "Go to Fresh" },
       { key: "S", handler: handleKeyboardGoStarred, description: "Go to Starred", modifiers: { shift: true } },
       // Content scrolling
-      { key: "f", handler: handleContentPageDown, description: "Page down content", modifiers: { ctrl: true } },
-      { key: "b", handler: handleContentPageUp, description: "Page up content", modifiers: { ctrl: true } },
+      { key: "f", handler: contentPaging.pageDown, description: "Page down content", modifiers: { ctrl: true } },
+      { key: "b", handler: contentPaging.pageUp, description: "Page up content", modifiers: { ctrl: true } },
       // Sidebar
       { key: "b", handler: handleToggleSidebar, description: "Toggle sidebar" },
       // Focus mode
@@ -765,8 +760,7 @@ function App() {
       handleKeyboardGoFresh,
       handleKeyboardGoStarred,
       handleKeyboardHelp,
-      handleContentPageDown,
-      handleContentPageUp,
+      contentPaging,
       handleToggleSidebar,
       handleToggleFocusMode,
     ]

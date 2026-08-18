@@ -134,6 +134,20 @@ describe("useKeyboardCommands", () => {
       expect(handler).not.toHaveBeenCalled()
     })
 
+    it("lets space type normally inside an input instead of paging", () => {
+      const handler = vi.fn()
+      const commands: KeyboardCommand[] = [
+        { key: " ", handler, description: "Page down / next unread" },
+      ]
+      const input = document.createElement("input")
+
+      renderHook(() => useKeyboardCommands(commands))
+      const event = dispatchKeyDown(" ", { target: input })
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(event.defaultPrevented).toBe(false)
+    })
+
     it("ignores keypresses when focus is on textarea", () => {
       const handler = vi.fn()
       const commands: KeyboardCommand[] = [
