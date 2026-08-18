@@ -1,15 +1,24 @@
 require "simplecov"
+
+# `parallelize` forks a worker per core and each worker leaves its own entry in
+# coverage/.resultset.json. Those entries outlive the run, so the next run reads
+# them back: a single-process run (Rails skips forking under 50 tests) merges the
+# previous run's slices into its own report, and once they age past merge_timeout
+# every run prints "[SimpleCov]: Excluded N result(s) older than merge_timeout".
+# Both are wrong for a suite that always reports from one invocation. Clearing the
+# file here happens in the parent, before any worker forks, so a run's report
+# covers exactly that run. The cost is that coverage no longer accumulates across
+# separate `rails test` invocations.
+resultset = SimpleCov::ResultMerger.resultset_path
+File.delete(resultset) if File.exist?(resultset)
+
+# The "rails" profile already skips config/ and db/ and defines the Controllers,
+# Channels, Models, Mailers, Helpers, Jobs and Libraries groups; SimpleCov's own
+# defaults already skip test/. Only the additions belong here.
 SimpleCov.start "rails" do
-  skip "/test/"
-  skip "/config/"
-  skip "/db/"
   skip "/vendor/"
 
-  group "Controllers", "app/controllers"
-  group "Models", "app/models"
   group "Services", "app/services"
-  group "Jobs", "app/jobs"
-  group "Mailers", "app/mailers"
 end
 
 ENV["RAILS_ENV"] ||= "test"
