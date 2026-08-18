@@ -15,7 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import { Tag, Plus } from "lucide-react"
+import { Tag, Plus, Loader2 } from "lucide-react"
 
 interface SuggestedTagsProps {
   entryId: number
@@ -27,6 +27,7 @@ interface SuggestedTagsProps {
 
 export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, onRemoveTag }: SuggestedTagsProps) {
   const [topWords, setTopWords] = useState<Array<{ word: string; count: number }>>([])
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true)
   const [pendingWord, setPendingWord] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
@@ -35,6 +36,7 @@ export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, o
 
   useEffect(() => {
     let cancelled = false
+    setLoadingSuggestions(true)
 
     api.entries.info(entryId)
       .then((info) => {
@@ -46,6 +48,11 @@ export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, o
         console.error("Failed to fetch entry info:", err)
         if (!cancelled) {
           setTopWords([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingSuggestions(false)
         }
       })
 
@@ -160,8 +167,21 @@ export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, o
         )
       })}
 
-      {/* Suggested tags - outline style, click to add */}
-      {suggestions.map(({ word, count }) => {
+      {/* Suggested tags - outline style, click to add.
+          While top_words is in flight the placeholder stands in for them, so a
+          switch to another entry does not leave the previous entry's words up. */}
+      {loadingSuggestions ? (
+        <span
+          role="status"
+          className={cn(
+            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border",
+            "border-muted-foreground/30 text-muted-foreground"
+          )}
+        >
+          <Loader2 className="h-3 w-3 animate-spin" />
+          loading suggestions
+        </span>
+      ) : suggestions.map(({ word, count }) => {
         const colors = getTagColor(word)
         const isPending = pendingWord === word
         return (
