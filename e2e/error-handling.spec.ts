@@ -211,13 +211,15 @@ test.describe("Empty States", () => {
   }) => {
     await waitForAppReady(page)
 
-    // Navigate to Starred
-    const starredNav = page.getByText("Starred")
-    if (await starredNav.isVisible().catch(() => false)) {
-      await starredNav.click()
-      // Wait for navigation to complete - app should remain responsive
-      await expect(page.getByRole("button").first()).toBeEnabled()
-    }
+    // Published is the one virtual folder E2eDataset leaves empty: it seeds
+    // read and starred articles for every feed but never publishes one. Its
+    // name is anchored because /published/i also matches nothing else in the
+    // sidebar today, and would silently start matching a feed titled after it.
+    await page.getByRole("button", { name: /^Published/ }).click()
+
+    await expect(entryListTitle(page)).toHaveText("Published")
+    await expect(page.getByText("No entries")).toBeVisible()
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
   test("shows appropriate state when search finds nothing", async ({
@@ -225,15 +227,20 @@ test.describe("Empty States", () => {
   }) => {
     await waitForAppReady(page)
 
-    // Open command palette and search
+    // Open command palette and search for a string no feed, entry or command
+    // contains
     await page.keyboard.press("Meta+k")
+    const palette = page.getByRole("dialog")
+    await expect(palette).toBeVisible()
 
-    const searchInput = page.getByPlaceholder(/search|type/i)
-    if (await searchInput.isVisible().catch(() => false)) {
-      await searchInput.fill("zzz-nonexistent-query-xyz")
-      // App should remain responsive after search
-      await expect(page.getByRole("button").first()).toBeEnabled()
-    }
+    await palette.getByRole("combobox").fill("zzz-nonexistent-query-xyz")
+
+    // CommandEmpty's copy, matched exactly and scoped to the palette so a feed
+    // or entry title containing "no results" cannot satisfy this.
+    await expect(
+      palette.getByText("No results found.", { exact: true })
+    ).toBeVisible()
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
   test("handles feed with no entries", async ({ page }) => {
@@ -425,15 +432,17 @@ test.describe("Concurrent Actions", () => {
   test("handles multiple clicks in quick succession", async ({ page }) => {
     await waitForAppReady(page)
 
-    // Find a clickable element and click it multiple times rapidly
-    const button = page.getByRole("button").first()
-    if (await button.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await button.click({ timeout: 5000 })
-      await button.click({ timeout: 5000 }).catch(() => {}) // May already be in different state
-      await button.click({ timeout: 5000 }).catch(() => {})
-    }
+    // Click one sidebar feed three times with no assertion in between, so the
+    // second and third clicks land while the first selection's entries request
+    // is still in flight. Selecting a feed is idempotent, so the list has to
+    // end up exactly where a single click would have left it.
+    const feedButton = seededFeedButton(page)
+    await feedButton.click()
+    await feedButton.click()
+    await feedButton.click()
 
-    // App should remain interactive after rapid clicks
+    await expect(entryListTitle(page)).toHaveText("Rust Weekly")
+    await expect(page.getByRole("option").first()).toBeVisible()
     await expect(page.getByRole("button").first()).toBeEnabled()
   })
 
@@ -458,23 +467,30 @@ test.describe("Form Validation", () => {
   test("feed subscription handles invalid URL", async ({ page }) => {
     await waitForAppReady(page)
 
-    // Open subscribe dialog
-    const subscribeButton = page.getByRole("button", { name: /subscribe|add feed/i })
-    if (await subscribeButton.isVisible().catch(() => false)) {
-      await subscribeButton.click()
+    const feedsBefore = await (await page.request.get("/api/v1/feeds")).json()
 
-      const urlInput = page.getByLabel(/url/i)
-      if (await urlInput.isVisible().catch(() => false)) {
-        await urlInput.fill("not-a-valid-url")
+    // Open the subscribe dialog. The expanded sidebar has no subscribe button
+    // of its own - it reaches the dialog through the "Add..." menu; the
+    // "Subscribe to feed" button belongs to the collapsed rail.
+    await page.getByRole("button", { name: "Add..." }).click()
+    await page.getByRole("menuitem", { name: "Subscribe to Feed" }).click()
 
-        // Try to submit
-        const submitButton = page.getByRole("button", { name: /subscribe|add/i })
-        await submitButton.click()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible()
 
-        // App should remain functional after validation
-        await expect(page.getByRole("button").first()).toBeEnabled()
-      }
-    }
+    const urlInput = dialog.getByLabel("Feed URL")
+    await urlInput.fill("not-a-valid-url")
+    await dialog.getByRole("button", { name: "Subscribe", exact: true }).click()
+
+    // The field is type=url, so constraint validation rejects the value and the
+    // form never submits: the dialog stays open and no feed is created.
+    expect(
+      await urlInput.evaluate((input: HTMLInputElement) => input.validity.valid)
+    ).toBe(false)
+    await expect(dialog).toBeVisible()
+
+    const feedsAfter = await (await page.request.get("/api/v1/feeds")).json()
+    expect(feedsAfter).toHaveLength(feedsBefore.length)
   })
 
   test("settings form handles invalid values", async ({ page }) => {
@@ -487,16 +503,27 @@ test.describe("Form Validation", () => {
     await settingsButton.click()
 
     // Wait for settings dialog
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 })
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible({ timeout: 5000 })
 
-    // Try to enter invalid data in a number field if available
-    const numberInput = page.locator('input[type="number"]').first()
-    if (await numberInput.isVisible().catch(() => false)) {
-      await numberInput.fill("-999")
-    }
+    await dialog.getByRole("tab", { name: "Preferences" }).click()
+
+    // The accent hue slider is the settings dialog's only numeric field, bounded
+    // 0-360. Home drives it to the minimum and the extra ArrowLeft asks for a
+    // value below it. Driving it from the keyboard rather than filling the value
+    // is deliberate: Locator.fill refuses out-of-range values on a range input,
+    // so it would never reach the app under test.
+    const accentHue = dialog.getByLabel("Accent color")
+    await accentHue.press("Home")
+    await accentHue.press("ArrowLeft")
+
+    // Clamped, and stored as such: "0" surviving the round trip through
+    // updatePreference is what a truthiness check on the saved hue would break.
+    await expect(accentHue).toHaveValue("0")
 
     // Close settings
     await page.keyboard.press("Escape")
+    await expect(dialog).toBeHidden()
 
     // App should handle gracefully
     await expect(page.getByRole("button").first()).toBeEnabled()
