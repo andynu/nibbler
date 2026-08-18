@@ -23,6 +23,7 @@ import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
+import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { getVirtualFolder } from "@/lib/virtualFolders"
@@ -723,41 +724,36 @@ function App() {
     setFocusMode((prev) => !prev)
   }, [])
 
+  // Keys, labels and descriptions live in the shared catalog
+  // (lib/keyboardShortcuts.ts) that also drives KeyboardShortcutsDialog. Only
+  // the handlers are wired here; the map is exhaustive over the catalog, so a
+  // new shortcut fails to compile until it is handled.
   const keyboardCommands = useMemo<KeyboardCommand[]>(
-    () => [
-      // Navigation
-      { key: "j", handler: handleKeyboardNext, description: "Next entry" },
-      { key: "k", handler: handleKeyboardPrevious, description: "Previous entry" },
-      { key: "J", handler: handleKeyboardNextCategory, description: "Next category", modifiers: { shift: true } },
-      { key: "K", handler: handleKeyboardPreviousCategory, description: "Previous category", modifiers: { shift: true } },
-      { key: "n", handler: handleKeyboardNext, description: "Next entry" },
-      { key: " ", handler: contentPaging.pageDownOrNext, description: "Page down / next unread" },
-      { key: " ", handler: contentPaging.pageUpOrPrevious, description: "Page up / previous entry", modifiers: { shift: true } },
-      { key: "o", handler: handleKeyboardOpen, description: "Open entry" },
-      { key: "Enter", handler: handleKeyboardOpen, description: "Open entry" },
-      { key: "Escape", handler: handleKeyboardClose, description: "Close/deselect entry" },
-      // Actions
-      { key: "m", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
-      { key: "u", handler: handleKeyboardToggleRead, description: "Toggle read/unread" },
-      { key: "s", handler: handleKeyboardToggleStarred, description: "Toggle starred" },
-      { key: "p", handler: handleKeyboardTogglePublished, description: "Toggle published" },
-      { key: "i", handler: handleToggleIframe, description: "Toggle iframe/RSS view" },
-      { key: "v", handler: handleKeyboardOpenOriginal, description: "Open original link" },
-      { key: "r", handler: handleKeyboardRefresh, description: "Refresh entries" },
-      // Go to views
-      { key: "a", handler: handleKeyboardGoAll, description: "Go to All" },
-      { key: "f", handler: handleKeyboardGoFresh, description: "Go to Fresh" },
-      { key: "S", handler: handleKeyboardGoStarred, description: "Go to Starred", modifiers: { shift: true } },
-      // Content scrolling
-      { key: "f", handler: contentPaging.pageDown, description: "Page down content", modifiers: { ctrl: true } },
-      { key: "b", handler: contentPaging.pageUp, description: "Page up content", modifiers: { ctrl: true } },
-      // Sidebar
-      { key: "b", handler: handleToggleSidebar, description: "Toggle sidebar" },
-      // Focus mode
-      { key: "F", handler: handleToggleFocusMode, description: "Toggle focus mode", modifiers: { shift: true } },
-      // Help
-      { key: "?", handler: handleKeyboardHelp, description: "Show keyboard shortcuts", modifiers: { shift: true } },
-    ],
+    () =>
+      buildKeyboardCommands({
+        "next-entry": handleKeyboardNext,
+        "previous-entry": handleKeyboardPrevious,
+        "next-category": handleKeyboardNextCategory,
+        "previous-category": handleKeyboardPreviousCategory,
+        "page-down-or-next": contentPaging.pageDownOrNext,
+        "page-up-or-previous": contentPaging.pageUpOrPrevious,
+        "page-down-content": contentPaging.pageDown,
+        "page-up-content": contentPaging.pageUp,
+        "go-all": handleKeyboardGoAll,
+        "go-fresh": handleKeyboardGoFresh,
+        "go-starred": handleKeyboardGoStarred,
+        "open-entry": handleKeyboardOpen,
+        "toggle-read": handleKeyboardToggleRead,
+        "toggle-starred": handleKeyboardToggleStarred,
+        "toggle-published": handleKeyboardTogglePublished,
+        "toggle-iframe": handleToggleIframe,
+        "open-original": handleKeyboardOpenOriginal,
+        refresh: handleKeyboardRefresh,
+        "toggle-focus-mode": handleToggleFocusMode,
+        "toggle-sidebar": handleToggleSidebar,
+        "close-entry": handleKeyboardClose,
+        "show-shortcuts": handleKeyboardHelp,
+      }),
     [
       handleKeyboardNext,
       handleKeyboardPrevious,

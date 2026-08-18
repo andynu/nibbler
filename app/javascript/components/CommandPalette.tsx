@@ -159,7 +159,13 @@ export function CommandPalette({
   )
 }
 
-// Hook to trigger command palette with keyboard shortcut
+// Hook to trigger command palette with keyboard shortcut.
+//
+// This binding is deliberately outside the shared command table: unlike
+// useKeyboardCommands it fires while a text input has focus, so Ctrl/Cmd+K
+// closes the palette again from its own search box. The catalog entry in
+// lib/keyboardShortcuts.ts ("command-palette") carries the help-dialog row and
+// points back here, so the shortcut is documented without being bound twice.
 export function useCommandPalette() {
   const [open, setOpen] = useState(false)
 
