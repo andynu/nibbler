@@ -94,11 +94,10 @@ export const test = base.extend<Fixtures>({
         )
       }
 
-      // FeedSidebar reads its expanded-folder set from localStorage and falls
-      // back to whatever categories it has at mount, which is none: data has
-      // not loaded yet. A browser context with empty storage therefore renders
-      // every folder collapsed and hides the feeds inside it. Seed the key so
-      // specs can see the feeds they seeded.
+      // FeedSidebar reads its expanded-folder set from localStorage. Empty
+      // storage now expands every folder once the categories request returns,
+      // so this seeding is no longer load-bearing for visibility; it stays as
+      // an explicit precondition so specs do not depend on that default.
       const categoriesResponse = await page.request.get("/api/v1/categories")
       const categories = categoriesResponse.ok()
         ? ((await categoriesResponse.json()) as Array<{ id: number }>)

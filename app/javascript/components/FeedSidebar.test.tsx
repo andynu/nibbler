@@ -336,6 +336,73 @@ describe("FeedSidebar", () => {
     })
   })
 
+  // The real app mounts the sidebar before the categories request returns, so
+  // the categories prop is [] on the first render. These tests reproduce that
+  // ordering with an empty first render followed by a rerender.
+  describe("expanded category persistence", () => {
+    const categories = [
+      mockCategory({ id: 1, title: "Tech" }),
+      mockCategory({ id: 2, title: "Science" }),
+    ]
+    const feeds = [
+      mockFeed({ id: 1, title: "Tech Feed", category_id: 1 }),
+      mockFeed({ id: 2, title: "Science Feed", category_id: 2 }),
+    ]
+
+    function renderWithLateCategories() {
+      const view = render(
+        <FeedSidebar {...defaultProps} feeds={feeds} categories={[]} />
+      )
+      view.rerender(
+        <FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />
+      )
+      return view
+    }
+
+    it("expands every category on a first visit with nothing saved", () => {
+      renderWithLateCategories()
+
+      expect(screen.getByText("Tech Feed")).toBeInTheDocument()
+      expect(screen.getByText("Science Feed")).toBeInTheDocument()
+    })
+
+    it("keeps everything collapsed when an empty set was saved", () => {
+      localStorage.setItem("nibbler:expandedCategories", "[]")
+
+      renderWithLateCategories()
+
+      expect(screen.queryByText("Tech Feed")).not.toBeInTheDocument()
+      expect(screen.queryByText("Science Feed")).not.toBeInTheDocument()
+    })
+
+    it("restores a saved subset of expanded categories", () => {
+      localStorage.setItem("nibbler:expandedCategories", "[1]")
+
+      renderWithLateCategories()
+
+      expect(screen.getByText("Tech Feed")).toBeInTheDocument()
+      expect(screen.queryByText("Science Feed")).not.toBeInTheDocument()
+    })
+
+    it("writes nothing before the categories request returns", () => {
+      render(<FeedSidebar {...defaultProps} feeds={feeds} categories={[]} />)
+
+      // Persisting the empty pre-load set would read back as a deliberate
+      // "collapse everything" on the next visit.
+      expect(localStorage.getItem("nibbler:expandedCategories")).toBeNull()
+    })
+
+    it("persists collapsing a category once categories have loaded", async () => {
+      const user = userEvent.setup()
+
+      renderWithLateCategories()
+      await user.click(screen.getByRole("button", { name: "Collapse all categories" }))
+
+      expect(screen.queryByText("Tech Feed")).not.toBeInTheDocument()
+      expect(localStorage.getItem("nibbler:expandedCategories")).toBe("[]")
+    })
+  })
+
   describe("feeds with errors", () => {
     it("shows collapsible errors folder when errors exist", () => {
       const feeds = [

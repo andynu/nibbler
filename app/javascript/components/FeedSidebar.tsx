@@ -109,12 +109,22 @@ export function FeedSidebar({
   // Track whether we've completed initial load (to avoid auto-expanding on first render)
   const hasInitializedRef = useRef(false)
 
-  // Initialize expanded state from localStorage, defaulting to all expanded
+  // Whether localStorage held an expansion set when the component mounted.
+  // A saved empty set means the user collapsed everything and must be honored;
+  // nothing saved at all is a first visit, which defaults to all expanded once
+  // the categories request comes back (see the initialization effect below).
+  const hadSavedExpansionRef = useRef(false)
+
+  // Initialize expanded state from localStorage. The categories prop is still
+  // empty on the first render, so the "expand everything" default cannot be
+  // applied here - the initialization effect does it once real data arrives.
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(() => {
     try {
       const saved = localStorage.getItem("nibbler:expandedCategories")
       if (saved) {
-        return new Set(JSON.parse(saved) as number[])
+        const parsed = new Set(JSON.parse(saved) as number[])
+        hadSavedExpansionRef.current = true
+        return parsed
       }
     } catch {}
     return new Set(categories.map((c) => c.id))
@@ -220,8 +230,12 @@ export function FeedSidebar({
     }
   }
 
-  // Persist expanded categories to localStorage
+  // Persist expanded categories to localStorage. Nothing is written before the
+  // categories request returns: saving the empty pre-load set would look like a
+  // deliberate "collapse everything" on the next visit and defeat the
+  // first-visit default below.
   useEffect(() => {
+    if (!hasInitializedRef.current) return
     try {
       localStorage.setItem("nibbler:expandedCategories", JSON.stringify([...expandedCategories]))
     } catch {}
@@ -270,6 +284,13 @@ export function FeedSidebar({
     if (!hasInitializedRef.current) {
       hasInitializedRef.current = true
       knownCategoryIds.current = currentIds
+
+      // Nothing was persisted, so this is a first visit: expand every category
+      // rather than leaving the whole tree collapsed and the feeds hidden.
+      if (!hadSavedExpansionRef.current) {
+        setExpandedCategories(currentIds)
+        return
+      }
 
       // Clean up stale IDs from deleted categories (categories that were saved but no longer exist)
       setExpandedCategories((prev) => {
