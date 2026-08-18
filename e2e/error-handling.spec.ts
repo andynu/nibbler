@@ -46,25 +46,36 @@ test.describe("Network Error Handling", () => {
   })
 
   test("shows loading states during slow requests", async ({ page }) => {
-    // Delay entry requests
+    // Hold the entries response open until this test releases it. A fixed
+    // sleep would let the loading state come and go before the assertions run;
+    // gating the route makes the in-flight window last as long as we need.
+    let releaseEntries = () => {}
+    const entriesReleased = new Promise<void>((resolve) => {
+      releaseEntries = resolve
+    })
     await page.route("**/api/v1/entries*", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await entriesReleased
       await route.continue()
     })
 
     await page.goto("/")
 
-    // Look for any loading indicator. Match the entry-pane placeholder exactly:
-    // /loading/i also substring-matches LabelManager's "Loading tags..." and
-    // FilterManager's "Loading filters...", and a multi-match would throw a
-    // strict-mode error that the .catch below silently turns into false.
-    const hasLoadingIndicator =
-      (await page.getByText("Loading...", { exact: true }).isVisible({ timeout: 3000 }).catch(() => false)) ||
-      (await page.locator('[class*="animate-spin"]').isVisible({ timeout: 3000 }).catch(() => false)) ||
-      (await page.locator('[class*="loading"]').isVisible({ timeout: 3000 }).catch(() => false))
+    // The reader shell is up, so the auth gate's own "Loading..." is gone and
+    // the entry pane's placeholder is the only exact match left. Match it
+    // exactly: /loading/i also substring-matches LabelManager's "Loading
+    // tags..." and FilterManager's "Loading filters...".
+    await expect(page.getByText("Select an entry to read")).toBeVisible({
+      timeout: 10000,
+    })
+    const entryListLoading = page.getByText("Loading...", { exact: true })
+    await expect(entryListLoading).toBeVisible()
 
-    // App should eventually load after the delay
-    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
+    releaseEntries()
+
+    // The placeholder is tied to the request, not just present at boot: it
+    // goes away once the entries arrive and the list renders them.
+    await expect(entryListLoading).toBeHidden()
+    await expect(page.getByRole("option").first()).toBeVisible()
   })
 
   test("handles going offline", async ({ page, context }) => {
