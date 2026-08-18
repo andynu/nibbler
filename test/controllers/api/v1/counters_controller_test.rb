@@ -6,7 +6,7 @@ class Api::V1::CountersControllerTest < ActionDispatch::IntegrationTest
     @feed = feeds(:high_frequency)
   end
 
-  def create_user_entry(title, updated:, unread: true, date_entered: nil)
+  def create_user_entry(title, updated:, unread: true, date_entered: nil, feed: nil, user: nil)
     entry = Entry.create!(
       guid: "counter-entry-#{SecureRandom.uuid}",
       title: title,
@@ -18,7 +18,21 @@ class Api::V1::CountersControllerTest < ActionDispatch::IntegrationTest
       date_updated: Time.current
     )
 
-    @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: unread)
+    (user || @user).user_entries.create!(entry: entry, feed: feed || @feed, uuid: SecureRandom.uuid, unread: unread)
+  end
+
+  def fresh_totals(params)
+    counted = fresh_count(params)
+
+    get api_v1_entries_url, params: params.merge(view: "fresh"), as: :json
+    assert_response :success
+    listed = JSON.parse(response.body)["pagination"]["total"]
+
+    get headlines_api_v1_entries_url, params: params.merge(view: "fresh"), as: :json
+    assert_response :success
+    headlined = JSON.parse(response.body)["pagination"]["total"]
+
+    { counted: counted, listed: listed, headlined: headlined }
   end
 
   def fresh_count(params = {})
@@ -62,19 +76,45 @@ class Api::V1::CountersControllerTest < ActionDispatch::IntegrationTest
     create_user_entry("Two Weeks Unread", updated: 2.weeks.ago)
 
     %w[week month].each do |max_age|
-      counted = fresh_count(fresh_max_age: max_age)
-      assert counted.positive?, "no fresh articles for fresh_max_age=#{max_age}, the comparison would be vacuous"
+      totals = fresh_totals(fresh_max_age: max_age)
+      assert totals[:counted].positive?, "no fresh articles for fresh_max_age=#{max_age}, the comparison would be vacuous"
 
-      get api_v1_entries_url, params: { view: "fresh", fresh_max_age: max_age }, as: :json
-      assert_response :success
-      listed = JSON.parse(response.body)["pagination"]["total"]
+      assert_equal totals[:counted], totals[:listed], "counters and entries disagree for fresh_max_age=#{max_age}"
+      assert_equal totals[:counted], totals[:headlined], "counters and headlines disagree for fresh_max_age=#{max_age}"
+    end
+  end
 
-      get headlines_api_v1_entries_url, params: { view: "fresh", fresh_max_age: max_age }, as: :json
-      assert_response :success
-      headlined = JSON.parse(response.body)["pagination"]["total"]
+  test "fresh count applies the per-feed cap the Fresh list applies" do
+    user = sign_in(users(:two))
+    feed_a = user.feeds.create!(title: "Feed A", feed_url: "https://example.com/a.rss")
+    feed_b = user.feeds.create!(title: "Feed B", feed_url: "https://example.com/b.rss")
 
-      assert_equal counted, listed, "counters and entries disagree for fresh_max_age=#{max_age}"
-      assert_equal counted, headlined, "counters and headlines disagree for fresh_max_age=#{max_age}"
+    4.times { |i| create_user_entry("A#{i}", updated: (i + 1).hours.ago, feed: feed_a, user: user) }
+    create_user_entry("B0", updated: 1.hour.ago, feed: feed_b, user: user)
+
+    assert_equal 5, fresh_count(fresh_max_age: "week")
+
+    # Feed A gives up two of its four, feed B has fewer than the cap and keeps its one.
+    assert_equal 3, fresh_count(fresh_max_age: "week", fresh_per_feed: 2)
+
+    # Non-positive and absent caps mean no cap at all, matching the list's "∞".
+    assert_equal 5, fresh_count(fresh_max_age: "week", fresh_per_feed: 0)
+  end
+
+  test "fresh count matches entries and headlines when a per-feed cap is applied" do
+    other_feed = @user.feeds.create!(title: "Second Feed", feed_url: "https://example.com/second.rss")
+
+    3.times { |i| create_user_entry("First #{i}", updated: (i + 1).hours.ago) }
+    3.times { |i| create_user_entry("Second #{i}", updated: (i + 1).hours.ago, feed: other_feed) }
+
+    uncapped = fresh_count(fresh_max_age: "week")
+
+    [ 1, 2 ].each do |per_feed|
+      totals = fresh_totals(fresh_max_age: "week", fresh_per_feed: per_feed)
+      assert totals[:counted] < uncapped, "a cap of #{per_feed} per feed must drop rows the uncapped count includes"
+
+      assert_equal totals[:counted], totals[:listed], "counters and entries disagree for fresh_per_feed=#{per_feed}"
+      assert_equal totals[:counted], totals[:headlined], "counters and headlines disagree for fresh_per_feed=#{per_feed}"
     end
   end
 end

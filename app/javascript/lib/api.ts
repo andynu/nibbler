@@ -552,11 +552,12 @@ export const api = {
   },
 
   counters: {
-    // fresh_max_age mirrors the Fresh view's own age selector so the sidebar
-    // badge counts the same window the list shows.
-    get: (params?: { fresh_max_age?: "week" | "month" | "all" }) => {
+    // fresh_max_age and fresh_per_feed mirror the Fresh view's own selectors so
+    // the sidebar badge counts the same rows the list shows.
+    get: (params?: { fresh_max_age?: "week" | "month" | "all"; fresh_per_feed?: number }) => {
       const searchParams = new URLSearchParams()
       if (params?.fresh_max_age) searchParams.set("fresh_max_age", params.fresh_max_age)
+      if (params?.fresh_per_feed) searchParams.set("fresh_per_feed", String(params.fresh_per_feed))
       const query = searchParams.toString()
       return request<{
         feeds: Record<number, number>

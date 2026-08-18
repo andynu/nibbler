@@ -35,6 +35,37 @@ class UserEntry < ApplicationRecord
     cutoff ? scoped.where("entries.updated > ?", cutoff) : scoped
   }
 
+  # Ids from +relation+ that survive the Fresh view's per-feed cap: the newest
+  # +limit+ articles of each feed, ranked by import date the way the list is
+  # rendered. Feeds with fewer than +limit+ articles keep all of them.
+  def self.top_per_feed_ids(relation, limit)
+    base_ids = relation.reorder("").pluck(:id)
+    return base_ids if base_ids.empty?
+
+    limited_ids_sql = sanitize_sql_array([ <<~SQL.squish, base_ids, limit.to_i ])
+      SELECT id FROM (
+        SELECT user_entries.id,
+               ROW_NUMBER() OVER (PARTITION BY user_entries.feed_id ORDER BY entries.date_entered DESC) as rn
+        FROM user_entries
+        INNER JOIN entries ON entries.id = user_entries.entry_id
+        WHERE user_entries.id IN (?)
+      ) ranked
+      WHERE rn <= ?
+    SQL
+
+    connection.select_values(limited_ids_sql)
+  end
+
+  # How many rows of +relation+ survive that same per-feed cap. The cap keeps
+  # min(rows_in_feed, limit) rows from every feed regardless of how they rank
+  # within it, so a grouped count gives the exact figure in one query without
+  # materialising the ids. Counters use this to keep the Fresh badge equal to
+  # the number of rows the Fresh list will show.
+  def self.count_per_feed_capped(relation, limit)
+    capped = limit.to_i
+    relation.group(:feed_id).count.sum { |_feed_id, rows| [ rows, capped ].min }
+  end
+
   def mark_read!
     update!(unread: false, last_read: Time.current)
   end

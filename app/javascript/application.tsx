@@ -118,11 +118,11 @@ function App() {
     loadTags()
   }, [])
 
-  // Counters load on mount and again whenever the Fresh window changes, since
-  // the Fresh badge counts that window.
+  // Counters load on mount and again whenever the Fresh window or per-feed cap
+  // changes, since the Fresh badge counts what those two selectors leave.
   useEffect(() => {
     loadCounters()
-  }, [freshMaxAge])
+  }, [freshMaxAge, freshPerFeed])
 
   // Register audio player navigation callback
   useEffect(() => {
@@ -148,7 +148,10 @@ function App() {
 
   const loadCounters = async () => {
     try {
-      const result = await api.counters.get({ fresh_max_age: freshMaxAge })
+      const result = await api.counters.get({
+        fresh_max_age: freshMaxAge,
+        fresh_per_feed: freshPerFeed ?? undefined,
+      })
       setVirtualFolderCounts({
         fresh: result.virtual.fresh,
         starred: result.virtual.starred,

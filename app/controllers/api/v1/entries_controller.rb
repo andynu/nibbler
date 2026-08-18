@@ -38,9 +38,8 @@ module Api
         case params[:view]
         when "fresh"
           @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
-          if params[:fresh_per_feed].present? && params[:fresh_per_feed].to_i > 0
-            @user_entries = limit_per_feed(@user_entries, params[:fresh_per_feed].to_i)
-          end
+          per_feed = fresh_per_feed_limit(params[:fresh_per_feed])
+          @user_entries = limit_per_feed(@user_entries, per_feed) if per_feed
         when "starred"
           @user_entries = @user_entries.starred
         when "published"
@@ -262,6 +261,10 @@ module Api
         case params[:view]
         when "fresh"
           @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
+          per_feed = fresh_per_feed_limit(params[:fresh_per_feed])
+          if per_feed
+            @user_entries = @user_entries.where(id: UserEntry.top_per_feed_ids(@user_entries, per_feed))
+          end
         when "starred"
           @user_entries = @user_entries.where(marked: true)
         when "published"
@@ -362,29 +365,12 @@ module Api
         }
       end
 
-      # Limit results to N per feed using window functions
+      # Limit results to N per feed. The ranking lives on UserEntry so the
+      # counters endpoint can size the same cap without materialising the rows.
       def limit_per_feed(user_entries, limit)
-        # Extract just the IDs from the base query with correct SQL
-        # We need to rebuild the query to use proper window functions
-        base_ids = user_entries.reorder("").pluck(:id)
-        return user_entries if base_ids.empty?
+        ids = UserEntry.top_per_feed_ids(user_entries, limit)
+        return user_entries if ids.empty?
 
-        # Sanitize inputs to prevent SQL injection
-        safe_limit = limit.to_i
-
-        # Use sanitize_sql_array for proper SQL escaping
-        limited_ids_sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, base_ids, safe_limit ])
-          SELECT id FROM (
-            SELECT user_entries.id,
-                   ROW_NUMBER() OVER (PARTITION BY user_entries.feed_id ORDER BY entries.date_entered DESC) as rn
-            FROM user_entries
-            INNER JOIN entries ON entries.id = user_entries.entry_id
-            WHERE user_entries.id IN (?)
-          ) ranked
-          WHERE rn <= ?
-        SQL
-
-        ids = ActiveRecord::Base.connection.select_values(limited_ids_sql)
         current_user.user_entries.where(id: ids).includes(:entry, :feed).joins(:entry).order("entries.date_entered DESC")
       end
 

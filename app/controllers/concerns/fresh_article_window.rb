@@ -1,9 +1,10 @@
-# Resolves the age cutoff for the Fresh virtual folder.
+# Resolves the two bounds of the Fresh virtual folder: how far back it reaches
+# and how many articles it keeps per feed.
 #
 # The window comes from the user's fresh_article_max_age preference (hours),
 # optionally overridden per request by a fresh_max_age param of
-# "week" / "month" / "all". Shared by every endpoint that serves Fresh so they
-# cannot drift apart.
+# "week" / "month" / "all". The per-feed cap comes from the fresh_per_feed
+# param. Shared by every endpoint that serves Fresh so they cannot drift apart.
 module FreshArticleWindow
   extend ActiveSupport::Concern
 
@@ -29,5 +30,13 @@ module FreshArticleWindow
     else
       fresh_article_cutoff
     end
+  end
+
+  # Per-feed cap for Fresh, as a positive Integer, or nil when the request asks
+  # for no cap. Counters, entry lists and headlines all read the param through
+  # here so the badge cannot count rows the list would drop.
+  def fresh_per_feed_limit(per_feed_param)
+    limit = per_feed_param.to_i
+    limit.positive? ? limit : nil
   end
 end
