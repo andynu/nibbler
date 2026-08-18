@@ -36,8 +36,13 @@ class UserEntry < ApplicationRecord
   }
 
   # Ids from +relation+ that survive the Fresh view's per-feed cap: the newest
-  # +limit+ articles of each feed, ranked by import date the way the list is
-  # rendered. Feeds with fewer than +limit+ articles keep all of them.
+  # +limit+ articles of each feed. Newest means most recently published
+  # (entries.updated), the same clock the +fresh+ scope uses to decide a feed's
+  # articles are fresh at all - ranking by import date instead would let a
+  # backlog imported today outrank an article published today. Import date and
+  # then id break ties, so feeds that stamp every article with the same
+  # publication date still get a stable, newest-first answer. Feeds with fewer
+  # than +limit+ articles keep all of them.
   def self.top_per_feed_ids(relation, limit)
     base_ids = relation.reorder("").pluck(:id)
     return base_ids if base_ids.empty?
@@ -45,7 +50,10 @@ class UserEntry < ApplicationRecord
     limited_ids_sql = sanitize_sql_array([ <<~SQL.squish, base_ids, limit.to_i ])
       SELECT id FROM (
         SELECT user_entries.id,
-               ROW_NUMBER() OVER (PARTITION BY user_entries.feed_id ORDER BY entries.date_entered DESC) as rn
+               ROW_NUMBER() OVER (
+                 PARTITION BY user_entries.feed_id
+                 ORDER BY entries.updated DESC, entries.date_entered DESC, user_entries.id DESC
+               ) as rn
         FROM user_entries
         INNER JOIN entries ON entries.id = user_entries.entry_id
         WHERE user_entries.id IN (?)

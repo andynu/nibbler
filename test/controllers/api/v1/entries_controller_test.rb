@@ -223,8 +223,8 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
       @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
     end
 
-    kept = create_entry("Capped Feed B Newest", updated: 1.hour.ago, date_entered: 1.minute.ago)
-    dropped = create_entry("Capped Feed B Oldest", updated: 1.hour.ago, date_entered: 30.minutes.ago)
+    kept = create_entry("Capped Feed B Newest", updated: 1.minute.ago)
+    dropped = create_entry("Capped Feed B Oldest", updated: 30.minutes.ago)
     @user.user_entries.create!(entry: kept, feed: other_feed, uuid: SecureRandom.uuid, unread: true)
     @user.user_entries.create!(entry: dropped, feed: other_feed, uuid: SecureRandom.uuid, unread: true)
 
@@ -239,17 +239,63 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, entries.count { |e| e["feed_id"] == other_feed.id }
   end
 
+  test "fresh view per-feed cap ranks by publication date not import date" do
+    feed = feeds(:low_frequency)
+
+    # Fresh membership is decided by publication date, so the cap has to rank on
+    # the same clock: a backlog article imported a minute ago must not displace
+    # an article published an hour ago that has been sitting in the database.
+    published_recently = create_entry("Published Recently", updated: 1.hour.ago, date_entered: 3.days.ago)
+    imported_recently = create_entry("Imported Recently", updated: 3.days.ago, date_entered: 1.minute.ago)
+    @user.user_entries.create!(entry: published_recently, feed: feed, uuid: SecureRandom.uuid, unread: true)
+    @user.user_entries.create!(entry: imported_recently, feed: feed, uuid: SecureRandom.uuid, unread: true)
+
+    get api_v1_entries_url, params: { view: "fresh", fresh_max_age: "week", fresh_per_feed: 1 }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["entries"]
+      .select { |e| e["feed_id"] == feed.id }
+      .map { |e| e["title"] }
+
+    assert_equal [ "Published Recently" ], titles,
+      "the cap must keep the most recently published article, not the most recently imported"
+  end
+
+  test "fresh view per-feed cap breaks publication date ties deterministically" do
+    feed = feeds(:low_frequency)
+    published_at = 1.hour.ago
+
+    # Feeds that stamp every article with the same publication date still need a
+    # stable answer, so import date and then id decide the order.
+    older_import = create_entry("Tied Older Import", updated: published_at, date_entered: 2.days.ago)
+    newer_import = create_entry("Tied Newer Import", updated: published_at, date_entered: 1.minute.ago)
+    @user.user_entries.create!(entry: older_import, feed: feed, uuid: SecureRandom.uuid, unread: true)
+    @user.user_entries.create!(entry: newer_import, feed: feed, uuid: SecureRandom.uuid, unread: true)
+
+    2.times do
+      get api_v1_entries_url, params: { view: "fresh", fresh_max_age: "week", fresh_per_feed: 1 }, as: :json
+      assert_response :success
+
+      titles = JSON.parse(response.body)["entries"]
+        .select { |e| e["feed_id"] == feed.id }
+        .map { |e| e["title"] }
+
+      assert_equal [ "Tied Newer Import" ], titles,
+        "tied publication dates must fall back to import date"
+    end
+  end
+
   test "fresh view per-feed cap ranks tagged articles, not all fresh articles" do
     tag = Tag.create!(name: "ruby", user: @user)
 
-    # Five untagged fresh articles rank ahead of the tagged one by import date,
-    # so a cap applied before the tag filter would leave nothing to return.
+    # Five untagged fresh articles rank ahead of the tagged one by publication
+    # date, so a cap applied before the tag filter would leave nothing to return.
     5.times do |i|
-      entry = create_entry("Untagged Fresh #{i}", updated: 1.hour.ago, date_entered: (i + 1).minutes.ago)
+      entry = create_entry("Untagged Fresh #{i}", updated: (i + 1).minutes.ago)
       @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
     end
 
-    buried = create_entry("Tagged But Buried", updated: 1.hour.ago, date_entered: 30.minutes.ago)
+    buried = create_entry("Tagged But Buried", updated: 30.minutes.ago)
     EntryTag.create!(entry: buried, tag: tag)
     @user.user_entries.create!(entry: buried, feed: @feed, uuid: SecureRandom.uuid, unread: true)
 
@@ -265,14 +311,14 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     tag = Tag.create!(name: "ruby", user: @user)
 
     3.times do |i|
-      entry = create_entry("Tagged Fresh #{i}", updated: 1.hour.ago, date_entered: (i + 1).minutes.ago)
+      entry = create_entry("Tagged Fresh #{i}", updated: (i + 1).minutes.ago)
       EntryTag.create!(entry: entry, tag: tag)
       @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
     end
 
     # Newer untagged articles would consume the whole cap if it ran first
     2.times do |i|
-      entry = create_entry("Untagged Newer #{i}", updated: 1.hour.ago, date_entered: (i + 1).seconds.ago)
+      entry = create_entry("Untagged Newer #{i}", updated: (i + 1).seconds.ago)
       @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
     end
 
