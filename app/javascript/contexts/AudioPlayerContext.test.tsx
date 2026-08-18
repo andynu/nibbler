@@ -23,12 +23,13 @@ vi.mock("@/contexts/PreferencesContext", () => ({
 }))
 
 function TestConsumer() {
-  const { state, error, requestTtsAudio } = useAudioPlayer()
+  const { state, error, queue, requestTtsAudio } = useAudioPlayer()
 
   return (
     <div>
       <div data-testid="state">{state}</div>
       <div data-testid="error">{error ?? ""}</div>
+      <div data-testid="queue-statuses">{queue.map((item) => item.status).join(",")}</div>
       <button onClick={() => requestTtsAudio(1, "An entry", "A feed")}>
         Request audio
       </button>
@@ -44,9 +45,27 @@ function renderPlayer() {
   )
 }
 
+// The provider seeds its queue from localStorage, which is the only way to
+// start a render with a pending item and no auto-play side effects.
+function seedQueue(entryId: number) {
+  localStorage.setItem(
+    "nibbler:audioQueue",
+    JSON.stringify([
+      {
+        id: "queued-item",
+        entryId,
+        entryTitle: "A queued entry",
+        source: "tts",
+        status: "pending",
+      },
+    ])
+  )
+}
+
 describe("AudioPlayerContext", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
   })
 
   afterEach(() => {
@@ -128,6 +147,89 @@ describe("AudioPlayerContext", () => {
         await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 5)
       })
       expect(mockAudioApi).toHaveBeenCalledTimes(callsAtFailure)
+    })
+  })
+
+  describe("queue pre-generation", () => {
+    it("marks the item errored when a poll request rejects", async () => {
+      vi.useFakeTimers()
+      seedQueue(42)
+      mockAudioApi
+        .mockResolvedValueOnce({ status: "generating" })
+        .mockRejectedValue(new Error("network is down"))
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+      await act(async () => {
+        renderPlayer()
+      })
+      expect(screen.getByTestId("queue-statuses")).toHaveTextContent("generating")
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL)
+      })
+
+      expect(screen.getByTestId("queue-statuses")).toHaveTextContent("error")
+
+      // A rejection must stop the poll chain, not leave it running
+      const callsAtFailure = mockAudioApi.mock.calls.length
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 5)
+      })
+      expect(mockAudioApi).toHaveBeenCalledTimes(callsAtFailure)
+
+      warn.mockRestore()
+    })
+
+    it("marks the item errored when a poll reports a terminal status", async () => {
+      vi.useFakeTimers()
+      seedQueue(43)
+      mockAudioApi
+        .mockResolvedValueOnce({ status: "generating" })
+        .mockResolvedValue({ status: "error", error: "job died" })
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+      await act(async () => {
+        renderPlayer()
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL)
+      })
+
+      expect(screen.getByTestId("queue-statuses")).toHaveTextContent("error")
+
+      const callsAtFailure = mockAudioApi.mock.calls.length
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 5)
+      })
+      expect(mockAudioApi).toHaveBeenCalledTimes(callsAtFailure)
+
+      warn.mockRestore()
+    })
+
+    it("marks the item ready once generation completes", async () => {
+      vi.useFakeTimers()
+      seedQueue(44)
+      mockAudioApi
+        .mockResolvedValueOnce({ status: "generating" })
+        .mockResolvedValue({ status: "ready", audio_url: "/audio/44.mp3" })
+
+      await act(async () => {
+        renderPlayer()
+      })
+      expect(screen.getByTestId("queue-statuses")).toHaveTextContent("generating")
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL)
+      })
+
+      expect(screen.getByTestId("queue-statuses")).toHaveTextContent("ready")
+
+      const callsAtReady = mockAudioApi.mock.calls.length
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 5)
+      })
+      expect(mockAudioApi).toHaveBeenCalledTimes(callsAtReady)
     })
   })
 })

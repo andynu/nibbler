@@ -706,9 +706,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
           )
         )
 
-        // If generating, poll for completion
+        // If generating, poll for completion. The loop is awaited inside this
+        // try so a rejected request (network blip, 500) reaches the catch
+        // below; a detached setTimeout chain would strand the item in
+        // "generating" with no error and no retry.
         if (response.status === "generating") {
-          const pollForReady = async () => {
+          const pollForReady = async (): Promise<void> => {
+            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
             const pollResponse = await api.entries.audio(item.entryId)
             if (pollResponse.status === "ready") {
               setQueue((prev) =>
@@ -716,26 +720,27 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
                   q.id === item.id ? { ...q, status: "ready" } : q
                 )
               )
-            } else if (isTerminalAudioStatus(pollResponse.status)) {
-              // Terminal - stop the setTimeout chain rather than poll forever
-              setQueue((prev) =>
-                prev.map((q) =>
-                  q.id === item.id ? { ...q, status: "error" } : q
-                )
-              )
-            } else {
-              // Keep polling
-              setTimeout(pollForReady, POLL_INTERVAL)
+              return
             }
+            if (isTerminalAudioStatus(pollResponse.status)) {
+              // Terminal - stop recursing; the catch below marks it errored
+              throw new Error(terminalAudioMessage(pollResponse))
+            }
+            // Keep polling
+            return pollForReady()
           }
-          setTimeout(pollForReady, POLL_INTERVAL)
+
+          await pollForReady()
         }
-      } catch {
+      } catch (err) {
+        console.warn("Pre-generation failed:", err)
         setQueue((prev) =>
           prev.map((q) =>
             q.id === item.id ? { ...q, status: "error" } : q
           )
         )
+      } finally {
+        preGeneratingRef.current.delete(item.id)
       }
     }
 
