@@ -113,10 +113,10 @@ function isWordTaggingFilter(filter: Filter, word: string): boolean {
   const action = filter.actions[0]
 
   const expectedPattern = `\\b${word}\\b`
-  if (rule.filter_type !== 3) return false
+  if (rule.filter_type !== "both") return false
   if (rule.reg_exp.toLowerCase() !== expectedPattern.toLowerCase()) return false
 
-  if (action.action_type !== 4) return false
+  if (action.action_type !== "tag") return false
   if (action.action_param?.toLowerCase() !== word.toLowerCase()) return false
 
   return true
@@ -315,14 +315,14 @@ export function EditFeedDialog({
               inverse: false,
               filter_rules_attributes: [
                 {
-                  filter_type: 3,
+                  filter_type: "both",
                   reg_exp: `\\b${word}\\b`,
                   inverse: false,
                 },
               ],
               filter_actions_attributes: [
                 {
-                  action_type: 4,
+                  action_type: "tag",
                   action_param: word,
                 },
               ],

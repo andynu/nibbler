@@ -3,7 +3,14 @@ import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import React from "react"
 import { EditFeedDialog } from "./EditFeedDialog"
-import { mockFeed, mockCategory, mockPreferences } from "../../../test/fixtures/data"
+import {
+  mockFeed,
+  mockCategory,
+  mockPreferences,
+  mockFilter,
+  mockFilterRule,
+  mockFilterAction,
+} from "../../../test/fixtures/data"
 
 // Mock API
 const mockApiUpdate = vi.fn()
@@ -11,6 +18,8 @@ const mockApiRefresh = vi.fn()
 const mockApiDelete = vi.fn()
 const mockApiInfo = vi.fn()
 const mockApiFiltersList = vi.fn()
+const mockApiFiltersCreate = vi.fn()
+const mockApiFiltersDelete = vi.fn()
 
 vi.mock("@/lib/api", () => ({
   api: {
@@ -22,6 +31,8 @@ vi.mock("@/lib/api", () => ({
     },
     filters: {
       list: () => mockApiFiltersList(),
+      create: (...args: unknown[]) => mockApiFiltersCreate(...args),
+      delete: (...args: unknown[]) => mockApiFiltersDelete(...args),
     },
   },
 }))
@@ -75,6 +86,54 @@ describe("EditFeedDialog", () => {
       top_words: [{ word: "test", count: 5 }],
     })
     mockApiFiltersList.mockResolvedValue([])
+    mockApiFiltersCreate.mockResolvedValue(mockFilter())
+    mockApiFiltersDelete.mockResolvedValue({})
+  })
+
+  describe("word cloud filters", () => {
+    // filter_type / action_type are string enums server-side (FilterRule::FILTER_TYPES,
+    // FilterAction::ACTION_TYPES). This call site was still sending the pre-d2b6edb
+    // integer codes 3 and 4, which fail inclusion validation.
+    const wordFilter = () =>
+      mockFilter({
+        id: 42,
+        title: "Tag: test",
+        rules: [mockFilterRule({ filter_type: "both", reg_exp: "\\btest\\b" })],
+        actions: [mockFilterAction({ action_type: "tag", action_param: "test" })],
+      })
+
+    it("creates a word filter with the string enum types the API accepts", async () => {
+      const user = userEvent.setup()
+      render(<EditFeedDialog {...defaultProps} />)
+
+      const wordButton = await screen.findByRole("button", { name: /test/i })
+      await user.click(wordButton)
+
+      await waitFor(() => expect(mockApiFiltersCreate).toHaveBeenCalledTimes(1))
+
+      const payload = mockApiFiltersCreate.mock.calls[0][0].filter
+      expect(payload.filter_rules_attributes[0]).toMatchObject({
+        filter_type: "both",
+        reg_exp: "\\btest\\b",
+      })
+      expect(payload.filter_actions_attributes[0]).toMatchObject({
+        action_type: "tag",
+        action_param: "test",
+      })
+    })
+
+    it("recognizes an existing word filter and removes it instead of duplicating", async () => {
+      const user = userEvent.setup()
+      mockApiFiltersList.mockResolvedValue([wordFilter()])
+
+      render(<EditFeedDialog {...defaultProps} />)
+
+      const wordButton = await screen.findByRole("button", { name: /test/i })
+      await user.click(wordButton)
+
+      await waitFor(() => expect(mockApiFiltersDelete).toHaveBeenCalledWith(42))
+      expect(mockApiFiltersCreate).not.toHaveBeenCalled()
+    })
   })
 
   describe("rendering", () => {
