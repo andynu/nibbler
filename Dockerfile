@@ -80,6 +80,12 @@ USER 1000:1000
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /rails /rails
 
+# Favicon cache directory. .dockerignore keeps the build context copy out, so
+# create it here owned by the app user (USER is already 1000:1000): the Kamal
+# volume mounted at this path inherits that ownership on first mount, which is
+# what lets FetchFaviconJob write into it.
+RUN mkdir -p /rails/public/icons
+
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 

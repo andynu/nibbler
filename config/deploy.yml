@@ -56,6 +56,15 @@ aliases:
 # version inside the asset_path.
 asset_path: /rails/public/assets
 
+# Persist the favicon cache across deploys. Without this every new container
+# starts with an empty public/icons and every Feed#icon_url 404s until
+# UpdateFaviconsJob refetches. Applies to both the web role (serves the files)
+# and the job role (FetchFaviconJob writes them); same host, so one volume.
+# The image creates /rails/public/icons owned by uid 1000 so the volume is
+# writable by the app user.
+volumes:
+  - "nibbler_icons:/rails/public/icons"
+
 
 # Configure the image builder.
 builder:
