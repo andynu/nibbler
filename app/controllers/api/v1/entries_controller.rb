@@ -34,20 +34,6 @@ module Api
           @user_entries = @user_entries.published
         end
 
-        # Virtual feeds
-        case params[:view]
-        when "fresh"
-          @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
-          per_feed = fresh_per_feed_limit(params[:fresh_per_feed])
-          @user_entries = limit_per_feed(@user_entries, per_feed) if per_feed
-        when "starred"
-          @user_entries = @user_entries.starred
-        when "published"
-          @user_entries = @user_entries.published
-        when "archived"
-          @user_entries = @user_entries.read
-        end
-
         # Filter by feed
         if params[:feed_id].present?
           @user_entries = @user_entries.where(feed_id: params[:feed_id])
@@ -68,6 +54,26 @@ module Api
           @user_entries = @user_entries
             .joins(entry: :tags)
             .where(tags: { user_id: current_user.id, name: tag_name })
+        end
+
+        # Virtual feeds. Deliberately the last filter applied: the Fresh
+        # per-feed cap has to rank the rows the request actually asked for, so
+        # the toolbar's "5 per feed" means the newest 5 MATCHING articles of
+        # each feed. Capping before the tag filter instead would rank all fresh
+        # rows and let the tag filter thin the survivors, so a feed whose
+        # tagged articles rank 6th or later by import date would return none.
+        # #headlines applies its view block last for the same reason.
+        case params[:view]
+        when "fresh"
+          @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
+          per_feed = fresh_per_feed_limit(params[:fresh_per_feed])
+          @user_entries = limit_per_feed(@user_entries, per_feed) if per_feed
+        when "starred"
+          @user_entries = @user_entries.starred
+        when "published"
+          @user_entries = @user_entries.published
+        when "archived"
+          @user_entries = @user_entries.read
         end
 
         # Pagination
@@ -258,6 +264,8 @@ module Api
           end
         end
 
+        # Keep this block after the filters above, matching #index: the Fresh
+        # per-feed cap must rank the final row set, not a superset of it.
         case params[:view]
         when "fresh"
           @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))

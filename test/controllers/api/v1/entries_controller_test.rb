@@ -239,6 +239,51 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, entries.count { |e| e["feed_id"] == other_feed.id }
   end
 
+  test "fresh view per-feed cap ranks tagged articles, not all fresh articles" do
+    tag = Tag.create!(name: "ruby", user: @user)
+
+    # Five untagged fresh articles rank ahead of the tagged one by import date,
+    # so a cap applied before the tag filter would leave nothing to return.
+    5.times do |i|
+      entry = create_entry("Untagged Fresh #{i}", updated: 1.hour.ago, date_entered: (i + 1).minutes.ago)
+      @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    end
+
+    buried = create_entry("Tagged But Buried", updated: 1.hour.ago, date_entered: 30.minutes.ago)
+    EntryTag.create!(entry: buried, tag: tag)
+    @user.user_entries.create!(entry: buried, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    get api_v1_entries_url, params: { view: "fresh", fresh_per_feed: 5, tag: "ruby" }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["entries"].map { |e| e["title"] }
+    assert_equal [ "Tagged But Buried" ], titles,
+      "per-feed cap must be applied after the tag filter, not before it"
+  end
+
+  test "fresh view per-feed cap counts matching articles when a tag filter is applied" do
+    tag = Tag.create!(name: "ruby", user: @user)
+
+    3.times do |i|
+      entry = create_entry("Tagged Fresh #{i}", updated: 1.hour.ago, date_entered: (i + 1).minutes.ago)
+      EntryTag.create!(entry: entry, tag: tag)
+      @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    end
+
+    # Newer untagged articles would consume the whole cap if it ran first
+    2.times do |i|
+      entry = create_entry("Untagged Newer #{i}", updated: 1.hour.ago, date_entered: (i + 1).seconds.ago)
+      @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    end
+
+    get api_v1_entries_url, params: { view: "fresh", fresh_per_feed: 2, tag: "ruby" }, as: :json
+    assert_response :success
+
+    titles = JSON.parse(response.body)["entries"].map { |e| e["title"] }
+    assert_equal [ "Tagged Fresh 0", "Tagged Fresh 1" ], titles,
+      "the cap keeps the newest N matching articles of the feed"
+  end
+
   test "multi-column sort parameter works" do
     feed2 = feeds(:low_frequency)
 
