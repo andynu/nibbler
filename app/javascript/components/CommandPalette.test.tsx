@@ -1,7 +1,6 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import React from "react"
 import { CommandPalette, useCommandPalette } from "./CommandPalette"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
 import { renderHook, act } from "@testing-library/react"

@@ -1,6 +1,5 @@
 import { render, screen, waitFor, act } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import React from "react"
 import { PreferencesProvider, usePreferences } from "./PreferencesContext"
 import { mockPreferences } from "../../../test/fixtures/data"
 

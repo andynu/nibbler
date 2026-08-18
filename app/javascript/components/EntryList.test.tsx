@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import React from "react"
 import { EntryList } from "./EntryList"
 import { mockEntry } from "../../../test/fixtures/data"
 
@@ -28,7 +27,7 @@ vi.mock("@/contexts/PreferencesContext", () => ({
 // Mock useDateFormat
 vi.mock("@/hooks/useDateFormat", () => ({
   useDateFormat: () => ({
-    formatListDate: (date: Date | string) => "5m ago",
+    formatListDate: (_date: Date | string) => "5m ago",
   }),
 }))
 

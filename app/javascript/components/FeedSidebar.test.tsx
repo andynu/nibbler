@@ -1,7 +1,6 @@
-import { render, screen, within } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import React from "react"
 import { FeedSidebar } from "./FeedSidebar"
 import { api } from "@/lib/api"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"

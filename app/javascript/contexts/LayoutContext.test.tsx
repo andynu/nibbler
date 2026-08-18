@@ -1,6 +1,5 @@
 import { render, screen, act } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import React from "react"
 import { LayoutProvider, useLayout } from "./LayoutContext"
 
 // Test component that uses the context

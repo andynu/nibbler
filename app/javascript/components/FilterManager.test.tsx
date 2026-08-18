@@ -1,7 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import React from "react"
 import { FilterManager } from "./FilterManager"
 import { mockFilter } from "../../../test/fixtures/data"
 

@@ -1,9 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import React, { useState } from "react"
 import { SettingsDialog } from "./SettingsDialog"
-import { mockFeed, mockCategory, mockPreferences } from "../../../test/fixtures/data"
+import { mockFeed, mockCategory } from "../../../test/fixtures/data"
 
 // Mock the API boundary. AccountPanel loads the public feed key on mount and
 // SettingsDialog reloads feeds/categories after FeedOrganizer changes; without
