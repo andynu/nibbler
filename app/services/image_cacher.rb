@@ -101,8 +101,15 @@ class ImageCacher
   # Download and cache a single image
   # @return [Boolean] true if successful
   def cache_image(url)
-    # Check if already cached
-    return true if CachedImage.exists?(entry: @entry, original_url: url)
+    existing = CachedImage.find_by(entry: @entry, original_url: url)
+    if existing
+      # A record whose file is gone is a miss, not a hit. Returning true here
+      # would leave cached_content pointing at a URL that 404s with nothing to
+      # repair it, which is what a container without the cache volume produces.
+      return true if File.exist?(existing.cached_path)
+
+      existing.destroy
+    end
 
     response = download_image(url)
     return false unless response

@@ -90,11 +90,13 @@ class ImageCacherTest < ActiveSupport::TestCase
   end
 
   test "skips downloading already cached images" do
-    # Manually create a cached image record
+    # Manually create a cached image record backed by a file on disk
+    filename = "test_existing_#{SecureRandom.hex(4)}.jpg"
+    File.binwrite(@cache_dir.join(filename), fake_jpeg)
     CachedImage.create!(
       entry: @entry,
       original_url: "https://example.com/image1.jpg",
-      cached_filename: "test_existing.jpg",
+      cached_filename: filename,
       cached_at: Time.current
     )
 
@@ -109,6 +111,28 @@ class ImageCacherTest < ActiveSupport::TestCase
     # But only image2 was actually downloaded
     assert_not_requested :get, "https://example.com/image1.jpg"
     assert_requested :get, "https://example.com/image2.png", times: 1
+  end
+
+  test "re-downloads when the cache record has lost its file" do
+    stale = CachedImage.create!(
+      entry: @entry,
+      original_url: "https://example.com/image1.jpg",
+      cached_filename: "gone_#{SecureRandom.hex(4)}.jpg",
+      cached_at: Time.current
+    )
+    assert_not File.exist?(stale.cached_path)
+
+    result = ImageCacher.new(@entry).cache_images
+
+    assert result.success
+    assert_equal 2, result.cached_count
+    assert_requested :get, "https://example.com/image1.jpg", times: 1
+
+    assert_not CachedImage.exists?(stale.id), "the record pointing at a missing file should be replaced"
+
+    replacement = @entry.cached_images.find_by(original_url: "https://example.com/image1.jpg")
+    assert File.exist?(replacement.cached_path)
+    assert_includes @entry.reload.cached_content, replacement.cached_url
   end
 
   test "returns empty result for content without images" do

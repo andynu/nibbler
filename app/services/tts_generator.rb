@@ -58,15 +58,17 @@ class TtsGenerator
     return error_result("No text content to generate audio for") if text.blank?
     return error_result("Text too long (#{text.length} chars, max #{MAX_TEXT_LENGTH})") if text.length > MAX_TEXT_LENGTH
 
-    # Check for existing valid cache
+    # Check for existing valid cache. The file has to actually be there: a
+    # record whose audio is gone (a container without the cache volume, a
+    # manual purge) would otherwise be reported as ready and play a 404.
     content_hash = CachedAudio.hash_content(@entry.content)
     existing = @entry.cached_audio
-    if existing&.valid_for_content?(@entry.content)
+    if existing&.valid_for_content?(@entry.content) && File.exist?(existing.cached_path)
       Rails.logger.debug { "Using cached TTS audio for entry #{@entry.id}" }
       return GenerationResult.new(success: true, cached_audio: existing, error: nil)
     end
 
-    # Delete stale cache if content changed
+    # Delete cache that is stale or has lost its file
     existing&.destroy
 
     # Generate new audio

@@ -32,6 +32,15 @@ Rails.application.configure do
       class: "UpdateFaviconsJob",
       description: "Fetch and cache favicons for feeds that need updating"
     },
+    # Reconciles CachedImage against public/images/cache both ways: deletes
+    # files with no record, and drops records whose file is gone so the article
+    # falls back to its original remote image URLs instead of serving 404s.
+    # Was never scheduled, so neither direction ran in production.
+    cleanup_cached_images: {
+      cron: "30 4 * * *", # at 4:30am daily, after update_favicons
+      class: "CleanupCachedImagesJob",
+      description: "Reconcile cached article image records with files on disk"
+    },
     send_digests: {
       cron: "0 * * * *", # every hour at minute 0
       class: "SendDigestsJob",
