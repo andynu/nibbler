@@ -35,11 +35,11 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "i18next": "^25.7.3",
+    "i18next": "^26.3.6",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-i18next": "^16.5.0",
+    "react-i18next": "^17.0.11",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "yarn": "^1.22.22"
@@ -55,7 +55,7 @@
     "esbuild": "^0.27.2",
     "happy-dom": "^20.0.11",
     "jsdom": "^27.4.0",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.0.16"
   }
 }
