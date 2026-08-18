@@ -386,7 +386,9 @@ export function EntryList({
                     </div>
                     <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
                       {feed.last_error && (
-                        <AlertCircle className="h-3.5 w-3.5 text-destructive" title={feed.last_error} />
+                        <span title={feed.last_error} className="inline-flex">
+                          <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                        </span>
                       )}
                       {feed.newest_entry_date && (
                         <span title={`Last post: ${new Date(feed.newest_entry_date).toLocaleDateString()}`}>

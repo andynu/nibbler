@@ -20,8 +20,13 @@ export function mockFeed(overrides: Partial<Feed> = {}): Feed {
     category_title: null,
     icon_url: null,
     last_updated: "2025-01-15T10:00:00Z",
+    last_successful_update: "2025-01-15T10:00:00Z",
+    next_poll_at: "2025-01-15T11:00:00Z",
     last_error: null,
     unread_count: 5,
+    entry_count: 20,
+    oldest_entry_date: "2024-01-01T00:00:00Z",
+    newest_entry_date: "2025-01-15T09:00:00Z",
     ...overrides,
   }
 }
@@ -38,6 +43,7 @@ export function mockEntry(overrides: Partial<Entry> = {}): Entry {
     published: "2025-01-15T10:00:00Z",
     unread: true,
     starred: false,
+    is_published: false,
     score: 0,
     last_read: null,
     content_preview: "This is a test entry preview...",
@@ -49,8 +55,7 @@ export function mockEntryWithContent(overrides: Partial<Entry> = {}): Entry {
   return {
     ...mockEntry(),
     content: "<p>This is the full content of the test entry.</p>",
-    note: null,
-    labels: [],
+    note: undefined,
     tags: [],
     enclosures: [],
     ...overrides,
@@ -163,6 +168,12 @@ export function mockPreferences(
     sidebar_collapsed: "false",
     sync_to_tree: "false",
     user_language: "",
+    entries_sort_config: "date:desc",
+    tts_playback_speed: "1",
+    digest_enable: "false",
+    digest_preferred_time: "08:00",
+    digest_catchup: "false",
+    digest_min_score: "0",
     ...overrides,
   }
 }

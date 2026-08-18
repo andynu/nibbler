@@ -415,7 +415,7 @@ export function EntryContent({
               enclosures={entry.enclosures}
               entryId={entry.id}
               entryTitle={entry.title}
-              feedTitle={entry.feed_title}
+              feedTitle={entry.feed_title ?? undefined}
             />
           )}
 

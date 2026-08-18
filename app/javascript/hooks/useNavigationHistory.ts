@@ -8,7 +8,9 @@ export interface NavigationState {
   type: "feed" | "category" | "virtual" | "dialog" | "root"
   feedId?: number
   categoryId?: number
-  virtualFeed?: "starred" | "fresh" | "published" | "stories"
+  // A virtual folder id from the registry in lib/virtualFolders. That registry
+  // is open (folders self-register), so this cannot be a closed union.
+  virtualFeed?: string
   dialog?: "settings" | "subscribe"
   settingsTab?: string
 }
@@ -16,7 +18,7 @@ export interface NavigationState {
 interface NavigationHandlers {
   onSelectFeed: (feedId: number | null) => void
   onSelectCategory: (categoryId: number | null) => void
-  onSelectVirtualFeed: (feed: "starred" | "fresh" | "published" | "stories" | null) => void
+  onSelectVirtualFeed: (feed: string | null) => void
   onShowSettings: (show: boolean, tab?: string) => void
   onShowSubscribe: (show: boolean) => void
 }
@@ -113,7 +115,7 @@ export function useNavigationHistory(handlers: NavigationHandlers) {
   )
 
   const navigateToVirtualFeed = useCallback(
-    (virtualFeed: "starred" | "fresh" | "published" | "stories") => {
+    (virtualFeed: string) => {
       pushState({ type: "virtual", virtualFeed })
     },
     [pushState]

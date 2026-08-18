@@ -27,6 +27,15 @@ import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 
+// Virtual folder ids the entries API recognizes as a `view`. The virtual folder
+// registry is open, so ids outside this set (All Feeds, the feed-list smart
+// folders) must not be forwarded as a view.
+const ENTRY_VIEWS = ["fresh", "starred", "published", "archived"] as const
+
+function toEntryView(id: string | null) {
+  return ENTRY_VIEWS.find((view) => view === id)
+}
+
 function App() {
   const { preferences, updatePreference } = usePreferences()
   const audioPlayer = useAudioPlayer()
@@ -196,15 +205,16 @@ function App() {
       const perPage = parseInt(preferences.default_view_limit, 10) || 30
       const hideRead = preferences.entries_hide_read === "true"
       const hideUnstarred = preferences.entries_hide_unstarred === "true"
-      // Convert empty string to undefined for API (All Feeds case)
-      const viewParam = virtualFeed === "" ? undefined : virtualFeed
+      // Only the entry-backed virtual folders map to an API view. All Feeds ("")
+      // and the feed-list smart folders have no server-side view and load unfiltered.
+      const viewParam = toEntryView(virtualFeed)
       // Use multi-column sort config if set, otherwise fall back to legacy sort_by_score
       const sortParam = preferences.entries_sort_config ||
         (preferences.entries_sort_by_score === "true" ? "score:desc" : "date:desc")
       const result = await api.entries.list({
         feed_id: selectedFeedId || undefined,
         category_id: selectedCategoryId || undefined,
-        view: viewParam || undefined,
+        view: viewParam,
         sort: sortParam,
         unread: hideRead ? true : undefined,
         starred: hideUnstarred ? true : undefined,

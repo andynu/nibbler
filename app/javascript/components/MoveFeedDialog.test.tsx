@@ -33,6 +33,7 @@ describe("MoveFeedDialog", () => {
     icon_url: null,
     last_updated: null,
     last_successful_update: null,
+    next_poll_at: null,
     last_error: null,
     unread_count: 5,
     entry_count: 100,

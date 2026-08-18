@@ -165,7 +165,7 @@ describe("CategorySelector", () => {
       await user.click(screen.getByRole("combobox"))
 
       // Child should show parent path
-      const childItem = screen.getByText("Child").closest("[cmdk-item]")
+      const childItem = screen.getByText("Child").closest<HTMLElement>("[cmdk-item]")
       expect(childItem).toBeInTheDocument()
       expect(within(childItem!).getByText(/Parent/)).toBeInTheDocument()
     })
