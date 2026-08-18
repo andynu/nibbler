@@ -54,9 +54,12 @@ test.describe("Network Error Handling", () => {
 
     await page.goto("/")
 
-    // Look for any loading indicator
+    // Look for any loading indicator. Match the entry-pane placeholder exactly:
+    // /loading/i also substring-matches LabelManager's "Loading tags..." and
+    // FilterManager's "Loading filters...", and a multi-match would throw a
+    // strict-mode error that the .catch below silently turns into false.
     const hasLoadingIndicator =
-      (await page.getByText(/loading/i).isVisible({ timeout: 3000 }).catch(() => false)) ||
+      (await page.getByText("Loading...", { exact: true }).isVisible({ timeout: 3000 }).catch(() => false)) ||
       (await page.locator('[class*="animate-spin"]').isVisible({ timeout: 3000 }).catch(() => false)) ||
       (await page.locator('[class*="loading"]').isVisible({ timeout: 3000 }).catch(() => false))
 

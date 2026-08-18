@@ -73,7 +73,11 @@ test.describe("Search and Filter", () => {
 
     await commandPalette.search("xyznonexistentquery12345")
 
-    await expect(page.getByText(/no results/i)).toBeVisible()
+    // Scope to the palette and match CommandEmpty's copy exactly, so a feed or
+    // entry title containing "no results" cannot satisfy this assertion.
+    await expect(
+      page.getByRole("dialog").getByText("No results found.", { exact: true })
+    ).toBeVisible()
   })
 
   test("search is case-insensitive", async ({ commandPalette, page }) => {

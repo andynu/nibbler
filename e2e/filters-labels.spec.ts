@@ -36,10 +36,16 @@ async function goToFiltersTab(page: Page) {
     "data-state",
     "active"
   )
-  // Wait for filters to finish loading
+  // Wait for filters to finish loading. Scope the empty-state branch to the
+  // settings dialog and match FilterManager's copy exactly (trailing period
+  // included) so unrelated "no filters" text elsewhere cannot satisfy or
+  // collide with it.
   await Promise.race([
     page.getByText("Article Filters").waitFor({ timeout: 10000 }),
-    page.getByText(/no filters yet/i).waitFor({ timeout: 10000 }),
+    page
+      .getByRole("dialog")
+      .getByText("No filters yet.", { exact: true })
+      .waitFor({ timeout: 10000 }),
   ])
 }
 
@@ -51,10 +57,16 @@ async function goToTagsTab(page: Page) {
     "data-state",
     "active"
   )
-  // Wait for tags to finish loading
+  // Wait for tags to finish loading. Three components render a "No tags yet"
+  // empty state - LabelManager (this one, with a trailing period), SuggestedTags
+  // and TagEditor - so scope to the settings dialog and match exactly rather
+  // than letting an entry-pane tag picker satisfy this wait.
   await Promise.race([
     page.getByRole("heading", { name: "Tags" }).waitFor({ timeout: 10000 }),
-    page.getByText(/no tags yet/i).waitFor({ timeout: 10000 }),
+    page
+      .getByRole("dialog")
+      .getByText("No tags yet.", { exact: true })
+      .waitFor({ timeout: 10000 }),
   ])
 }
 
@@ -492,8 +504,9 @@ test.describe("Tag List Operations", () => {
     const tagRow = page.getByTestId("tag-row").filter({ hasText: testTagName })
     await expect(tagRow).toBeVisible()
 
-    // Should show article count
-    await expect(tagRow.getByText(/article/i)).toBeVisible()
+    // Should show article count. Anchor the whole string so the assertion
+    // cannot be satisfied by a tag name that happens to contain "article".
+    await expect(tagRow.getByText(/^\d+ articles?$/)).toBeVisible()
     // Should have edit and delete buttons
     await expect(tagRow.locator("button")).toHaveCount(2)
   })
@@ -624,10 +637,16 @@ test.describe("Tag Form Elements", () => {
     await goToTagsTab(page)
     await page.getByRole("button", { name: /new tag/i }).click()
 
-    // Check for main form elements
+    // Check for main form elements. Scope to the tag dialog and match the field
+    // labels exactly: "preview" in particular is a common word in this UI
+    // (PreferencesPanel's "Show content preview", the OPML import preview), and
+    // an unscoped regex would start matching them if the dialog ever grows.
+    const tagDialog = page.getByRole("dialog")
     await expect(page.getByLabel(/tag name/i)).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText(/preview/i)).toBeVisible()
-    await expect(page.getByText(/color presets/i)).toBeVisible()
+    await expect(tagDialog.getByText("Preview", { exact: true })).toBeVisible()
+    await expect(
+      tagDialog.getByText("Color Presets", { exact: true })
+    ).toBeVisible()
     await expect(page.getByLabel(/background/i)).toBeVisible()
     await expect(page.getByRole("button", { name: /cancel/i })).toBeVisible()
     await expect(
@@ -699,7 +718,10 @@ test.describe("Filter Test Feature", () => {
 
     await filterRow.getByRole("button", { name: /^Test / }).click()
 
-    // Should show match results badge (e.g., "5 matched" or "X/Y matched")
-    await expect(filterRow.getByText(/\d+.*matched/i)).toBeVisible({ timeout: 10000 })
+    // Should show the match results badge, which renders "<matches>/<total>
+    // matched". Anchored so it cannot drift onto other numeric row text.
+    await expect(filterRow.getByText(/^\d+\/\d+ matched$/)).toBeVisible({
+      timeout: 10000,
+    })
   })
 })

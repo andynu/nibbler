@@ -171,9 +171,17 @@ test.describe("Help Dialog", () => {
     await page.keyboard.press("Shift+?")
     await expect(page.getByRole("dialog")).toBeVisible()
 
-    // Check that action shortcuts are documented
-    await expect(page.getByText(/toggle read/i)).toBeVisible()
-    await expect(page.getByText(/toggle starred/i)).toBeVisible()
+    // Check that action shortcuts are documented. Scope to the dialog and
+    // match the row labels exactly: the Actions section lists five "Toggle ..."
+    // rows, so a loose regex would collide the moment one of them grows a
+    // description containing another's phrase.
+    const dialog = page.getByRole("dialog")
+    await expect(
+      dialog.getByText("Toggle read/unread", { exact: true })
+    ).toBeVisible()
+    await expect(
+      dialog.getByText("Toggle starred", { exact: true })
+    ).toBeVisible()
   })
 })
 

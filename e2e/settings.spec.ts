@@ -181,7 +181,10 @@ test.describe("Preferences Tab - Reading Behavior", () => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
 
-    await expect(page.getByText(/articles per page/i)).toBeVisible()
+    // Scope to the settings dialog and match the field label exactly.
+    await expect(
+      page.getByRole("dialog").getByText("Articles per page", { exact: true })
+    ).toBeVisible()
   })
 })
 
