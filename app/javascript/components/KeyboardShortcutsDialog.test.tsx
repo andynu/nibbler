@@ -68,7 +68,7 @@ describe("KeyboardShortcutsDialog", () => {
       render(<KeyboardShortcutsDialog {...defaultProps} />)
 
       expect(screen.getByText("Previous entry")).toBeInTheDocument()
-      expect(screen.getByText("k / p")).toBeInTheDocument()
+      expect(screen.getByText("k")).toBeInTheDocument()
     })
 
     it("shows next category shortcut", () => {
@@ -127,6 +127,13 @@ describe("KeyboardShortcutsDialog", () => {
 
       expect(screen.getByText("Toggle starred")).toBeInTheDocument()
       expect(screen.getByText("s")).toBeInTheDocument()
+    })
+
+    it("shows toggle published shortcut", () => {
+      render(<KeyboardShortcutsDialog {...defaultProps} />)
+
+      expect(screen.getByText("Toggle published")).toBeInTheDocument()
+      expect(screen.getByText("p")).toBeInTheDocument()
     })
 
     it("shows open original link shortcut", () => {
@@ -189,7 +196,7 @@ describe("KeyboardShortcutsDialog", () => {
 
       // Verify key shortcuts are visible
       expect(screen.getByText("j / n")).toBeInTheDocument()
-      expect(screen.getByText("k / p")).toBeInTheDocument()
+      expect(screen.getByText("k")).toBeInTheDocument()
       expect(screen.getByText("Ctrl+K")).toBeInTheDocument()
       expect(screen.getByText("?")).toBeInTheDocument()
     })
