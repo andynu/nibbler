@@ -55,12 +55,10 @@ test.describe("Smoke Tests", () => {
       page.getByRole("button", { name: /all feeds/i }).first()
     ).toBeVisible()
 
-    // Verify API is accessible after visiting page
-    // Note: In dev mode, auto-auth happens via ALLOW_DEV_AUTH env var
+    // Verify API is accessible after visiting page; the signedIn fixture
+    // established the session this request rides on.
     const feedsResponse = await page.request.get("/api/v1/feeds")
-    // API should respond (might return 401 if auth not working, which is acceptable
-    // as long as the app UI works)
-    expect(feedsResponse.status()).toBeLessThan(500)
+    expect(feedsResponse.ok()).toBe(true)
   })
 
   test("clicking a feed loads entries in list", async ({ page }) => {

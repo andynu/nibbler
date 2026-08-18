@@ -13,7 +13,6 @@ SimpleCov.start "rails" do
 end
 
 ENV["RAILS_ENV"] ||= "test"
-ENV["ALLOW_DEV_AUTH"] ||= "1"
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
@@ -30,17 +29,12 @@ class ActiveSupport::TestCase
 end
 
 class ActionDispatch::IntegrationTest
-  def sign_in(user)
-    # Set the session user_id directly for API testing
-    post "/session", params: { login: user.login, password: "password" }
-  end
-
-  def sign_in_as(user)
-    # Set user in session via a cookie-based approach
-    # Since the app uses session[:user_id], we need to simulate this
-    @current_user = user
-    # For test environment, we'll stub the session by manipulating cookies
-    # Actually, the BaseController falls back to first user in dev, not test
-    # So we need to directly manipulate the session
+  # Establishes a real session for the rest of the example. /api/v1 has no
+  # authentication bypass, so any test touching it must call this first.
+  # Every fixture user shares this password (see test/fixtures/users.yml).
+  def sign_in(user, password: "password")
+    post api_v1_login_url, params: { login: user.login, password: password }, as: :json
+    assert_response :success, "sign_in failed for #{user.login}: #{response.body}"
+    user
   end
 end

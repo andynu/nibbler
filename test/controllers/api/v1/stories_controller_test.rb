@@ -5,8 +5,7 @@ class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
   include ActiveJob::TestHelper
 
   def setup
-    # The test env uses ALLOW_DEV_AUTH=1 which authenticates as User.first.
-    @user = User.first
+    @user = sign_in(User.first)
     @other_user = User.where.not(id: @user.id).first
     @entry = entries(:basic)
     # Ensure the authenticated user has a UserEntry for the entry we'll extract from.

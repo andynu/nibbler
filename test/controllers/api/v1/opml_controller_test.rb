@@ -2,7 +2,7 @@ require "test_helper"
 
 class Api::V1::OpmlControllerTest < ActionDispatch::IntegrationTest
   def setup
-    @user = users(:one)
+    @user = sign_in(users(:one))
     @valid_opml = <<~OPML
       <?xml version="1.0" encoding="UTF-8"?>
       <opml version="2.0">
@@ -48,9 +48,8 @@ class Api::V1::OpmlControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "preview marks existing feeds correctly" do
-    # Create one feed first for the first user (which the test fallback uses)
-    test_user = User.first
-    test_user.feeds.create!(title: "Existing", feed_url: "https://news.ycombinator.com/rss")
+    # The signed in user already subscribes to one of the feeds in the OPML
+    @user.feeds.create!(title: "Existing", feed_url: "https://news.ycombinator.com/rss")
 
     post api_v1_preview_url,
       params: { file: fixture_file_upload_from_string(@valid_opml, "application/xml") }

@@ -3,8 +3,9 @@ import { Page, expect } from "@playwright/test"
 /**
  * Auth helpers for E2E tests.
  *
- * Note: In development/test mode, the app auto-authenticates to the first user.
- * These helpers are for when a login UI is implemented or for API-level auth.
+ * The server has no authentication bypass, so the session these drive is the
+ * only thing standing between a spec and a page full of 401s. The signedIn
+ * fixture calls loginViaApi before every test.
  */
 
 /**
@@ -41,7 +42,7 @@ export async function getCurrentUser(page: Page) {
 }
 
 /**
- * Wait for app to fully load (auto-authenticated in dev/test)
+ * Wait for app to fully load (the signedIn fixture supplies the session)
  */
 export async function waitForAppLoad(page: Page) {
   await page.goto("/")

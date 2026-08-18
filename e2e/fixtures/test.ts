@@ -30,11 +30,11 @@ type Fixtures = {
   /**
    * Signs the browser context in as the seeded admin before every test.
    *
-   * ALLOW_DEV_AUTH covers the /api/v1 controllers but not
-   * Api::V1::SessionsController#show, which the React app calls on boot to
-   * decide between the login form and the reader. Without a real session the
-   * app renders the login form and every UI assertion fails, so the suite logs
-   * in for real. Specs that need an anonymous context call logoutViaApi first.
+   * The server has no authentication bypass: every /api/v1 endpoint, including
+   * the /auth/me the React app calls on boot to decide between the login form
+   * and the reader, needs a real session. Without one the app renders the login
+   * form and every UI assertion fails, so the suite logs in for real. Specs
+   * that need an anonymous context call logoutViaApi first.
    */
   signedIn: void
 

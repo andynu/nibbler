@@ -13,7 +13,7 @@ import { loginViaApi, logoutViaApi, getCurrentUser, waitForAppLoad } from "./fix
  * 3. Session management via API
  */
 
-test.describe("App authentication (auto-auth in dev/test)", () => {
+test.describe("App authentication", () => {
   test("app loads and shows main interface", async ({ page }) => {
     await page.goto("/")
 
@@ -24,7 +24,7 @@ test.describe("App authentication (auto-auth in dev/test)", () => {
     await expect(page.getByText("NibbleRSS")).toBeVisible()
   })
 
-  test("API requests work when auto-authenticated", async ({ page }) => {
+  test("API requests work when signed in", async ({ page }) => {
     await page.goto("/")
 
     // Make an API request to check feeds
@@ -44,8 +44,6 @@ test.describe("App authentication (auto-auth in dev/test)", () => {
   })
 
   test("API /me endpoint returns 401 once logged out", async ({ page }) => {
-    // Api::V1::SessionsController has no ALLOW_DEV_AUTH fallback, unlike the
-    // rest of /api/v1, so it needs a real session.
     await page.goto("/")
     await logoutViaApi(page)
 
@@ -88,24 +86,26 @@ test.describe("API auth endpoints", () => {
 })
 
 test.describe("Protected routes", () => {
-  test("feeds endpoint requires authentication", async ({ page }) => {
-    // In dev/test mode this will still work due to auto-auth fallback
-    // Testing the raw behavior without auto-auth would require production mode
-    const response = await page.request.get("/api/v1/feeds")
+  const protectedPaths = [
+    "/api/v1/feeds",
+    "/api/v1/entries",
+    "/api/v1/categories",
+    "/api/v1/auth/me",
+  ]
 
-    // Should succeed in dev mode
-    expect(response.ok()).toBe(true)
-  })
+  for (const path of protectedPaths) {
+    test(`${path} answers a signed in request`, async ({ page }) => {
+      const response = await page.request.get(path)
+      expect(response.ok()).toBe(true)
+    })
 
-  test("entries endpoint requires authentication", async ({ page }) => {
-    const response = await page.request.get("/api/v1/entries")
-    expect(response.ok()).toBe(true)
-  })
+    test(`${path} returns 401 without a session`, async ({ page }) => {
+      await logoutViaApi(page)
 
-  test("categories endpoint requires authentication", async ({ page }) => {
-    const response = await page.request.get("/api/v1/categories")
-    expect(response.ok()).toBe(true)
-  })
+      const response = await page.request.get(path)
+      expect(response.status()).toBe(401)
+    })
+  }
 })
 
 test.describe("Page load behavior", () => {

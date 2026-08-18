@@ -13,7 +13,6 @@ variables set:
 |----------|--------|
 | `RAILS_ENV=test` | jobs use the test queue adapter, so nothing runs in the background |
 | `E2E_DATABASE_NAME=ttrb_e2e` | a database of its own, never the one Minitest owns |
-| `ALLOW_DEV_AUTH=1` | `/api/v1` controllers fall back to the first user |
 | `ALLOW_E2E_RESET=1` | draws `POST /e2e/reset` |
 | `OFFLINE_FEED_FETCH=1` | `FeedFetcher.for` returns a stub, so no request leaves the host |
 

@@ -2,7 +2,7 @@ require "test_helper"
 
 class Api::V1::CountersControllerTest < ActionDispatch::IntegrationTest
   def setup
-    @user = User.first
+    @user = sign_in(User.first)
     @feed = feeds(:high_frequency)
   end
 

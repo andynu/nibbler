@@ -1,8 +1,9 @@
 module Api
   module V1
-    class SessionsController < ApplicationController
-      skip_forgery_protection
-      before_action :require_auth, only: [ :show, :destroy, :change_password, :public_feed_key, :regenerate_public_feed_key ]
+    # Inherits require_auth and current_user from BaseController so the login
+    # endpoints cannot drift from the rest of /api/v1; only #create is public.
+    class SessionsController < BaseController
+      skip_before_action :require_auth, only: :create
 
       # POST /api/v1/auth/login
       def create
@@ -78,16 +79,6 @@ module Api
       end
 
       private
-
-      def require_auth
-        unless current_user
-          render json: { error: "Authentication required" }, status: :unauthorized
-        end
-      end
-
-      def current_user
-        @current_user ||= User.find_by(id: session[:user_id])
-      end
 
       def user_json(user)
         {

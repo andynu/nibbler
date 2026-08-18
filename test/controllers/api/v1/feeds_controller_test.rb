@@ -2,8 +2,7 @@ require "test_helper"
 
 class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
   def setup
-    # ALLOW_DEV_AUTH uses User.first, so we use that for consistency
-    @user = User.first
+    @user = sign_in(User.first)
     # Get a feed belonging to this user
     @feed = @user.feeds.first || @user.feeds.create!(
       title: "Test Feed",

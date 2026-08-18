@@ -2,8 +2,7 @@ require "test_helper"
 
 class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
   def setup
-    # Use User.first since BaseController falls back to it in test mode
-    @user = User.first
+    @user = sign_in(User.first)
     @feed = feeds(:high_frequency)
     @entry = entries(:basic)
     # Create a UserEntry for the test

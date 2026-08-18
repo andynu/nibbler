@@ -2,7 +2,7 @@ require "test_helper"
 
 class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
   def setup
-    @user = User.first
+    @user = sign_in(User.first)
     @feed = feeds(:high_frequency)
   end
 
@@ -355,7 +355,7 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns entry with tags and enclosures" do
-    # Create entry for the current user (User.first used by ALLOW_DEV_AUTH)
+    # Create entry for the signed in user
     entry = Entry.create!(
       guid: "show-test-#{SecureRandom.uuid}",
       title: "Show Test Entry",
@@ -439,8 +439,8 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     refute_includes titles, "Multi User Article"
   end
 
-  # The audio endpoint resolves entries through current_user, which the dev-auth
-  # fallback pins to User.first, so tests need an entry owned by that user.
+  # The audio endpoint resolves entries through current_user, so tests need an
+  # entry owned by the user setup signed in as.
   def create_audio_user_entry
     entry = Entry.create!(
       guid: "audio-entry-#{SecureRandom.uuid}",
