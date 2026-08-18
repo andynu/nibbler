@@ -53,6 +53,10 @@ test-results/
 # Cached audio files
 /public/audio/cache/
 
+# Cached article images. Written by ImageCacher, named after a local Entry
+# primary key, so the contents are meaningless against any other database.
+/public/images/cache/
+
 # Cached feed favicons. Written by FetchFaviconJob, which names each file after
 # a local Feed primary key, so the contents are meaningless against any other
 # database. Recreated on demand via mkdir_p and refreshed daily by

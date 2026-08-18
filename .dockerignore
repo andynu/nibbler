@@ -36,10 +36,13 @@
 !/app/assets/builds/.keep
 /public/assets
 
-# Cached feed favicons. FetchFaviconJob names each file after a local Feed
-# primary key, so the dev cache is meaningless (and can be actively wrong)
-# against the production database. Recreated on demand via mkdir_p.
+# On-disk caches. Every file in these is named after a local primary key, so a
+# dev cache is meaningless (and can be actively wrong) against the production
+# database, and the audio wavs are large. Each path is a Kamal volume in
+# production and is recreated on demand via mkdir_p elsewhere.
 /public/icons
+/public/images/cache
+/public/audio/cache
 
 # Ignore Python TTS environment. Docker does not read .gitignore, so these
 # have to be repeated here. .uv-cache is ~9G and .venv hardlinks into it,
