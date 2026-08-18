@@ -6,11 +6,18 @@ Nibbler is a modern RSS reader built with Rails 8.1 (backend) and React 19 + Typ
 
 ## Tech Stack
 
-- **Backend**: Rails 8.1.1, SQLite, Minitest
+- **Backend**: Rails 8.1, PostgreSQL (`pg`), Minitest
 - **Frontend**: React 19, TypeScript, esbuild
 - **UI**: shadcn/ui, Radix UI, Tailwind CSS, Lucide icons
 - **Testing**: Vitest + React Testing Library (components), Playwright (E2E)
 - **Other**: dnd-kit (drag & drop), cmdk (command palette)
+
+### Database
+
+Every environment in `config/database.yml` uses `adapter: postgresql`; there is no
+SQLite fallback and no `sqlite3` gem. Raw SQL may use PostgreSQL-specific syntax,
+and some already does (`app/jobs/update_feeds_job.rb` relies on `NOW()` and
+`::interval` casts). Don't rewrite such queries for portability.
 
 ## Path Aliases
 
