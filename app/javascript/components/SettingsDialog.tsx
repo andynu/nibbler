@@ -12,6 +12,7 @@ import { LabelManager } from "@/components/LabelManager"
 import { OpmlPanel } from "@/components/OpmlPanel"
 import { ToolsPanel } from "@/components/ToolsPanel"
 import { AccountPanel } from "@/components/AccountPanel"
+import { AppVersionFooter } from "@/components/AppVersionFooter"
 import { Feed, Category, api } from "@/lib/api"
 
 interface SettingsDialogProps {
@@ -104,6 +105,7 @@ export function SettingsDialog({
             <AccountPanel />
           </TabsContent>
         </Tabs>
+        <AppVersionFooter />
       </DialogContent>
     </Dialog>
   )
