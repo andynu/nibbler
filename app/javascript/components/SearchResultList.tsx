@@ -1,5 +1,6 @@
 import { Circle, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { highlightTerms } from "@/lib/searchHighlight"
 import type { SearchResult } from "@/lib/api"
 
 interface SearchResultListProps {
@@ -10,16 +11,20 @@ interface SearchResultListProps {
   selectedEntryId: number | null
   onSelectResult: (userEntryId: number) => void
   formatDate: (date: Date | string) => string
+  /**
+   * What the search was narrowed to, for the empty state: a feed or category
+   * title, or null when nothing narrowed it. Only the scope the endpoint
+   * actually honours belongs here (see `EntrySearchScope`) -- naming a
+   * virtual folder or tag that the search ignored would send the user off to
+   * widen something that was never applied.
+   */
+  scopeLabel?: string | null
 }
 
 /**
  * Search hits, rendered as their own row rather than through EntryItem: a
  * SearchResult has no score, note, tags or published flag, so the entry row's
  * controls would all be dead here.
- *
- * The match snippet the server already returns is deliberately not rendered
- * yet; snippet display, term highlighting and a scope-aware empty state are
- * ttrb-a81x.
  */
 export function SearchResultList({
   results,
@@ -29,6 +34,7 @@ export function SearchResultList({
   selectedEntryId,
   onSelectResult,
   formatDate,
+  scopeLabel = null,
 }: SearchResultListProps) {
   if (error) {
     return (
@@ -53,7 +59,15 @@ export function SearchResultList({
   if (results.length === 0) {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        No matches for "{query}"
+        <p className="text-sm">
+          No matches for "{query}" in {scopeLabel || "all articles"}
+        </p>
+        {scopeLabel && (
+          <p className="mt-1 text-xs">
+            Only this feed or category was searched. Go to All Feeds to search
+            everything.
+          </p>
+        )}
       </div>
     )
   }
@@ -94,8 +108,13 @@ export function SearchResultList({
                   result.unread ? "font-medium" : "text-muted-foreground"
                 )}
               >
-                {result.title}
+                {highlightTerms(result.title, query)}
               </div>
+              {result.snippet && (
+                <div className="mt-0.5 text-xs leading-snug text-muted-foreground line-clamp-2">
+                  {highlightTerms(result.snippet, query)}
+                </div>
+              )}
               <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                 {result.feed_title && (
                   <>

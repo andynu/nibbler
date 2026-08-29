@@ -38,6 +38,12 @@ export interface EntryListSearch {
   isSearching: boolean
   results: SearchResult[]
   error: string | null
+  /**
+   * The feed or category the search was narrowed to, named in the empty state
+   * so a no-hit query reads as "nothing here" rather than "nothing anywhere".
+   * Null when the search covered everything.
+   */
+  scopeLabel?: string | null
 }
 
 interface EntryListProps {
@@ -396,6 +402,7 @@ export function EntryList({
               selectedEntryId={selectedEntryId}
               onSelectResult={onSelectEntry}
               formatDate={formatListDate}
+              scopeLabel={search!.scopeLabel}
             />
           ) : displayMode === "feeds" ? (
             // Feed-list mode: show filtered feeds

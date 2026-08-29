@@ -73,6 +73,21 @@
     box-shadow: 0 0 0 2px var(--color-accent-primary-light);
   }
 
+  /* Matched query terms in search result titles and snippets. The <mark>
+     default (yellow on black) ignores the user's accent hue and is loud
+     against a dark theme, so both themes are set explicitly. */
+  .search-mark {
+    background-color: var(--color-accent-primary-lighter);
+    color: var(--color-accent-primary-dark);
+    border-radius: 2px;
+    padding: 0 1px;
+    font-weight: 500;
+  }
+  .dark .search-mark {
+    background-color: var(--color-accent-primary-dark);
+    color: white;
+  }
+
   /* Dark mode color overrides */
   .dark {
     --color-background: hsl(0 0% 3.9%);

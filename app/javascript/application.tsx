@@ -821,6 +821,22 @@ function App() {
     return "All Feeds"
   }
 
+  // What the empty search state names. Deliberately not getListTitle(): that
+  // reports the list's own heading, including virtual folders and the tag
+  // filter, none of which reach the search endpoint. Only the feed and category
+  // actually narrow a search, so only they may be blamed for zero hits.
+  const getSearchScopeLabel = () => {
+    if (selectedFeedId) {
+      const feed = feeds.find((f) => f.id === selectedFeedId)
+      return feed?.title || "this feed"
+    }
+    if (selectedCategoryId) {
+      const category = categories.find((c) => c.id === selectedCategoryId)
+      return category?.title || "this category"
+    }
+    return null
+  }
+
   // Compute pane visibility based on breakpoint and current pane
   // Note: On mobile, sidebar is handled by SidebarDrawer, not this function
   const getSidebarWidth = () => {
@@ -1053,6 +1069,7 @@ function App() {
               isSearching: entrySearch.isSearching,
               results: entrySearch.results,
               error: entrySearch.error,
+              scopeLabel: getSearchScopeLabel(),
             }}
           />
         )}

@@ -438,7 +438,9 @@ describe("EntryList", () => {
       )
 
       expect(screen.getByRole("listbox", { name: "Search results" })).toBeInTheDocument()
-      expect(screen.getByText("Rails 8 released")).toBeInTheDocument()
+      // By role: SearchResultList marks the query terms, so the hit's title is
+      // split across a <mark> and getByText no longer sees it in one node.
+      expect(screen.getByRole("option", { name: /rails 8 released/i })).toBeInTheDocument()
       expect(screen.queryByText("Unfiltered Article")).not.toBeInTheDocument()
     })
 
