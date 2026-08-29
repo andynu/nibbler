@@ -37,6 +37,7 @@ export type ShortcutId =
   | "toggle-iframe"
   | "open-original"
   | "refresh"
+  | "focus-search"
   | "toggle-focus-mode"
   | "toggle-sidebar"
   | "command-palette"
@@ -198,6 +199,14 @@ export const shortcutCatalog: ShortcutDefinition[] = [
     keys: "r",
     description: "Refresh entries",
     bindings: [{ key: "r" }],
+  },
+  {
+    id: "focus-search",
+    section: "Actions",
+    keys: "/",
+    // Not Ctrl+F: that is page-down-content, paired with Ctrl+B above.
+    description: "Search articles",
+    bindings: [{ key: "/" }],
   },
   {
     id: "toggle-focus-mode",

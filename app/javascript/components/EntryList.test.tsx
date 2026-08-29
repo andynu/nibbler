@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { EntryList } from "./EntryList"
-import { mockEntry } from "../../../test/fixtures/data"
+import { mockEntry, mockSearchResult } from "../../../test/fixtures/data"
 
 // Mock the preferences context
 const mockPreferences = {
@@ -370,6 +370,117 @@ describe("EntryList", () => {
 
       expect(firstEntry).not.toHaveClass("animate-boundary-flash")
       expect(lastEntry).not.toHaveClass("animate-boundary-flash")
+    })
+  })
+
+  describe("search", () => {
+    const idleSearch = {
+      query: "",
+      onQueryChange: vi.fn(),
+      onDismiss: vi.fn(),
+      inputRef: null,
+      isActive: false,
+      isSearching: false,
+      results: [],
+      error: null,
+    }
+
+    it("shows no search box unless the caller supplies search state", () => {
+      render(<EntryList {...defaultProps} />)
+
+      expect(screen.queryByRole("searchbox")).not.toBeInTheDocument()
+    })
+
+    it("shows the box above the list when search state is supplied", () => {
+      render(<EntryList {...defaultProps} search={idleSearch} />)
+
+      expect(screen.getByRole("searchbox", { name: "Search articles" })).toBeInTheDocument()
+    })
+
+    it("hides the box in feed-list mode, which search cannot answer", () => {
+      render(
+        <EntryList
+          {...defaultProps}
+          search={idleSearch}
+          displayMode="feeds"
+          filteredFeeds={[]}
+        />
+      )
+
+      expect(screen.queryByRole("searchbox")).not.toBeInTheDocument()
+    })
+
+    it("keeps showing the entry list while the query is blank", () => {
+      render(
+        <EntryList
+          {...defaultProps}
+          entries={[mockEntry({ id: 1, title: "Unfiltered Article" })]}
+          search={idleSearch}
+        />
+      )
+
+      expect(screen.getByRole("listbox", { name: "Entries" })).toBeInTheDocument()
+      expect(screen.getByText("Unfiltered Article")).toBeInTheDocument()
+    })
+
+    it("replaces the entry list with the hits once a query is active", () => {
+      render(
+        <EntryList
+          {...defaultProps}
+          entries={[mockEntry({ id: 1, title: "Unfiltered Article" })]}
+          search={{
+            ...idleSearch,
+            query: "rails",
+            isActive: true,
+            results: [mockSearchResult({ id: 9, title: "Rails 8 released" })],
+          }}
+        />
+      )
+
+      expect(screen.getByRole("listbox", { name: "Search results" })).toBeInTheDocument()
+      expect(screen.getByText("Rails 8 released")).toBeInTheDocument()
+      expect(screen.queryByText("Unfiltered Article")).not.toBeInTheDocument()
+    })
+
+    it("routes a clicked hit through onSelectEntry", async () => {
+      const user = userEvent.setup()
+      const onSelectEntry = vi.fn()
+
+      render(
+        <EntryList
+          {...defaultProps}
+          onSelectEntry={onSelectEntry}
+          search={{
+            ...idleSearch,
+            query: "rails",
+            isActive: true,
+            results: [mockSearchResult({ id: 9, title: "Rails 8 released" })],
+          }}
+        />
+      )
+
+      await user.click(screen.getByRole("option", { name: /rails 8 released/i }))
+
+      expect(onSelectEntry).toHaveBeenCalledWith(9)
+    })
+
+    it("hides the sort controls it cannot apply to search results", () => {
+      const onSortChange = vi.fn()
+      const { rerender } = render(
+        <EntryList {...defaultProps} search={idleSearch} onSortChange={onSortChange} />
+      )
+
+      expect(screen.getByText("Sort:")).toBeInTheDocument()
+
+      rerender(
+        <EntryList
+          {...defaultProps}
+          onSortChange={onSortChange}
+          search={{ ...idleSearch, query: "rails", isActive: true }}
+        />
+      )
+
+      expect(screen.queryByText("Sort:")).not.toBeInTheDocument()
     })
   })
 })

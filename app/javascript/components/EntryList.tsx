@@ -17,7 +17,28 @@ import { useDateFormat } from "@/hooks/useDateFormat"
 import { ScoreBadge } from "@/components/ScoreButtons"
 import { SortableHeaderRow, toggleSort } from "@/components/SortableColumnHeader"
 import { SortDropdown } from "@/components/SortDropdown"
-import type { Entry, Feed, SortConfig, SortColumn } from "@/lib/api"
+import { SearchBar } from "@/components/SearchBar"
+import { SearchResultList } from "@/components/SearchResultList"
+import type { Entry, Feed, SearchResult, SortConfig, SortColumn } from "@/lib/api"
+
+/**
+ * Everything the list needs to show the search box and its hits. Supplied as
+ * one object so search can be left out entirely (the box then does not render
+ * and the list behaves exactly as it did before). Produced by
+ * `useEntrySearch` in application.tsx.
+ */
+export interface EntryListSearch {
+  query: string
+  onQueryChange: (query: string) => void
+  /** Escape on an empty box; wired to the close-entry command. */
+  onDismiss: () => void
+  inputRef: React.Ref<HTMLInputElement>
+  /** True once the query is non-blank: hits replace the entry list. */
+  isActive: boolean
+  isSearching: boolean
+  results: SearchResult[]
+  error: string | null
+}
 
 interface EntryListProps {
   entries: Entry[]
@@ -53,6 +74,8 @@ interface EntryListProps {
   onShowSidebar?: () => void
   // Tag management
   onAddTag?: (entryId: number, tagName: string) => void
+  // Article search
+  search?: EntryListSearch
 }
 
 export function EntryList({
@@ -82,6 +105,7 @@ export function EntryList({
   onSortChange,
   onShowSidebar,
   onAddTag,
+  search,
 }: EntryListProps) {
   const { preferences, updatePreference } = usePreferences()
   const { formatListDate } = useDateFormat()
@@ -111,6 +135,10 @@ export function EntryList({
     return oldestYear === newestYear ? String(oldestYear) : `${oldestYear} — ${newestYear}`
   }
 
+  // Search only makes sense over entries; the feed-list smart folders have
+  // nothing for /api/v1/search to match.
+  const showSearch = Boolean(search) && displayMode === "entries"
+  const searchActive = showSearch && search!.isActive
   const hideRead = preferences.entries_hide_read === "true"
   const hideUnstarred = preferences.entries_hide_unstarred === "true"
   const displayDensity = (preferences.entries_display_density || "medium") as "small" | "medium" | "large"
@@ -167,6 +195,16 @@ export function EntryList({
           <span className="hidden sm:inline">Mark read</span>
         </Button>
       </div>
+      {/* Search box */}
+      {showSearch && (
+        <SearchBar
+          ref={search!.inputRef}
+          value={search!.query}
+          onChange={search!.onQueryChange}
+          onDismiss={search!.onDismiss}
+          isSearching={search!.isSearching}
+        />
+      )}
       {/* Fresh view parameters */}
       {isFreshView && onFreshMaxAgeChange && onFreshPerFeedChange && (
         <div className="px-3 py-1.5 flex items-center gap-3 border-b border-border shrink-0 bg-muted/20 text-xs">
@@ -322,8 +360,10 @@ export function EntryList({
           </button>
         </div>
       </div>
-      {/* Sort controls - only show when entries mode and sort handler provided */}
-      {displayMode === "entries" && onSortChange && (
+      {/* Sort controls - entries mode with a sort handler, and not while a
+          search is running: search results come back in the server's own order
+          (entries.date_entered DESC) and these controls cannot reorder them. */}
+      {displayMode === "entries" && onSortChange && !searchActive && (
         <>
           {/* Mobile: dropdown */}
           <div className="sm:hidden px-2 py-1.5 border-b border-border bg-muted/20">
@@ -347,7 +387,17 @@ export function EntryList({
 
       <ScrollArea className="flex-1 min-h-0">
         <div ref={listRef}>
-          {displayMode === "feeds" ? (
+          {searchActive ? (
+            <SearchResultList
+              results={search!.results}
+              query={search!.query}
+              isSearching={search!.isSearching}
+              error={search!.error}
+              selectedEntryId={selectedEntryId}
+              onSelectResult={onSelectEntry}
+              formatDate={formatListDate}
+            />
+          ) : displayMode === "feeds" ? (
             // Feed-list mode: show filtered feeds
             filteredFeeds.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground">No feeds</div>

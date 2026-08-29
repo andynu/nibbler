@@ -28,6 +28,7 @@ import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
+import { useEntrySearch } from "@/hooks/useEntrySearch"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 
 // Virtual folder ids the entries API recognizes as a `view`. The virtual folder
@@ -86,6 +87,16 @@ function App() {
   const commandPalette = useCommandPalette()
   const moveFeedDialog = useMoveFeedDialog()
   const contentScrollRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Article search. Scope follows the current list, but only as far as the
+  // server honours it: SearchController filters on feed and category and
+  // ignores view/tag/read-state, so the virtual folders and the tag filter do
+  // not narrow a search yet (ttrb-aawe, ttrb-prmg).
+  const entrySearch = useEntrySearch({
+    feedId: selectedFeedId,
+    categoryId: selectedCategoryId,
+  })
 
   // Navigation history for back button support
   const navigationHistory = useNavigationHistory({
@@ -724,6 +735,15 @@ function App() {
     setFocusMode((prev) => !prev)
   }, [])
 
+  // `/` puts the cursor in the list's search box. Focus mode hides the list, so
+  // leave it first or there is nothing to focus. Typing `/` inside the box does
+  // not come back here: useKeyboardCommands drops events targeting an input.
+  const handleKeyboardFocusSearch = useCallback(() => {
+    setFocusMode(false)
+    searchInputRef.current?.focus()
+    searchInputRef.current?.select()
+  }, [])
+
   // Keys, labels and descriptions live in the shared catalog
   // (lib/keyboardShortcuts.ts) that also drives KeyboardShortcutsDialog. Only
   // the handlers are wired here; the map is exhaustive over the catalog, so a
@@ -749,6 +769,7 @@ function App() {
         "toggle-iframe": toggleIframe,
         "open-original": handleKeyboardOpenOriginal,
         refresh: handleKeyboardRefresh,
+        "focus-search": handleKeyboardFocusSearch,
         "toggle-focus-mode": handleToggleFocusMode,
         "toggle-sidebar": handleToggleSidebar,
         "close-entry": handleKeyboardClose,
@@ -772,6 +793,7 @@ function App() {
       handleKeyboardGoFresh,
       handleKeyboardGoStarred,
       handleKeyboardHelp,
+      handleKeyboardFocusSearch,
       contentPaging,
       handleToggleSidebar,
       handleToggleFocusMode,
@@ -1022,6 +1044,16 @@ function App() {
             sortConfig={sortConfig}
             onSortChange={handleSortChange}
             onShowSidebar={layout.isMobile ? layout.goToSidebar : undefined}
+            search={{
+              query: entrySearch.query,
+              onQueryChange: entrySearch.setQuery,
+              onDismiss: handleKeyboardClose,
+              inputRef: searchInputRef,
+              isActive: entrySearch.isActive,
+              isSearching: entrySearch.isSearching,
+              results: entrySearch.results,
+              error: entrySearch.error,
+            }}
           />
         )}
       </div>

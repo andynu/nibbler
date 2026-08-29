@@ -53,6 +53,17 @@ describe("shortcutCatalog", () => {
     }
   })
 
+  it("puts search on / and leaves Ctrl+F on the content pager", () => {
+    const search = shortcutCatalog.find((shortcut) => shortcut.id === "focus-search")
+
+    expect(search?.bindings).toEqual([{ key: "/" }])
+
+    const ctrlF = shortcutCatalog.find((shortcut) =>
+      shortcut.bindings.some((binding) => binding.key === "f" && binding.modifiers?.ctrl)
+    )
+    expect(ctrlF?.id).toBe("page-down-content")
+  })
+
   it("gives every entry a display label and description", () => {
     for (const shortcut of shortcutCatalog) {
       expect(shortcut.keys).not.toBe("")

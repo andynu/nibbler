@@ -8,6 +8,8 @@ import type {
   FilterAction,
   Preferences,
   PaginatedEntries,
+  SearchResult,
+  SearchResponse,
 } from "@/lib/api"
 
 export function mockFeed(overrides: Partial<Feed> = {}): Feed {
@@ -191,5 +193,39 @@ export function mockPaginatedEntries(
       total_pages: 1,
       ...pagination,
     },
+  }
+}
+
+export function mockSearchResult(overrides: Partial<SearchResult> = {}): SearchResult {
+  return {
+    id: 1,
+    entry_id: 100,
+    feed_id: 1,
+    feed_title: "Test Feed",
+    title: "Test Entry",
+    link: "https://example.com/article",
+    author: "Test Author",
+    published: "2025-01-15T10:00:00Z",
+    unread: true,
+    starred: false,
+    snippet: "...a test entry that mentions the search term...",
+    ...overrides,
+  }
+}
+
+export function mockSearchResponse(
+  entries: SearchResult[] = [mockSearchResult()],
+  overrides: Partial<SearchResponse> = {}
+): SearchResponse {
+  return {
+    query: "test",
+    entries,
+    pagination: {
+      page: 1,
+      per_page: 50,
+      total: entries.length,
+      total_pages: 1,
+    },
+    ...overrides,
   }
 }
