@@ -187,9 +187,8 @@ export function EntryContent({
           <Button variant="ghost" size="icon" onClick={onNext} disabled={!hasNext} aria-label="Next entry">
             <ChevronRight className="h-4 w-4" />
           </Button>
-          {/* Only route back to this document once the embedded page has taken
-              focus; until then the shortcuts still work and the badge would be
-              noise. */}
+          {/* Shown only while the embedded page holds the keys. The rest of the
+              time the shortcuts work and this would be noise. */}
           {showIframe && iframeFocus.keyboardHandedOff && (
             <Button
               variant="outline"
