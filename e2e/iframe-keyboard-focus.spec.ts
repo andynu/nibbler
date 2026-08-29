@@ -37,6 +37,19 @@ function embeddedField(page: Page) {
 const restoreShortcuts = (page: Page) =>
   page.getByRole("button", { name: /restore shortcuts/i })
 
+/**
+ * The pane focus mode collapses.
+ *
+ * Its width is the assertion handle rather than anything drawn inside it. The
+ * pane is `overflow: hidden`, and Playwright's visibility check asks only
+ * whether an element has a non-empty box and is not `display:none` or
+ * `visibility:hidden`; it does not walk up the tree looking for an ancestor
+ * that clips. A span inside a zero-width pane therefore keeps its own box and
+ * reads as visible, which is how `getByText("NibbleRSS")).toBeHidden()` came to
+ * be an assertion that could not pass on any machine (ttrb-8zv5).
+ */
+const sidebarPane = (page: Page) => page.getByTestId("sidebar-pane")
+
 async function currentSrc(page: Page): Promise<string> {
   return (await iframeElement(page).getAttribute("src")) ?? ""
 }
@@ -52,12 +65,23 @@ async function expectKeysInReader(page: Page) {
 }
 
 async function openFirstEntry(page: Page) {
-  // j is a no-op until the list has entries to walk, and it is pressed once.
+  // j is a no-op until the list has entries to walk.
   const rows = page.getByRole("listbox", { name: "Entries" }).getByRole("option")
   await expect(rows.first()).toBeVisible()
 
-  await page.keyboard.press("j")
-  await expect(iframeElement(page)).toBeVisible()
+  // The press is retried rather than issued once, because a press landing in
+  // the few milliseconds between the rows painting and React flushing that
+  // render's effects is dropped: useKeyboardCommands swaps its keydown
+  // listener in a passive effect, so the live listener still closes over the
+  // previous render's empty entry list and handleKeyboardNext returns at its
+  // `entries.length === 0` guard (ttrb-lix7). Nothing is selected yet while
+  // the press is being retried, so every attempt opens the same first entry.
+  // Remove this once ttrb-lix7 lands.
+  await expect(async () => {
+    await page.keyboard.press("j")
+    await expect(iframeElement(page)).toBeVisible({ timeout: 5000 })
+  }).toPass({ timeout: 20000 })
+
   await expect(embeddedField(page)).toBeVisible()
   await expectKeysInReader(page)
 }
@@ -148,13 +172,15 @@ test.describe("Keyboard control with a page embedded", () => {
     await openFirstEntry(page)
 
     await page.keyboard.press("Shift+F")
-    await expect(page.getByText("NibbleRSS")).toBeHidden()
+    await expect(sidebarPane(page)).toHaveCSS("width", "0px")
 
     await embeddedField(page).click()
     await expect(restoreShortcuts(page)).toBeVisible()
 
     await page.getByRole("button", { name: "Exit focus mode" }).click()
 
-    await expect(page.getByText("NibbleRSS")).toBeVisible()
+    // 240px is the expanded desktop width; waiting for the end value rather
+    // than "anything but 0px" makes the 150ms transition part of the check.
+    await expect(sidebarPane(page)).toHaveCSS("width", "240px")
   })
 })

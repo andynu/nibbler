@@ -237,6 +237,20 @@ function App() {
     }
   }, [])
 
+  // The sort the list is asked for, resolved before it reaches the query below.
+  //
+  // It is deliberately the resolved string that the query depends on rather
+  // than the two preferences behind it. The API response carries no
+  // entries_sort_config key, so that preference goes from the reader's
+  // "date:desc" default to undefined the moment preferences land, while the
+  // sort it resolves to does not move. Depending on the raw preference made
+  // that a change, which rebuilt entriesQuery, which reloaded a list that had
+  // not changed -- and loadEntries clears the selection, so an article opened
+  // in the first moments after boot was closed again under the reader
+  // (ttrb-8zv5).
+  const entriesSort = preferences.entries_sort_config ||
+    (preferences.entries_sort_by_score === "true" ? "score:desc" : "date:desc")
+
   // Everything that decides which entries the list holds, in one object. Both
   // the visible load and the background probe read it, so the probe cannot
   // drift into asking a different question than the list it is compared with.
@@ -248,9 +262,7 @@ function App() {
     // Only the entry-backed virtual folders map to an API view. All Feeds ("")
     // and the feed-list smart folders have no server-side view and load unfiltered.
     view: toEntryView(virtualFeed),
-    // Use multi-column sort config if set, otherwise fall back to legacy sort_by_score
-    sort: preferences.entries_sort_config ||
-      (preferences.entries_sort_by_score === "true" ? "score:desc" : "date:desc"),
+    sort: entriesSort,
     unread: preferences.entries_hide_read === "true" ? true : undefined,
     starred: preferences.entries_hide_unstarred === "true" ? true : undefined,
     per_page: parseInt(preferences.default_view_limit, 10) || 30,
@@ -264,8 +276,7 @@ function App() {
     selectedCategoryId,
     virtualFeed,
     selectedTag,
-    preferences.entries_sort_config,
-    preferences.entries_sort_by_score,
+    entriesSort,
     preferences.entries_hide_read,
     preferences.entries_hide_unstarred,
     preferences.default_view_limit,
@@ -1041,13 +1052,20 @@ function App() {
           />
         </SidebarDrawer>
       ) : (
-        <div style={{
-          width: getSidebarWidth(),
-          flexShrink: 0,
-          height: "100%",
-          transition: "width 150ms ease-out",
-          overflow: "hidden",
-        }}>
+        // The pane whose width focus mode drives to 0. Its own width is the
+        // only honest handle on "the sidebar is gone": everything inside keeps
+        // a bounding box when the pane clips it, so a descendant still reads as
+        // visible to Playwright (ttrb-8zv5).
+        <div
+          data-testid="sidebar-pane"
+          style={{
+            width: getSidebarWidth(),
+            flexShrink: 0,
+            height: "100%",
+            transition: "width 150ms ease-out",
+            overflow: "hidden",
+          }}
+        >
           <FeedSidebar
             feeds={feeds}
             categories={categories}
