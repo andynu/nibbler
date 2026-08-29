@@ -3,8 +3,12 @@ require "test_helper"
 class EmbedPolicyProbeTest < ActiveSupport::TestCase
   URL = "https://example.com/article".freeze
 
-  def stub_headers(headers, status: 200)
-    stub_request(:head, URL).to_return(status: status, headers: headers)
+  # Takes the header hash positionally and nothing else. A keyword parameter
+  # here would swallow the brace-less `stub_headers("X-Frame-Options" => ...)`
+  # call form as keyword arguments and leave the method with no positional
+  # argument at all.
+  def stub_headers(headers)
+    stub_request(:head, URL).to_return(status: 200, headers: headers)
   end
 
   def probe(url = URL)
