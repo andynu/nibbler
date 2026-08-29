@@ -31,6 +31,7 @@ import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
 import { useEntrySearch } from "@/hooks/useEntrySearch"
 import { getVirtualFolder } from "@/lib/virtualFolders"
+import { applyUnreadCounts } from "@/lib/unreadCounts"
 
 // Virtual folder ids the entries API recognizes as a `view`. The virtual folder
 // registry is open, so ids outside this set (All Feeds, the feed-list smart
@@ -40,6 +41,13 @@ const ENTRY_VIEWS = ["fresh", "starred", "published", "archived"] as const
 function toEntryView(id: string | null) {
   return ENTRY_VIEWS.find((view) => view === id)
 }
+
+// How many background ticks pass before the feed and category lists themselves
+// are reloaded rather than just recounted. Counts come off the counters
+// response every tick; structure (a feed subscribed or dropped on another
+// device) changes on nobody's schedule and is not worth two extra requests a
+// minute, so it is picked up on the tenth tick and whenever the tab returns.
+const FEED_RELOAD_EVERY_TICKS = 10
 
 function App() {
   const { preferences, updatePreference } = usePreferences()
@@ -146,13 +154,27 @@ function App() {
   // the Fresh count sits at whatever it was until you click into the list.
   // Poll for them instead, and re-ask the moment a hidden tab comes back.
   //
-  // Feed and category rows carry unread badges of their own, fed by loadFeeds,
-  // so both calls have to be on the tick or the sidebar disagrees with itself.
+  // Feed and category rows carry unread badges of their own, and they have to
+  // move on the same tick or the sidebar disagrees with itself. They come out
+  // of the counters response, which already carries both maps, so a steady
+  // tick spends one request here instead of three (ttrb-81wy). It also stops
+  // replacing the feeds array every minute, which was churning object identity
+  // under the sidebar for numbers that mostly had not changed.
+  //
+  // A full loadFeeds is still what notices structural change, so it runs when
+  // the reader comes back to the tab - where an arbitrary amount of time has
+  // passed - and every FEED_RELOAD_EVERY_TICKS ticks otherwise.
+  //
   // Suspended while settings are open: FeedOrganizer edits `feeds` optimistically
   // through onFeedsChange, and its stale closures would fight a poll response.
+  const ticksSinceFeedReload = useRef(0)
   useBackgroundRefresh(
-    () => {
-      loadFeeds()
+    (reason) => {
+      ticksSinceFeedReload.current += 1
+      if (reason === "visible" || ticksSinceFeedReload.current >= FEED_RELOAD_EVERY_TICKS) {
+        ticksSinceFeedReload.current = 0
+        loadFeeds()
+      }
       loadCounters()
     },
     { enabled: !showSettings }
@@ -191,6 +213,13 @@ function App() {
         starred: result.virtual.starred,
         published: result.virtual.published,
       })
+      // The same response carries per-feed and per-category unread counts, so
+      // the sidebar badges come off this request too rather than off a second
+      // and third one (ttrb-81wy). Applied through the updater rather than a
+      // captured array so an edit made while the request was in flight is
+      // still the thing being overlaid.
+      setFeeds((prev) => applyUnreadCounts(prev, result.feeds))
+      setCategories((prev) => applyUnreadCounts(prev, result.categories))
     } catch (error) {
       console.error("Failed to load counters:", error)
     }

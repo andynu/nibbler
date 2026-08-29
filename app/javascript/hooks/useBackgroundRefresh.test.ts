@@ -175,6 +175,28 @@ describe("useBackgroundRefresh", () => {
     expect(refresh).not.toHaveBeenCalled()
   })
 
+  it("labels a scheduled tick as an interval refresh", () => {
+    const refresh = vi.fn()
+    renderHook(() => useBackgroundRefresh(refresh, { intervalMs: 1000 }))
+
+    act(() => void vi.advanceTimersByTime(1000))
+
+    expect(refresh).toHaveBeenCalledWith("interval")
+  })
+
+  it("labels the refresh a returning tab triggers as a visibility refresh", () => {
+    const refresh = vi.fn()
+    renderHook(() => useBackgroundRefresh(refresh, { intervalMs: 1000 }))
+
+    setTabHidden(true)
+    setTabHidden(false)
+    expect(refresh).toHaveBeenCalledWith("visible")
+
+    // The ticks that follow are ordinary ones again.
+    act(() => void vi.advanceTimersByTime(1000))
+    expect(refresh).toHaveBeenLastCalledWith("interval")
+  })
+
   it("defaults to a one minute interval", () => {
     const refresh = vi.fn()
     renderHook(() => useBackgroundRefresh(refresh))

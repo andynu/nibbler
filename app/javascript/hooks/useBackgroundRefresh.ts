@@ -3,6 +3,15 @@ import { useEffect, useRef } from "react"
 /** Default gap between polls, in milliseconds. */
 export const BACKGROUND_REFRESH_INTERVAL_MS = 60_000
 
+/**
+ * Why `refresh` is being called: a scheduled tick, or a hidden tab coming back.
+ *
+ * Callers that ask for the same thing every time can ignore it. It exists for
+ * callers that want a cheap poll in the steady state and a fuller reload when
+ * the reader has been away and the tab may have missed arbitrary changes.
+ */
+export type BackgroundRefreshReason = "interval" | "visible"
+
 export interface BackgroundRefreshOptions {
   /** Milliseconds between polls while the tab is visible. */
   intervalMs?: number
@@ -32,10 +41,11 @@ export interface BackgroundRefreshOptions {
  * `refresh` is read from a ref at call time, so passing a new closure every
  * render is fine and does not restart the timer.
  *
- * @param refresh what to re-run; called with no arguments, return value ignored
+ * @param refresh what to re-run; told which of the two occasions it is, return
+ *   value ignored
  */
 export function useBackgroundRefresh(
-  refresh: () => void,
+  refresh: (reason: BackgroundRefreshReason) => void,
   { intervalMs = BACKGROUND_REFRESH_INTERVAL_MS, enabled = true }: BackgroundRefreshOptions = {}
 ): void {
   const refreshRef = useRef(refresh)
@@ -58,7 +68,7 @@ export function useBackgroundRefresh(
 
     const start = () => {
       stop()
-      timer = setInterval(() => refreshRef.current(), intervalMs)
+      timer = setInterval(() => refreshRef.current("interval"), intervalMs)
     }
 
     const handleVisibilityChange = () => {
@@ -66,7 +76,7 @@ export function useBackgroundRefresh(
         stop()
         return
       }
-      refreshRef.current()
+      refreshRef.current("visible")
       start()
     }
 
