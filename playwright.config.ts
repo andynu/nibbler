@@ -28,6 +28,22 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Browse mode is the one feature here whose correctness is browser
+    // behaviour rather than application logic: cross-origin framing, focus
+    // crossing a document boundary, and what a frame does when its src changes.
+    // Chromium and Firefox genuinely disagree there - Firefox fires no window
+    // blur when focus moves into a cross-origin frame - so these specs are the
+    // ones worth paying a second browser for. The rest of the suite is
+    // Chromium-only; widening it is ttrb-6yuw.
+    {
+      name: 'firefox',
+      testMatch: [
+        '**/iframe-keyboard-focus.spec.ts',
+        '**/embed-block-fallback.spec.ts',
+        '**/focus-mode-nav.spec.ts',
+      ],
+      use: { ...devices['Desktop Firefox'] },
+    },
   ],
   webServer: {
     // bin/e2e-server pins RAILS_ENV, the database, dev auth and offline feed

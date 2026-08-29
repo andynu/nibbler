@@ -408,6 +408,13 @@ export function EntryContent({
             </div>
           ) : (
             <iframe
+              /* Keyed on the entry so the frame is a fresh element per article
+                 rather than one that is re-pointed. The isLoading branch above
+                 already unmounts this whole subtree on every entry change, so
+                 the key changes nothing today; it is here so that walking j/k
+                 cannot silently start showing the previous article's page if
+                 that loading flash is ever removed (ttrb-mq4n). */
+              key={entry.id}
               ref={iframeFocus.frameRef}
               src={entry.link}
               className="flex-1 w-full border-0"
