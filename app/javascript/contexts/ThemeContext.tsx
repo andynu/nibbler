@@ -1,79 +1,88 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react"
-
-type Theme = "light" | "dark" | "system"
+import {
+  DARK_MEDIA_QUERY,
+  SYSTEM_THEME,
+  ThemeBase,
+  ThemeDefinition,
+  ThemeSelection,
+  applyTheme,
+  normalizeThemeSelection,
+  resolveTheme,
+} from "@/lib/themes"
 
 interface ThemeContextValue {
-  theme: Theme
-  resolvedTheme: "light" | "dark"
-  setTheme: (theme: Theme) => void
+  /** What the user picked: a theme id, or "system". */
+  theme: ThemeSelection
+  /**
+   * Base of the applied palette. Consumers that only need to know whether the
+   * UI is currently dark (inline styles picking a light or dark variant) read
+   * this and stay correct as palettes are added.
+   */
+  resolvedTheme: ThemeBase
+  /** Id of the applied palette. Differs from `theme` when `theme` is "system". */
+  resolvedThemeId: string
+  /** Full definition of the applied palette. */
+  resolvedThemeDefinition: ThemeDefinition
+  setTheme: (theme: ThemeSelection) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 const THEME_STORAGE_KEY = "nibbler-theme"
 
-function getSystemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "light"
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+function getSystemPrefersDark(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false
+  }
+  return window.matchMedia(DARK_MEDIA_QUERY).matches
 }
 
-function getResolvedTheme(theme: Theme): "light" | "dark" {
-  if (theme === "system") {
-    return getSystemTheme()
-  }
-  return theme
-}
-
-function getStoredTheme(): Theme {
-  if (typeof window === "undefined") return "system"
-  const stored = localStorage.getItem(THEME_STORAGE_KEY)
-  if (stored === "light" || stored === "dark" || stored === "system") {
-    return stored
-  }
-  return "system"
+function getStoredTheme(): ThemeSelection {
+  if (typeof window === "undefined") return SYSTEM_THEME
+  return normalizeThemeSelection(localStorage.getItem(THEME_STORAGE_KEY))
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getStoredTheme)
-  const resolvedTheme = getResolvedTheme(theme)
+  const [theme, setThemeState] = useState<ThemeSelection>(getStoredTheme)
+  const [prefersDark, setPrefersDark] = useState<boolean>(getSystemPrefersDark)
 
-  // Apply theme class to document root
+  const resolvedThemeDefinition = resolveTheme(theme, prefersDark)
+
+  // Apply the resolved palette to the document root
   useEffect(() => {
-    const root = document.documentElement
+    applyTheme(document.documentElement, resolvedThemeDefinition)
+  }, [resolvedThemeDefinition])
 
-    if (resolvedTheme === "dark") {
-      root.classList.add("dark")
-    } else {
-      root.classList.remove("dark")
-    }
-  }, [resolvedTheme])
-
-  // Listen for system theme changes
+  // Track the OS preference. Watched unconditionally: a pinned theme ignores
+  // the value, so there is nothing to re-subscribe when the selection changes.
   useEffect(() => {
-    if (theme !== "system") return
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-
-    const handleChange = () => {
-      const root = document.documentElement
-      if (getSystemTheme() === "dark") {
-        root.classList.add("dark")
-      } else {
-        root.classList.remove("dark")
-      }
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return
     }
 
+    const mediaQuery = window.matchMedia(DARK_MEDIA_QUERY)
+    const handleChange = () => setPrefersDark(mediaQuery.matches)
+
+    handleChange()
     mediaQuery.addEventListener("change", handleChange)
     return () => mediaQuery.removeEventListener("change", handleChange)
-  }, [theme])
+  }, [])
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = (newTheme: ThemeSelection) => {
     setThemeState(newTheme)
     localStorage.setItem(THEME_STORAGE_KEY, newTheme)
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        resolvedTheme: resolvedThemeDefinition.base,
+        resolvedThemeId: resolvedThemeDefinition.id,
+        resolvedThemeDefinition,
+        setTheme,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   )

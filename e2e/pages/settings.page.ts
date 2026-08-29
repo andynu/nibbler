@@ -111,6 +111,16 @@ export class SettingsPage {
     return this.page.getByText("Theme")
   }
 
+  getThemeSelect(): Locator {
+    return this.page.getByRole("combobox", { name: "Theme" })
+  }
+
+  /** Pick a theme by its label in the theme selector, e.g. "Dark". */
+  async selectTheme(label: string): Promise<void> {
+    await this.getThemeSelect().click()
+    await this.page.getByRole("option", { name: label, exact: true }).click()
+  }
+
   async getAppearanceSection(): Promise<Locator> {
     return this.page.getByText("Appearance")
   }

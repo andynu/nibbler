@@ -88,8 +88,19 @@
     color: white;
   }
 
-  /* Dark mode color overrides */
-  .dark {
+  /* Named theme palettes.
+     -----------------------------------------------------------------------
+     The light palette is the @theme block above, so it is the fallback for
+     every token a theme does not override. Each additional theme overrides the
+     tokens it changes in a `[data-theme="<id>"]` block here, and gets a
+     matching entry in app/javascript/lib/themes.ts.
+
+     ThemeContext writes `data-theme="<id>"` on <html> to pick the palette, and
+     additionally adds the `dark` class for any theme whose registry entry has
+     base "dark". That is what the `.dark .foo` rules above key off, so a new
+     dark palette inherits them without being named in a selector. */
+
+  [data-theme="dark"] {
     --color-background: hsl(0 0% 3.9%);
     --color-foreground: hsl(0 0% 98%);
     --color-card: hsl(0 0% 3.9%);

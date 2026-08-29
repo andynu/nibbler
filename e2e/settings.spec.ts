@@ -337,6 +337,47 @@ test.describe("Theme Selection", () => {
     const themeText = await settingsPage.getThemeText()
     await expect(themeText).toBeVisible()
   })
+
+  // Guards the seam between the theme registry (app/javascript/lib/themes.ts,
+  // which writes data-theme and the dark class) and the palette blocks in
+  // application.tailwind.css that key off them. Vitest never loads the
+  // stylesheet, so only a real browser catches the two drifting apart.
+  test("selecting a theme applies its palette to the document", async ({
+    feedsPage,
+    settingsPage,
+    page,
+  }) => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
+
+    const html = page.locator("html")
+    const backgroundColor = () =>
+      page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+
+    await settingsPage.selectTheme("Dark")
+    await expect(html).toHaveAttribute("data-theme", "dark")
+    await expect(html).toHaveClass(/(^|\s)dark(\s|$)/)
+    // transition-colors means the value arrives a frame or two late; poll.
+    await expect.poll(backgroundColor).toBe("rgb(10, 10, 10)")
+
+    await settingsPage.selectTheme("Light")
+    await expect(html).toHaveAttribute("data-theme", "light")
+    await expect(html).not.toHaveClass(/(^|\s)dark(\s|$)/)
+    await expect.poll(backgroundColor).toBe("rgb(255, 255, 255)")
+  })
+
+  test("the chosen theme survives a reload", async ({ feedsPage, settingsPage, page }) => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
+    await settingsPage.selectTheme("Dark")
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
+
+    await page.reload()
+    await feedsPage.waitForBranding()
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
+    await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
+  })
 })
 
 test.describe("Accent Color", () => {

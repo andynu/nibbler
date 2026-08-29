@@ -11,6 +11,7 @@ import { usePreferences } from "@/contexts/PreferencesContext"
 import { useTheme } from "@/contexts/ThemeContext"
 import { useI18n } from "@/contexts/I18nContext"
 import { applyAccentColors, generateAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
+import { SYSTEM_THEME, THEMES, normalizeThemeSelection } from "@/lib/themes"
 import type { LanguageCode } from "@/lib/i18n"
 
 const UPDATE_INTERVAL_OPTIONS = [
@@ -65,10 +66,10 @@ const PURGE_DAYS_OPTIONS = [
   { value: "0", label: "Never" },
 ]
 
+// Derived from the theme registry so a new palette appears here automatically.
 const THEME_OPTIONS = [
-  { value: "system", label: "System (auto)" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+  { value: SYSTEM_THEME, label: "System (auto)" },
+  ...THEMES.map((theme) => ({ value: theme.id, label: theme.name })),
 ]
 
 const CONTENT_VIEW_MODE_OPTIONS = [
@@ -123,9 +124,9 @@ export function PreferencesPanel() {
             </div>
             <Select
               value={theme}
-              onValueChange={(value) => setTheme(value as "light" | "dark" | "system")}
+              onValueChange={(value) => setTheme(normalizeThemeSelection(value))}
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger id="theme" className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
