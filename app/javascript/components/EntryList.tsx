@@ -19,7 +19,7 @@ import { SortableHeaderRow, toggleSort } from "@/components/SortableColumnHeader
 import { SortDropdown } from "@/components/SortDropdown"
 import { SearchBar } from "@/components/SearchBar"
 import { SearchResultList } from "@/components/SearchResultList"
-import type { Entry, Feed, SearchResult, SortConfig, SortColumn } from "@/lib/api"
+import type { Entry, Feed, FreshMaxAge, SearchResult, SortConfig, SortColumn } from "@/lib/api"
 
 /**
  * Everything the list needs to show the search box and its hits. Supplied as
@@ -58,9 +58,9 @@ interface EntryListProps {
   title: string
   // Fresh view parameters
   isFreshView?: boolean
-  freshMaxAge?: "week" | "month" | "all"
+  freshMaxAge?: FreshMaxAge
   freshPerFeed?: number | null
-  onFreshMaxAgeChange?: (value: "week" | "month" | "all") => void
+  onFreshMaxAgeChange?: (value: FreshMaxAge) => void
   onFreshPerFeedChange?: (value: number | null) => void
   // Single feed view
   selectedFeed?: Feed | null
@@ -227,7 +227,7 @@ export function EntryList({
             <span className="text-muted-foreground">time:</span>
             <select
               value={freshMaxAge}
-              onChange={(e) => onFreshMaxAgeChange(e.target.value as "week" | "month" | "all")}
+              onChange={(e) => onFreshMaxAgeChange(e.target.value as FreshMaxAge)}
               className="bg-background border border-border rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="week">week</option>

@@ -21,7 +21,7 @@ import { I18nProvider } from "@/contexts/I18nContext"
 import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
-import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
+import { api, Feed, Entry, Category, FreshMaxAge, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -71,7 +71,7 @@ function App() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   // Fresh view parameters (session-only, not persisted)
-  const [freshMaxAge, setFreshMaxAge] = useState<"week" | "month" | "all">("week")
+  const [freshMaxAge, setFreshMaxAge] = useState<FreshMaxAge>("week")
   const [freshPerFeed, setFreshPerFeed] = useState<number | null>(5)
 
   const [_isLoadingFeeds, setIsLoadingFeeds] = useState(true)
