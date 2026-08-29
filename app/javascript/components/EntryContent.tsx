@@ -389,6 +389,7 @@ export function EntryContent({
         >
           {embedPolicy.blocked ? (
             <div
+              data-testid="embed-blocked-fallback"
               className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-6"
               /* The refusing header, for anyone wondering which site did what. */
               title={embedPolicy.reason ?? undefined}
