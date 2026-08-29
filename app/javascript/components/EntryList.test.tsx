@@ -485,4 +485,132 @@ describe("EntryList", () => {
       expect(screen.queryByText("Sort:")).not.toBeInTheDocument()
     })
   })
+
+  describe("new entries affordance", () => {
+    const idleSearch = {
+      query: "",
+      onQueryChange: vi.fn(),
+      onDismiss: vi.fn(),
+      inputRef: null,
+      isActive: false,
+      isSearching: false,
+      results: [],
+      error: null,
+    }
+
+    it("shows nothing when the probe has found no new entries", () => {
+      render(<EntryList {...defaultProps} newEntryCount={0} onShowNewEntries={vi.fn()} />)
+
+      expect(screen.queryByRole("button", { name: /new article/i })).not.toBeInTheDocument()
+    })
+
+    it("shows nothing without a handler to pull the entries in", () => {
+      render(<EntryList {...defaultProps} newEntryCount={3} />)
+
+      expect(screen.queryByRole("button", { name: /new article/i })).not.toBeInTheDocument()
+    })
+
+    it("offers the entries the probe found", () => {
+      render(<EntryList {...defaultProps} newEntryCount={3} onShowNewEntries={vi.fn()} />)
+
+      expect(screen.getByRole("button", { name: "3 new articles" })).toBeInTheDocument()
+    })
+
+    it("uses the singular for a single new entry", () => {
+      render(<EntryList {...defaultProps} newEntryCount={1} onShowNewEntries={vi.fn()} />)
+
+      expect(screen.getByRole("button", { name: "1 new article" })).toBeInTheDocument()
+    })
+
+    it("pulls the entries in when clicked", async () => {
+      const user = userEvent.setup()
+      const onShowNewEntries = vi.fn()
+
+      render(
+        <EntryList {...defaultProps} newEntryCount={2} onShowNewEntries={onShowNewEntries} />
+      )
+      await user.click(screen.getByRole("button", { name: "2 new articles" }))
+
+      expect(onShowNewEntries).toHaveBeenCalledTimes(1)
+    })
+
+    it("stays out of the way while a search owns the list", () => {
+      render(
+        <EntryList
+          {...defaultProps}
+          newEntryCount={4}
+          onShowNewEntries={vi.fn()}
+          search={{ ...idleSearch, query: "rails", isActive: true }}
+        />
+      )
+
+      expect(screen.queryByRole("button", { name: /new article/i })).not.toBeInTheDocument()
+    })
+
+    it("stays out of the way in feed-list mode, which holds no entries", () => {
+      render(
+        <EntryList
+          {...defaultProps}
+          newEntryCount={4}
+          onShowNewEntries={vi.fn()}
+          displayMode="feeds"
+          filteredFeeds={[]}
+        />
+      )
+
+      expect(screen.queryByRole("button", { name: /new article/i })).not.toBeInTheDocument()
+    })
+
+    it("leaves the open entry selected when the count arrives", () => {
+      const entries = [
+        mockEntry({ id: 1, title: "First" }),
+        mockEntry({ id: 2, title: "Reading This" }),
+      ]
+      const { rerender } = render(
+        <EntryList {...defaultProps} entries={entries} selectedEntryId={2} />
+      )
+
+      rerender(
+        <EntryList
+          {...defaultProps}
+          entries={entries}
+          selectedEntryId={2}
+          newEntryCount={5}
+          onShowNewEntries={vi.fn()}
+        />
+      )
+
+      expect(screen.getByRole("option", { name: /reading this/i })).toHaveAttribute(
+        "aria-selected",
+        "true"
+      )
+    })
+
+    it("does not scroll the list when the count arrives", () => {
+      const entries = [
+        mockEntry({ id: 1, title: "First" }),
+        mockEntry({ id: 2, title: "Reading This" }),
+      ]
+      const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView")
+      const { rerender } = render(
+        <EntryList {...defaultProps} entries={entries} selectedEntryId={2} />
+      )
+
+      // The mount scroll is the keyboard-navigation one; only what comes after
+      // the count arrives is under test.
+      scrollIntoView.mockClear()
+      rerender(
+        <EntryList
+          {...defaultProps}
+          entries={entries}
+          selectedEntryId={2}
+          newEntryCount={5}
+          onShowNewEntries={vi.fn()}
+        />
+      )
+
+      expect(scrollIntoView).not.toHaveBeenCalled()
+      scrollIntoView.mockRestore()
+    })
+  })
 })

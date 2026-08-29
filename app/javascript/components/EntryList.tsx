@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCheck, Star, Circle, StickyNote, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Rss, AlertCircle, Menu } from "lucide-react"
+import { CheckCheck, Star, Circle, StickyNote, Eye, EyeOff, ExternalLink, MoreHorizontal, RefreshCw, Pencil, Trash2, Rss, AlertCircle, Menu, ArrowUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getTagColor } from "@/lib/tag-colors"
 import { usePreferences } from "@/contexts/PreferencesContext"
@@ -73,6 +73,13 @@ interface EntryListProps {
   onSelectFeedFromList?: (feedId: number) => void
   // Keyboard navigation boundary feedback
   boundaryHit?: "start" | "end" | null
+  /**
+   * How many entries the background probe has found that `entries` does not
+   * hold yet. Zero or absent renders nothing.
+   */
+  newEntryCount?: number
+  /** Pull the probed entries into the list. Required for the count to render. */
+  onShowNewEntries?: () => void
   // Multi-column sorting
   sortConfig?: SortConfig[]
   onSortChange?: (newSort: SortConfig[]) => void
@@ -107,6 +114,8 @@ export function EntryList({
   filteredFeeds = [],
   onSelectFeedFromList,
   boundaryHit,
+  newEntryCount = 0,
+  onShowNewEntries,
   sortConfig = [],
   onSortChange,
   onShowSidebar,
@@ -389,6 +398,27 @@ export function EntryList({
             className="hidden sm:flex"
           />
         </>
+      )}
+
+      {/* What the background probe found. The probe never writes to `entries`
+          on its own: a reload clears the open article and rebuilds every row,
+          so a poll would evict the reader once a minute. The count waits here
+          until asked (ttrb-v565).
+
+          Hidden while a search owns the list, whose hits the probe knows
+          nothing about, and in feed-list mode, which holds no entries. */}
+      {displayMode === "entries" && !searchActive && newEntryCount > 0 && onShowNewEntries && (
+        <div className="px-2 py-1.5 border-b border-border shrink-0 bg-muted/20">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onShowNewEntries}
+            className="w-full h-7 text-xs"
+          >
+            <ArrowUp className="h-3.5 w-3.5 mr-1" />
+            {newEntryCount === 1 ? "1 new article" : `${newEntryCount} new articles`}
+          </Button>
+        </div>
       )}
 
       <ScrollArea className="flex-1 min-h-0">

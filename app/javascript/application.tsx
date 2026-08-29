@@ -26,6 +26,7 @@ import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommand
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
+import { useNewEntries } from "@/hooks/useNewEntries"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
 import { useEntrySearch } from "@/hooks/useEntrySearch"
@@ -207,10 +208,61 @@ function App() {
     }
   }, [])
 
+  // Everything that decides which entries the list holds, in one object. Both
+  // the visible load and the background probe read it, so the probe cannot
+  // drift into asking a different question than the list it is compared with.
+  // Its identity is also the list's identity: a new object means a different
+  // list, which is what invalidates a stored probe.
+  const entriesQuery = useMemo(() => ({
+    feed_id: selectedFeedId || undefined,
+    category_id: selectedCategoryId || undefined,
+    // Only the entry-backed virtual folders map to an API view. All Feeds ("")
+    // and the feed-list smart folders have no server-side view and load unfiltered.
+    view: toEntryView(virtualFeed),
+    // Use multi-column sort config if set, otherwise fall back to legacy sort_by_score
+    sort: preferences.entries_sort_config ||
+      (preferences.entries_sort_by_score === "true" ? "score:desc" : "date:desc"),
+    unread: preferences.entries_hide_read === "true" ? true : undefined,
+    starred: preferences.entries_hide_unstarred === "true" ? true : undefined,
+    per_page: parseInt(preferences.default_view_limit, 10) || 30,
+    // Fresh view parameters
+    fresh_max_age: virtualFeed === "fresh" ? freshMaxAge : undefined,
+    fresh_per_feed: virtualFeed === "fresh" && freshPerFeed ? freshPerFeed : undefined,
+    // Tag filter
+    tag: selectedTag || undefined,
+  }), [
+    selectedFeedId,
+    selectedCategoryId,
+    virtualFeed,
+    selectedTag,
+    preferences.entries_sort_config,
+    preferences.entries_sort_by_score,
+    preferences.entries_hide_read,
+    preferences.entries_hide_unstarred,
+    preferences.default_view_limit,
+    freshMaxAge,
+    freshPerFeed,
+  ])
+
   // Load entries when selection, sort order, filter preferences, or fresh params change
   useEffect(() => {
     loadEntries()
-  }, [selectedFeedId, selectedCategoryId, virtualFeed, selectedTag, preferences.entries_sort_config, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred, freshMaxAge, freshPerFeed])
+  }, [entriesQuery])
+
+  // The list itself is deliberately left out of the tick above: loadEntries
+  // clears the selection and replaces every row, so polling it would close the
+  // open article and lose the reader's place once a minute. Probe for what
+  // arrived instead and let the reader ask for it (ttrb-v565).
+  //
+  // Suspended for the stories view, which the entries API does not back, and
+  // while settings are open, for the same reason the feed poll is.
+  const newEntries = useNewEntries({
+    entries,
+    fetchEntries: async () => (await api.entries.list(entriesQuery)).entries,
+    onApply: setEntries,
+    scope: entriesQuery,
+    enabled: !showSettings && virtualFeed !== "stories",
+  })
 
   const loadFeeds = async () => {
     setIsLoadingFeeds(true)
@@ -238,31 +290,13 @@ function App() {
     }
     setIsLoadingEntries(true)
     try {
-      const perPage = parseInt(preferences.default_view_limit, 10) || 30
-      const hideRead = preferences.entries_hide_read === "true"
-      const hideUnstarred = preferences.entries_hide_unstarred === "true"
-      // Only the entry-backed virtual folders map to an API view. All Feeds ("")
-      // and the feed-list smart folders have no server-side view and load unfiltered.
-      const viewParam = toEntryView(virtualFeed)
-      // Use multi-column sort config if set, otherwise fall back to legacy sort_by_score
-      const sortParam = preferences.entries_sort_config ||
-        (preferences.entries_sort_by_score === "true" ? "score:desc" : "date:desc")
-      const result = await api.entries.list({
-        feed_id: selectedFeedId || undefined,
-        category_id: selectedCategoryId || undefined,
-        view: viewParam,
-        sort: sortParam,
-        unread: hideRead ? true : undefined,
-        starred: hideUnstarred ? true : undefined,
-        per_page: perPage,
-        // Fresh view parameters
-        fresh_max_age: virtualFeed === "fresh" ? freshMaxAge : undefined,
-        fresh_per_feed: virtualFeed === "fresh" && freshPerFeed ? freshPerFeed : undefined,
-        // Tag filter
-        tag: selectedTag || undefined,
-      })
+      const result = await api.entries.list(entriesQuery)
       setEntries(result.entries)
       setSelectedEntry(null)
+      // This list came straight from the server, so any stored probe is both
+      // redundant and misleading: entries that fell off the end of the
+      // per_page window would otherwise read as new.
+      newEntries.reset()
     } catch (error) {
       console.error("Failed to load entries:", error)
     } finally {
@@ -1057,6 +1091,8 @@ function App() {
             onEditFeed={setEditingFeed}
             onDeleteFeed={handleDeleteFeed}
             boundaryHit={boundaryHit}
+            newEntryCount={newEntries.count}
+            onShowNewEntries={newEntries.apply}
             sortConfig={sortConfig}
             onSortChange={handleSortChange}
             onShowSidebar={layout.isMobile ? layout.goToSidebar : undefined}
