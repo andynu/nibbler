@@ -3,7 +3,7 @@ module Api
     class EntriesController < BaseController
       include FreshArticleWindow
 
-      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info ]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info, :embed_policy ]
 
       # GET /api/v1/entries
       def index
@@ -186,6 +186,17 @@ module Api
         entry = @user_entry.entry
         analyzer = EntryWordFrequencyAnalyzer.new(entry)
         render json: { top_words: analyzer.analyze }
+      end
+
+      # GET /api/v1/entries/:id/embed_policy
+      # Whether the entry's page will render inside the reader's iframe. The
+      # browser cannot tell the embedder that a frame was refused, so the
+      # question is answered here by reading the page's own headers; see
+      # EmbedPolicyProbe. The URL comes from the entry rather than the request,
+      # so this cannot be pointed at an arbitrary host.
+      def embed_policy
+        result = EmbedPolicyProbe.for(@user_entry.entry.link)
+        render json: { status: result.status, reason: result.reason }
       end
 
       # POST /api/v1/entries/mark_all_read

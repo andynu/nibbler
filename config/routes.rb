@@ -41,6 +41,7 @@ Rails.application.routes.draw do
           post :toggle_published
           get :audio
           get :info
+          get :embed_policy
         end
         collection do
           get :headlines
