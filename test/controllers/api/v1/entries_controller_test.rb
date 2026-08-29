@@ -728,4 +728,74 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "generating", JSON.parse(response.body)["status"]
   end
+
+  def create_linked_user_entry(link)
+    entry = Entry.create!(
+      guid: "embed-entry-#{SecureRandom.uuid}",
+      title: "Framed Article",
+      link: link,
+      content: "<p>Hello World</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+  end
+
+  test "embed_policy reports the refusal a site's headers declare" do
+    link = "https://blocked.example/article"
+    user_entry = create_linked_user_entry(link)
+    stub_request(:head, link).to_return(status: 200, headers: { "X-Frame-Options" => "DENY" })
+
+    get embed_policy_api_v1_entry_url(user_entry), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "blocked", json["status"]
+    assert_equal "x-frame-options: deny", json["reason"]
+  end
+
+  test "embed_policy reports embeddable when nothing refuses the frame" do
+    link = "https://open.example/article"
+    user_entry = create_linked_user_entry(link)
+    stub_request(:head, link).to_return(status: 200, headers: {})
+
+    get embed_policy_api_v1_entry_url(user_entry), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "embeddable", json["status"]
+    assert_nil json["reason"]
+  end
+
+  # The probe reads the entry's stored link and nothing else, so the endpoint
+  # cannot be turned into a request forwarder pointed at an arbitrary host.
+  test "embed_policy probes the entry's own link, not a url the caller supplies" do
+    link = "https://open.example/article"
+    user_entry = create_linked_user_entry(link)
+    stub_request(:head, link).to_return(status: 200, headers: {})
+
+    get embed_policy_api_v1_entry_url(user_entry, url: "https://attacker.example/internal"), as: :json
+
+    assert_response :success
+    assert_requested :head, link
+    assert_not_requested :head, "https://attacker.example/internal"
+  end
+
+  test "embed_policy will not answer for another user's entry" do
+    link = "https://private.example/article"
+    user_entry = create_linked_user_entry(link)
+    # setup signs in User.first, which fixture id ordering decides; name the
+    # other user by exclusion rather than by fixture label.
+    sign_in(User.where.not(id: @user.id).first)
+
+    get embed_policy_api_v1_entry_url(user_entry), as: :json
+
+    assert_response :not_found
+    assert_not_requested :head, link
+  end
 end
