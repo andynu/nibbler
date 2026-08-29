@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
@@ -12,6 +12,7 @@ import { SuggestedTags } from "@/components/SuggestedTags"
 import { FollowStoryDialog } from "@/components/FollowStoryDialog"
 import { HighlightedContent } from "@/components/HighlightedContent"
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
+import { useIframeFocusGuard } from "@/hooks/useIframeFocusGuard"
 import type { Entry, Story } from "@/lib/api"
 
 interface EntryContentProps {
@@ -98,6 +99,15 @@ export function EntryContent({
     threshold: 60,
   })
 
+  // The embedded page is a separate document, so keydown never reaches the
+  // shortcuts registered here once focus moves into it. The guard keeps focus
+  // anchored on the wrapper through j/k navigation and reports the handoff when
+  // the reader clicks into the frame anyway.
+  const iframeFocus = useIframeFocusGuard<HTMLDivElement>({
+    enabled: showIframe && !!entry && !iframeError,
+    resetKey: entry?.id ?? null,
+  })
+
   // Reset state when entry changes
   useEffect(() => {
     setIsEditingNote(false)
@@ -177,6 +187,21 @@ export function EntryContent({
           <Button variant="ghost" size="icon" onClick={onNext} disabled={!hasNext} aria-label="Next entry">
             <ChevronRight className="h-4 w-4" />
           </Button>
+          {/* Only route back to this document once the embedded page has taken
+              focus; until then the shortcuts still work and the badge would be
+              noise. */}
+          {showIframe && iframeFocus.keyboardHandedOff && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={iframeFocus.reclaimKeyboard}
+              className="ml-1 h-7 gap-1.5 px-2 text-xs"
+              title="The embedded page has keyboard focus. Click to restore Nibbler's shortcuts."
+            >
+              <Keyboard className="h-3.5 w-3.5" />
+              Restore shortcuts
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-0.5 sm:gap-1">
           {/* Core actions - always visible */}
@@ -311,7 +336,13 @@ export function EntryContent({
       </div>
 
       {showIframe ? (
-        <div className="flex-1 min-h-0 flex flex-col">
+        // tabIndex makes the wrapper focusable so the guard has somewhere in
+        // this document to park focus; it is never reached by tabbing.
+        <div
+          ref={iframeFocus.anchorRef}
+          tabIndex={-1}
+          className="flex-1 min-h-0 flex flex-col outline-none"
+        >
           {iframeError ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-6">
               <Globe className="h-12 w-12 opacity-50" />
@@ -328,10 +359,12 @@ export function EntryContent({
             </div>
           ) : (
             <iframe
+              ref={iframeFocus.frameRef}
               src={entry.link}
               className="flex-1 w-full border-0"
               title={entry.title}
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              onLoad={iframeFocus.handleFrameLoad}
               onError={() => setIframeError(true)}
             />
           )}

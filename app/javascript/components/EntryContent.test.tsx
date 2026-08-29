@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent, act } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { EntryContent } from "./EntryContent"
@@ -447,6 +447,117 @@ describe("EntryContent", () => {
 
       expect(screen.getByTestId("enclosure-player")).toBeInTheDocument()
       expect(screen.getByText("1 enclosures")).toBeInTheDocument()
+    })
+  })
+
+  describe("iframe view keyboard focus", () => {
+    /**
+     * happy-dom really loads an iframe's src through its own fetch, which
+     * globalThis.fetch guard in test/setup.ts cannot intercept. about:blank
+     * keeps these examples on the machine while still giving a real frame with
+     * real focus semantics.
+     */
+    const iframeEntry = () => mockEntryWithContent({ link: "about:blank" })
+
+    const restoreButton = () =>
+      screen.queryByRole("button", { name: /restore shortcuts/i })
+
+    async function settle() {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5))
+      })
+    }
+
+    /**
+     * The reader's shortcuts live on this document, so they stop firing the
+     * moment the embedded document takes focus. A window blur while the frame
+     * is the active element is the only signal the browser gives; happy-dom
+     * does not blur on its own, so the event is dispatched here.
+     *
+     * The leading settle drains happy-dom's own asynchronous iframe load, which
+     * would otherwise arrive mid-example and spend the guard's first-load
+     * reclaim on a handoff the reader never made.
+     */
+    async function handOffToFrame(frame: HTMLElement) {
+      await settle()
+      frame.focus()
+      fireEvent.blur(window)
+      await settle()
+    }
+
+    it("renders the original page in an iframe", () => {
+      const entry = iframeEntry()
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+
+      expect(screen.getByTitle(entry.title)).toHaveAttribute("src", entry.link)
+    })
+
+    it("keeps focus in this document so shortcuts keep working", () => {
+      const entry = iframeEntry()
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+
+      expect(document.activeElement).not.toBe(screen.getByTitle(entry.title))
+      expect(restoreButton()).not.toBeInTheDocument()
+    })
+
+    it("offers a way back once the embedded page takes keyboard focus", async () => {
+      const entry = iframeEntry()
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+      await handOffToFrame(screen.getByTitle(entry.title))
+
+      expect(restoreButton()).toBeInTheDocument()
+    })
+
+    it("leaves previous, next and focus mode clickable during the handoff", async () => {
+      const entry = iframeEntry()
+      const onNext = vi.fn()
+      const onToggleFocusMode = vi.fn()
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={entry}
+          showIframe={true}
+          focusMode={true}
+          onNext={onNext}
+          onToggleFocusMode={onToggleFocusMode}
+        />
+      )
+      await handOffToFrame(screen.getByTitle(entry.title))
+
+      await user.click(screen.getByRole("button", { name: /next entry/i }))
+      await user.click(screen.getByRole("button", { name: /exit focus mode/i }))
+
+      expect(onNext).toHaveBeenCalledOnce()
+      expect(onToggleFocusMode).toHaveBeenCalledOnce()
+    })
+
+    it("returns keyboard control to the reader when asked", async () => {
+      const entry = iframeEntry()
+      const user = userEvent.setup()
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+      await handOffToFrame(screen.getByTitle(entry.title))
+
+      await user.click(restoreButton()!)
+
+      expect(document.activeElement).not.toBe(screen.getByTitle(entry.title))
+      expect(restoreButton()).not.toBeInTheDocument()
+    })
+
+    it("does not offer the affordance in RSS view", async () => {
+      const entry = iframeEntry()
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={false} />)
+
+      fireEvent.blur(window)
+      await settle()
+
+      expect(restoreButton()).not.toBeInTheDocument()
     })
   })
 })
