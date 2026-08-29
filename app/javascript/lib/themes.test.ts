@@ -13,10 +13,19 @@ import {
   resolveTheme,
 } from "./themes"
 
+/** An id no palette will ever claim, for the "unknown selection" paths. */
+const UNREGISTERED = "not-a-theme"
+
 describe("themes registry", () => {
   it("registers light and dark with matching bases", () => {
     expect(getTheme("light")).toMatchObject({ id: "light", base: "light" })
     expect(getTheme("dark")).toMatchObject({ id: "dark", base: "dark" })
+  })
+
+  it("registers the low-contrast palettes with their bases", () => {
+    expect(getTheme("gruvbox-dark")).toMatchObject({ id: "gruvbox-dark", base: "dark" })
+    expect(getTheme("gruvbox-light")).toMatchObject({ id: "gruvbox-light", base: "light" })
+    expect(getTheme("sepia")).toMatchObject({ id: "sepia", base: "light" })
   })
 
   it("gives every theme a unique id and a display name", () => {
@@ -33,7 +42,7 @@ describe("themes registry", () => {
   })
 
   it("returns undefined for an unregistered id", () => {
-    expect(getTheme("gruvbox")).toBeUndefined()
+    expect(getTheme(UNREGISTERED)).toBeUndefined()
     expect(getTheme(null)).toBeUndefined()
     expect(getTheme(undefined)).toBeUndefined()
   })
@@ -46,7 +55,7 @@ describe("isThemeId / isThemeSelection", () => {
   })
 
   it("rejects unknown ids and non-strings", () => {
-    expect(isThemeId("gruvbox")).toBe(false)
+    expect(isThemeId(UNREGISTERED)).toBe(false)
     expect(isThemeId(SYSTEM_THEME)).toBe(false)
     expect(isThemeId(null)).toBe(false)
     expect(isThemeId(42)).toBe(false)
@@ -55,7 +64,7 @@ describe("isThemeId / isThemeSelection", () => {
   it("treats system as a valid selection but not a theme id", () => {
     expect(isThemeSelection(SYSTEM_THEME)).toBe(true)
     expect(isThemeSelection("dark")).toBe(true)
-    expect(isThemeSelection("gruvbox")).toBe(false)
+    expect(isThemeSelection(UNREGISTERED)).toBe(false)
   })
 })
 
@@ -67,7 +76,7 @@ describe("normalizeThemeSelection", () => {
   })
 
   it("falls back to system for values that are no longer themes", () => {
-    expect(normalizeThemeSelection("gruvbox")).toBe(SYSTEM_THEME)
+    expect(normalizeThemeSelection(UNREGISTERED)).toBe(SYSTEM_THEME)
     expect(normalizeThemeSelection("")).toBe(SYSTEM_THEME)
     expect(normalizeThemeSelection(null)).toBe(SYSTEM_THEME)
     expect(normalizeThemeSelection(undefined)).toBe(SYSTEM_THEME)
@@ -89,9 +98,16 @@ describe("resolveTheme", () => {
   })
 
   it("resolves an unknown id as if it were system", () => {
-    expect(resolveTheme("gruvbox", false).id).toBe("light")
-    expect(resolveTheme("gruvbox", true).id).toBe("dark")
+    expect(resolveTheme(UNREGISTERED, false).id).toBe("light")
+    expect(resolveTheme(UNREGISTERED, true).id).toBe("dark")
     expect(resolveTheme(null, true).id).toBe("dark")
+  })
+
+  it("resolves each registered palette to itself", () => {
+    for (const theme of THEMES) {
+      expect(resolveTheme(theme.id, true).id).toBe(theme.id)
+      expect(resolveTheme(theme.id, false).id).toBe(theme.id)
+    }
   })
 
   it("honours a custom system pair", () => {
@@ -101,13 +117,16 @@ describe("resolveTheme", () => {
   })
 
   it("falls back to the defaults when the system pair names a missing theme", () => {
-    const pair = { light: "sepia", dark: "gruvbox" } as unknown as typeof DEFAULT_SYSTEM_THEMES
+    const pair = {
+      light: UNREGISTERED,
+      dark: `${UNREGISTERED}-too`,
+    } as unknown as typeof DEFAULT_SYSTEM_THEMES
     expect(resolveTheme(SYSTEM_THEME, false, pair).id).toBe(DEFAULT_SYSTEM_THEMES.light)
     expect(resolveTheme(SYSTEM_THEME, true, pair).id).toBe(DEFAULT_SYSTEM_THEMES.dark)
   })
 
   it("always returns a registered theme", () => {
-    for (const selection of [SYSTEM_THEME, "light", "dark", "nope", ""]) {
+    for (const selection of [SYSTEM_THEME, "light", "dark", "sepia", UNREGISTERED, ""]) {
       for (const prefersDark of [true, false]) {
         expect(THEMES).toContain(resolveTheme(selection, prefersDark))
       }
@@ -139,13 +158,21 @@ describe("applyTheme", () => {
   })
 
   it("keeps the dark class when swapping between two dark palettes", () => {
-    const gruvbox: ThemeDefinition = { id: "gruvbox", name: "Gruvbox", base: "dark" }
-
     applyTheme(root, getTheme("dark")!)
-    applyTheme(root, gruvbox)
+    applyTheme(root, getTheme("gruvbox-dark")!)
 
     expect(root.classList.contains("dark")).toBe(true)
-    expect(root.getAttribute(THEME_ATTRIBUTE)).toBe("gruvbox")
+    expect(root.getAttribute(THEME_ATTRIBUTE)).toBe("gruvbox-dark")
+  })
+
+  it("drops the dark class when swapping to a light palette", () => {
+    const unregistered: ThemeDefinition = { id: UNREGISTERED, name: "Nope", base: "light" }
+
+    applyTheme(root, getTheme("gruvbox-dark")!)
+    applyTheme(root, unregistered)
+
+    expect(root.classList.contains("dark")).toBe(false)
+    expect(root.getAttribute(THEME_ATTRIBUTE)).toBe(UNREGISTERED)
   })
 
   it("leaves unrelated classes alone", () => {

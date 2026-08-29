@@ -122,6 +122,84 @@
     --color-ring: hsl(0 0% 83.1%);
   }
 
+  /* Gruvbox Dark. The `light`/`dark` pair above is greyscale at ~19:1, which is
+     the contrast that makes a white-on-black page vibrate. This drops body text
+     to 10.7:1 and warms every surface, not just the text: the background sits at
+     6% saturation and the raised surfaces at 5-7%, following gruvbox's own bg
+     ramp, so the hue survives even where no foreground colour is painted. */
+  [data-theme="gruvbox-dark"] {
+    --color-background: hsl(20 6% 16%);
+    --color-foreground: hsl(43 59% 81%);
+    --color-card: hsl(20 6% 16%);
+    --color-card-foreground: hsl(43 59% 81%);
+    --color-popover: hsl(20 6% 16%);
+    --color-popover-foreground: hsl(43 59% 81%);
+    --color-primary: hsl(43 59% 81%);
+    --color-primary-foreground: hsl(20 6% 16%);
+    --color-secondary: hsl(20 5% 22%);
+    --color-secondary-foreground: hsl(43 59% 81%);
+    --color-muted: hsl(20 5% 22%);
+    --color-muted-foreground: hsl(39 24% 66%);
+    --color-accent: hsl(20 5% 22%);
+    --color-accent-foreground: hsl(43 59% 81%);
+    /* Lighter than gruvbox's neutral red so `text-destructive` clears AA (4.6:1)
+       against a background that is itself much lighter than #0a0a0a. */
+    --color-destructive: hsl(6 95% 63%);
+    --color-destructive-foreground: hsl(20 6% 16%);
+    --color-border: hsl(22 7% 27%);
+    --color-input: hsl(22 7% 27%);
+    --color-ring: hsl(39 24% 66%);
+  }
+
+  /* Gruvbox Light: the same palette inverted. Cream page, warm dark-brown text
+     at 10.3:1 rather than the 19.8:1 of plain black on white. */
+  [data-theme="gruvbox-light"] {
+    --color-background: hsl(48 87% 88%);
+    --color-foreground: hsl(20 5% 22%);
+    --color-card: hsl(48 87% 88%);
+    --color-card-foreground: hsl(20 5% 22%);
+    --color-popover: hsl(48 87% 88%);
+    --color-popover-foreground: hsl(20 5% 22%);
+    --color-primary: hsl(20 5% 22%);
+    --color-primary-foreground: hsl(48 87% 88%);
+    --color-secondary: hsl(43 59% 81%);
+    --color-secondary-foreground: hsl(20 5% 22%);
+    --color-muted: hsl(43 59% 81%);
+    --color-muted-foreground: hsl(27 10% 36%);
+    --color-accent: hsl(43 59% 81%);
+    --color-accent-foreground: hsl(20 5% 22%);
+    --color-destructive: hsl(358 100% 31%);
+    --color-destructive-foreground: hsl(48 87% 88%);
+    --color-border: hsl(40 38% 76%);
+    --color-input: hsl(40 38% 76%);
+    --color-ring: hsl(27 10% 36%);
+  }
+
+  /* Sepia: aged paper rather than a screen. The softest of the set at 8.6:1,
+     which is still well clear of AA but nowhere near the 19.8:1 of the default
+     light theme. Less yellow and less saturated than Gruvbox Light. */
+  [data-theme="sepia"] {
+    --color-background: hsl(43 56% 90%);
+    --color-foreground: hsl(29 17% 25%);
+    --color-card: hsl(43 56% 90%);
+    --color-card-foreground: hsl(29 17% 25%);
+    --color-popover: hsl(43 56% 90%);
+    --color-popover-foreground: hsl(29 17% 25%);
+    --color-primary: hsl(29 17% 25%);
+    --color-primary-foreground: hsl(43 56% 90%);
+    --color-secondary: hsl(42 45% 85%);
+    --color-secondary-foreground: hsl(29 17% 25%);
+    --color-muted: hsl(42 45% 85%);
+    --color-muted-foreground: hsl(33 22% 34%);
+    --color-accent: hsl(42 45% 85%);
+    --color-accent-foreground: hsl(29 17% 25%);
+    --color-destructive: hsl(10 56% 36%);
+    --color-destructive-foreground: hsl(43 56% 90%);
+    --color-border: hsl(41 35% 79%);
+    --color-input: hsl(41 35% 79%);
+    --color-ring: hsl(33 22% 34%);
+  }
+
   /* Keyboard navigation boundary flash animation */
   @keyframes boundary-flash {
     0% { background-color: var(--color-accent-primary-light); }

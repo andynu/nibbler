@@ -39,9 +39,23 @@ export const THEME_ATTRIBUTE = "data-theme"
 /** Media query that decides what "system" resolves to. */
 export const DARK_MEDIA_QUERY = "(prefers-color-scheme: dark)"
 
+/**
+ * Every palette the app ships, in the order theme pickers list them.
+ *
+ * `light` and `dark` are the near-maximum-contrast greyscale pair. The rest are
+ * lower-contrast palettes that carry a warm hue through the surfaces as well as
+ * the text, for readers who find white-on-black or black-on-white harsh.
+ *
+ * Each id needs a matching `[data-theme="<id>"]` block in
+ * app/assets/stylesheets/application.tailwind.css (except `light`, which is the
+ * `@theme` block). themes.test.ts reads that file and fails if the two drift.
+ */
 export const THEMES = [
   { id: "light", name: "Light", base: "light" },
   { id: "dark", name: "Dark", base: "dark" },
+  { id: "gruvbox-dark", name: "Gruvbox Dark", base: "dark" },
+  { id: "gruvbox-light", name: "Gruvbox Light", base: "light" },
+  { id: "sepia", name: "Sepia", base: "light" },
 ] as const satisfies readonly ThemeDefinition[]
 
 export type ThemeId = (typeof THEMES)[number]["id"]

@@ -176,7 +176,7 @@ describe("ThemeContext", () => {
     })
 
     it("falls back to system for a stored id that is no longer a theme", () => {
-      localStorage.setItem(THEME_STORAGE_KEY, "gruvbox")
+      localStorage.setItem(THEME_STORAGE_KEY, "not-a-theme")
       installMatchMedia(true)
       renderProvider()
 
@@ -186,7 +186,7 @@ describe("ThemeContext", () => {
     })
 
     it("renders the light palette for an unknown stored id under a light OS", () => {
-      localStorage.setItem(THEME_STORAGE_KEY, "sepia")
+      localStorage.setItem(THEME_STORAGE_KEY, "also-not-a-theme")
       installMatchMedia(false)
       renderProvider()
 

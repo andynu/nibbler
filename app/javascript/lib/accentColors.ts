@@ -48,6 +48,19 @@ export function generateAccentColors(hue: number): AccentColors {
 
 /**
  * Apply accent colors to the document as CSS custom properties
+ *
+ * These land as INLINE styles on <html>, which beats every class- and
+ * attribute-based rule in the stylesheet. A named theme therefore cannot ship
+ * its own accent colours by declaring `--color-accent-primary` in its
+ * `[data-theme="..."]` block: the stored hue always wins, on every theme.
+ *
+ * That is deliberate. The accent hue is a separate user preference from the
+ * palette, and the themes in lib/themes.ts define only the neutral surface and
+ * text tokens, so the two controls stay independent and the accent slider keeps
+ * meaning what it says. Giving a theme a default hue would mean applying it
+ * through this function when the theme is selected (and deciding whether that
+ * overwrites the stored preference), not through CSS.
+ *
  * @param hue - The primary hue (0-360)
  */
 export function applyAccentColors(hue: number): void {

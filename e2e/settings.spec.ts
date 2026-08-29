@@ -1,4 +1,7 @@
 import { test, expect } from "./fixtures"
+// The one import from app source in this suite: the palette guard below has to
+// compare the compiled stylesheet against the registry itself, not a copy of it.
+import { THEMES } from "@/lib/themes"
 
 /**
  * Settings and preferences E2E tests.
@@ -364,6 +367,152 @@ test.describe("Theme Selection", () => {
     await expect(html).toHaveAttribute("data-theme", "light")
     await expect(html).not.toHaveClass(/(^|\s)dark(\s|$)/)
     await expect.poll(backgroundColor).toBe("rgb(255, 255, 255)")
+  })
+
+  // Every palette, not just the greyscale pair: a registry entry whose CSS
+  // block is missing renders as the light theme, which no unit test can see.
+  // The bases are asserted from the computed colours rather than the class, so
+  // a light palette accidentally marked dark (or the reverse) fails here.
+  const PALETTES = [
+    { label: "Gruvbox Dark", id: "gruvbox-dark", background: "rgb(43, 40, 38)" },
+    { label: "Gruvbox Light", id: "gruvbox-light", background: "rgb(251, 240, 198)" },
+    { label: "Sepia", id: "sepia", background: "rgb(244, 236, 215)" },
+  ] as const
+
+  for (const palette of PALETTES) {
+    test(`${palette.label} paints its own background`, async ({
+      feedsPage,
+      settingsPage,
+      page,
+    }) => {
+      await feedsPage.openSettings()
+      await settingsPage.goToPreferencesTab()
+      await settingsPage.selectTheme(palette.label)
+
+      await expect(page.locator("html")).toHaveAttribute("data-theme", palette.id)
+      await expect
+        .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor))
+        .toBe(palette.background)
+    })
+  }
+
+  // A registry entry whose palette block is missing, or which forgets a token,
+  // does not throw: the token falls through to the light `@theme` defaults and
+  // the theme renders with a white patch where a surface should be. Nothing in
+  // vitest can see that, so read the compiled stylesheet out of the browser and
+  // compare the two lists directly.
+  test("every registered theme has a palette block defining every token", async ({ page }) => {
+    const palettes = await page.evaluate(() => {
+      const rootTokens = new Set<string>()
+      const blocks: Record<string, string[]> = {}
+
+      const visit = (rule: CSSRule) => {
+        // Order matters: Chrome's CSSStyleRule also exposes cssRules (for CSS
+        // nesting), so a grouping-first check would swallow every style rule.
+        if (rule instanceof CSSStyleRule) {
+          const tokens = Array.from(rule.style).filter((prop) => prop.startsWith("--color-"))
+          if (/(^|,)\s*:root\b/.test(rule.selectorText)) {
+            for (const token of tokens) rootTokens.add(token)
+            return
+          }
+          const named = rule.selectorText.match(/\[data-theme="?([\w-]+)"?\]/)
+          if (named) blocks[named[1]] = tokens
+          return
+        }
+        // @layer / @media wrappers; Tailwind emits the palettes inside one.
+        if ("cssRules" in rule) {
+          for (const child of Array.from((rule as CSSGroupingRule).cssRules)) visit(child)
+        }
+      }
+
+      for (const sheet of Array.from(document.styleSheets)) {
+        for (const rule of Array.from(sheet.cssRules)) visit(rule)
+      }
+      return { rootTokens: Array.from(rootTokens), blocks }
+    })
+
+    // "light" is the :root default every other palette falls back to, so it is
+    // the one theme with no [data-theme] block of its own.
+    const expected = THEMES.map((theme) => theme.id)
+      .filter((id) => id !== "light")
+      .sort()
+    expect(Object.keys(palettes.blocks).sort()).toEqual(expected)
+
+    // Every palette must declare the same token set. :root carries more than
+    // the semantic tokens -- Tailwind emits a variable for each stock colour a
+    // utility references, and the accent variables that applyAccentColors owns
+    // as inline styles -- so the required set is the palettes' own union, and
+    // :root is only checked for containing it.
+    const required = Array.from(new Set(Object.values(palettes.blocks).flat())).sort()
+    expect(required).toContain("--color-background")
+    expect(required).toContain("--color-muted-foreground")
+    expect(required.length).toBeGreaterThanOrEqual(19)
+    for (const id of expected) {
+      expect(palettes.blocks[id].sort(), `${id} palette`).toEqual(required)
+    }
+    for (const token of required) {
+      expect(palettes.rootTokens, `${token} has no :root fallback`).toContain(token)
+    }
+  })
+
+  // The reason these palettes exist is that the greyscale pair sits near 20:1
+  // and vibrates. Lower contrast is the point, so the floor has to be checked
+  // rather than assumed: body text and the muted foreground both stay above
+  // WCAG AA at normal size.
+  //
+  // Only the low-contrast palettes are asserted. The stock Light theme already
+  // sits at 4.35 for muted-foreground on muted and would fail this bar; that
+  // predates the named themes and belongs to the colour audit (ttrb-x7fn), not
+  // here. Dark passes at 6.0.
+  test("the low-contrast palettes keep body and muted text above WCAG AA", async ({
+    feedsPage,
+    settingsPage,
+    page,
+  }) => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
+
+    for (const { label } of PALETTES) {
+      await settingsPage.selectTheme(label)
+      // transition-colors means a measurement taken immediately after the swap
+      // catches the animation mid-flight; wait for the value to settle.
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const styles = getComputedStyle(document.body)
+            const channel = (c: number) =>
+              c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+            const luminance = (color: string) => {
+              const [r, g, b] = color.match(/[\d.]+/g)!.map((v) => Number(v) / 255)
+              return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+            }
+            const ratio = (a: string, b: string) => {
+              const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+              return (hi + 0.05) / (lo + 0.05)
+            }
+
+            const read = (token: string) =>
+              getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+            const probe = document.createElement("span")
+            document.body.appendChild(probe)
+            const resolve = (token: string) => {
+              probe.style.color = read(token)
+              return getComputedStyle(probe).color
+            }
+            const background = styles.backgroundColor
+            const muted = resolve("--color-muted")
+            const mutedForeground = resolve("--color-muted-foreground")
+            probe.remove()
+
+            return Math.min(
+              ratio(styles.color, background),
+              ratio(mutedForeground, background),
+              ratio(mutedForeground, muted)
+            )
+          })
+        )
+        .toBeGreaterThanOrEqual(4.5)
+    }
   })
 
   test("the chosen theme survives a reload", async ({ feedsPage, settingsPage, page }) => {
