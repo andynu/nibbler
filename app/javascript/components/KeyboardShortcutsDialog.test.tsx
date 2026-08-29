@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { describe, it, expect, vi } from "vitest"
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog"
+import { shortcutCatalog, shortcutsBySection } from "@/lib/keyboardShortcuts"
 
 describe("KeyboardShortcutsDialog", () => {
   const defaultProps = {
@@ -199,6 +200,57 @@ describe("KeyboardShortcutsDialog", () => {
       expect(screen.getByText("k")).toBeInTheDocument()
       expect(screen.getByText("Ctrl+K")).toBeInTheDocument()
       expect(screen.getByText("?")).toBeInTheDocument()
+    })
+  })
+
+  describe("catalog coverage", () => {
+    it("renders every shortcut in the catalog", () => {
+      render(<KeyboardShortcutsDialog {...defaultProps} />)
+
+      for (const shortcut of shortcutCatalog) {
+        expect(screen.getByText(shortcut.description)).toBeInTheDocument()
+      }
+    })
+  })
+
+  describe("multi-column layout", () => {
+    it("keeps each section heading grouped with its own shortcuts", () => {
+      render(<KeyboardShortcutsDialog {...defaultProps} />)
+
+      const groups = shortcutsBySection()
+
+      for (const group of groups) {
+        const heading = screen.getByRole("heading", { name: group.section })
+        const sectionEl = heading.parentElement as HTMLElement
+
+        for (const item of group.items) {
+          expect(within(sectionEl).getByText(item.description)).toBeInTheDocument()
+        }
+
+        const foreignItems = groups
+          .filter((other) => other.section !== group.section)
+          .flatMap((other) => other.items)
+
+        for (const item of foreignItems) {
+          expect(within(sectionEl).queryByText(item.description)).not.toBeInTheDocument()
+        }
+      }
+    })
+
+    it("lays the sections out in responsive columns", () => {
+      render(<KeyboardShortcutsDialog {...defaultProps} />)
+
+      const heading = screen.getByRole("heading", { name: "Navigation" })
+      const sectionEl = heading.parentElement as HTMLElement
+
+      // Each section is an unsplittable column item, so a heading can never be
+      // orphaned from its shortcuts at a column break.
+      expect(sectionEl).toHaveClass("break-inside-avoid")
+      expect(sectionEl.parentElement).toHaveClass(
+        "columns-1",
+        "md:columns-2",
+        "lg:columns-3"
+      )
     })
   })
 })
