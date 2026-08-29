@@ -57,6 +57,21 @@ class ActiveSupport::TestCase
 
   # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
   fixtures :all
+
+  # Give the outbound destination guard a hostname -> addresses map for the
+  # duration of the block, instead of the test environment's default resolver
+  # that resolves nothing (see config/environments/test.rb).
+  #
+  # Names absent from the map still resolve to nothing, so a test can make one
+  # host internal without every other stubbed host in the example needing an
+  # entry.
+  def with_dns(map)
+    previous = Rails.configuration.x.outbound_http.resolver
+    Rails.configuration.x.outbound_http.resolver = ->(host) { Array(map[host]) }
+    yield
+  ensure
+    Rails.configuration.x.outbound_http.resolver = previous
+  end
 end
 
 class ActionDispatch::IntegrationTest

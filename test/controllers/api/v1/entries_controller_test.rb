@@ -786,6 +786,24 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_not_requested :head, "https://attacker.example/internal"
   end
 
+  # The endpoint fetches inline, so both the body and the time it takes to
+  # produce it are readable by anything that can open an article. A refused
+  # destination opens no socket at all, so neither one says whether something
+  # is listening on the port the link names.
+  test "embed_policy says the same thing about every internal address it refuses" do
+    bodies = [ "http://127.0.0.1:5432/", "http://127.0.0.1:1/", "http://169.254.169.254/latest/meta-data/" ].map do |link|
+      user_entry = create_linked_user_entry(link)
+      get embed_policy_api_v1_entry_url(user_entry), as: :json
+
+      assert_response :success
+      response.body
+    end
+
+    assert_equal 1, bodies.uniq.size, "the reason distinguishes one internal target from another"
+    assert_equal({ "status" => "unknown", "reason" => EmbedPolicyProbe::UNKNOWN_REASON }, JSON.parse(bodies.first))
+    assert_not_requested :head, "http://127.0.0.1:5432/"
+  end
+
   test "embed_policy will not answer for another user's entry" do
     link = "https://private.example/article"
     user_entry = create_linked_user_entry(link)

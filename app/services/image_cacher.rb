@@ -222,12 +222,11 @@ class ImageCacher
   end
 
   def connection
-    @connection ||= Faraday.new do |f|
-      f.options.timeout = DOWNLOAD_TIMEOUT
-      f.options.open_timeout = 10
-      f.headers["User-Agent"] = FeedFetcher::USER_AGENT
-      f.response :follow_redirects, limit: 3
-      f.adapter Faraday.default_adapter
-    end
+    @connection ||= OutboundHttp.connection(
+      timeout: DOWNLOAD_TIMEOUT,
+      open_timeout: 10,
+      redirect_limit: 3,
+      user_agent: FeedFetcher::USER_AGENT
+    )
   end
 end

@@ -32,6 +32,17 @@ class EmbedPolicyProbe
   OPEN_TIMEOUT = 5
   CACHE_TTL = 12.hours
 
+  # The single reason every :unknown answer carries across the API boundary.
+  #
+  # GET /api/v1/entries/:id/embed_policy runs this probe inline and renders
+  # #reason, so whatever distinguishes one failure from another is readable by
+  # anything that can open an article. The old strings distinguished a refused
+  # connection from a timeout from a DNS failure, which is a port scanner: aim
+  # an entry's link at 127.0.0.1:5432 and the wording of the answer says
+  # whether something is listening. The detail is still written to the log,
+  # which is where it was actually useful.
+  UNKNOWN_REASON = "Unavailable".freeze
+
   # The two values every browser still enforces. See #xfo_result for why the
   # rest are treated as permission.
   BLOCKING_XFO = %w[deny sameorigin].freeze
@@ -70,22 +81,29 @@ class EmbedPolicyProbe
   end
 
   def call
-    return Result.new(:unknown, "No link") if @url.blank?
-    return Result.new(:unknown, "Offline") if self.class.offline?
+    return unknown("No link") if @url.blank?
+    return unknown("Offline") if self.class.offline?
 
     response = fetch_headers
-    return Result.new(:unknown, "HTTP #{response.status}") unless response.success?
+    return unknown("HTTP #{response.status}") unless response.success?
 
     policy_from(response.headers)
   rescue Faraday::TimeoutError
-    Result.new(:unknown, "Connection timed out")
+    unknown("Connection timed out")
   rescue Faraday::Error => e
-    Result.new(:unknown, "Connection failed: #{e.message}")
+    unknown("Connection failed: #{e.message}")
   rescue StandardError => e
-    Result.new(:unknown, "Unexpected error: #{e.message}")
+    unknown("Unexpected error: #{e.message}")
   end
 
   private
+
+  # Every way of failing produces the same answer for the caller and keeps its
+  # own wording for the log. See UNKNOWN_REASON.
+  def unknown(detail)
+    Rails.logger.info { "EmbedPolicyProbe(#{@url}): #{detail}" }
+    Result.new(:unknown, UNKNOWN_REASON)
+  end
 
   # HEAD keeps the probe to one round trip and no body on the sites that
   # support it. Plenty do not: 405 is the documented refusal, but bot filters
@@ -155,12 +173,11 @@ class EmbedPolicyProbe
   end
 
   def connection
-    @connection ||= Faraday.new do |f|
-      f.headers["User-Agent"] = USER_AGENT
-      f.options.timeout = DEFAULT_TIMEOUT
-      f.options.open_timeout = OPEN_TIMEOUT
-      f.response :follow_redirects, limit: 5
-      f.adapter Faraday.default_adapter
-    end
+    @connection ||= OutboundHttp.connection(
+      timeout: DEFAULT_TIMEOUT,
+      open_timeout: OPEN_TIMEOUT,
+      redirect_limit: 5,
+      user_agent: USER_AGENT
+    )
   end
 end

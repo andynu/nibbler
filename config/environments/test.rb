@@ -57,4 +57,17 @@ Rails.application.configure do
   # to these so parallel workers never share a directory.
   config.x.image_cache.dir = Rails.root.join("tmp", "test_caches", "images")
   config.x.audio_cache.dir = Rails.root.join("tmp", "test_caches", "audio")
+
+  # OutboundDestination judges a hostname by what it resolves to. The suite
+  # invents its hostnames -- blocked.example, evil.com, unreachable.example.com
+  # -- so with the real resolver every WebMock-stubbed request would first make
+  # a real DNS query, and the answers would depend on the network the tests run
+  # on. This returns "no addresses", which OutboundDestination treats as nothing
+  # to connect to and therefore nothing to refuse.
+  #
+  # Literal addresses are checked without a resolver, so the guard is still live
+  # for 127.0.0.1, 169.254.169.254 and the private ranges. Tests that need a
+  # name to resolve somewhere specific swap this out; see
+  # ActiveSupport::TestCase#with_dns.
+  config.x.outbound_http.resolver = ->(_host) { [] }
 end

@@ -121,17 +121,14 @@ class FeedFetcher
     end
   end
 
+  # User-Agent and Accept are set per request in #make_request, so the
+  # connection carries no default headers.
   def connection
-    @connection ||= Faraday.new do |f|
-      f.options.timeout = DEFAULT_TIMEOUT
-      f.options.open_timeout = 10
-
-      # Follow redirects (up to 5)
-      f.response :follow_redirects, limit: 5
-
-      # Use net/http adapter
-      f.adapter Faraday.default_adapter
-    end
+    @connection ||= OutboundHttp.connection(
+      timeout: DEFAULT_TIMEOUT,
+      open_timeout: 10,
+      redirect_limit: 5
+    )
   end
 
   # Parse Retry-After header (RFC 7231)

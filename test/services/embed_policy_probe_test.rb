@@ -122,7 +122,7 @@ class EmbedPolicyProbeTest < ActiveSupport::TestCase
 
     result = probe
     assert result.unknown?
-    assert_equal "HTTP 500", result.reason
+    assert_equal EmbedPolicyProbe::UNKNOWN_REASON, result.reason
   end
 
   test "reports unknown when the connection fails" do
@@ -136,14 +136,14 @@ class EmbedPolicyProbeTest < ActiveSupport::TestCase
 
     result = probe
     assert_equal :unknown, result.status
-    assert_equal "Connection timed out", result.reason
+    assert_equal EmbedPolicyProbe::UNKNOWN_REASON, result.reason
   end
 
   test "reports unknown for a blank link without opening a socket" do
     result = probe("")
 
     assert_equal :unknown, result.status
-    assert_equal "No link", result.reason
+    assert_equal EmbedPolicyProbe::UNKNOWN_REASON, result.reason
   end
 
   test "opens no socket when OFFLINE_FEED_FETCH is set" do
@@ -151,7 +151,56 @@ class EmbedPolicyProbeTest < ActiveSupport::TestCase
       result = probe
 
       assert_equal :unknown, result.status
-      assert_equal "Offline", result.reason
+      assert_equal EmbedPolicyProbe::UNKNOWN_REASON, result.reason
+    end
+  end
+
+  # The reason crosses the API boundary. Distinguishing "connection refused"
+  # from "connection timed out" there tells the caller whether something is
+  # listening on the port an entry's link names, which is a port scan.
+  test "gives every unreadable answer the same reason" do
+    stub_request(:head, URL).to_raise(Faraday::ConnectionFailed.new("Connection refused - connect(2) for 127.0.0.1:5432"))
+
+    reasons = [
+      probe.reason,
+      probe("").reason,
+      EmbedPolicyProbe.new("http://127.0.0.1:5432/").call.reason
+    ]
+
+    assert_equal [ EmbedPolicyProbe::UNKNOWN_REASON ], reasons.uniq
+  end
+
+  test "refuses a link that names a loopback address without opening a socket" do
+    result = EmbedPolicyProbe.new("http://127.0.0.1:5432/").call
+
+    assert_equal :unknown, result.status
+    assert_not_requested :head, "http://127.0.0.1:5432/"
+  end
+
+  test "refuses a link that names the cloud metadata endpoint" do
+    result = EmbedPolicyProbe.new("http://169.254.169.254/latest/meta-data/").call
+
+    assert_equal :unknown, result.status
+    assert_not_requested :head, "http://169.254.169.254/latest/meta-data/"
+  end
+
+  # A guard on the URL as given is defeated by a public host that answers 302
+  # with an internal Location, so the check runs on the hop, not on the request.
+  test "refuses an internal address a public host redirects to" do
+    stub_request(:head, URL).to_return(status: 302, headers: { "Location" => "http://10.1.2.3/admin" })
+
+    result = probe
+
+    assert_equal :unknown, result.status
+    assert_not_requested :head, "http://10.1.2.3/admin"
+  end
+
+  test "refuses a hostname that resolves to a private address" do
+    with_dns("intranet.example" => "192.168.1.5") do
+      result = EmbedPolicyProbe.new("https://intranet.example/page").call
+
+      assert_equal :unknown, result.status
+      assert_not_requested :head, "https://intranet.example/page"
     end
   end
 

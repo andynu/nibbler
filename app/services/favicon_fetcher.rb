@@ -160,11 +160,10 @@ class FaviconFetcher
   end
 
   def connection
-    @connection ||= Faraday.new do |f|
-      f.options.timeout = DEFAULT_TIMEOUT
-      f.options.open_timeout = 10
-      f.response :follow_redirects, limit: 5
-      f.adapter Faraday.default_adapter
-    end
+    @connection ||= OutboundHttp.connection(
+      timeout: DEFAULT_TIMEOUT,
+      open_timeout: 10,
+      redirect_limit: 5
+    )
   end
 end
