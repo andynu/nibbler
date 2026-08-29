@@ -36,6 +36,12 @@ interface EntryContentProps {
   onRemoveTag?: (tag: string) => Promise<void>
   focusMode?: boolean
   onToggleFocusMode?: () => void
+  // Focus mode collapses the sidebar and the list to 0px, so this header is the
+  // only Nibbler chrome left. These carry the orientation the list normally
+  // provides: which list is being walked, and how far into it we are.
+  listTitle?: string
+  entryIndex?: number
+  entryCount?: number
   // Mobile navigation
   onBack?: () => void
   // Called when a story is created from the "Follow this story" flow.
@@ -68,6 +74,9 @@ export function EntryContent({
   onRemoveTag,
   focusMode = false,
   onToggleFocusMode,
+  listTitle,
+  entryIndex = -1,
+  entryCount = 0,
   onBack,
   onFollowStoryCreated,
 }: EntryContentProps) {
@@ -180,10 +189,21 @@ export function EntryContent({
     minute: "2-digit",
   })
 
+  // Position within the loaded list, 1-based for display. -1 means the entry is
+  // not in the list currently loaded (an entry opened by permalink, say), and
+  // an invented "1 of 1" would be worse than saying nothing.
+  const hasPosition = entryIndex >= 0 && entryCount > 0
+  // Outside focus mode the list pane is right there with the same two facts, so
+  // this would only be duplicate chrome competing for a narrow content header.
+  const showListContext = focusMode && (hasPosition || !!listTitle)
+
   return (
     <div ref={swipeRef} className="h-full flex flex-col">
-      <div className="h-12 px-3 flex items-center justify-between border-b border-border shrink-0">
-        <div className="flex items-center gap-1">
+      <div
+        data-testid="entry-header"
+        className="h-12 px-3 flex items-center gap-2 border-b border-border shrink-0"
+      >
+        <div className="flex items-center gap-1 shrink-0">
           {onBack && (
             <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to list">
               <ArrowLeft className="h-4 w-4" />
@@ -210,7 +230,24 @@ export function EntryContent({
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-0.5 sm:gap-1">
+        {showListContext && (
+          <div className="flex-1 min-w-0 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            {listTitle && (
+              <span className="truncate" title={listTitle}>
+                {listTitle}
+              </span>
+            )}
+            {hasPosition && (
+              <span
+                className="shrink-0 tabular-nums"
+                title={`Entry ${entryIndex + 1} of ${entryCount}`}
+              >
+                {entryIndex + 1} / {entryCount}
+              </span>
+            )}
+          </div>
+        )}
+        <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
           {/* Core actions - always visible */}
           <Button
             variant="ghost"

@@ -646,4 +646,61 @@ describe("EntryContent", () => {
       expect(screen.getByText(entry.content!.replace(/<[^>]*>/g, "").trim())).toBeInTheDocument()
     })
   })
+
+  describe("focus mode list context", () => {
+    const focused = (props: Partial<Parameters<typeof EntryContent>[0]> = {}) =>
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          focusMode={true}
+          listTitle="Fresh"
+          entryIndex={2}
+          entryCount={42}
+          {...props}
+        />
+      )
+
+    it("shows the position in the list and the list being walked", () => {
+      focused()
+
+      expect(screen.getByText("3 / 42")).toBeInTheDocument()
+      expect(screen.getByText("Fresh")).toBeInTheDocument()
+    })
+
+    it("reads the same in iframe view, where the list is the only orientation left", () => {
+      focused({ entry: mockEntryWithContent({ link: "about:blank" }), showIframe: true })
+
+      expect(screen.getByText("3 / 42")).toBeInTheDocument()
+      expect(screen.getByText("Fresh")).toBeInTheDocument()
+    })
+
+    it("leaves the header alone outside focus mode, where the list pane says the same thing", () => {
+      focused({ focusMode: false })
+
+      expect(screen.queryByText("3 / 42")).not.toBeInTheDocument()
+      expect(screen.queryByText("Fresh")).not.toBeInTheDocument()
+    })
+
+    it("says nothing about position for an entry that is not in the loaded list", () => {
+      focused({ entryIndex: -1 })
+
+      expect(screen.queryByText(/\/ 42/)).not.toBeInTheDocument()
+      expect(screen.getByText("Fresh")).toBeInTheDocument()
+    })
+
+    it("keeps prev and next clickable as the fallback when the keys are gone", async () => {
+      const onPrevious = vi.fn()
+      const onNext = vi.fn()
+      const user = userEvent.setup()
+
+      focused({ onPrevious, onNext })
+
+      await user.click(screen.getByRole("button", { name: /previous entry/i }))
+      await user.click(screen.getByRole("button", { name: /next entry/i }))
+
+      expect(onPrevious).toHaveBeenCalledOnce()
+      expect(onNext).toHaveBeenCalledOnce()
+    })
+  })
 })

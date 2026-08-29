@@ -536,18 +536,6 @@ function App() {
     return [{ column: "date" as const, direction: "desc" as const }]
   }, [preferences.entries_sort_config, preferences.entries_sort_by_score])
 
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      loadEntry(entries[currentIndex - 1].id)
-    }
-  }
-
-  const handleNext = () => {
-    if (currentIndex < entries.length - 1) {
-      loadEntry(entries[currentIndex + 1].id)
-    }
-  }
-
   // Trigger boundary hit feedback with auto-clear
   const triggerBoundaryFeedback = useCallback((boundary: "start" | "end") => {
     setBoundaryHit(boundary)
@@ -1074,8 +1062,8 @@ function App() {
             onToggleStarred={() => selectedEntry && handleToggleStarredEntry(selectedEntry.id)}
             onTogglePublished={() => selectedEntry && handleTogglePublishedEntry(selectedEntry.id)}
             onScoreChange={(score) => selectedEntry && handleSetScore(selectedEntry.id, score)}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
+            onPrevious={handleKeyboardPrevious}
+            onNext={handleKeyboardNext}
             hasPrevious={currentIndex > 0}
             hasNext={currentIndex < entries.length - 1}
             isLoading={isLoadingEntry}
@@ -1088,6 +1076,9 @@ function App() {
             onRemoveTag={handleRemoveTag}
             focusMode={focusMode}
             onToggleFocusMode={handleToggleFocusMode}
+            listTitle={getListTitle()}
+            entryIndex={currentIndex}
+            entryCount={entries.length}
             onBack={layout.isMobile ? layout.goToList : undefined}
             onFollowStoryCreated={handleFollowStoryCreated}
           />
