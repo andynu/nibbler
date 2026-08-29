@@ -110,6 +110,51 @@ export interface PaginatedEntries {
   }
 }
 
+/**
+ * One search hit. Deliberately not an Entry: SearchController renders its own
+ * projection, adding `snippet` and omitting score / is_published / last_read /
+ * content / tags / enclosures. Components that take an Entry cannot be handed
+ * a SearchResult without widening their props or a lossy conversion.
+ */
+export interface SearchResult {
+  id: number
+  entry_id: number
+  feed_id: number | null
+  feed_title: string | null
+  title: string
+  link: string
+  author: string
+  published: string
+  unread: boolean
+  starred: boolean
+  snippet: string
+}
+
+export interface SearchResponse {
+  query: string
+  entries: SearchResult[]
+  pagination: {
+    page: number
+    per_page: number
+    total: number
+    total_pages: number
+  }
+}
+
+export interface SearchParams {
+  q: string
+  unread?: boolean
+  starred?: boolean
+  feed_id?: number
+  category_id?: number
+  view?: "fresh" | "starred" | "published" | "archived"
+  tag?: string
+  fresh_max_age?: "week" | "month" | "all"
+  fresh_per_feed?: number
+  page?: number
+  per_page?: number
+}
+
 export interface FeedPreview {
   title: string
   site_url: string | null
@@ -484,6 +529,46 @@ export const api = {
     },
     info: (id: number) => request<EntryInfo>(`/entries/${id}/info`),
     embedPolicy: (id: number) => request<EmbedPolicy>(`/entries/${id}/embed_policy`),
+  },
+
+  /**
+   * GET /api/v1/search. Takes the same scoping params as api.entries.list so a
+   * search can be narrowed to the list the user is already looking at.
+   *
+   * NOT YET HONOURED SERVER-SIDE: unread, starred, view, tag, fresh_max_age and
+   * fresh_per_feed are serialised into the request, but SearchController filters
+   * on feed_id and category_id only and silently ignores the rest. Sending them
+   * today returns the same rows as an unscoped search. They begin to take effect
+   * when ttrb-aawe extends the controller; do not build UI that depends on them
+   * until it has.
+   *
+   * Result ordering is entries.date_entered DESC, not relevance (see ttrb-soaj).
+   */
+  search: (params: SearchParams): Promise<SearchResponse> => {
+    const q = params.q.trim()
+    // A blank query has no answer worth a round trip. The server renders this
+    // same empty envelope for a blank q, so callers see one shape either way.
+    if (!q) {
+      return Promise.resolve({
+        query: "",
+        entries: [],
+        pagination: { page: 1, per_page: 50, total: 0, total_pages: 0 },
+      })
+    }
+
+    const searchParams = new URLSearchParams()
+    searchParams.set("q", q)
+    if (params.unread !== undefined) searchParams.set("unread", String(params.unread))
+    if (params.starred !== undefined) searchParams.set("starred", String(params.starred))
+    if (params.feed_id) searchParams.set("feed_id", String(params.feed_id))
+    if (params.category_id) searchParams.set("category_id", String(params.category_id))
+    if (params.view) searchParams.set("view", params.view)
+    if (params.tag) searchParams.set("tag", params.tag)
+    if (params.fresh_max_age) searchParams.set("fresh_max_age", params.fresh_max_age)
+    if (params.fresh_per_feed) searchParams.set("fresh_per_feed", String(params.fresh_per_feed))
+    if (params.page) searchParams.set("page", String(params.page))
+    if (params.per_page) searchParams.set("per_page", String(params.per_page))
+    return request<SearchResponse>(`/search?${searchParams.toString()}`)
   },
 
   categories: {

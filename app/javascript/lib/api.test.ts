@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { api } from "./api"
+import type { SearchResponse } from "./api"
 import {
   mockFeed,
   mockEntry,
@@ -158,6 +159,106 @@ describe("api.entries", () => {
 
       expect(result.id).toBe(1)
       expect(result.starred).toBe(true)
+    })
+  })
+})
+
+describe("api.search", () => {
+  function mockSearchResponse(overrides: Partial<SearchResponse> = {}): SearchResponse {
+    return {
+      query: "rails",
+      entries: [
+        {
+          id: 1,
+          entry_id: 100,
+          feed_id: 2,
+          feed_title: "Test Feed",
+          title: "Rails 8.1 released",
+          link: "https://example.com/rails",
+          author: "Test Author",
+          published: "2025-01-15T10:00:00Z",
+          unread: true,
+          starred: false,
+          snippet: "...the new <b>Rails</b> release...",
+        },
+      ],
+      pagination: { page: 1, per_page: 50, total: 1, total_pages: 1 },
+      ...overrides,
+    }
+  }
+
+  it("returns the typed search response", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(mockSearchResponse()))
+
+    const result = await api.search({ q: "rails" })
+
+    expect(result.query).toBe("rails")
+    expect(result.entries).toHaveLength(1)
+    expect(result.entries[0].snippet).toContain("Rails")
+    expect(result.pagination.total).toBe(1)
+  })
+
+  it("issues one request with only the provided params", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(mockSearchResponse()))
+
+    await api.search({ q: "rails", unread: true, feed_id: 5, view: "fresh", page: 2 })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [url] = mockFetch.mock.calls[0]
+    expect(url).toBe("/api/v1/search?q=rails&unread=true&feed_id=5&view=fresh&page=2")
+  })
+
+  it("serialises the full scoping set when given", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(mockSearchResponse()))
+
+    await api.search({
+      q: "rails 8",
+      unread: false,
+      starred: true,
+      feed_id: 5,
+      category_id: 7,
+      view: "starred",
+      tag: "ruby",
+      fresh_max_age: "week",
+      fresh_per_feed: 3,
+      page: 2,
+      per_page: 25,
+    })
+
+    const [url] = mockFetch.mock.calls[0]
+    const query = new URLSearchParams(String(url).split("?")[1])
+    expect(Object.fromEntries(query)).toEqual({
+      q: "rails 8",
+      unread: "false",
+      starred: "true",
+      feed_id: "5",
+      category_id: "7",
+      view: "starred",
+      tag: "ruby",
+      fresh_max_age: "week",
+      fresh_per_feed: "3",
+      page: "2",
+      per_page: "25",
+    })
+  })
+
+  it("trims the query before sending it", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(mockSearchResponse()))
+
+    await api.search({ q: "  rails  " })
+
+    const [url] = mockFetch.mock.calls[0]
+    expect(url).toBe("/api/v1/search?q=rails")
+  })
+
+  it.each(["", "   ", "\t\n"])("does not hit the network for a blank query %j", async (q) => {
+    const result = await api.search({ q })
+
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      query: "",
+      entries: [],
+      pagination: { page: 1, per_page: 50, total: 0, total_pages: 0 },
     })
   })
 })
