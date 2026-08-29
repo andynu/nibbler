@@ -158,6 +158,16 @@ export interface EntryInfo {
   top_words: Array<{ word: string; count: number }>
 }
 
+/**
+ * Whether the entry's page will render inside an iframe, read from its own
+ * response headers by the server. "unknown" means the site could not be asked.
+ * See EmbedPolicyProbe for why the browser cannot work this out itself.
+ */
+export interface EmbedPolicy {
+  status: "embeddable" | "blocked" | "unknown"
+  reason: string | null
+}
+
 export interface User {
   id: number
   login: string
@@ -473,6 +483,7 @@ export const api = {
       return request<{ keywords: Array<{ word: string; count: number }> }>(`/entries/keywords${query ? `?${query}` : ""}`)
     },
     info: (id: number) => request<EntryInfo>(`/entries/${id}/info`),
+    embedPolicy: (id: number) => request<EmbedPolicy>(`/entries/${id}/embed_policy`),
   },
 
   categories: {

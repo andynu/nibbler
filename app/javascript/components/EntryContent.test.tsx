@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from "@testing-library/react"
+import { render, screen, fireEvent, act, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { EntryContent } from "./EntryContent"
@@ -8,12 +8,14 @@ import { mockEntryWithContent } from "../../../test/fixtures/data"
 // FollowStoryDialog extracts queries when opened; without this the relative
 // API_BASE resolves against happy-dom's http://localhost:3000 and hits the network.
 const mockApiEntriesInfo = vi.fn()
+const mockApiEntriesEmbedPolicy = vi.fn()
 const mockApiStoriesExtractFromEntry = vi.fn()
 
 vi.mock("@/lib/api", () => ({
   api: {
     entries: {
       info: (...args: unknown[]) => mockApiEntriesInfo(...args),
+      embedPolicy: (...args: unknown[]) => mockApiEntriesEmbedPolicy(...args),
     },
     stories: {
       extractFromEntry: (...args: unknown[]) =>
@@ -115,6 +117,7 @@ describe("EntryContent", () => {
     vi.clearAllMocks()
     mockPreferences.strip_images = "false"
     mockApiEntriesInfo.mockResolvedValue({ top_words: [] })
+    mockApiEntriesEmbedPolicy.mockResolvedValue({ status: "embeddable", reason: null })
     mockApiStoriesExtractFromEntry.mockResolvedValue({
       topic: "",
       queries: [],
@@ -558,6 +561,89 @@ describe("EntryContent", () => {
       await settle()
 
       expect(restoreButton()).not.toBeInTheDocument()
+    })
+  })
+
+  /**
+   * A refused frame fires `load` and never `error`, so the panel below can only
+   * appear on the server's reading of the page's headers. See useEmbedPolicy.
+   */
+  describe("sites that refuse to be framed", () => {
+    const iframeEntry = () => mockEntryWithContent({ link: "about:blank" })
+
+    const blockedPanel = () => screen.queryByText("This site blocks embedding")
+
+    it("replaces the blank frame with an explanation and a way out", async () => {
+      const entry = iframeEntry()
+      mockApiEntriesEmbedPolicy.mockResolvedValue({
+        status: "blocked",
+        reason: "x-frame-options: deny",
+      })
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+
+      expect(await screen.findByText("This site blocks embedding")).toBeInTheDocument()
+      expect(screen.queryByTitle(entry.title)).not.toBeInTheDocument()
+
+      // The panel carries the refusing header as its tooltip.
+      const panel = screen.getByTitle("x-frame-options: deny")
+      expect(within(panel).getByRole("link", { name: /open in new tab/i })).toHaveAttribute(
+        "href",
+        entry.link
+      )
+    })
+
+    it("keeps the frame for a page that embeds fine", async () => {
+      const entry = iframeEntry()
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(blockedPanel()).not.toBeInTheDocument()
+      expect(screen.getByTitle(entry.title)).toBeInTheDocument()
+    })
+
+    // The reader's own browser may reach a site the server could not.
+    it("keeps the frame when the site could not be asked", async () => {
+      const entry = iframeEntry()
+      mockApiEntriesEmbedPolicy.mockResolvedValue({
+        status: "unknown",
+        reason: "Connection timed out",
+      })
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(blockedPanel()).not.toBeInTheDocument()
+      expect(screen.getByTitle(entry.title)).toBeInTheDocument()
+    })
+
+    it("asks nothing while the feed's own content is on screen", () => {
+      render(<EntryContent {...defaultProps} entry={iframeEntry()} showIframe={false} />)
+
+      expect(mockApiEntriesEmbedPolicy).not.toHaveBeenCalled()
+    })
+
+    it("goes back to the feed's copy from the panel's own instructions", async () => {
+      const entry = iframeEntry()
+      mockApiEntriesEmbedPolicy.mockResolvedValue({
+        status: "blocked",
+        reason: "x-frame-options: deny",
+      })
+
+      const { rerender } = render(
+        <EntryContent {...defaultProps} entry={entry} showIframe={true} />
+      )
+      expect(await screen.findByText("This site blocks embedding")).toBeInTheDocument()
+
+      rerender(<EntryContent {...defaultProps} entry={entry} showIframe={false} />)
+
+      expect(blockedPanel()).not.toBeInTheDocument()
+      expect(screen.getByText(entry.content!.replace(/<[^>]*>/g, "").trim())).toBeInTheDocument()
     })
   })
 })

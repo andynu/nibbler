@@ -13,6 +13,7 @@ import { FollowStoryDialog } from "@/components/FollowStoryDialog"
 import { HighlightedContent } from "@/components/HighlightedContent"
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
 import { useIframeFocusGuard } from "@/hooks/useIframeFocusGuard"
+import { useEmbedPolicy } from "@/hooks/useEmbedPolicy"
 import type { Entry, Story } from "@/lib/api"
 
 interface EntryContentProps {
@@ -77,7 +78,6 @@ export function EntryContent({
   const [isEditingNote, setIsEditingNote] = useState(false)
   const [noteText, setNoteText] = useState("")
   const [isSavingNote, setIsSavingNote] = useState(false)
-  const [iframeError, setIframeError] = useState(false)
   const [followStoryOpen, setFollowStoryOpen] = useState(false)
 
   // Check if TTS is active for this entry
@@ -99,12 +99,21 @@ export function EntryContent({
     threshold: 60,
   })
 
+  // A frame refused by X-Frame-Options or CSP frame-ancestors still fires
+  // `load` and never `error`, so the iframe element cannot report the refusal
+  // and the reader would just get a blank white panel. The server reads the
+  // page's own headers instead; see useEmbedPolicy and EmbedPolicyProbe.
+  const embedPolicy = useEmbedPolicy({
+    entryId: entry?.id ?? null,
+    enabled: showIframe && !!entry,
+  })
+
   // The embedded page is a separate document, so keydown never reaches the
   // shortcuts registered here once focus moves into it. The guard keeps focus
   // anchored on the wrapper through j/k navigation and reports the handoff when
   // the reader clicks into the frame anyway.
   const iframeFocus = useIframeFocusGuard<HTMLDivElement>({
-    enabled: showIframe && !!entry && !iframeError,
+    enabled: showIframe && !!entry && !embedPolicy.blocked,
     resetKey: entry?.id ?? null,
   })
 
@@ -112,7 +121,6 @@ export function EntryContent({
   useEffect(() => {
     setIsEditingNote(false)
     setNoteText(entry?.note || "")
-    setIframeError(false)
     // The scroll viewport survives the entry swap, so a new article would
     // otherwise open at the previous one's scroll position.
     if (scrollViewportRef?.current) {
@@ -342,12 +350,16 @@ export function EntryContent({
           tabIndex={-1}
           className="flex-1 min-h-0 flex flex-col outline-none"
         >
-          {iframeError ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-6">
+          {embedPolicy.blocked ? (
+            <div
+              className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-6"
+              /* The refusing header, for anyone wondering which site did what. */
+              title={embedPolicy.reason ?? undefined}
+            >
               <Globe className="h-12 w-12 opacity-50" />
               <div className="text-center">
-                <p className="font-medium">Unable to load original page</p>
-                <p className="text-sm mt-1">This site may block embedding. Try opening in a new tab.</p>
+                <p className="font-medium">This site blocks embedding</p>
+                <p className="text-sm mt-1">Press i to read the feed's copy instead.</p>
               </div>
               <Button variant="outline" asChild>
                 <a href={entry.link} target="_blank" rel="noopener noreferrer">
@@ -364,7 +376,6 @@ export function EntryContent({
               title={entry.title}
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
               onLoad={iframeFocus.handleFrameLoad}
-              onError={() => setIframeError(true)}
             />
           )}
         </div>
