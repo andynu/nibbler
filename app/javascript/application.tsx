@@ -25,6 +25,7 @@ import { api, Feed, Entry, Category, SortConfig, paramToSortConfig, sortConfigTo
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
+import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
 import { getVirtualFolder } from "@/lib/virtualFolders"
@@ -127,6 +128,23 @@ function App() {
   useEffect(() => {
     loadCounters()
   }, [freshMaxAge, freshPerFeed])
+
+  // Every other counter refresh hangs off something the reader did, so the
+  // entries the feed-refresh job ingests server-side never reach the badges:
+  // the Fresh count sits at whatever it was until you click into the list.
+  // Poll for them instead, and re-ask the moment a hidden tab comes back.
+  //
+  // Feed and category rows carry unread badges of their own, fed by loadFeeds,
+  // so both calls have to be on the tick or the sidebar disagrees with itself.
+  // Suspended while settings are open: FeedOrganizer edits `feeds` optimistically
+  // through onFeedsChange, and its stale closures would fight a poll response.
+  useBackgroundRefresh(
+    () => {
+      loadFeeds()
+      loadCounters()
+    },
+    { enabled: !showSettings }
+  )
 
   // Register audio player navigation callback
   useEffect(() => {
