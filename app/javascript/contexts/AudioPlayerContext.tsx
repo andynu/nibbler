@@ -487,7 +487,9 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     setIsQueuePanelOpen((prev) => !prev)
   }, [])
 
-  // Pre-generate TTS for a queue item in the background
+  // Pre-generate TTS for a queue item in the background. This is the only
+  // pre-generation path; preGeneratingRef keeps concurrent lookaheads for the
+  // same item from stacking up.
   const preGenerateQueueItem = useCallback(async (item: QueueItem) => {
     // Skip if already pre-generating, ready, or not TTS
     if (item.source !== "tts" || item.status === "ready" || item.audioUrl) return
@@ -495,37 +497,56 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
 
     preGeneratingRef.current.add(item.id)
 
+    const markReady = (response: AudioResponse) => {
+      setQueue((prev) =>
+        prev.map((q) =>
+          q.id === item.id
+            ? {
+                ...q,
+                status: "ready" as const,
+                audioUrl: response.audio_url ?? q.audioUrl,
+                duration: response.duration ?? q.duration,
+              }
+            : q
+        )
+      )
+    }
+
     try {
-      // Update item status to generating
+      const response = await api.entries.audio(item.entryId)
+
+      // "unavailable" and "error" are terminal - marking them "generating"
+      // would leave the item polling forever.
+      if (isTerminalAudioStatus(response.status)) {
+        throw new Error(terminalAudioMessage(response))
+      }
+      if (response.status === "ready") {
+        markReady(response)
+        return
+      }
+
       setQueue((prev) =>
         prev.map((q) => (q.id === item.id ? { ...q, status: "generating" as const } : q))
       )
 
-      // Poll for audio generation
-      const pollForAudio = async (): Promise<{ audioUrl: string; duration?: number }> => {
-        const response = await api.entries.audio(item.entryId)
-        if (response.status === "ready" && response.audio_url) {
-          return { audioUrl: response.audio_url, duration: response.duration }
-        }
-        if (isTerminalAudioStatus(response.status)) {
-          // Stop recursing; the catch below marks the queue item errored
-          throw new Error(terminalAudioMessage(response))
-        }
-        // Wait and try again
+      // The loop is awaited inside this try so a rejected request (network
+      // blip, 500) reaches the catch below; a detached setTimeout chain would
+      // strand the item in "generating" with no error and no retry.
+      const pollForReady = async (): Promise<void> => {
         await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
-        return pollForAudio()
+        const pollResponse = await api.entries.audio(item.entryId)
+        if (isTerminalAudioStatus(pollResponse.status)) {
+          // Terminal - stop recursing; the catch below marks the item errored
+          throw new Error(terminalAudioMessage(pollResponse))
+        }
+        if (pollResponse.status === "ready") {
+          markReady(pollResponse)
+          return
+        }
+        return pollForReady()
       }
 
-      const result = await pollForAudio()
-
-      // Update item with audio URL
-      setQueue((prev) =>
-        prev.map((q) =>
-          q.id === item.id
-            ? { ...q, status: "ready" as const, audioUrl: result.audioUrl, duration: result.duration }
-            : q
-        )
-      )
+      await pollForReady()
     } catch (err) {
       console.warn("Pre-generation failed:", err)
       setQueue((prev) =>
@@ -549,15 +570,9 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
       requestPodcastAudio(item.entryId, item.entryTitle, item.audioUrl, item.feedTitle, item.duration)
     }
 
-    // Pre-generate next item if it exists and is TTS
-    const nextIndex = index + 1
-    if (nextIndex < queue.length) {
-      const nextItem = queue[nextIndex]
-      if (nextItem.source === "tts" && nextItem.status === "pending") {
-        preGenerateQueueItem(nextItem)
-      }
-    }
-  }, [queue, requestTtsAudio, requestPodcastAudio, preGenerateQueueItem])
+    // The lookahead effect below picks up index + 1 and + 2 once
+    // currentQueueIndex lands, so there is no pre-generation to kick off here.
+  }, [queue, requestTtsAudio, requestPodcastAudio])
 
   // Skip to next item in queue
   const skipToNext = useCallback(() => {
@@ -686,75 +701,18 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     })
   }, [currentQueueIndex])
 
-  // Pre-generate TTS for upcoming items
+  // Pre-generate TTS for upcoming items at currentQueueIndex + 1 and + 2
   useEffect(() => {
-    const preGenerate = async (item: QueueItem) => {
-      if (preGeneratingRef.current.has(item.id)) return
-      preGeneratingRef.current.add(item.id)
-
-      try {
-        const response = await api.entries.audio(item.entryId)
-        // "unavailable" and "error" are terminal - marking them "generating"
-        // would leave the item polling forever.
-        const queueStatus: QueueItem["status"] =
-          response.status === "ready" ? "ready"
-          : response.status === "generating" ? "generating"
-          : "error"
-        setQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id ? { ...q, status: queueStatus } : q
-          )
-        )
-
-        // If generating, poll for completion. The loop is awaited inside this
-        // try so a rejected request (network blip, 500) reaches the catch
-        // below; a detached setTimeout chain would strand the item in
-        // "generating" with no error and no retry.
-        if (response.status === "generating") {
-          const pollForReady = async (): Promise<void> => {
-            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
-            const pollResponse = await api.entries.audio(item.entryId)
-            if (pollResponse.status === "ready") {
-              setQueue((prev) =>
-                prev.map((q) =>
-                  q.id === item.id ? { ...q, status: "ready" } : q
-                )
-              )
-              return
-            }
-            if (isTerminalAudioStatus(pollResponse.status)) {
-              // Terminal - stop recursing; the catch below marks it errored
-              throw new Error(terminalAudioMessage(pollResponse))
-            }
-            // Keep polling
-            return pollForReady()
-          }
-
-          await pollForReady()
-        }
-      } catch (err) {
-        console.warn("Pre-generation failed:", err)
-        setQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id ? { ...q, status: "error" } : q
-          )
-        )
-      } finally {
-        preGeneratingRef.current.delete(item.id)
-      }
-    }
-
-    // Pre-generate for items at currentQueueIndex + 1 and + 2
     const indicesToPreGen = [currentQueueIndex + 1, currentQueueIndex + 2]
     for (const idx of indicesToPreGen) {
       if (idx >= 0 && idx < queue.length) {
         const item = queue[idx]
         if (item.source === "tts" && item.status === "pending") {
-          preGenerate(item)
+          preGenerateQueueItem(item)
         }
       }
     }
-  }, [queue, currentQueueIndex])
+  }, [queue, currentQueueIndex, preGenerateQueueItem])
 
   const isActive = state !== "idle" && state !== "error"
 

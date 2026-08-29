@@ -30,6 +30,8 @@ function TestConsumer() {
       <div data-testid="state">{state}</div>
       <div data-testid="error">{error ?? ""}</div>
       <div data-testid="queue-statuses">{queue.map((item) => item.status).join(",")}</div>
+      <div data-testid="queue-audio-urls">{queue.map((item) => item.audioUrl ?? "-").join(",")}</div>
+      <div data-testid="queue-durations">{queue.map((item) => item.duration ?? "-").join(",")}</div>
       <button onClick={() => requestTtsAudio(1, "An entry", "A feed")}>
         Request audio
       </button>
@@ -230,6 +232,63 @@ describe("AudioPlayerContext", () => {
         await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 5)
       })
       expect(mockAudioApi).toHaveBeenCalledTimes(callsAtReady)
+    })
+
+    it("stores the generated audio url and duration on the queue item", async () => {
+      vi.useFakeTimers()
+      seedQueue(45)
+      mockAudioApi
+        .mockResolvedValueOnce({ status: "generating" })
+        .mockResolvedValue({ status: "ready", audio_url: "/audio/45.mp3", duration: 92 })
+
+      await act(async () => {
+        renderPlayer()
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL)
+      })
+
+      expect(screen.getByTestId("queue-statuses")).toHaveTextContent("ready")
+      expect(screen.getByTestId("queue-audio-urls")).toHaveTextContent("/audio/45.mp3")
+      expect(screen.getByTestId("queue-durations")).toHaveTextContent("92")
+    })
+
+    it("marks an already-generated item ready without polling", async () => {
+      seedQueue(46)
+      mockAudioApi.mockResolvedValue({
+        status: "ready",
+        audio_url: "/audio/46.mp3",
+        duration: 30,
+      })
+
+      await act(async () => {
+        renderPlayer()
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId("queue-statuses")).toHaveTextContent("ready")
+      })
+      expect(screen.getByTestId("queue-audio-urls")).toHaveTextContent("/audio/46.mp3")
+      // A ready response short-circuits: no "generating" flash, no poll
+      expect(mockAudioApi).toHaveBeenCalledTimes(1)
+    })
+
+    it("marks the item errored when the first response is terminal", async () => {
+      seedQueue(47)
+      mockAudioApi.mockResolvedValue({ status: "unavailable", error: "piper is not installed" })
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+      await act(async () => {
+        renderPlayer()
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId("queue-statuses")).toHaveTextContent("error")
+      })
+      expect(mockAudioApi).toHaveBeenCalledTimes(1)
+
+      warn.mockRestore()
     })
   })
 })
