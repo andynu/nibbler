@@ -100,6 +100,21 @@ export interface Tag {
   entry_count: number
 }
 
+/**
+ * The Fresh window overrides the server accepts, from
+ * FreshArticleWindow#fresh_article_cutoff_for_param. "all" means no age limit;
+ * omitting the param falls back to the user's fresh_article_max_age preference.
+ * Entry lists, search and the sidebar counters all read the same vocabulary, so
+ * they change together whenever the server's does.
+ */
+export type FreshMaxAge = "week" | "month" | "all"
+
+/**
+ * The virtual folders the server recognises, from the `case params[:view]`
+ * switch shared by EntriesController#index and #headlines.
+ */
+export type EntryView = "fresh" | "starred" | "published" | "archived"
+
 export interface PaginatedEntries {
   entries: Entry[]
   pagination: {
@@ -147,9 +162,9 @@ export interface SearchParams {
   starred?: boolean
   feed_id?: number
   category_id?: number
-  view?: "fresh" | "starred" | "published" | "archived"
+  view?: EntryView
   tag?: string
-  fresh_max_age?: "week" | "month" | "all"
+  fresh_max_age?: FreshMaxAge
   fresh_per_feed?: number
   page?: number
   per_page?: number
@@ -477,12 +492,12 @@ export const api = {
       starred?: boolean
       feed_id?: number
       category_id?: number
-      view?: "fresh" | "starred" | "published" | "archived"
+      view?: EntryView
       order_by?: "date" | "score"
       sort?: string // Multi-column sort: "date:desc,feed:asc"
       page?: number
       per_page?: number
-      fresh_max_age?: "week" | "month" | "all"
+      fresh_max_age?: FreshMaxAge
       fresh_per_feed?: number
       tag?: string
     }) => {
@@ -650,7 +665,7 @@ export const api = {
   counters: {
     // fresh_max_age and fresh_per_feed mirror the Fresh view's own selectors so
     // the sidebar badge counts the same rows the list shows.
-    get: (params?: { fresh_max_age?: "week" | "month" | "all"; fresh_per_feed?: number }) => {
+    get: (params?: { fresh_max_age?: FreshMaxAge; fresh_per_feed?: number }) => {
       const searchParams = new URLSearchParams()
       if (params?.fresh_max_age) searchParams.set("fresh_max_age", params.fresh_max_age)
       if (params?.fresh_per_feed) searchParams.set("fresh_per_feed", String(params.fresh_per_feed))
