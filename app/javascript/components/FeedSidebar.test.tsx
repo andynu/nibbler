@@ -222,6 +222,59 @@ describe("FeedSidebar", () => {
     })
   })
 
+  describe("virtual feeds stay pinned above the scrolling tree", () => {
+    // The counts on Fresh, Starred and Published are how you navigate, and they
+    // used to be the top rows of the one long scrolling column that also holds
+    // the category tree. Expanding categories pushed them off the top. They now
+    // live in a region of their own, outside the scroll viewport.
+    const scrollViewport = (container: HTMLElement) =>
+      container.querySelector('[data-slot="scroll-area-viewport"]')
+
+    const feeds = [
+      mockFeed({ id: 1, title: "Categorized Feed", category_id: 10, unread_count: 4 }),
+    ]
+    const categories = [mockCategory({ id: 10, title: "News" })]
+
+    it.each(["All Feeds", "Fresh", "Starred", "Published", "Stories"])(
+      "renders %s outside the scroll viewport",
+      (name) => {
+        const { container } = render(
+          <FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />
+        )
+
+        const row = screen.getByText(name)
+        expect(row).toBeInTheDocument()
+        expect(scrollViewport(container)).not.toContainElement(row)
+      }
+    )
+
+    it("keeps the category tree inside the scroll viewport", () => {
+      const { container } = render(
+        <FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />
+      )
+
+      expect(scrollViewport(container)).toContainElement(screen.getByText("News"))
+      expect(scrollViewport(container)).toContainElement(
+        screen.getByText("Categorized Feed")
+      )
+    })
+
+    it("counts still update on the pinned rows", () => {
+      const { container } = render(
+        <FeedSidebar
+          {...defaultProps}
+          feeds={feeds}
+          categories={categories}
+          virtualFolderCounts={{ fresh: 7, starred: 2, published: 1 }}
+        />
+      )
+
+      const fresh = screen.getByRole("button", { name: /Fresh/ })
+      expect(fresh).toHaveTextContent("7")
+      expect(scrollViewport(container)).not.toContainElement(fresh)
+    })
+  })
+
   describe("uncategorized feeds", () => {
     it("renders feeds without category", () => {
       const feeds = [

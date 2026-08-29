@@ -854,6 +854,85 @@ export function FeedSidebar({
         </div>
       </div>
 
+      {/*
+        Item-list and stories virtual folders (All Feeds, Fresh, Starred,
+        Published, Stories).
+
+        Pinned outside the ScrollArea below, so their badges stay on screen
+        however far the category tree is expanded or scrolled. The set is a
+        fixed five rows from the virtual folder registry and does not grow with
+        feeds or categories, so it cannot crowd out the scrolling region. None
+        of these rows is a drag source or a drop target, so nothing here needs
+        the DndContext that wraps the tree.
+      */}
+      <div className="shrink-0 px-2 pt-2 pb-1 border-b border-border">
+        {[
+          ...getVirtualFoldersByMode("item-list"),
+          ...getVirtualFoldersByMode("stories"),
+        ].map((folder) => {
+          const Icon = folder.icon
+          // Special case: empty string id means "All Feeds" (no virtual feed selected)
+          const isSelected = folder.id === ""
+            ? (!selectedFeedId && !selectedCategoryId && virtualFeed === null)
+            : virtualFeed === folder.id
+          const handleClick = () => {
+            if (folder.id === "") {
+              onSelectFeed(null)
+              onSelectCategory(null)
+              onSelectVirtualFeed(null)
+            } else {
+              onSelectVirtualFeed(folder.id)
+            }
+          }
+
+          // Get count for virtual folder (Fresh, Starred, Published show their counts; All Feeds shows unread/total)
+          const getVirtualFolderCount = (): number | null => {
+            if (folder.id === "") {
+              return showTotalCount ? totalEntryCount : totalUnread
+            }
+            if (!virtualFolderCounts) return null
+            switch (folder.id) {
+              case "fresh":
+                return virtualFolderCounts.fresh
+              case "starred":
+                return virtualFolderCounts.starred
+              case "published":
+                return virtualFolderCounts.published
+              default:
+                return null
+            }
+          }
+
+          const folderCount = getVirtualFolderCount()
+
+          return (
+            <Button
+              key={folder.id || "all"}
+              variant="ghost"
+              className="w-full justify-start gap-2 mb-1"
+              style={isSelected ? {
+                backgroundColor: "var(--color-accent-primary-dark)",
+                color: "white",
+              } : undefined}
+              onClick={handleClick}
+            >
+              {folder.isSmart ? (
+                <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
+              ) : (
+                <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
+              )}
+              <span className={cn(
+                "flex-1 text-left",
+                (folder.id === "" && totalUnread > 0) || (folder.id === "fresh" && (virtualFolderCounts?.fresh ?? 0) > 0) ? "font-medium" : undefined
+              )}>{folder.name}</span>
+              {folderCount !== null && folderCount > 0 && (
+                <Badge variant="secondary">{folderCount}</Badge>
+              )}
+            </Button>
+          )
+        })}
+      </div>
+
       <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
         <DndContext
           sensors={sensors}
@@ -861,73 +940,6 @@ export function FeedSidebar({
           onDragEnd={handleDragEnd}
         >
         <div className="p-2">
-          {/* Item-list and stories virtual folders (All Feeds, Fresh, Starred, Published, Stories) */}
-          {[
-            ...getVirtualFoldersByMode("item-list"),
-            ...getVirtualFoldersByMode("stories"),
-          ].map((folder) => {
-            const Icon = folder.icon
-            // Special case: empty string id means "All Feeds" (no virtual feed selected)
-            const isSelected = folder.id === ""
-              ? (!selectedFeedId && !selectedCategoryId && virtualFeed === null)
-              : virtualFeed === folder.id
-            const handleClick = () => {
-              if (folder.id === "") {
-                onSelectFeed(null)
-                onSelectCategory(null)
-                onSelectVirtualFeed(null)
-              } else {
-                onSelectVirtualFeed(folder.id)
-              }
-            }
-
-            // Get count for virtual folder (Fresh, Starred, Published show their counts; All Feeds shows unread/total)
-            const getVirtualFolderCount = (): number | null => {
-              if (folder.id === "") {
-                return showTotalCount ? totalEntryCount : totalUnread
-              }
-              if (!virtualFolderCounts) return null
-              switch (folder.id) {
-                case "fresh":
-                  return virtualFolderCounts.fresh
-                case "starred":
-                  return virtualFolderCounts.starred
-                case "published":
-                  return virtualFolderCounts.published
-                default:
-                  return null
-              }
-            }
-
-            const folderCount = getVirtualFolderCount()
-
-            return (
-              <Button
-                key={folder.id || "all"}
-                variant="ghost"
-                className="w-full justify-start gap-2 mb-1"
-                style={isSelected ? {
-                  backgroundColor: "var(--color-accent-primary-dark)",
-                  color: "white",
-                } : undefined}
-                onClick={handleClick}
-              >
-                {folder.isSmart ? (
-                  <SmartFolderIcon icon={Icon} className="h-4 w-4" iconColor={folder.iconColor} />
-                ) : (
-                  <Icon className="h-4 w-4" style={folder.iconColor ? { color: folder.iconColor } : undefined} />
-                )}
-                <span className={cn(
-                  "flex-1 text-left",
-                  (folder.id === "" && totalUnread > 0) || (folder.id === "fresh" && (virtualFolderCounts?.fresh ?? 0) > 0) ? "font-medium" : undefined
-                )}>{folder.name}</span>
-                {folderCount !== null && folderCount > 0 && (
-                  <Badge variant="secondary">{folderCount}</Badge>
-                )}
-              </Button>
-            )
-          })}
-
           {/* Feed-list virtual folders (smart folders: Uncategorized, Dead Letter Box) */}
           {getVirtualFoldersByMode("feed-list").map((folder) => {
             const Icon = folder.icon
