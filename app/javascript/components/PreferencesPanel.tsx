@@ -255,7 +255,7 @@ export function PreferencesPanel() {
             <div className="space-y-0.5">
               <Label htmlFor="content_view_mode">Default article view</Label>
               <p className="text-sm text-muted-foreground">
-                Show RSS content or the original page in an iframe (toggle with 'i')
+                Which view articles open in. Press 'i' to switch views for the rest of the session.
               </p>
             </div>
             <Select

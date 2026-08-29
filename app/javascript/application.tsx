@@ -26,6 +26,7 @@ import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommand
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useContentPaging } from "@/hooks/useContentPaging"
+import { useContentViewMode } from "@/hooks/useContentViewMode"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 
 // Virtual folder ids the entries API recognizes as a `view`. The virtual folder
@@ -73,7 +74,9 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState("feeds")
   const [showMarkAllReadConfirm, setShowMarkAllReadConfirm] = useState(false)
-  const [showIframe, setShowIframe] = useState(false)
+  // Sticky for the session: the stored preference sets the starting view, the
+  // `i` key overrides it until toggled back.
+  const { showIframe, toggleIframe } = useContentViewMode(preferences.content_view_mode)
   const [focusMode, setFocusMode] = useState(false)
   const [boundaryHit, setBoundaryHit] = useState<"start" | "end" | null>(null)
   // Stories view state (only used when virtualFeed === "stories")
@@ -179,11 +182,6 @@ function App() {
   useEffect(() => {
     loadEntries()
   }, [selectedFeedId, selectedCategoryId, virtualFeed, selectedTag, preferences.entries_sort_config, preferences.entries_sort_by_score, preferences.entries_hide_read, preferences.entries_hide_unstarred, freshMaxAge, freshPerFeed])
-
-  // Reset iframe view to default when entry changes
-  useEffect(() => {
-    setShowIframe(preferences.content_view_mode === "iframe")
-  }, [selectedEntry?.id, preferences.content_view_mode])
 
   const loadFeeds = async () => {
     setIsLoadingFeeds(true)
@@ -440,10 +438,6 @@ function App() {
       throw error
     }
   }
-
-  const handleToggleIframe = useCallback(() => {
-    setShowIframe((prev) => !prev)
-  }, [])
 
   const handleSetScore = async (entryId: number, score: number) => {
     try {
@@ -746,7 +740,7 @@ function App() {
         "toggle-read": handleKeyboardToggleRead,
         "toggle-starred": handleKeyboardToggleStarred,
         "toggle-published": handleKeyboardTogglePublished,
-        "toggle-iframe": handleToggleIframe,
+        "toggle-iframe": toggleIframe,
         "open-original": handleKeyboardOpenOriginal,
         refresh: handleKeyboardRefresh,
         "toggle-focus-mode": handleToggleFocusMode,
@@ -763,7 +757,7 @@ function App() {
       handleKeyboardToggleRead,
       handleKeyboardToggleStarred,
       handleKeyboardTogglePublished,
-      handleToggleIframe,
+      toggleIframe,
       handleKeyboardOpen,
       handleKeyboardClose,
       handleKeyboardRefresh,
@@ -1070,7 +1064,7 @@ function App() {
             scrollViewportRef={contentScrollRef}
             onUpdateNote={handleUpdateNote}
             showIframe={showIframe}
-            onToggleIframe={handleToggleIframe}
+            onToggleIframe={toggleIframe}
             allTags={allTags}
             onAddTag={handleAddTag}
             onRemoveTag={handleRemoveTag}

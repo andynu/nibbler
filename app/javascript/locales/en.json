@@ -116,7 +116,7 @@
       "hideImages": "Hide images in articles",
       "hideImagesDescription": "Remove images from article content when reading",
       "defaultArticleView": "Default article view",
-      "defaultArticleViewDescription": "Show RSS content or the original page in an iframe (toggle with 'i')",
+      "defaultArticleViewDescription": "Which view articles open in. Press 'i' to switch views for the rest of the session.",
       "viewRss": "RSS content (default)",
       "viewIframe": "Original page in iframe",
       "dateFormat": "Date format",
