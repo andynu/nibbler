@@ -326,8 +326,34 @@ function App() {
     }
   }
 
+  // Bumped by every load, so a reply may only write state while its sequence
+  // is still the current one. Four call sites load the list - the entriesQuery
+  // effect, both refresh handlers and the keyboard refresh - and none of them
+  // cancelled the request already in flight, so which reply landed last was
+  // the network's to decide rather than the reader's.
+  //
+  // A sort clicked while the boot load was still in flight lost that race
+  // whenever the boot reply arrived second: setEntries put the old ordering's
+  // rows back over the sorted ones, and nothing refetched afterwards, so they
+  // stayed. The sort itself survives -- it lives in preferences, which this
+  // path never touches -- which is what makes the result worse than a plain
+  // stale list: the header goes on reporting a sort the rows beside it are
+  // not in.
+  //
+  // This was masked by the preferences clobber fixed alongside it in
+  // PreferencesContext (ttrb-p74f). That one reverted the header too, so the
+  // two were indistinguishable from the outside until it was fixed; holding
+  // the first reply until the second lands separates them and reproduces this
+  // one on its own, every run (e2e/entry-list-sort.spec.ts).
+  //
+  // Same guard as useEntrySearch's requestSeq and useNewEntries' probeSeq.
+  const entriesSeq = useRef(0)
+
   const loadEntries = async () => {
-    // The stories view is not backed by the entries API; skip loading.
+    const seq = ++entriesSeq.current
+    // The stories view is not backed by the entries API; skip loading. The
+    // bump above still counts: it abandons any request in flight, which would
+    // otherwise repopulate the list this branch just emptied.
     if (virtualFeed === "stories") {
       setEntries([])
       setSelectedEntry(null)
@@ -337,6 +363,7 @@ function App() {
     setIsLoadingEntries(true)
     try {
       const result = await api.entries.list(entriesQuery)
+      if (seq !== entriesSeq.current) return
       setEntries(result.entries)
       setSelectedEntry(null)
       // This list came straight from the server, so any stored probe is both
@@ -346,7 +373,9 @@ function App() {
     } catch (error) {
       console.error("Failed to load entries:", error)
     } finally {
-      setIsLoadingEntries(false)
+      // A superseded load must not clear the flag: the load that replaced it
+      // is still running, and the list is still loading.
+      if (seq === entriesSeq.current) setIsLoadingEntries(false)
     }
   }
 

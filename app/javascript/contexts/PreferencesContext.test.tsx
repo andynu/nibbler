@@ -1,6 +1,7 @@
 import { render, screen, waitFor, act } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { PreferencesProvider, usePreferences } from "./PreferencesContext"
+import type { Preferences } from "@/lib/api"
 import { ThemeProvider } from "./ThemeContext"
 import { mockPreferences } from "../../../test/fixtures/data"
 
@@ -264,6 +265,65 @@ describe("PreferencesContext", () => {
 
       await waitFor(() => {
         expect(mockApiGet).toHaveBeenCalledTimes(2)
+      })
+
+      consoleSpy.mockRestore()
+    })
+  })
+
+  // Every other example here waits for the boot load to finish before writing
+  // anything, which is why this went unnoticed: the reply and the write never
+  // overlapped. These two put the write inside the window instead.
+  describe("a write racing the boot load", () => {
+    it("keeps a preference written while the boot reply was still in flight", async () => {
+      let releaseGet: (value: Preferences) => void = () => {}
+      mockApiGet.mockImplementation(
+        () => new Promise<Preferences>((resolve) => { releaseGet = resolve })
+      )
+
+      renderProvider()
+
+      // The reader clicks before the account's preferences have arrived.
+      act(() => {
+        screen.getByTestId("update-single").click()
+      })
+      expect(screen.getByTestId("theme")).toHaveTextContent("dark")
+
+      // The boot reply lands afterwards, carrying the pre-click value.
+      await act(async () => {
+        releaseGet(mockPreferences({ theme: "system", date_format: "iso" }))
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
+      })
+      // The write wins for its own key, and only for its own key: everything
+      // the reader did not touch still comes from the reply.
+      expect(screen.getByTestId("theme")).toHaveTextContent("dark")
+      expect(screen.getByTestId("date-format")).toHaveTextContent("iso")
+    })
+
+    it("still lets the server win when a failed write refetches", async () => {
+      // The reload here is issued after the write, not before it, so the
+      // guard must not protect the value that just failed to save.
+      mockApiUpdate.mockRejectedValue(new Error("Update failed"))
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+      mockApiGet.mockResolvedValue(mockPreferences({ theme: "system" }))
+
+      renderProvider()
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
+      })
+
+      act(() => {
+        screen.getByTestId("update-single").click()
+      })
+
+      await waitFor(() => {
+        expect(mockApiGet).toHaveBeenCalledTimes(2)
+      })
+      await waitFor(() => {
+        expect(screen.getByTestId("theme")).toHaveTextContent("system")
       })
 
       consoleSpy.mockRestore()

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react"
 import { api, Preferences } from "@/lib/api"
 import { applyAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
 import { applyLanguage, readStoredLanguage, storeLanguage } from "@/lib/i18n"
@@ -114,12 +114,53 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return cached
   }
 
+  // Counts local writes, so a reply can tell which keys the reader moved after
+  // it was asked for. loadPreferences takes a snapshot before its request and
+  // keeps any key written past that snapshot out of the answer it applies: for
+  // those keys the server's reply is already out of date.
+  //
+  // Without this a preference chosen in the first moments after boot was
+  // silently thrown away. GET returns every key and the reply below replaces
+  // state wholesale, so an optimistic write landing in between simply vanished
+  // -- most visibly entries_sort_config, which the API omits entirely until a
+  // sort has been stored: the list dropped back to date:desc and the header
+  // went with it, with no further request coming to put it right. A reader who
+  // clicked a sort header while the first page was still loading lost the
+  // click, which Chromium reproduced 7 runs in 60 (ttrb-p74f).
+  //
+  // Error recovery is unaffected. updatePreference's catch calls this after
+  // its own write, so that write sits below the snapshot and the server's
+  // value is allowed to win, which is what makes a failed write revert.
+  const writeSeq = useRef(0)
+  const writtenAt = useRef(new Map<keyof Preferences, number>())
+
+  const noteLocalWrite = useCallback((updates: Partial<Preferences>) => {
+    const seq = ++writeSeq.current
+    for (const key of Object.keys(updates) as Array<keyof Preferences>) {
+      writtenAt.current.set(key, seq)
+    }
+  }, [])
+
   const loadPreferences = async () => {
+    const askedAt = writeSeq.current
     try {
       const data = await api.preferences.get()
       const language = await adoptStoredLanguage(data.user_language)
       const theme = await adoptStoredTheme(data.theme)
-      setPreferences({ ...data, user_language: language, theme })
+      setPreferences((prev) => {
+        const merged: Preferences = { ...data, user_language: language, theme }
+        writtenAt.current.forEach((seq, key) => {
+          if (seq <= askedAt) return
+          const local = prev[key]
+          if (local === undefined) return
+          // Preferences has no index signature, so the write needs the wider
+          // type. Every value in it is a string and `key` came from the same
+          // interface, so this only loosens what the compiler can check.
+          const writable = merged as unknown as Record<string, string>
+          writable[key] = local
+        })
+        return merged
+      })
       // Apply accent colors when preferences are loaded
       const hue = parseInt(data.accent_hue, 10) || DEFAULT_ACCENT_HUE
       applyAccentColors(hue)
@@ -140,6 +181,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const updatePreference = useCallback(async (key: keyof Preferences, value: string) => {
     const update = { [key]: value } as Partial<Preferences>
+    noteLocalWrite(update)
     setPreferences((prev) => ({ ...prev, ...update }))
     try {
       await api.preferences.update(update)
@@ -150,6 +192,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const updatePreferences = useCallback(async (updates: Partial<Preferences>) => {
+    noteLocalWrite(updates)
     setPreferences((prev) => ({ ...prev, ...updates }))
     try {
       await api.preferences.update(updates)
