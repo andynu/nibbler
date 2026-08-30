@@ -65,15 +65,17 @@ function TranslationProbe() {
 }
 
 function renderPanel() {
+  // Nested as application.tsx nests them: ThemeProvider paints the login form
+  // too, so it is above the provider that loads preferences, not below it.
   return render(
-    <PreferencesProvider>
-      <ThemeProvider>
-        <I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <PreferencesProvider>
           <TranslationProbe />
           <PreferencesPanel />
-        </I18nProvider>
-      </ThemeProvider>
-    </PreferencesProvider>
+        </PreferencesProvider>
+      </I18nProvider>
+    </ThemeProvider>
   )
 }
 

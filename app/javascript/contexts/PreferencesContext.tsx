@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { api, Preferences } from "@/lib/api"
 import { applyAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
 import { applyLanguage, readStoredLanguage, storeLanguage } from "@/lib/i18n"
+import { SYSTEM_THEME, readStoredTheme } from "@/lib/themes"
+import { useTheme } from "@/contexts/ThemeContext"
 
 interface PreferencesContextValue {
   preferences: Preferences
@@ -53,10 +55,24 @@ const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [isLoading, setIsLoading] = useState(true)
+  // Preferences are loaded here and handed to whatever applies them: accent
+  // colours and language through module functions, theme through the provider
+  // that holds it. ThemeProvider is above this one in the tree, since it paints
+  // the login form too, so this reads its context rather than owning the state.
+  const { theme: appliedTheme, adoptServerTheme } = useTheme()
 
   useEffect(() => {
     loadPreferences()
   }, [])
+
+  // preferences.theme is the stored form of what ThemeContext applies. Mirror
+  // it so a reader of the preference cannot be handed a theme the app is not
+  // in; the write to the server is ThemeContext's, not another update here.
+  useEffect(() => {
+    setPreferences((prev) =>
+      prev.theme === appliedTheme ? prev : { ...prev, theme: appliedTheme }
+    )
+  }, [appliedTheme])
 
   // The language a reader chose before the choice was stored server-side
   // exists only in their browser. Reading "" back from the server and acting on
@@ -78,16 +94,39 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return cached
   }
 
+  // Same shape for the theme, and for the same reason: the choice was kept in
+  // localStorage and nowhere else until it became a preference, so a reader
+  // who picked one has it only in their browser. "system" is what the account
+  // reports when nothing was ever stored, so that is the one value a cached
+  // theme is allowed to replace. An id this build does not know is left alone
+  // rather than overwritten: it may be a palette a newer build wrote.
+  const adoptStoredTheme = async (serverTheme: string): Promise<string> => {
+    if (serverTheme && serverTheme !== SYSTEM_THEME) return serverTheme
+
+    const cached = readStoredTheme()
+    if (!cached || cached === SYSTEM_THEME) return SYSTEM_THEME
+
+    try {
+      await api.preferences.update({ theme: cached })
+    } catch (error) {
+      console.error("Failed to store cached theme preference:", error)
+    }
+    return cached
+  }
+
   const loadPreferences = async () => {
     try {
       const data = await api.preferences.get()
       const language = await adoptStoredLanguage(data.user_language)
-      setPreferences(language === data.user_language ? data : { ...data, user_language: language })
+      const theme = await adoptStoredTheme(data.theme)
+      setPreferences({ ...data, user_language: language, theme })
       // Apply accent colors when preferences are loaded
       const hue = parseInt(data.accent_hue, 10) || DEFAULT_ACCENT_HUE
       applyAccentColors(hue)
-      // user_language is the answer; localStorage is a cache of it, kept only
-      // so the paint before this request returns is in the right language.
+      // The account is the answer for both of these; localStorage is a cache
+      // of each, kept only so the paint before this request returns is in the
+      // right palette and the right language.
+      adoptServerTheme(theme)
       storeLanguage(language)
       await applyLanguage(language)
     } catch (error) {

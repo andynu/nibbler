@@ -1,13 +1,15 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react"
+import { api } from "@/lib/api"
 import {
   DARK_MEDIA_QUERY,
-  SYSTEM_THEME,
   ThemeBase,
   ThemeDefinition,
   ThemeSelection,
   applyTheme,
   normalizeThemeSelection,
+  readStoredTheme,
   resolveTheme,
+  storeTheme,
 } from "@/lib/themes"
 
 interface ThemeContextValue {
@@ -23,12 +25,20 @@ interface ThemeContextValue {
   resolvedThemeId: string
   /** Full definition of the applied palette. */
   resolvedThemeDefinition: ThemeDefinition
+  /**
+   * Record the reader's choice: applies it, caches it, and stores it on the
+   * account. Every control that changes the theme goes through here, so the
+   * choice reaches the server whatever the control looks like.
+   */
   setTheme: (theme: ThemeSelection) => void
+  /**
+   * Apply the theme the account already holds, without writing it back.
+   * PreferencesContext calls this when the preferences request lands.
+   */
+  adoptServerTheme: (theme: unknown) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
-
-const THEME_STORAGE_KEY = "nibbler-theme"
 
 function getSystemPrefersDark(): boolean {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -37,13 +47,13 @@ function getSystemPrefersDark(): boolean {
   return window.matchMedia(DARK_MEDIA_QUERY).matches
 }
 
-function getStoredTheme(): ThemeSelection {
-  if (typeof window === "undefined") return SYSTEM_THEME
-  return normalizeThemeSelection(localStorage.getItem(THEME_STORAGE_KEY))
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeSelection>(getStoredTheme)
+  // Start on the cached choice. This provider sits above PreferencesProvider
+  // and paints before the preferences request comes back; the account's theme
+  // replaces this as soon as it does.
+  const [theme, setThemeState] = useState<ThemeSelection>(() =>
+    normalizeThemeSelection(readStoredTheme())
+  )
   const [prefersDark, setPrefersDark] = useState<boolean>(getSystemPrefersDark)
 
   const resolvedThemeDefinition = resolveTheme(theme, prefersDark)
@@ -68,10 +78,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mediaQuery.removeEventListener("change", handleChange)
   }, [])
 
+  // The account is the copy that lasts, so the choice is written there rather
+  // than only to the cache. The write lives here rather than in the picker so
+  // that a redesigned picker, or any other control, cannot lose it.
   const setTheme = (newTheme: ThemeSelection) => {
-    setThemeState(newTheme)
-    localStorage.setItem(THEME_STORAGE_KEY, newTheme)
+    const selection = normalizeThemeSelection(newTheme)
+    setThemeState(selection)
+    storeTheme(selection)
+    api.preferences.update({ theme: selection }).catch((error) => {
+      console.error("Failed to store theme preference:", error)
+    })
   }
+
+  // What the account holds, arriving once the preferences request lands. Also
+  // refreshes the cache, so the two cannot drift.
+  const adoptServerTheme = useCallback((serverTheme: unknown) => {
+    const selection = normalizeThemeSelection(serverTheme)
+    setThemeState(selection)
+    storeTheme(selection)
+  }, [])
 
   return (
     <ThemeContext.Provider
@@ -81,6 +106,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         resolvedThemeId: resolvedThemeDefinition.id,
         resolvedThemeDefinition,
         setTheme,
+        adoptServerTheme,
       }}
     >
       {children}

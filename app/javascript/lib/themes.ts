@@ -111,6 +111,38 @@ export function normalizeThemeSelection(value: unknown): ThemeSelection {
   return isThemeSelection(value) ? value : SYSTEM_THEME
 }
 
+// Where the reader's choice is cached between loads. The `theme` preference the
+// server holds is the real answer; this is read synchronously on the way to the
+// first paint, which happens before the preferences request comes back, and is
+// overwritten from the server as soon as it does.
+const THEME_STORAGE_KEY = "nibbler-theme"
+
+/** The cached selection, or undefined when nothing usable is cached. */
+export function readStoredTheme(): ThemeSelection | undefined {
+  if (typeof window === "undefined") return undefined
+
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+  return isThemeSelection(stored) ? stored : undefined
+}
+
+/**
+ * Cache a selection for the next first paint.
+ *
+ * Anything that is not a usable selection clears the cache instead of leaving
+ * the previous value behind. A stale value here is not merely unread: the load
+ * path adopts a cached theme when the account has none, so leaving one would
+ * put the reader back on a theme they had moved away from.
+ */
+export function storeTheme(selection: unknown): void {
+  if (typeof window === "undefined") return
+
+  if (isThemeSelection(selection)) {
+    window.localStorage.setItem(THEME_STORAGE_KEY, selection)
+  } else {
+    window.localStorage.removeItem(THEME_STORAGE_KEY)
+  }
+}
+
 /** First registered theme with the given base, used as a last-resort fallback. */
 function firstThemeWithBase(base: ThemeBase): ThemeDefinition {
   return THEMES.find((theme) => theme.base === base) ?? THEMES[0]

@@ -1,6 +1,7 @@
 import { render, screen, waitFor, act } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { PreferencesProvider, usePreferences } from "./PreferencesContext"
+import { ThemeProvider } from "./ThemeContext"
 import { mockPreferences } from "../../../test/fixtures/data"
 
 // Mock the API
@@ -50,6 +51,19 @@ function TestConsumer() {
   )
 }
 
+// Nested as application.tsx nests them. The provider hands the loaded theme to
+// ThemeProvider, which sits above it because it paints the login form too, so
+// the two are only meaningful together.
+function renderProvider() {
+  return render(
+    <ThemeProvider>
+      <PreferencesProvider>
+        <TestConsumer />
+      </PreferencesProvider>
+    </ThemeProvider>
+  )
+}
+
 describe("PreferencesContext", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -69,11 +83,7 @@ describe("PreferencesContext", () => {
         () => new Promise(() => {})
       )
 
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       // Should have default values before load completes
       expect(screen.getByTestId("theme")).toHaveTextContent("system")
@@ -85,21 +95,13 @@ describe("PreferencesContext", () => {
         () => new Promise(() => {})
       )
 
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       expect(screen.getByTestId("loading")).toHaveTextContent("loading")
     })
 
     it("calls api.preferences.get() on mount", () => {
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       expect(mockApiGet).toHaveBeenCalledOnce()
     })
@@ -111,11 +113,7 @@ describe("PreferencesContext", () => {
         mockPreferences({ theme: "dark", date_format: "iso" })
       )
 
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("theme")).toHaveTextContent("dark")
@@ -124,11 +122,7 @@ describe("PreferencesContext", () => {
     })
 
     it("sets isLoading false after load", async () => {
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
@@ -139,11 +133,7 @@ describe("PreferencesContext", () => {
       mockApiGet.mockRejectedValue(new Error("Network error"))
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
 
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
@@ -158,11 +148,7 @@ describe("PreferencesContext", () => {
 
   describe("updatePreference", () => {
     it("optimistically updates local state", async () => {
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       // Wait for initial load
       await waitFor(() => {
@@ -179,11 +165,7 @@ describe("PreferencesContext", () => {
     })
 
     it("calls api.preferences.update with correct data", async () => {
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
@@ -207,11 +189,7 @@ describe("PreferencesContext", () => {
         .mockResolvedValueOnce(mockPreferences({ theme: "system" }))
         .mockResolvedValueOnce(mockPreferences({ theme: "system" }))
 
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
@@ -232,11 +210,7 @@ describe("PreferencesContext", () => {
 
   describe("updatePreferences (batch)", () => {
     it("updates multiple preferences at once", async () => {
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
@@ -252,11 +226,7 @@ describe("PreferencesContext", () => {
     })
 
     it("calls API with batch update", async () => {
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
@@ -282,11 +252,7 @@ describe("PreferencesContext", () => {
         .mockResolvedValueOnce(mockPreferences())
         .mockResolvedValueOnce(mockPreferences())
 
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
@@ -317,11 +283,7 @@ describe("PreferencesContext", () => {
     })
 
     it("returns context value when inside Provider", async () => {
-      render(
-        <PreferencesProvider>
-          <TestConsumer />
-        </PreferencesProvider>
-      )
+      renderProvider()
 
       await waitFor(() => {
         expect(screen.getByTestId("loading")).toHaveTextContent("loaded")

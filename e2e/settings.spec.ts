@@ -516,17 +516,52 @@ test.describe("Theme Selection", () => {
     }
   })
 
-  test("the chosen theme survives a reload", async ({ feedsPage, settingsPage, page }) => {
+  // The picker used to write the choice to localStorage and nowhere else, so
+  // the account never learned about it and the palette did not follow the
+  // reader to another browser. The cache is cleared before the reload because
+  // it is the only thing that made that version look like it worked within one
+  // browser; what is left to carry the choice is the account.
+  test("the chosen theme survives a reload on an empty cache", async ({
+    feedsPage,
+    settingsPage,
+    page,
+  }) => {
     await feedsPage.openSettings()
     await settingsPage.goToPreferencesTab()
     await settingsPage.selectTheme("Dark")
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
 
+    await page.evaluate(() => localStorage.removeItem("nibbler-theme"))
     await page.reload()
     await feedsPage.waitForBranding()
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
     await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
+    // Refilled from the account, so the next first paint is dark too.
+    await expect(page.evaluate(() => localStorage.getItem("nibbler-theme"))).resolves.toBe(
+      "dark"
+    )
+  })
+
+  // The other half of the same claim: a browser that has never seen the picker
+  // still opens in the palette the account holds.
+  test("a theme stored on the account applies to a browser that has never set one", async ({
+    feedsPage,
+    page,
+  }) => {
+    const response = await page.request.patch("/api/v1/preferences", {
+      data: { theme: "sepia" },
+    })
+    expect(response.ok()).toBe(true)
+
+    await page.evaluate(() => localStorage.removeItem("nibbler-theme"))
+    await page.reload()
+    await feedsPage.waitForBranding()
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "sepia")
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor))
+      .toBe("rgb(244, 236, 215)")
   })
 })
 

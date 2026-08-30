@@ -6,6 +6,20 @@ import { DARK_MEDIA_QUERY, THEME_ATTRIBUTE } from "@/lib/themes"
 
 const THEME_STORAGE_KEY = "nibbler-theme"
 
+// setTheme stores the choice on the account, which is what makes it survive a
+// browser that has never seen it. The end-to-end version of that, through the
+// real picker and a reload, is PreferencesPanel.theme.test.tsx.
+const mockApiPreferencesUpdate = vi.fn()
+
+vi.mock("@/lib/api", () => ({
+  api: {
+    preferences: {
+      get: () => Promise.resolve({}),
+      update: (...args: unknown[]) => mockApiPreferencesUpdate(...args),
+    },
+  },
+}))
+
 type MediaListener = () => void
 
 // Controllable replacement for the blanket matchMedia stub in test/setup.ts, so
@@ -49,7 +63,7 @@ function installMatchMedia(initialMatches: boolean) {
 }
 
 function TestConsumer() {
-  const { theme, resolvedTheme, resolvedThemeId, setTheme } = useTheme()
+  const { theme, resolvedTheme, resolvedThemeId, setTheme, adoptServerTheme } = useTheme()
 
   return (
     <div>
@@ -64,6 +78,12 @@ function TestConsumer() {
       </button>
       <button data-testid="set-system" onClick={() => setTheme("system")}>
         system
+      </button>
+      <button data-testid="adopt-sepia" onClick={() => adoptServerTheme("sepia")}>
+        adopt sepia
+      </button>
+      <button data-testid="adopt-unknown" onClick={() => adoptServerTheme("solarized")}>
+        adopt unknown
       </button>
     </div>
   )
@@ -85,6 +105,8 @@ describe("ThemeContext", () => {
   const originalMatchMedia = window.matchMedia
 
   beforeEach(() => {
+    mockApiPreferencesUpdate.mockReset()
+    mockApiPreferencesUpdate.mockResolvedValue({})
     root().className = ""
     root().removeAttribute(THEME_ATTRIBUTE)
   })
@@ -207,12 +229,14 @@ describe("ThemeContext", () => {
       expect(root().getAttribute(THEME_ATTRIBUTE)).toBe("dark")
       expect(root().classList.contains("dark")).toBe(true)
       expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark")
+      expect(mockApiPreferencesUpdate).toHaveBeenCalledWith({ theme: "dark" })
 
       await user.click(screen.getByTestId("set-light"))
 
       expect(root().getAttribute(THEME_ATTRIBUTE)).toBe("light")
       expect(root().classList.contains("dark")).toBe(false)
       expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light")
+      expect(mockApiPreferencesUpdate).toHaveBeenCalledWith({ theme: "light" })
     })
 
     it("hands control back to the OS when set to system", async () => {
@@ -231,6 +255,35 @@ describe("ThemeContext", () => {
 
       media.setPrefersDark(false)
       expect(root().getAttribute(THEME_ATTRIBUTE)).toBe("light")
+    })
+  })
+
+  describe("adoptServerTheme", () => {
+    it("applies the account's palette and refreshes the cache without writing back", async () => {
+      const user = userEvent.setup()
+      installMatchMedia(false)
+      localStorage.setItem(THEME_STORAGE_KEY, "dark")
+      renderProvider()
+
+      await user.click(screen.getByTestId("adopt-sepia"))
+
+      expect(screen.getByTestId("theme")).toHaveTextContent("sepia")
+      expect(root().getAttribute(THEME_ATTRIBUTE)).toBe("sepia")
+      // A stale cache would be adopted as a preference on the next load.
+      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("sepia")
+      expect(mockApiPreferencesUpdate).not.toHaveBeenCalled()
+    })
+
+    it("resolves an id this build does not know through the OS preference", async () => {
+      const user = userEvent.setup()
+      installMatchMedia(true)
+      renderProvider()
+
+      await user.click(screen.getByTestId("adopt-unknown"))
+
+      expect(screen.getByTestId("theme")).toHaveTextContent("system")
+      expect(root().getAttribute(THEME_ATTRIBUTE)).toBe("dark")
+      expect(mockApiPreferencesUpdate).not.toHaveBeenCalled()
     })
   })
 

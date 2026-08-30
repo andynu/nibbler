@@ -50,13 +50,15 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: vi.fn() },
 }))
 
+// Nested as application.tsx nests them: ThemeProvider paints the login form
+// too, so it is above the provider that loads preferences, not below it.
 const renderWithProviders = (ui: React.ReactElement) => {
   return render(
-    <PreferencesProvider>
-      <ThemeProvider>
-        <I18nProvider>{ui}</I18nProvider>
-      </ThemeProvider>
-    </PreferencesProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <PreferencesProvider>{ui}</PreferencesProvider>
+      </I18nProvider>
+    </ThemeProvider>
   )
 }
 
