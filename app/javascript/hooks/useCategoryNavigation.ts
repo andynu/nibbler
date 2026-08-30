@@ -1,12 +1,17 @@
 import { useCallback, useMemo } from "react"
 import { Category, Feed } from "@/lib/api"
-import { stepCategory } from "@/lib/categoryNavigation"
+import { stepCategory, visibleCategoryIds } from "@/lib/categoryNavigation"
 
 export interface CategoryNavigationOptions {
   categories: Category[]
   feeds: Feed[]
   selectedCategoryId: number | null
   selectedFeedId: number | null
+  /**
+   * The reader's hide-read setting, the same boolean FeedSidebar filters its
+   * rows with. Defaults to false, which makes every category navigable.
+   */
+  hideReadFeeds?: boolean
   /** Move the sidebar selection to this category. */
   onSelectCategory: (categoryId: number) => void
   /**
@@ -38,12 +43,18 @@ export interface CategoryNavigation {
  * already scoped to one category - a feed, a category, a tag - every entry
  * matched the current one, the scan fell out of the bottom of its loop, and
  * nothing on screen moved or said why.
+ *
+ * Only categories the sidebar is drawing are visited. The set comes from
+ * `visibleCategoryIds`, which FeedSidebar's own render also filters on, so the
+ * two cannot disagree about what is on screen. Collapsed folders are still
+ * walked; see that function for why hiding and folding are treated differently.
  */
 export function useCategoryNavigation({
   categories,
   feeds,
   selectedCategoryId,
   selectedFeedId,
+  hideReadFeeds = false,
   onSelectCategory,
   onBoundary,
 }: CategoryNavigationOptions): CategoryNavigation {
@@ -55,16 +66,21 @@ export function useCategoryNavigation({
     return null
   }, [selectedCategoryId, selectedFeedId, feeds])
 
+  const visibleIds = useMemo(
+    () => visibleCategoryIds(categories, feeds, hideReadFeeds),
+    [categories, feeds, hideReadFeeds]
+  )
+
   const step = useCallback(
     (direction: "next" | "previous") => {
-      const targetId = stepCategory(categories, currentCategoryId, direction)
+      const targetId = stepCategory(categories, currentCategoryId, direction, visibleIds)
       if (targetId !== null) {
         onSelectCategory(targetId)
         return
       }
       onBoundary(direction, currentCategoryId)
     },
-    [categories, currentCategoryId, onSelectCategory, onBoundary]
+    [categories, currentCategoryId, visibleIds, onSelectCategory, onBoundary]
   )
 
   const selectNextCategory = useCallback(() => step("next"), [step])

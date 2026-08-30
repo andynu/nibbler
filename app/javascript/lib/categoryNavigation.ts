@@ -1,4 +1,87 @@
-import { Category } from "@/lib/api"
+import { Category, Feed } from "@/lib/api"
+
+/**
+ * The ids of the categories the sidebar draws a row for.
+ *
+ * This is the one definition of "visible", and it has exactly two consumers:
+ * FeedSidebar, which returns null instead of a row for anything outside the
+ * set, and useCategoryNavigation, which will not step onto one. It used to be
+ * neither - it was a `return null` buried in FeedSidebar's render, which is a
+ * fact no other file could ask about, so Shift+J walked straight through rows
+ * that were never painted (ttrb-ziba).
+ *
+ * Hiding and folding are different gestures and only one of them is in here:
+ *
+ *  - Hide-read is a filter. The reader has said these rows should not exist,
+ *    so navigation must not visit them.
+ *  - Collapsing a folder is a fold, not a filter. Expansion state lives in
+ *    FeedSidebar and is persisted per browser, so honouring it here would make
+ *    a category unreachable from the keyboard because of a folder someone
+ *    closed once on another machine. Collapsed folders stay navigable and the
+ *    sidebar opens the ancestors of whatever gets selected (ttrb-s4mr).
+ *
+ * With hide-read off every category is visible. With it on, a category earns
+ * its row by having an unread feed of its own or an unread feed anywhere below
+ * it, at any depth. Depth matters: a folder whose only unread feed sits two
+ * levels down still has to be drawn, or the row holding that feed has no
+ * parent to hang off.
+ *
+ * `hide_read_shows_special` is not consulted, because nothing consults it. As
+ * of this commit the key exists only in the API type, the defaults map, the
+ * controller's permit list and the fixtures; no component reads it, and it has
+ * never taken part in this calculation (ttrb-nr6q).
+ */
+export function visibleCategoryIds(
+  categories: Category[],
+  feeds: Feed[],
+  hideReadFeeds: boolean
+): Set<number> {
+  if (!hideReadFeeds) return new Set(categories.map((category) => category.id))
+
+  const hasOwnUnread = new Set<number>()
+  for (const feed of feeds) {
+    if (feed.unread_count > 0 && feed.category_id !== null) {
+      hasOwnUnread.add(feed.category_id)
+    }
+  }
+
+  const childrenByParent = new Map<number, Category[]>()
+  for (const category of categories) {
+    const parentId = category.parent_id
+    if (parentId === null) continue
+    const siblings = childrenByParent.get(parentId)
+    if (siblings) {
+      siblings.push(category)
+    } else {
+      childrenByParent.set(parentId, [category])
+    }
+  }
+
+  const visible = new Set<number>()
+  // Doubles as the memo and the cycle guard. Once an id is in here its answer
+  // is `visible.has(id)`; while it is still on the stack that reads false,
+  // which is what makes a parent cycle terminate instead of recursing forever.
+  const settled = new Set<number>()
+
+  const walk = (category: Category): boolean => {
+    if (settled.has(category.id)) return visible.has(category.id)
+    settled.add(category.id)
+
+    let showRow = hasOwnUnread.has(category.id)
+    // Every child is walked even once the answer is known: their own rows are
+    // being decided in the same pass, and stopping early would leave them
+    // unsettled.
+    for (const child of childrenByParent.get(category.id) ?? []) {
+      if (walk(child)) showRow = true
+    }
+
+    if (showRow) visible.add(category.id)
+    return showRow
+  }
+
+  for (const category of categories) walk(category)
+  return visible
+}
 
 /**
  * The category tree flattened into the order FeedSidebar paints it.
@@ -53,24 +136,38 @@ export function categoriesInSidebarOrder(categories: Category[]): Category[] {
 }
 
 /**
- * The id of the category one step from `currentCategoryId` in sidebar order, or
- * null when there is nowhere to go.
+ * The id of the next category the reader can actually see, one step from
+ * `currentCategoryId` in sidebar order, or null when there is nowhere to go.
  *
  * Null means the caller should show the reader that the move was refused; it
  * never means "did nothing on purpose". There are exactly two ways to get it:
- * the tree is empty, or the current category is already the last (`next`) or
- * first (`previous`) row. Nothing wraps. Wrapping would make Shift+J from the
+ * nothing is visible at all, or every row past the current one in that
+ * direction is hidden. Nothing wraps. Wrapping would make Shift+J from the
  * bottom of the tree jump silently back to the top, which is indistinguishable
  * from having lost your place.
  *
  * With no category selected - a virtual folder, a tag, All Feeds - `next`
- * starts at the first category and `previous` at the last, so the first press
- * always lands somewhere.
+ * starts at the first visible category and `previous` at the last, so the first
+ * press always lands somewhere.
+ *
+ * `visibleIds` is what `visibleCategoryIds` returned; omit it and every
+ * category counts as visible.
+ *
+ * The scan is over the full order, with hidden rows skipped, rather than over a
+ * pre-filtered list. That is what decides the awkward case: the reader is
+ * parked on a category, marks its last unread article read, and the row it was
+ * measuring from disappears from under them. Scanning the full order keeps the
+ * cursor in its old slot, so the next press lands on the nearest visible
+ * neighbour in the direction pressed. Filtering first would drop the current id
+ * out of the list entirely, and the "nothing is selected" branch below would
+ * fire instead, teleporting the reader to the top or the bottom of the tree
+ * after a keystroke that asked for one step.
  */
 export function stepCategory(
   categories: Category[],
   currentCategoryId: number | null,
-  direction: "next" | "previous"
+  direction: "next" | "previous",
+  visibleIds?: Set<number>
 ): number | null {
   const ordered = categoriesInSidebarOrder(categories)
   if (ordered.length === 0) return null
@@ -80,15 +177,17 @@ export function stepCategory(
       ? -1
       : ordered.findIndex((category) => category.id === currentCategoryId)
 
-  // -1 covers both "nothing selected" and "the selected category is gone",
-  // which want the same answer: start at whichever end the direction implies.
-  if (currentIndex === -1) {
-    return direction === "next" ? ordered[0].id : ordered[ordered.length - 1].id
-  }
+  const stepBy = direction === "next" ? 1 : -1
+  // -1 covers "nothing selected" and "the selected category is gone from the
+  // tree", which want the same answer: start off the end the direction comes
+  // from, so the first row examined is the first or the last.
+  const from = currentIndex === -1 ? (direction === "next" ? -1 : ordered.length) : currentIndex
 
-  const targetIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1
-  if (targetIndex < 0 || targetIndex >= ordered.length) return null
-  return ordered[targetIndex].id
+  for (let i = from + stepBy; i >= 0 && i < ordered.length; i += stepBy) {
+    const candidate = ordered[i]
+    if (!visibleIds || visibleIds.has(candidate.id)) return candidate.id
+  }
+  return null
 }
 
 /**

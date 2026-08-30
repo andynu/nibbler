@@ -768,6 +768,11 @@ function App() {
     feeds,
     selectedCategoryId,
     selectedFeedId,
+    // The same expression FeedSidebar resolves its own hide-read state from.
+    // updatePreference writes this optimistically, so the toggle in the sidebar
+    // header changes what Shift+J and Shift+K can reach on the same render the
+    // rows disappear on, with no request in between.
+    hideReadFeeds: preferences.hide_read_feeds === "true",
     onSelectCategory: handleSelectCategory,
     onBoundary: handleCategoryBoundary,
   })

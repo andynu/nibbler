@@ -601,6 +601,32 @@ describe("FeedSidebar", () => {
       expect(screen.queryByText("Empty Category")).not.toBeInTheDocument()
     })
 
+    // The rule used to be written twice inside this render, once for roots and
+    // once for children, and both copies looked exactly one level down. A feed
+    // two levels deep therefore took its own parent off screen and went with
+    // it. Both copies now defer to visibleCategoryIds, which walks the whole
+    // subtree (ttrb-ziba).
+    it("keeps every folder above an unread feed, however deep it sits", () => {
+      mockPreferences.hide_read_feeds = "true"
+      const categories = [
+        mockCategory({ id: 1, title: "Technology" }),
+        mockCategory({ id: 2, title: "Programming", parent_id: 1 }),
+        mockCategory({ id: 3, title: "Rust", parent_id: 2 }),
+      ]
+      const feeds = [
+        mockFeed({ id: 1, title: "Rust Weekly", category_id: 3, unread_count: 4 }),
+      ]
+
+      render(
+        <FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />
+      )
+
+      expect(screen.getByText("Technology")).toBeInTheDocument()
+      expect(screen.getByText("Programming")).toBeInTheDocument()
+      expect(screen.getByText("Rust")).toBeInTheDocument()
+      expect(screen.getByText("Rust Weekly")).toBeInTheDocument()
+    })
+
     it("sort by unread toggle updates preference", async () => {
       const user = userEvent.setup()
 

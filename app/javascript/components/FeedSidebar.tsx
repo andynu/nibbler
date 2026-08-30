@@ -43,7 +43,7 @@ import type { Feed, Category } from "@/lib/api"
 import { CategoryDialog } from "@/components/CategoryDialog"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { getVirtualFoldersByMode, SmartFolderIcon } from "@/lib/virtualFolders"
-import { categoryAncestorIds } from "@/lib/categoryNavigation"
+import { categoryAncestorIds, visibleCategoryIds } from "@/lib/categoryNavigation"
 
 type VirtualFeed = string | null
 
@@ -183,9 +183,15 @@ export function FeedSidebar({
     return new Set()
   })
 
-  // Local override for hide read feeds (toggle in UI)
-  const [hideReadOverride, setHideReadOverride] = useState<boolean | null>(null)
-  const hideReadFeeds = hideReadOverride ?? preferences.hide_read_feeds === "true"
+  // The preference is the only answer to "is hide-read on". There used to be a
+  // local override alongside it, set by the toggle below, from before
+  // updatePreference wrote optimistically; now that it does, the override could
+  // only ever shadow the preference, and it did: keyboard navigation reads the
+  // preference and had no way to see the override, so the two disagreed about
+  // which rows exist (ttrb-ziba). A failed write now reverts the toggle with
+  // the rest of the preferences instead of leaving the sidebar asserting a
+  // state the account never took.
+  const hideReadFeeds = preferences.hide_read_feeds === "true"
   const sortByUnread = preferences.feeds_sort_by_unread === "true"
   const syncToTree = preferences.sync_to_tree === "true"
 
@@ -454,11 +460,10 @@ export function FeedSidebar({
     return filtered
   }
 
+  // The write is optimistic inside PreferencesContext, so the rows and the
+  // keyboard's idea of which rows exist both move on the next render.
   const toggleHideRead = () => {
-    const newValue = !hideReadFeeds
-    setHideReadOverride(newValue)
-    // Persist to preference
-    updatePreference("hide_read_feeds", newValue ? "true" : "false")
+    updatePreference("hide_read_feeds", hideReadFeeds ? "false" : "true")
   }
 
   const toggleSortByUnread = () => {
@@ -577,6 +582,15 @@ export function FeedSidebar({
       childrenByParent.set(c.parent_id, children)
     }
   })
+
+  // Which categories get a row at all. Shared with useCategoryNavigation so the
+  // keyboard cannot step onto something this render decided not to draw
+  // (ttrb-ziba). Expansion state is deliberately not an input: a collapsed
+  // folder's children are still navigable, and arriving at one opens it.
+  const visibleCategories = useMemo(
+    () => visibleCategoryIds(categories, feeds, hideReadFeeds),
+    [categories, feeds, hideReadFeeds]
+  )
 
   const handleCategoryCreated = (category: Category) => {
     onCategoriesChange([...categories, category])
@@ -1217,15 +1231,11 @@ export function FeedSidebar({
           <div className="h-px bg-border my-2" />
 
           {rootCategories.map((category) => {
+            if (!visibleCategories.has(category.id)) return null
             const categoryFeeds = filterAndSortFeeds(
               feeds.filter((f) => f.category_id === category.id)
             )
             const childCategories = childrenByParent.get(category.id) || []
-            // Hide empty categories when hiding read feeds (only if no children with unread)
-            const hasUnreadChildren = childCategories.some((child) =>
-              feeds.some((f) => f.category_id === child.id && f.unread_count > 0)
-            )
-            if (hideReadFeeds && categoryFeeds.length === 0 && !hasUnreadChildren) return null
             return (
               <CategoryItem
                 key={category.id}
@@ -1254,7 +1264,7 @@ export function FeedSidebar({
                 onEditCategory={setEditingCategory}
                 onDeleteCategory={handleDeleteCategory}
                 onAddChildCategory={handleAddChildCategory}
-                hideReadFeeds={hideReadFeeds}
+                visibleCategories={visibleCategories}
                 filterAndSortFeeds={filterAndSortFeeds}
                 showTotalCount={showTotalCount}
               />
@@ -1347,7 +1357,8 @@ interface CategoryItemProps {
   onEditCategory: (category: Category) => void
   onDeleteCategory: (category: Category) => void
   onAddChildCategory: (parentCategory: Category) => void
-  hideReadFeeds: boolean
+  /** The ids `visibleCategoryIds` returned; anything outside it gets no row. */
+  visibleCategories: Set<number>
   filterAndSortFeeds: (feeds: Feed[]) => Feed[]
   showTotalCount: boolean
 }
@@ -1378,7 +1389,7 @@ function CategoryItem({
   onEditCategory,
   onDeleteCategory,
   onAddChildCategory,
-  hideReadFeeds,
+  visibleCategories,
   filterAndSortFeeds,
   showTotalCount,
 }: CategoryItemProps) {
@@ -1534,15 +1545,11 @@ function CategoryItem({
         <>
           {/* Render child categories first (sorted alphabetically) */}
           {[...childCategories].sort((a, b) => a.title.localeCompare(b.title)).map((childCategory) => {
+            if (!visibleCategories.has(childCategory.id)) return null
             const childFeeds = filterAndSortFeeds(
               allFeeds.filter((f) => f.category_id === childCategory.id)
             )
             const grandChildren = childrenByParent.get(childCategory.id) || []
-            // Hide empty child categories when hiding read feeds
-            const hasUnreadDescendants = grandChildren.some((gc) =>
-              allFeeds.some((f) => f.category_id === gc.id && f.unread_count > 0)
-            )
-            if (hideReadFeeds && childFeeds.length === 0 && !hasUnreadDescendants) return null
             return (
               <CategoryItem
                 key={childCategory.id}
@@ -1571,7 +1578,7 @@ function CategoryItem({
                 onEditCategory={onEditCategory}
                 onDeleteCategory={onDeleteCategory}
                 onAddChildCategory={onAddChildCategory}
-                hideReadFeeds={hideReadFeeds}
+                visibleCategories={visibleCategories}
                 filterAndSortFeeds={filterAndSortFeeds}
                 showTotalCount={showTotalCount}
               />
