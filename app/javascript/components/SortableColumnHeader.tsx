@@ -58,20 +58,44 @@ export function SortableColumnHeader({
 interface SortableHeaderRowProps {
   currentSort: SortConfig[]
   onSort: (column: SortColumn, additive: boolean) => void
+  columns?: ReadonlyArray<{ column: SortColumn; label: string }>
   className?: string
 }
 
-// Column definitions with labels
-const SORTABLE_COLUMNS: Array<{ column: SortColumn; label: string }> = [
+// What the entry list can be ordered by.
+export const ENTRY_SORT_COLUMNS: ReadonlyArray<{ column: SortColumn; label: string }> = [
   { column: "date", label: "Date" },
   { column: "feed", label: "Feed" },
   { column: "title", label: "Title" },
   { column: "score", label: "Score" },
 ]
 
+/**
+ * What a search can be ordered by. Relevance leads because it is the answer to
+ * the question the reader just typed, and it is the one column the entry list
+ * cannot offer.
+ *
+ * Score is absent: a search hit carries no score and the result row draws none,
+ * so ordering by it would rearrange the list around a value nobody can see.
+ */
+export const SEARCH_SORT_COLUMNS: ReadonlyArray<{ column: SortColumn; label: string }> = [
+  { column: "relevance", label: "Relevance" },
+  { column: "date", label: "Date" },
+  { column: "feed", label: "Feed" },
+  { column: "title", label: "Title" },
+]
+
+/**
+ * Columns whose ascending direction has no reading anyone would ask for.
+ * Relevance ascending is "worst match first", so the Relevance header selects
+ * rather than toggles.
+ */
+const DESC_ONLY_COLUMNS: readonly SortColumn[] = [ "relevance" ]
+
 export function SortableHeaderRow({
   currentSort,
   onSort,
+  columns = ENTRY_SORT_COLUMNS,
   className,
 }: SortableHeaderRowProps) {
   return (
@@ -82,7 +106,7 @@ export function SortableHeaderRow({
       )}
     >
       <span className="text-xs text-muted-foreground mr-1">Sort:</span>
-      {SORTABLE_COLUMNS.map(({ column, label }) => (
+      {columns.map(({ column, label }) => (
         <SortableColumnHeader
           key={column}
           column={column}
@@ -102,13 +126,16 @@ export function toggleSort(
   additive: boolean
 ): SortConfig[] {
   const existingIndex = currentSort.findIndex((s) => s.column === column)
+  // A desc-only column has one step fewer: it goes selected -> gone, with no
+  // ascending state in between.
+  const canAscend = !DESC_ONLY_COLUMNS.includes(column)
 
   if (additive) {
     // Shift+click: toggle this column in multi-sort mode
     if (existingIndex !== -1) {
       // Column exists - toggle direction or remove if clicking third time
       const existing = currentSort[existingIndex]
-      if (existing.direction === "desc") {
+      if (existing.direction === "desc" && canAscend) {
         // desc -> asc
         return [
           ...currentSort.slice(0, existingIndex),
@@ -131,7 +158,7 @@ export function toggleSort(
     if (existingIndex !== -1 && currentSort.length === 1) {
       // Already the only sort - toggle direction
       const existing = currentSort[0]
-      if (existing.direction === "desc") {
+      if (existing.direction === "desc" && canAscend) {
         return [{ column, direction: "asc" as SortDirection }]
       } else {
         // Clicking third time returns to desc

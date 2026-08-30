@@ -173,6 +173,12 @@ export interface SearchParams {
   fresh_per_feed?: number
   page?: number
   per_page?: number
+  /**
+   * The same "column:direction" grammar api.entries.list takes, plus the
+   * "relevance" column only search has. Omit it for relevance, which is what
+   * the server falls back to.
+   */
+  sort?: string
 }
 
 export interface FeedPreview {
@@ -450,8 +456,14 @@ export interface FilterUpdateData {
   filter_actions_attributes?: FilterActionUpdateData[]
 }
 
-// Sorting configuration for multi-column sorting
-export type SortColumn = "date" | "published" | "feed" | "title" | "score" | "unread"
+// Sorting configuration for multi-column sorting.
+//
+// "relevance" belongs to /search alone: an article is only relevant to
+// something once there is a query to be relevant to. Which columns each list
+// offers is decided by the column sets in SortableColumnHeader and
+// SortDropdown, not by this union; both endpoints drop a column they do not
+// recognise rather than erroring on it.
+export type SortColumn = "date" | "published" | "feed" | "title" | "score" | "unread" | "relevance"
 export type SortDirection = "asc" | "desc"
 
 export interface SortConfig {
@@ -564,9 +576,9 @@ export const api = {
    * that list holds. category_id covers the category's whole subtree, and
    * view: "fresh" applies both fresh_max_age and the fresh_per_feed cap.
    *
-   * Results come back ranked by relevance, with entries.date_entered DESC as
-   * the tiebreak. The sort/order_by params api.entries.list accepts have no
-   * meaning here and are not sent.
+   * Results come back ranked by relevance unless `sort` says otherwise, with
+   * entries.date_entered DESC as the tiebreak and user_entries.id DESC below
+   * that, so paging cannot repeat or drop a row.
    */
   search: (params: SearchParams): Promise<SearchResponse> => {
     const q = params.q.trim()
@@ -592,6 +604,7 @@ export const api = {
     if (params.fresh_per_feed) searchParams.set("fresh_per_feed", String(params.fresh_per_feed))
     if (params.page) searchParams.set("page", String(params.page))
     if (params.per_page) searchParams.set("per_page", String(params.per_page))
+    if (params.sort) searchParams.set("sort", params.sort)
     return request<SearchResponse>(`/search?${searchParams.toString()}`)
   },
 

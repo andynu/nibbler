@@ -8,19 +8,22 @@ import {
 } from "@/components/ui/select"
 import type { SortConfig, SortColumn, SortDirection } from "@/lib/api"
 
-interface SortDropdownProps {
-  currentSort: SortConfig[]
-  onSortChange: (newSort: SortConfig[]) => void
-  className?: string
-}
-
-// Sort options combining column and direction
-const SORT_OPTIONS: Array<{
+export interface SortOption {
   value: string
   column: SortColumn
   direction: SortDirection
   label: string
-}> = [
+}
+
+interface SortDropdownProps {
+  currentSort: SortConfig[]
+  onSortChange: (newSort: SortConfig[]) => void
+  options?: readonly SortOption[]
+  className?: string
+}
+
+// Sort options combining column and direction
+export const ENTRY_SORT_OPTIONS: readonly SortOption[] = [
   { value: "date:desc", column: "date", direction: "desc", label: "Date (newest)" },
   { value: "date:asc", column: "date", direction: "asc", label: "Date (oldest)" },
   { value: "feed:asc", column: "feed", direction: "asc", label: "Feed (A-Z)" },
@@ -31,25 +34,40 @@ const SORT_OPTIONS: Array<{
   { value: "title:desc", column: "title", direction: "desc", label: "Title (Z-A)" },
 ]
 
+/**
+ * The search set: relevance first and by itself, since relevance ascending is
+ * "worst match first". Score is absent because a search hit carries none.
+ */
+export const SEARCH_SORT_OPTIONS: readonly SortOption[] = [
+  { value: "relevance:desc", column: "relevance", direction: "desc", label: "Relevance" },
+  { value: "date:desc", column: "date", direction: "desc", label: "Date (newest)" },
+  { value: "date:asc", column: "date", direction: "asc", label: "Date (oldest)" },
+  { value: "feed:asc", column: "feed", direction: "asc", label: "Feed (A-Z)" },
+  { value: "feed:desc", column: "feed", direction: "desc", label: "Feed (Z-A)" },
+  { value: "title:asc", column: "title", direction: "asc", label: "Title (A-Z)" },
+  { value: "title:desc", column: "title", direction: "desc", label: "Title (Z-A)" },
+]
+
 export function SortDropdown({
   currentSort,
   onSortChange,
+  options = ENTRY_SORT_OPTIONS,
   className,
 }: SortDropdownProps) {
   // Get current value from first sort config (mobile only supports single sort)
   const currentValue = currentSort.length > 0
     ? `${currentSort[0].column}:${currentSort[0].direction}`
-    : "date:desc"
+    : options[0].value
 
   const handleChange = (value: string) => {
-    const option = SORT_OPTIONS.find((o) => o.value === value)
+    const option = options.find((o) => o.value === value)
     if (option) {
       onSortChange([{ column: option.column, direction: option.direction }])
     }
   }
 
   // Get display label for current sort
-  const currentOption = SORT_OPTIONS.find((o) => o.value === currentValue)
+  const currentOption = options.find((o) => o.value === currentValue)
   const displayLabel = currentOption?.label || "Sort by"
 
   return (
@@ -61,7 +79,7 @@ export function SortDropdown({
         </div>
       </SelectTrigger>
       <SelectContent>
-        {SORT_OPTIONS.map((option) => (
+        {options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             <div className="flex items-center gap-2">
               {option.direction === "asc" ? (

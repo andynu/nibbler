@@ -3,6 +3,31 @@ module Api
     class SearchController < BaseController
       include EntryScoping
 
+      # The one column search has that the entry list cannot offer: an article
+      # is only relevant to something once there is a query to be relevant to.
+      RELEVANCE = "relevance".freeze
+
+      # The rest of the vocabulary, spelled exactly as
+      # EntriesController::SORT_COLUMN_MAP spells it so one control on the
+      # client can drive both endpoints.
+      #
+      # "score" and "unread" are deliberately missing. A search result carries
+      # neither -- see #search_result_json -- so ordering by them would rearrange
+      # the list around a value the reader cannot see. They fall through to the
+      # relevance default rather than erroring, which is what a stale sort
+      # carried over from the entry list needs to do.
+      SORT_COLUMN_MAP = {
+        "date" => "entries.date_entered",
+        "feed" => "feeds.title",
+        "title" => "entries.title"
+      }.freeze
+
+      VALID_DIRECTIONS = %w[asc desc].freeze
+
+      # Relevance first, because search is the one place in the app where the
+      # reader has said what they are looking for.
+      DEFAULT_SORT = [ { column: RELEVANCE, direction: "desc" } ].freeze
+
       # GET /api/v1/search?q=query
       def index
         return render_empty_results if params[:q].blank?
@@ -47,20 +72,58 @@ module Api
       # form ran Entry.search over the whole shared entries table, plucked every
       # matching id into Ruby, and sent it back as an IN list, which also
       # discarded the ts_rank ordering the scope had just paid for.
-      #
-      # Results come back by relevance, not by date. Search is the one place in
-      # the app where the user has said what they are looking for, so the best
-      # match belongs at the top; date_entered DESC is the right default for the
-      # entry list, where the question is "what is new", and it stays the
-      # tiebreak here. The final user_entries.id keeps paging deterministic when
-      # two rows tie on both.
       def search_user_entries
-        current_user.user_entries
+        scope = current_user.user_entries
           .joins(:entry)
           .includes(:entry, :feed)
           .where(Arel.sql(Entry.text_search_condition(params[:q])))
-          .order(Arel.sql("#{Entry.text_search_rank(params[:q])} DESC"))
-          .order("entries.date_entered DESC", "user_entries.id DESC")
+        scope = scope.joins(:feed) if sort_specs.any? { |spec| spec[:column] == "feed" }
+        scope.order(Arel.sql(order_clauses.join(", ")))
+      end
+
+      # What the reader asked for, then the two clauses that are not theirs to
+      # drop.
+      #
+      # date_entered DESC has always been the tiebreak here and stays one: with
+      # the primary sort equal, the newer article is the one wanted first. It is
+      # skipped when the reader is already sorting by that column, where a
+      # second clause on it would only contradict the direction they chose.
+      #
+      # The primary key goes last unconditionally. Two rows equal on every
+      # clause above it would otherwise come back in whatever order the plan
+      # produced, and LIMIT/OFFSET over an unstable order can hand page 2 a row
+      # page 1 already showed.
+      def order_clauses
+        clauses = sort_specs.map { |spec| "#{sort_sql(spec[:column])} #{spec[:direction].upcase}" }
+        clauses << "entries.date_entered DESC" unless sort_specs.any? { |spec| spec[:column] == "date" }
+        clauses << "user_entries.id DESC"
+      end
+
+      def sort_sql(column)
+        column == RELEVANCE ? Entry.text_search_rank(params[:q]) : SORT_COLUMN_MAP.fetch(column)
+      end
+
+      def sort_specs
+        @sort_specs ||= parse_sort_param(params[:sort])
+      end
+
+      # Same "column:direction,column:direction" grammar the entry list uses.
+      # An unrecognised column is dropped rather than refused, and a request
+      # left with nothing recognisable falls back to relevance.
+      def parse_sort_param(sort_string)
+        return DEFAULT_SORT if sort_string.blank?
+
+        specs = sort_string.split(",").filter_map do |part|
+          column, direction = part.strip.split(":")
+          column = column.to_s.downcase
+          next unless column == RELEVANCE || SORT_COLUMN_MAP.key?(column)
+
+          direction = direction.to_s.downcase
+          direction = "desc" unless VALID_DIRECTIONS.include?(direction)
+          { column: column, direction: direction }
+        end
+
+        specs.presence || DEFAULT_SORT
       end
 
       def render_empty_results

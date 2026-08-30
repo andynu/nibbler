@@ -123,6 +123,137 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "Quokka Report Beta", "Quokka Report Alpha" ], titles
   end
 
+  # Re-sorting. Every case seeds rows whose relevance order and requested order
+  # disagree, so an assertion that still held with the sort param dropped on the
+  # floor -- which is what the endpoint used to do with it -- fails here.
+
+  test "orders by import date rather than relevance for sort=date:desc" do
+    subscribe(create_entry(
+      title: "Thin But Recent",
+      content: "<p>A quokka appeared once.</p>",
+      date_entered: Time.current
+    ))
+    subscribe(create_entry(
+      title: "Quokka Quokka Quokka",
+      content: "<p>Quokka quokka quokka quokka.</p>",
+      date_entered: 1.week.ago
+    ))
+
+    get api_v1_search_url, params: { q: "quokka", sort: "date:desc" }
+
+    assert_response :success
+    assert_equal [ "Thin But Recent", "Quokka Quokka Quokka" ], titles
+  end
+
+  test "orders oldest first for sort=date:asc" do
+    subscribe(create_entry(
+      title: "Quokka Quokka Quokka",
+      content: "<p>Quokka quokka quokka quokka.</p>",
+      date_entered: Time.current
+    ))
+    subscribe(create_entry(
+      title: "Thin But Older",
+      content: "<p>A quokka appeared once.</p>",
+      date_entered: 1.week.ago
+    ))
+
+    get api_v1_search_url, params: { q: "quokka", sort: "date:asc" }
+
+    assert_response :success
+    assert_equal [ "Thin But Older", "Quokka Quokka Quokka" ], titles
+  end
+
+  test "orders by feed title for sort=feed:asc" do
+    alpha = Feed.create!(user: @user, title: "Alpha Gazette", feed_url: "https://example.com/alpha.rss")
+    zulu = Feed.create!(user: @user, title: "Zulu Times", feed_url: "https://example.com/zulu.rss")
+    subscribe(create_entry(title: "Thin Match", content: "<p>A quokka appeared once.</p>"), feed: alpha)
+    subscribe(create_entry(title: "Dense Match", content: "<p>Quokka quokka quokka quokka.</p>"), feed: zulu)
+
+    get api_v1_search_url, params: { q: "quokka", sort: "feed:asc" }
+
+    assert_response :success
+    assert_equal [ "Thin Match", "Dense Match" ], titles
+  end
+
+  test "orders by entry title for sort=title:asc" do
+    subscribe(create_entry(title: "Zebra Notes", content: "<p>Quokka quokka quokka quokka.</p>"))
+    subscribe(create_entry(title: "Alpha Notes", content: "<p>A quokka appeared once.</p>"))
+
+    get api_v1_search_url, params: { q: "quokka", sort: "title:asc" }
+
+    assert_response :success
+    assert_equal [ "Alpha Notes", "Zebra Notes" ], titles
+  end
+
+  # Relevance is the default, so this cannot fail on an endpoint that ignores
+  # the param entirely. It is here as a guard: it pins that naming the default
+  # explicitly -- which is what the client does the moment a reader sorts by
+  # date and back again -- is honoured rather than parsed into nothing.
+  test "ranks by relevance for sort=relevance" do
+    subscribe(create_entry(
+      title: "Thin But Recent",
+      content: "<p>A quokka appeared once.</p>",
+      date_entered: Time.current
+    ))
+    subscribe(create_entry(
+      title: "Quokka Quokka Quokka",
+      content: "<p>Quokka quokka quokka quokka.</p>",
+      date_entered: 1.week.ago
+    ))
+
+    get api_v1_search_url, params: { q: "quokka", sort: "relevance:desc" }
+
+    assert_response :success
+    assert_equal [ "Quokka Quokka Quokka", "Thin But Recent" ], titles
+  end
+
+  # Also a guard rather than a catcher: an endpoint that ignored sort would
+  # produce the same order. It pins the fallback so a typo, or a stale
+  # entry-list column like "score" that search does not offer, cannot leave the
+  # results in whatever order the plan happened to produce.
+  test "falls back to relevance for a sort column search does not offer" do
+    subscribe(create_entry(
+      title: "Thin But Recent",
+      content: "<p>A quokka appeared once.</p>",
+      date_entered: Time.current
+    ))
+    subscribe(create_entry(
+      title: "Quokka Quokka Quokka",
+      content: "<p>Quokka quokka quokka quokka.</p>",
+      date_entered: 1.week.ago
+    ))
+
+    get api_v1_search_url, params: { q: "quokka", sort: "score:desc" }
+
+    assert_response :success
+    assert_equal [ "Quokka Quokka Quokka", "Thin But Recent" ], titles
+  end
+
+  # Three rows identical on the title, the rank and the import date, so every
+  # clause but the last one ties and the primary key alone decides. Without that
+  # last clause the order is whatever the plan produces, and LIMIT/OFFSET over
+  # an unstable order can hand page 2 a row page 1 already showed.
+  test "breaks a tie on the requested sort with the user_entries id" do
+    tied = Array.new(3) { subscribe(create_entry(title: "Quokka Notes", date_entered: 1.week.ago)) }
+
+    get api_v1_search_url, params: { q: "quokka", sort: "title:asc" }
+
+    assert_response :success
+    assert_equal tied.map(&:id).sort.reverse, json["entries"].map { |e| e["id"] }
+  end
+
+  test "pages a tied result set without repeating or dropping a row" do
+    tied = Array.new(3) { subscribe(create_entry(title: "Quokka Notes", date_entered: 1.week.ago)) }
+
+    paged_ids = (1..3).flat_map do |page|
+      get api_v1_search_url, params: { q: "quokka", sort: "title:asc", page: page, per_page: 1 }
+      assert_response :success
+      JSON.parse(response.body)["entries"].map { |e| e["id"] }
+    end
+
+    assert_equal tied.map(&:id).sort, paged_ids.sort
+  end
+
   test "returns a snippet around the match, with the match delimited" do
     subscribe(create_entry(title: "Nothing To See", content: "<p>The wombat burrow collapsed overnight.</p>"))
 

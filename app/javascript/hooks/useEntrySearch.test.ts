@@ -5,7 +5,11 @@ import type { SearchResponse } from "@/lib/api"
 import { useEntrySearch, SEARCH_DEBOUNCE_MS } from "./useEntrySearch"
 import { mockSearchResponse, mockSearchResult } from "../../../test/fixtures/data"
 
-vi.mock("@/lib/api", () => ({
+// Only the network call is faked. sortConfigToParam comes through untouched,
+// so the ordering these tests assert on is serialised by the same code the
+// entry list uses rather than by a second copy of the rule living here.
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   api: { search: vi.fn() },
 }))
 
@@ -445,6 +449,129 @@ describe("useEntrySearch", () => {
       await settle()
 
       expect(search).toHaveBeenLastCalledWith({ q: "rails", feed_id: 7, unread: true })
+    })
+  })
+
+  describe("ordering", () => {
+    it("starts at relevance", () => {
+      const { result } = renderHook(() => useEntrySearch())
+
+      expect(result.current.sort).toEqual([{ column: "relevance", direction: "desc" }])
+    })
+
+    // The server ranks by relevance when it is told nothing, so naming the
+    // default on the wire would only be noise.
+    it("leaves the default off the request", async () => {
+      const { result } = renderHook(() => useEntrySearch())
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenCalledWith({ q: "rails" })
+    })
+
+    it("sends the ordering the reader picked", async () => {
+      const { result } = renderHook(() => useEntrySearch())
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setSort([{ column: "date", direction: "asc" }]))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails", sort: "date:asc" })
+    })
+
+    it("sends a multi-column ordering in the order it was built", async () => {
+      const { result } = renderHook(() => useEntrySearch())
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() =>
+        result.current.setSort([
+          { column: "feed", direction: "asc" },
+          { column: "date", direction: "desc" },
+        ])
+      )
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails", sort: "feed:asc,date:desc" })
+    })
+
+    it("keeps the scope alongside the ordering", async () => {
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7, unread: true }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setSort([{ column: "title", direction: "asc" }]))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({
+        q: "rails",
+        feed_id: 7,
+        unread: true,
+        sort: "title:asc",
+      })
+    })
+
+    it("re-runs the query when the ordering changes", async () => {
+      const { result } = renderHook(() => useEntrySearch())
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      expect(search).toHaveBeenCalledTimes(1)
+
+      act(() => result.current.setSort([{ column: "date", direction: "desc" }]))
+      await settle()
+
+      expect(search).toHaveBeenCalledTimes(2)
+    })
+
+    // An ordering is not a filter. A re-sorted search that found nothing has
+    // excluded nothing the reader could drop, so it must not start asking for
+    // the outside-the-scope count.
+    it("does not make an unnarrowed search look narrowed", async () => {
+      search.mockResolvedValue(mockSearchResponse([]))
+      const { result } = renderHook(() => useEntrySearch())
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setSort([{ column: "date", direction: "desc" }]))
+      await settle()
+
+      expect(search).toHaveBeenCalledTimes(2)
+      expect(result.current.widerMatchCount).toBeNull()
+    })
+
+    it("survives editing the query", async () => {
+      const { result } = renderHook(() => useEntrySearch())
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setSort([{ column: "date", direction: "desc" }]))
+      await settle()
+
+      act(() => result.current.setQuery("rails engine"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails engine", sort: "date:desc" })
+    })
+
+    it("goes back to relevance when the box is cleared", async () => {
+      const { result } = renderHook(() => useEntrySearch())
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setSort([{ column: "date", direction: "desc" }]))
+      await settle()
+
+      act(() => result.current.clear())
+
+      expect(result.current.sort).toEqual([{ column: "relevance", direction: "desc" }])
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails" })
     })
   })
 

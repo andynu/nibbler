@@ -251,6 +251,25 @@ describe("api.search", () => {
     expect(url).toBe("/api/v1/search?q=rails")
   })
 
+  it("passes the ordering through as the sort param", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(mockSearchResponse()))
+
+    await api.search({ q: "rails", sort: "date:desc,feed:asc" })
+
+    const [url] = mockFetch.mock.calls[0]
+    const query = new URLSearchParams(String(url).split("?")[1])
+    expect(query.get("sort")).toBe("date:desc,feed:asc")
+  })
+
+  it("sends no sort param when none is given", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(mockSearchResponse()))
+
+    await api.search({ q: "rails" })
+
+    const [url] = mockFetch.mock.calls[0]
+    expect(String(url)).not.toContain("sort")
+  })
+
   it.each(["", "   ", "\t\n"])("does not hit the network for a blank query %j", async (q) => {
     const result = await api.search({ q })
 

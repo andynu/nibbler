@@ -466,23 +466,126 @@ describe("EntryList", () => {
       expect(onSelectEntry).toHaveBeenCalledWith(9)
     })
 
-    it("hides the sort controls it cannot apply to search results", () => {
-      const onSortChange = vi.fn()
-      const { rerender } = render(
-        <EntryList {...defaultProps} search={idleSearch} onSortChange={onSortChange} />
-      )
+    describe("sorting the hits", () => {
+      const activeSearch = {
+        ...idleSearch,
+        query: "rails",
+        isActive: true,
+        sortConfig: [{ column: "relevance" as const, direction: "desc" as const }],
+      }
 
-      expect(screen.getByText("Sort:")).toBeInTheDocument()
+      it("keeps the sort controls up during a search, offering relevance", () => {
+        render(
+          <EntryList
+            {...defaultProps}
+            onSortChange={vi.fn()}
+            search={{ ...activeSearch, onSortChange: vi.fn() }}
+          />
+        )
 
-      rerender(
-        <EntryList
-          {...defaultProps}
-          onSortChange={onSortChange}
-          search={{ ...idleSearch, query: "rails", isActive: true }}
-        />
-      )
+        expect(screen.getByText("Sort:")).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /relevance/i })).toBeInTheDocument()
+      })
 
-      expect(screen.queryByText("Sort:")).not.toBeInTheDocument()
+      // Score is the column a search hit does not carry: SearchResult has no
+      // score and the row draws none, so ordering by it would rearrange the
+      // list around a value nobody can see.
+      it("drops the columns a search hit does not carry", () => {
+        render(
+          <EntryList
+            {...defaultProps}
+            onSortChange={vi.fn()}
+            search={{ ...activeSearch, onSortChange: vi.fn() }}
+          />
+        )
+
+        expect(screen.queryByRole("button", { name: /score/i })).not.toBeInTheDocument()
+      })
+
+      it("offers relevance only while a query is active", () => {
+        render(<EntryList {...defaultProps} search={idleSearch} onSortChange={vi.fn()} />)
+
+        expect(screen.getByText("Sort:")).toBeInTheDocument()
+        expect(screen.queryByRole("button", { name: /relevance/i })).not.toBeInTheDocument()
+      })
+
+      it("routes a sort click to the search's handler, leaving the list's alone", async () => {
+        const user = userEvent.setup()
+        const onSortChange = vi.fn()
+        const onSearchSortChange = vi.fn()
+
+        render(
+          <EntryList
+            {...defaultProps}
+            onSortChange={onSortChange}
+            search={{ ...activeSearch, onSortChange: onSearchSortChange }}
+          />
+        )
+
+        await user.click(screen.getByRole("button", { name: /^date/i }))
+
+        expect(onSearchSortChange).toHaveBeenCalledWith([
+          { column: "date", direction: "desc" },
+        ])
+        expect(onSortChange).not.toHaveBeenCalled()
+      })
+
+      // Relevance ascending is "worst match first". Clicking the column a
+      // second time has to leave it where it is rather than offer that.
+      it("never turns relevance around", async () => {
+        const user = userEvent.setup()
+        const onSearchSortChange = vi.fn()
+
+        render(
+          <EntryList
+            {...defaultProps}
+            search={{ ...activeSearch, onSortChange: onSearchSortChange }}
+          />
+        )
+
+        await user.click(screen.getByRole("button", { name: /relevance/i }))
+
+        expect(onSearchSortChange).toHaveBeenCalledWith([
+          { column: "relevance", direction: "desc" },
+        ])
+      })
+
+      it("shows the list's own sort again once the query is cleared", () => {
+        const { rerender } = render(
+          <EntryList
+            {...defaultProps}
+            sortConfig={[{ column: "title", direction: "asc" }]}
+            onSortChange={vi.fn()}
+            search={{ ...activeSearch, onSortChange: vi.fn() }}
+          />
+        )
+
+        expect(screen.getByRole("button", { name: /relevance/i })).toBeInTheDocument()
+
+        rerender(
+          <EntryList
+            {...defaultProps}
+            sortConfig={[{ column: "title", direction: "asc" }]}
+            onSortChange={vi.fn()}
+            search={idleSearch}
+          />
+        )
+
+        expect(screen.queryByRole("button", { name: /relevance/i })).not.toBeInTheDocument()
+        expect(screen.getByRole("button", { name: /score/i })).toBeInTheDocument()
+      })
+
+      it("hides the controls during a search the caller gave no sort handler", () => {
+        render(
+          <EntryList
+            {...defaultProps}
+            onSortChange={vi.fn()}
+            search={{ ...idleSearch, query: "rails", isActive: true }}
+          />
+        )
+
+        expect(screen.queryByText("Sort:")).not.toBeInTheDocument()
+      })
     })
 
     describe("scope", () => {

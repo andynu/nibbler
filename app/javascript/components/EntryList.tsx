@@ -15,8 +15,13 @@ import { getTagColor } from "@/lib/tag-colors"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
 import { ScoreBadge } from "@/components/ScoreButtons"
-import { SortableHeaderRow, toggleSort } from "@/components/SortableColumnHeader"
-import { SortDropdown } from "@/components/SortDropdown"
+import {
+  SortableHeaderRow,
+  toggleSort,
+  ENTRY_SORT_COLUMNS,
+  SEARCH_SORT_COLUMNS,
+} from "@/components/SortableColumnHeader"
+import { SortDropdown, ENTRY_SORT_OPTIONS, SEARCH_SORT_OPTIONS } from "@/components/SortDropdown"
 import { SearchBar } from "@/components/SearchBar"
 import { SearchResultList } from "@/components/SearchResultList"
 import type { SearchScopeControl } from "@/components/SearchScopeControls"
@@ -49,6 +54,15 @@ export interface EntryListSearch {
   scopeLabel?: string | null
   /** The two widening controls, shown under the box while a query is present. */
   scope?: SearchScopeControl
+  /**
+   * How the hits are ordered, and how to change it. Search keeps its own
+   * selection rather than borrowing the list's, so these are separate from the
+   * `sortConfig`/`onSortChange` props and neither one moves the other. Leave
+   * them out and the sort controls stay hidden while a query is active, which
+   * is what the list did before search could be re-sorted.
+   */
+  sortConfig?: SortConfig[]
+  onSortChange?: (newSort: SortConfig[]) => void
   /** Matches outside the current scope, offered as a way out of an empty result set. */
   widerMatchCount?: number | null
   /** Drops every scope filter and re-runs the query. */
@@ -163,6 +177,15 @@ export function EntryList({
   // nothing for /api/v1/search to match.
   const showSearch = Boolean(search) && displayMode === "entries"
   const searchActive = showSearch && search!.isActive
+
+  // The sort controls drive whichever list is on screen. A search owns its own
+  // ordering, defaulting to relevance and offering it as a column the entry
+  // list has no use for, so switching between the two swaps the selection, the
+  // handler and the column set together.
+  const activeSort = searchActive ? search!.sortConfig ?? [] : sortConfig
+  const activeSortChange = searchActive ? search!.onSortChange : onSortChange
+  const sortColumns = searchActive ? SEARCH_SORT_COLUMNS : ENTRY_SORT_COLUMNS
+  const sortOptions = searchActive ? SEARCH_SORT_OPTIONS : ENTRY_SORT_OPTIONS
   const hideRead = preferences.entries_hide_read === "true"
   const hideUnstarred = preferences.entries_hide_unstarred === "true"
   const displayDensity = (preferences.entries_display_density || "medium") as "small" | "medium" | "large"
@@ -386,26 +409,28 @@ export function EntryList({
           </button>
         </div>
       </div>
-      {/* Sort controls - entries mode with a sort handler, and not while a
-          search is running: search results come back ranked by relevance and
-          these controls cannot reorder them. */}
-      {displayMode === "entries" && onSortChange && !searchActive && (
+      {/* Sort controls - entries mode with a sort handler for whichever list is
+          showing. During a search that is the search's own handler and its own
+          columns, relevance among them. */}
+      {displayMode === "entries" && activeSortChange && (
         <>
           {/* Mobile: dropdown */}
           <div className="sm:hidden px-2 py-1.5 border-b border-border bg-muted/20">
             <SortDropdown
-              currentSort={sortConfig}
-              onSortChange={onSortChange}
+              currentSort={activeSort}
+              onSortChange={activeSortChange}
+              options={sortOptions}
               className="w-full h-8 text-xs"
             />
           </div>
           {/* Desktop: column headers */}
           <SortableHeaderRow
-            currentSort={sortConfig}
+            currentSort={activeSort}
             onSort={(column: SortColumn, additive: boolean) => {
-              const newSort = toggleSort(sortConfig, column, additive)
-              onSortChange(newSort)
+              const newSort = toggleSort(activeSort, column, additive)
+              activeSortChange(newSort)
             }}
+            columns={sortColumns}
             className="hidden sm:flex"
           />
         </>

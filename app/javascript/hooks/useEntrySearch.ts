@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { api } from "@/lib/api"
-import type { EntryView, FreshMaxAge, SearchParams, SearchResult } from "@/lib/api"
+import { api, sortConfigToParam } from "@/lib/api"
+import type { EntryView, FreshMaxAge, SearchParams, SearchResult, SortConfig } from "@/lib/api"
 
 /**
  * Long enough that a typist does not fire a request per keystroke, short enough
@@ -14,8 +14,9 @@ export const SEARCH_DEBOUNCE_MS = 250
  * byte-identical to `SearchParams`, so application.tsx hands its `entriesQuery`
  * straight over with no translation layer to drift (ttrb-aawe).
  *
- * `sort` and `order_by` are absent on purpose: search results come back ranked
- * by relevance and the sort controls cannot reorder them.
+ * `sort` and `order_by` are absent on purpose. Search is sortable, but not by
+ * inheritance: a search starts at relevance whatever the list behind it was
+ * ordered by, and the selection it keeps is its own (see DEFAULT_SEARCH_SORT).
  */
 export interface EntryListScope {
   unread?: boolean
@@ -47,6 +48,22 @@ export interface SearchScope {
  * it is wrong.
  */
 export const DEFAULT_SEARCH_SCOPE: SearchScope = { place: "list", history: "list" }
+
+/**
+ * A search begins at relevance, and goes back to it when the box is cleared.
+ *
+ * Search keeps its own sort rather than borrowing the entry list's. A query is
+ * a new question, and the best match is the answer to it, so a reader who had
+ * the list on Title (A-Z) should not have to notice that and undo it before
+ * their search makes sense. It also keeps the two selections from having to
+ * agree about a column only one of them offers: the list never has to say what
+ * "relevance" means with nothing to be relevant to, and clearing the query puts
+ * the list back exactly as it was left.
+ */
+export const DEFAULT_SEARCH_SORT: SortConfig[] = [ { column: "relevance", direction: "desc" } ]
+
+/** The param string for the default, which the server produces on its own. */
+const DEFAULT_SEARCH_SORT_PARAM = sortConfigToParam(DEFAULT_SEARCH_SORT)
 
 /**
  * Views that say WHERE an article is filed. They widen with the feed and the
@@ -171,6 +188,9 @@ export interface EntrySearch {
   setPlace: (place: SearchPlace) => void
   history: SearchHistory
   setHistory: (history: SearchHistory) => void
+  /** How the hits are ordered. Relevance until the reader says otherwise. */
+  sort: SortConfig[]
+  setSort: (sort: SortConfig[]) => void
   /** The list narrows by feed, category, tag or a place view, so widening means something. */
   canWidenPlace: boolean
   /** The list imposes a read-state window, so deeper history means something. */
@@ -203,11 +223,17 @@ export function useEntrySearch(
   const [error, setError] = useState<string | null>(null)
   const [place, setPlace] = useState<SearchPlace>(DEFAULT_SEARCH_SCOPE.place)
   const [history, setHistory] = useState<SearchHistory>(DEFAULT_SEARCH_SCOPE.history)
+  const [sort, setSort] = useState<SortConfig[]>(DEFAULT_SEARCH_SORT)
   const [widerMatchCount, setWiderMatchCount] = useState<number | null>(null)
 
   const requestSeq = useRef(0)
 
   const trimmed = query.trim()
+  // Serialised out here so the effect below depends on the ordering's value
+  // rather than on the identity of the array holding it: every click on a sort
+  // control hands back a fresh array, including the ones that land on the same
+  // ordering it already had.
+  const sortParam = sortConfigToParam(sort)
   // Destructured to primitives so the effect below depends on the scope's
   // values rather than the caller's object identity: `entriesQuery` is rebuilt
   // whenever the sort or the page size moves, neither of which changes what a
@@ -250,10 +276,19 @@ export function useEntrySearch(
     // reason to count what dropping it would find.
     const isNarrowed = Object.keys(params).length > 1
 
+    // Added below the narrowing check on purpose: an ordering is not a filter,
+    // so re-sorting must not make an unnarrowed search start counting matches
+    // it has excluded nothing from. The default is left off the wire entirely,
+    // which is the ordering the server produces when it is not told one.
+    const request: SearchParams =
+      sortParam && sortParam !== DEFAULT_SEARCH_SORT_PARAM
+        ? { ...params, sort: sortParam }
+        : params
+
     setIsSearching(true)
     const timer = setTimeout(() => {
       api
-        .search(params)
+        .search(request)
         .then((response) => {
           if (seq !== requestSeq.current) return
           setResults(response.entries)
@@ -291,6 +326,7 @@ export function useEntrySearch(
     trimmed,
     place,
     history,
+    sortParam,
     unread,
     starred,
     feedId,
@@ -326,11 +362,13 @@ export function useEntrySearch(
   )
 
   // Escape and the clear button both land here, which is what makes the scope
-  // reset on Escape rather than on any keystroke that happens to empty the box.
+  // and the ordering reset on Escape rather than on any keystroke that happens
+  // to empty the box.
   const clear = useCallback(() => {
     setQuery("")
     setPlace(DEFAULT_SEARCH_SCOPE.place)
     setHistory(DEFAULT_SEARCH_SCOPE.history)
+    setSort(DEFAULT_SEARCH_SORT)
   }, [])
 
   const scopeForFlags: EntryListScope = {
@@ -356,6 +394,8 @@ export function useEntrySearch(
     setPlace,
     history,
     setHistory,
+    sort,
+    setSort,
     canWidenPlace: narrowsByPlace(scopeForFlags),
     canWidenHistory: narrowsByHistory(scopeForFlags),
     widerMatchCount,

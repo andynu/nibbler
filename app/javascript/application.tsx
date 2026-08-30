@@ -1230,6 +1230,12 @@ function App() {
                 placeLabel: entrySearch.canWidenPlace ? searchPlaceLabel : null,
                 historyLabel: entrySearch.canWidenHistory ? searchHistoryLabel : null,
               },
+              // The search's own ordering, not the list's: relevance until the
+              // reader says otherwise, and back to relevance when the box is
+              // cleared. The list's sort above is left exactly where it was, so
+              // clearing the query restores it.
+              sortConfig: entrySearch.sort,
+              onSortChange: entrySearch.setSort,
               widerMatchCount: entrySearch.widerMatchCount,
               onWiden: widenSearchToEverything,
             }}
