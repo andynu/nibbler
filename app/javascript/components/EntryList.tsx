@@ -315,7 +315,7 @@ export function EntryList({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => onDeleteFeed(selectedFeed.id)}
-                    className="text-destructive focus:text-destructive"
+                    className="text-destructive-text focus:text-destructive-text"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Unsubscribe
@@ -487,7 +487,7 @@ export function EntryList({
                     <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
                       {feed.last_error && (
                         <span title={feed.last_error} className="inline-flex">
-                          <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                          <AlertCircle className="h-3.5 w-3.5 text-destructive-text" />
                         </span>
                       )}
                       {feed.newest_entry_date && (

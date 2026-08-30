@@ -37,6 +37,28 @@
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 84.2% 60.2%);
   --color-destructive-foreground: hsl(0 0% 98%);
+  /* Destructive comes as a pair because the two halves are measured against
+     different things and one value cannot satisfy both.
+
+     --color-destructive is the *fill*: the solid a destructive Button, a badge
+     or an aria-invalid ring is painted with, carrying
+     --color-destructive-foreground on top. What matters there is the pair's own
+     contrast, and the page behind it is irrelevant.
+
+     --color-destructive-text is the same idea as a foreground: error strings
+     and AlertCircle icons painted straight onto the page. What matters there is
+     contrast against the surfaces the text actually lands on, which are
+     --color-background, --color-muted (`hover:`/`focus:` on a ghost Button or a
+     menu item resolves to bg-accent, and accent equals muted in every palette),
+     and --color-destructive/10 behind the tinted error boxes. Every palette
+     clears 4.5:1 on all three; the ratios are in ttrb-x7zz.
+
+     Painting the fill as text was the bug: stock Dark's fill is a dark red
+     built to carry white text at 9.60:1, and as text on that palette's
+     near-black page it measured 1.98:1. Light measured 3.76:1, also under AA.
+     app/javascript/lib/themeTokens.test.ts is what keeps `text-destructive` out
+     of a className now that `text-destructive-text` exists. */
+  --color-destructive-text: hsl(0 84.2% 45%);
   /* Success and warning. Every palette must supply these: they are what the
      status states paint with, and hardcoded Tailwind palette utilities
      (text-green-600, bg-yellow-50, ...) are what this token pair replaced.
@@ -174,6 +196,7 @@
     --color-accent-foreground: hsl(0 0% 9%);
     --color-destructive: hsl(0 84.2% 60.2%);
     --color-destructive-foreground: hsl(0 0% 98%);
+    --color-destructive-text: hsl(0 84.2% 45%);
     --color-success: hsl(145 80% 26%);
     --color-warning: hsl(40 95% 29%);
     --color-border: hsl(0 0% 89.8%);
@@ -198,6 +221,10 @@
     --color-accent-foreground: hsl(0 0% 98%);
     --color-destructive: hsl(0 62.8% 30.6%);
     --color-destructive-foreground: hsl(0 0% 98%);
+    /* Much lighter than the fill, and it has to be: the fill is a dark red that
+       carries white, so on a page this close to black it is the text colour
+       that has to move. */
+    --color-destructive-text: hsl(0 84.2% 70%);
     --color-success: hsl(145 55% 48%);
     --color-warning: hsl(42 75% 50%);
     --color-border: hsl(0 0% 14.9%);
@@ -225,10 +252,14 @@
     --color-muted-foreground: hsl(39 24% 66%);
     --color-accent: hsl(20 5% 22%);
     --color-accent-foreground: hsl(43 59% 81%);
-    /* Lighter than gruvbox's neutral red so `text-destructive` clears AA (4.6:1)
-       against a background that is itself much lighter than #0a0a0a. */
+    /* Lighter than gruvbox's neutral red, which is what lets the fill carry a
+       dark foreground (4.59:1) instead of the white the greyscale pair uses. */
     --color-destructive: hsl(6 95% 63%);
     --color-destructive-foreground: hsl(20 6% 16%);
+    /* Nine points of lightness above the fill. The fill clears AA as text on
+       --color-background (4.59:1) but not on --color-muted (3.69:1), which is
+       where a `hover:`/`focus:` destructive menu item or ghost Button lands. */
+    --color-destructive-text: hsl(6 95% 72%);
     /* Olive-leaning green rather than the emerald the greyscale pair uses, so
        success sits in gruvbox's warm family instead of reading as an import. */
     --color-success: hsl(105 45% 56%);
@@ -257,6 +288,9 @@
     --color-accent-foreground: hsl(20 5% 22%);
     --color-destructive: hsl(358 100% 31%);
     --color-destructive-foreground: hsl(48 87% 88%);
+    /* Equal to the fill. This palette's red was authored dark enough to work
+       both ways: 7.48:1 on background, 6.23:1 on muted. */
+    --color-destructive-text: hsl(358 100% 31%);
     --color-success: hsl(115 80% 21%);
     --color-warning: hsl(35 95% 24%);
     --color-border: hsl(40 38% 76%);
@@ -284,6 +318,9 @@
     --color-accent-foreground: hsl(29 17% 25%);
     --color-destructive: hsl(10 56% 36%);
     --color-destructive-foreground: hsl(43 56% 90%);
+    /* Equal to the fill, same reason as Gruvbox Light: 6.36:1 on background,
+       5.70:1 on muted. */
+    --color-destructive-text: hsl(10 56% 36%);
     --color-success: hsl(125 55% 25%);
     --color-warning: hsl(30 75% 28%);
     --color-border: hsl(41 35% 79%);

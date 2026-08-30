@@ -67,7 +67,7 @@ export function StoriesPanel({ selectedStoryId, onSelectStory, reloadKey = 0 }: 
 
   if (error) {
     return (
-      <div className="p-4 text-sm text-destructive">
+      <div className="p-4 text-sm text-destructive-text">
         {error}
       </div>
     )
@@ -342,7 +342,7 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
   }
 
   if (error) {
-    return <div className="p-4 text-sm text-destructive">{error}</div>
+    return <div className="p-4 text-sm text-destructive-text">{error}</div>
   }
 
   if (!detail) {
@@ -438,13 +438,13 @@ export function StoryDetail({ storyId, onClose, onDeleted, reloadKey = 0 }: Stor
         </header>
 
         {wrapupError && (
-          <div className="p-3 text-sm text-destructive border border-destructive/30 rounded-md">
+          <div className="p-3 text-sm text-destructive-text border border-destructive/30 rounded-md">
             {wrapupError}
           </div>
         )}
 
         {fetchError && (
-          <div className="p-3 text-sm text-destructive border border-destructive/30 rounded-md">
+          <div className="p-3 text-sm text-destructive-text border border-destructive/30 rounded-md">
             {fetchError}
           </div>
         )}

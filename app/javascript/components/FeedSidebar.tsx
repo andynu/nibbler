@@ -1000,7 +1000,7 @@ export function FeedSidebar({
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() => handleBulkUnsubscribeSmartFolder(matchingFeeds, folder.name)}
-                            className="text-destructive focus:text-destructive"
+                            className="text-destructive-text focus:text-destructive-text"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             Unsubscribe all ({matchCount})
@@ -1093,7 +1093,7 @@ export function FeedSidebar({
               <div className="mb-2">
                 <Button
                   variant="ghost"
-                  className="w-full justify-start gap-2 h-8 text-destructive hover:text-destructive"
+                  className="w-full justify-start gap-2 h-8 text-destructive-text hover:text-destructive-text"
                   onClick={() => setErrorsExpanded((prev) => !prev)}
                 >
                   <span className="shrink-0">
@@ -1143,7 +1143,7 @@ export function FeedSidebar({
                             ))}
                             <Button
                               variant="ghost"
-                              className="w-full justify-start gap-2 h-7 text-xs text-destructive hover:text-destructive"
+                              className="w-full justify-start gap-2 h-7 text-xs text-destructive-text hover:text-destructive-text"
                               onClick={() => handleBulkUnsubscribeError(errorFeeds)}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -1442,7 +1442,7 @@ function CategoryItem({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => onDeleteCategory(category)}
-                  className="text-destructive"
+                  className="text-destructive-text"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
@@ -1623,7 +1623,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <AlertCircle className="h-3 w-3 text-destructive shrink-0 cursor-help" />
+                    <AlertCircle className="h-3 w-3 text-destructive-text shrink-0 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
                     <p className="font-medium">Update Error</p>
@@ -1659,7 +1659,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
                 Edit Feed
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onUnsubscribe} className="text-destructive">
+              <DropdownMenuItem onClick={onUnsubscribe} className="text-destructive-text">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Unsubscribe
               </DropdownMenuItem>

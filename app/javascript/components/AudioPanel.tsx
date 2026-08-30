@@ -79,7 +79,7 @@ export function AudioPanel() {
 
         {/* Error state */}
         {isError && (
-          <div className="flex items-center gap-3 text-destructive">
+          <div className="flex items-center gap-3 text-destructive-text">
             <span className="text-sm">{error || "Audio error"}</span>
           </div>
         )}

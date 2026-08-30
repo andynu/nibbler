@@ -248,7 +248,7 @@ export function SubscribeFeedDialog({
               </Select>
             </div>
             {error && (
-              <div className="text-sm text-destructive">{error}</div>
+              <div className="text-sm text-destructive-text">{error}</div>
             )}
           </div>
           <DialogFooter>

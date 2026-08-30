@@ -445,7 +445,7 @@ export function EditFeedDialog({
                 </div>
 
                 {feed.last_error && (
-                  <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                  <div className="flex items-start gap-2 text-sm text-destructive-text bg-destructive/10 p-3 rounded-md">
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <div>
                       <div className="font-medium">Last Error</div>
@@ -455,7 +455,7 @@ export function EditFeedDialog({
                 )}
 
                 {error && (
-                  <div className="text-sm text-destructive">{error}</div>
+                  <div className="text-sm text-destructive-text">{error}</div>
                 )}
               </div>
 

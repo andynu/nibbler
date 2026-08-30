@@ -79,7 +79,7 @@ export function AccountPanel() {
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
-            <div className="flex items-center gap-2 text-sm text-destructive">
+            <div className="flex items-center gap-2 text-sm text-destructive-text">
               <AlertTriangle className="h-4 w-4" />
               {error}
             </div>

@@ -46,7 +46,7 @@ export function SearchResultList({
 }: SearchResultListProps) {
   if (error) {
     return (
-      <div className="p-4 text-center text-sm text-destructive">
+      <div className="p-4 text-center text-sm text-destructive-text">
         Search failed: {error}
       </div>
     )

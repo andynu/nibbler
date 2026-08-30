@@ -175,7 +175,7 @@ export function FollowStoryDialog({
               </div>
             </div>
 
-            {error && <div className="text-sm text-destructive">{error}</div>}
+            {error && <div className="text-sm text-destructive-text">{error}</div>}
           </div>
         )}
 

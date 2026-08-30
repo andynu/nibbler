@@ -593,7 +593,7 @@ export function FeedOrganizer({
                                   <span className="flex-1 truncate">{feed.title}</span>
                                   <NextSyncIndicator feed={feed} />
                                   {feed.last_error && (
-                                    <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+                                    <AlertCircle className="h-3 w-3 text-destructive-text shrink-0" />
                                   )}
                                 </SortableItem>
                               </ContextMenuTrigger>
@@ -678,7 +678,7 @@ export function FeedOrganizer({
                           <span className="flex-1 truncate">{feed.title}</span>
                           <NextSyncIndicator feed={feed} />
                           {feed.last_error && (
-                            <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+                            <AlertCircle className="h-3 w-3 text-destructive-text shrink-0" />
                           )}
                         </SortableItem>
                       </ContextMenuTrigger>

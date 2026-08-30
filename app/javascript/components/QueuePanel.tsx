@@ -111,7 +111,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
           <CheckCircle2 className="h-4 w-4 text-success" />
         )}
         {item.status === "error" && (
-          <AlertCircle className="h-4 w-4 text-destructive" />
+          <AlertCircle className="h-4 w-4 text-destructive-text" />
         )}
         {item.status === "pending" && item.source === "tts" && (
           <span className="text-xs text-muted-foreground">pending</span>
@@ -142,7 +142,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive-text"
         onClick={(e) => {
           e.stopPropagation()
           onRemove(item.id)
@@ -244,7 +244,7 @@ export function QueuePanel() {
               variant="ghost"
               size="sm"
               onClick={clearQueue}
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive-text"
             >
               <Trash2 className="h-4 w-4 mr-1" />
               Clear

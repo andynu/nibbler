@@ -19,8 +19,9 @@ import { describe, it, expect } from "vitest"
  * was looking.
  *
  * The fix for a failure here is almost always `text-success`, `text-warning` or
- * `text-destructive`, plus the matching `bg-` and `border-` opacity tints, which
- * every palette defines. If a literal is genuinely right, add the file to
+ * `text-destructive-text`, plus the matching `bg-destructive` and
+ * `border-destructive` opacity tints, which every palette defines. If a literal
+ * is genuinely right, add the file to
  * DOCUMENTED_EXCEPTIONS with the reason -- the audit's acceptance criterion is
  * "no colour that is not derived from a theme token, other than deliberately
  * documented exceptions", so an exception is a decision, not a workaround.
@@ -88,7 +89,31 @@ const ACHROMATIC_UTILITY = new RegExp(
   "g"
 )
 
-type PatternName = "palette utility" | "colour literal" | "white or black"
+/**
+ * `text-destructive`, `hover:text-destructive`, and friends -- the fill token
+ * painted as a foreground.
+ *
+ * --color-destructive is shadcn's *fill*: a solid a destructive Button sits on
+ * with --color-destructive-foreground written over it. The app also painted it
+ * as text in 27 places, which is a different measurement entirely, and one it
+ * failed. Stock Dark's hsl(0 62.8% 30.6%) is a dark red designed to carry white
+ * text at 9.60:1; as text on that palette's near-black page it measures 1.98:1,
+ * effectively invisible. Light measured 3.76:1, under AA. See ttrb-x7zz.
+ *
+ * Foreground uses take --color-destructive-text, which every palette defines at
+ * or above 4.5:1 against both --color-background and --color-muted. This
+ * pattern is what stops the fill token drifting back into a className.
+ *
+ * The trailing (?!-) is what keeps `text-destructive-foreground` (the fill's
+ * own foreground) and `text-destructive-text` out of the match.
+ */
+const DESTRUCTIVE_AS_TEXT = /\btext-destructive\b(?!-)/g
+
+type PatternName =
+  | "palette utility"
+  | "colour literal"
+  | "white or black"
+  | "fill token as text"
 
 /**
  * Files allowed to carry literal colours, which pattern each is excused from,
@@ -152,6 +177,14 @@ const DOCUMENTED_EXCEPTIONS: { file: string; pattern: PatternName; reason: strin
     reason:
       "The drawer's scrim, same reasoning as components/ui/dialog.tsx.",
   },
+  {
+    file: "components/ui/context-menu.tsx",
+    pattern: "fill token as text",
+    reason:
+      "ContextMenuItem's destructive variant was ruled out of ttrb-x7zz's " +
+      "scope so its appearance would not move; it still paints the fill token " +
+      "as text and still measures 1.98:1 on Dark. Tracked as ttrb-dm5p.",
+  },
 ]
 
 /** Strip comments so a token name quoted in prose is not read as a use. */
@@ -186,6 +219,10 @@ describe("theme-safe colours", () => {
     expect(scan(ACHROMATIC_UTILITY, "white or black")).toEqual([])
   })
 
+  it("paints the destructive fill token as text nowhere outside the documented exceptions", () => {
+    expect(scan(DESTRUCTIVE_AS_TEXT, "fill token as text")).toEqual([])
+  })
+
   // An exception is only a decision while its reason is written down, and only
   // useful while it still excuses something. A stale entry is worse than none:
   // it silently exempts a file from the guard for a reason that has expired.
@@ -194,6 +231,7 @@ describe("theme-safe colours", () => {
       "palette utility": PALETTE_UTILITY,
       "colour literal": COLOR_LITERAL,
       "white or black": ACHROMATIC_UTILITY,
+      "fill token as text": DESTRUCTIVE_AS_TEXT,
     }
 
     for (const { file, pattern, reason } of DOCUMENTED_EXCEPTIONS) {

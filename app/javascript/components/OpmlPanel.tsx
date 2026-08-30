@@ -126,8 +126,8 @@ export function OpmlPanel({ onImportComplete }: OpmlPanelProps) {
 
         {error && (
           <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-            <p className="text-sm text-destructive">{error}</p>
+            <AlertCircle className="h-4 w-4 text-destructive-text shrink-0 mt-0.5" />
+            <p className="text-sm text-destructive-text">{error}</p>
           </div>
         )}
 

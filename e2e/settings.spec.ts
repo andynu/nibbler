@@ -529,7 +529,11 @@ test.describe("Theme Selection", () => {
     ).sort()
     expect(required).toContain("--color-background")
     expect(required).toContain("--color-muted-foreground")
-    expect(required.length).toBeGreaterThanOrEqual(19)
+    // Named so the union cannot quietly lose it: a token defined in no palette
+    // at all still satisfies "every palette declares the same set", and a
+    // half-defined status token is how ttrb-x7fn's class of bug returns.
+    expect(required).toContain("--color-destructive-text")
+    expect(required.length).toBeGreaterThanOrEqual(20)
     for (const id of expected) {
       expect(Object.keys(palettes.blocks[id]).sort(), `${id} palette`).toEqual(required)
     }
@@ -606,11 +610,26 @@ test.describe("Theme Selection", () => {
   // text, not large. Clearing 4.5 subsumes the 3:1 non-text minimum for the
   // same tokens used as icon fills.
   //
-  // --color-destructive is deliberately absent. It fails on both stock
-  // palettes (1.98:1 on Dark, 3.76:1 on Light) because shadcn ships it as a
-  // fill colour while this app paints it as text in 29 places; the three
-  // hand-authored palettes already pass. Fixing it moves the destructive
-  // Button's appearance, so it is ttrb-x7zz rather than part of this guard.
+  // --color-destructive-text, not --color-destructive. The fill and the text
+  // colour are separate tokens because they are measured against different
+  // things (ttrb-x7zz): the fill carries --color-destructive-foreground and the
+  // page behind it is irrelevant, while the text lands on the page. Measured
+  // here with the fill in the text slot, it failed at
+  //
+  //   Light         3.76 on background, 3.45 on muted
+  //   Dark          1.98 on background, 1.51 on muted
+  //   Gruvbox Dark  pass on background, 3.69 on muted
+  //
+  // --color-destructive stays out of this list: it is never painted as text
+  // any more, and app/javascript/lib/themeTokens.test.ts is what keeps it that
+  // way. Its own pair (--color-destructive-foreground on --color-destructive)
+  // is also absent, because it fails on Light at 3.61:1 -- white on a light
+  // red button, a fill problem rather than a text one, filed as ttrb-j3dx.
+  //
+  // Muted is checked as well as background because `hover:` and `focus:` on a
+  // ghost Button or a menu item resolve to bg-accent, and accent equals muted
+  // in every palette. QueuePanel's remove buttons and FeedSidebar's unsubscribe
+  // rows are exactly that shape.
   const CONTRAST_PAIRS = [
     ["--color-foreground", "--color-background"],
     ["--color-muted-foreground", "--color-background"],
@@ -619,6 +638,8 @@ test.describe("Theme Selection", () => {
     ["--color-success", "--color-muted"],
     ["--color-warning", "--color-background"],
     ["--color-warning", "--color-muted"],
+    ["--color-destructive-text", "--color-background"],
+    ["--color-destructive-text", "--color-muted"],
   ] as const
 
   for (const theme of THEMES) {
