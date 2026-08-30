@@ -793,6 +793,7 @@ function FilterEditorDialog({
                       variant="ghost"
                       size="icon"
                       onClick={() => handleRemoveRule(index)}
+                      aria-label={`Remove rule ${index + 1}`}
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -889,6 +890,7 @@ function FilterEditorDialog({
                       variant="ghost"
                       size="icon"
                       onClick={() => handleRemoveAction(index)}
+                      aria-label={`Remove action ${index + 1}`}
                     >
                       <X className="w-4 h-4" />
                     </Button>

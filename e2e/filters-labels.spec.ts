@@ -70,6 +70,29 @@ async function goToTagsTab(page: Page) {
   ])
 }
 
+// The filter editor is a second dialog rendered from inside the Settings
+// dialog, so two elements carry role=dialog while it is open. Scope every
+// locator to this one by the accessible name Radix wires up from its
+// DialogTitle; a bare page.getByRole("dialog") is ambiguous here, which is what
+// the original "nested dialog" skip comments were reaching for.
+function newFilterDialog(page: Page) {
+  return page.getByRole("dialog", { name: "Create Filter" })
+}
+
+// Shape of GET/POST /api/v1/filters (Api::V1::FiltersController#filter_json).
+interface ApiFilter {
+  id: number
+  title: string
+  rules: Array<{ filter_type: string; reg_exp: string; inverse: boolean }>
+  actions: Array<{ action_type: string; action_param: string | null }>
+}
+
+async function listFiltersViaApi(page: Page): Promise<ApiFilter[]> {
+  const response = await page.request.get("/api/v1/filters")
+  expect(response.ok()).toBe(true)
+  return response.json()
+}
+
 // Helper to create filter via API.
 // filter_type and action_type are the string names in FilterRule::FILTER_TYPES
 // and FilterAction::ACTION_TYPES; anything else fails validation.
@@ -222,58 +245,82 @@ test.describe("Filters Tab UI", () => {
     ).toBeVisible()
   })
 
-  test.skip("can open and close filter creation dialog", async ({ page }) => {
-    // Skipped: Flaky due to nested dialog behavior - "filter dialog has all form elements" covers similar functionality
+  test("can open and close filter creation dialog", async ({ page }) => {
     await goToFiltersTab(page)
 
-    // Open dialog
     await page.getByRole("button", { name: /new filter/i }).click()
 
-    // Find the input by ID since it's in a nested dialog context
-    const filterNameInput = page.locator("#filter-title")
-    await expect(filterNameInput).toBeVisible({ timeout: 5000 })
+    const dialog = newFilterDialog(page)
+    await expect(dialog.getByLabel("Filter Name")).toHaveValue("")
 
-    // Close dialog via Cancel
-    await page.getByRole("button", { name: /cancel/i }).click()
-    await expect(filterNameInput).not.toBeVisible({ timeout: 3000 })
+    await dialog.getByRole("button", { name: /^cancel$/i }).click()
+    await expect(dialog).toBeHidden()
+
+    // Cancelling the inner dialog has to leave the outer one open on the same
+    // tab. Radix dismisses the topmost layer only, but the two dialogs share
+    // nothing that enforces it, and a close handler wired to the wrong
+    // onOpenChange would tear down Settings as well - which a "the filter
+    // dialog went away" assertion on its own would happily accept.
+    await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible()
+    await expect(page.getByRole("tab", { name: /filters/i })).toHaveAttribute(
+      "data-state",
+      "active"
+    )
+    await expect(
+      page.getByRole("button", { name: /new filter/i })
+    ).toBeVisible()
   })
 
-  test.skip("can create a filter through UI", async ({ page }) => {
-    // Skipped: This test is flaky due to dialog state management between Settings and Filter dialogs
+  test("can create a filter through UI", async ({ page }) => {
     const filterTitle = "E2E UI Created " + Date.now()
 
     await goToFiltersTab(page)
+    const before = await listFiltersViaApi(page)
 
-    // Open dialog
     await page.getByRole("button", { name: /new filter/i }).click()
 
-    // Fill form using specific selectors
-    const filterNameInput = page.locator("#filter-title")
-    await expect(filterNameInput).toBeVisible({ timeout: 5000 })
-    await filterNameInput.fill(filterTitle)
+    const dialog = newFilterDialog(page)
+    await dialog.getByLabel("Filter Name").fill(filterTitle)
+    await dialog
+      .getByPlaceholder("Regular expression pattern")
+      .fill("sponsored")
 
-    // Fill the pattern for the default rule
-    const patternInput = page.locator('input[placeholder*="expression" i]')
-    await patternInput.fill("test-pattern")
+    await dialog.getByRole("button", { name: /^create filter$/i }).click()
+    await expect(dialog).toBeHidden()
 
-    // Submit and wait for dialog to close
-    await page.getByRole("button", { name: /create filter/i }).click()
+    // The new row has to describe the rule that was typed, not just carry the
+    // title: FilterManager renders this summary from the created filter's
+    // rules, so a create path that dropped filter_rules_attributes would show
+    // a bare row here.
+    const filterRow = page
+      .getByTestId("filter-row")
+      .filter({ hasText: filterTitle })
+    await expect(filterRow).toContainText('Match all: Title ~ "sponsored"')
+    await expect(
+      filterRow.getByText("Mark as read", { exact: true })
+    ).toBeVisible()
 
-    // Wait for dialog to close (settings dialog should still be open)
-    await expect(page.locator("#filter-title")).not.toBeVisible({ timeout: 5000 })
+    // And the server has to have stored it. Everything above this point reads
+    // React state; without a round trip the test would still pass against a
+    // create that rendered optimistically and never reached the API.
+    const after = await listFiltersViaApi(page)
+    expect(after).toHaveLength(before.length + 1)
 
-    // Verify in list
-    await expect(page.getByText(filterTitle)).toBeVisible({ timeout: 5000 })
+    const created = after.find((f) => f.title === filterTitle)
+    expect(
+      created,
+      `POST /api/v1/filters did not persist a filter titled ${filterTitle}`
+    ).toBeDefined()
+    expect(created!.rules).toHaveLength(1)
+    expect(created!.rules[0]).toMatchObject({
+      filter_type: "title",
+      reg_exp: "sponsored",
+      inverse: false,
+    })
+    expect(created!.actions).toHaveLength(1)
+    expect(created!.actions[0].action_type).toBe("mark_read")
 
-    // Cleanup
-    const listResponse = await page.request.get("/api/v1/filters")
-    const filters = await listResponse.json()
-    const created = filters.find(
-      (f: { title: string }) => f.title === filterTitle
-    )
-    if (created) {
-      await deleteFilterViaApi(page, created.id)
-    }
+    await deleteFilterViaApi(page, created!.id)
   })
 })
 
@@ -562,65 +609,133 @@ test.describe("Filter Form Elements", () => {
     await waitForAppReady(page)
   })
 
-  test.skip("filter dialog has all form elements", async ({ page }) => {
-    // Skipped: Flaky due to nested dialog behavior - filter dialog inside Settings dialog has timing issues
+  test("filter dialog has all form elements", async ({ page }) => {
     await goToFiltersTab(page)
     await page.getByRole("button", { name: /new filter/i }).click()
 
-    // Check for main form elements
-    await expect(page.locator("#filter-title")).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole("button", { name: /add rule/i })).toBeVisible()
-    await expect(page.getByRole("button", { name: /add action/i })).toBeVisible()
-    await expect(page.getByRole("button", { name: /cancel/i })).toBeVisible()
-    await expect(page.getByRole("button", { name: /create filter/i })).toBeVisible()
+    const dialog = newFilterDialog(page)
+    await expect(dialog.getByRole("button", { name: /add rule/i })).toBeVisible()
+    await expect(
+      dialog.getByRole("button", { name: /add action/i })
+    ).toBeVisible()
+    await expect(dialog.getByRole("button", { name: /^cancel$/i })).toBeVisible()
+    await expect(
+      dialog.getByRole("button", { name: /^create filter$/i })
+    ).toBeVisible()
+
+    // Presence on its own is a weak claim, so assert the state a new filter
+    // opens in: an empty name, enabled, and exactly one rule and one action
+    // already scaffolded. If the form reset dropped either, the dialog would
+    // still have "all form elements" while being unsaveable - handleSubmit
+    // rejects a filter with no rules or no actions.
+    await expect(dialog.getByLabel("Filter Name")).toHaveValue("")
+    await expect(dialog.getByRole("switch", { name: "Enabled" })).toBeChecked()
+    await expect(
+      dialog.getByPlaceholder("Regular expression pattern")
+    ).toHaveCount(1)
+    await expect(dialog.getByRole("combobox")).toHaveText([
+      "Match ALL",
+      "Title",
+      "All feeds",
+      "Mark as read",
+    ])
   })
 
-  test.skip("can add and remove rules", async ({ page }) => {
-    // Skipped: This test is flaky due to dialog state and element timing issues
+  test("can add and remove rules", async ({ page }) => {
     await goToFiltersTab(page)
     await page.getByRole("button", { name: /new filter/i }).click()
 
-    // Wait for dialog to be visible
-    await expect(page.locator("#filter-title")).toBeVisible({ timeout: 5000 })
+    const dialog = newFilterDialog(page)
+    const patterns = dialog.getByPlaceholder("Regular expression pattern")
+    await expect(patterns).toHaveCount(1)
 
-    // Initially has one rule - check for pattern input
-    const patternInputs = page.locator('input[placeholder*="expression" i]')
-    await expect(patternInputs.first()).toBeVisible({ timeout: 5000 })
+    await patterns.first().fill("first-rule")
+    await dialog.getByRole("button", { name: /add rule/i }).click()
+    await expect(patterns).toHaveCount(2)
+    await patterns.nth(1).fill("second-rule")
 
-    const initialCount = await patternInputs.count()
+    // Remove the first rule, not the last, and assert on which one survived.
+    // handleRemoveRule filters by index, and a count-only assertion after
+    // removing the last row passes just as well when the wrong row goes. The
+    // version of this test that shipped skipped never reached a remove button
+    // at all: it looked for [class*="bg-muted"], which matches the action rows
+    // and the filter list behind the dialog as well as the rule rows, took the
+    // last of those and clicked the first icon button in it - a Select trigger.
+    // The rule count then stayed at 2 and the test failed.
+    await dialog.getByRole("button", { name: "Remove rule 1" }).click()
+    await expect(patterns).toHaveCount(1)
+    await expect(patterns.first()).toHaveValue("second-rule")
 
-    // Add another rule
-    await page.getByRole("button", { name: /add rule/i }).click()
-    await expect(patternInputs).toHaveCount(initialCount + 1)
-
-    // Remove the last rule by clicking the X button within its rule container
-    // Rules are in .bg-muted containers with X buttons
-    const ruleContainers = page.locator('[class*="bg-muted"]')
-    const lastRuleContainer = ruleContainers.last()
-    const removeButton = lastRuleContainer.locator("button").filter({ has: page.locator('svg') }).first()
-    await removeButton.click()
-    await expect(patternInputs).toHaveCount(initialCount)
+    // Removing back down to one rule takes the remove buttons away with it:
+    // the last rule must not be removable, or the form becomes unsaveable.
+    await expect(
+      dialog.getByRole("button", { name: /^remove rule/i })
+    ).toHaveCount(0)
   })
 
-  test.skip("validation prevents empty filter creation", async ({ page }) => {
-    // Skipped: Flaky due to nested dialog behavior - depends on filter dialog opening successfully
+  test("can add and remove actions", async ({ page }) => {
     await goToFiltersTab(page)
     await page.getByRole("button", { name: /new filter/i }).click()
 
-    // Wait for dialog to be visible
-    await expect(page.locator("#filter-title")).toBeVisible({ timeout: 5000 })
+    const dialog = newFilterDialog(page)
+    // The action selects are the trailing comboboxes in the dialog, so the
+    // last one is always the last action row.
+    const lastActionSelect = dialog.getByRole("combobox").last()
+    const removeButtons = dialog.getByRole("button", { name: /^remove action/i })
 
-    // Set up dialog handler for validation alert
-    let alertShown = false
-    page.on("dialog", (dialog) => {
-      alertShown = true
-      dialog.accept()
+    // A new filter starts with one action, so no remove button is offered.
+    await expect(removeButtons).toHaveCount(0)
+
+    await dialog.getByRole("button", { name: /add action/i }).click()
+    await expect(removeButtons).toHaveCount(2)
+
+    // Both rows default to "Mark as read", so switch the new one to Star to
+    // tell them apart, then drop the first and check the starred row is what
+    // survived rather than just counting rows.
+    await lastActionSelect.click()
+    await page.getByRole("option", { name: "Star article" }).click()
+    await expect(lastActionSelect).toHaveText("Star article")
+
+    await dialog.getByRole("button", { name: "Remove action 1" }).click()
+    await expect(removeButtons).toHaveCount(0)
+    await expect(lastActionSelect).toHaveText("Star article")
+  })
+
+  test("validation prevents empty filter creation", async ({ page }) => {
+    await goToFiltersTab(page)
+    const before = await listFiltersViaApi(page)
+
+    await page.getByRole("button", { name: /new filter/i }).click()
+    const dialog = newFilterDialog(page)
+    await expect(dialog.getByLabel("Filter Name")).toHaveValue("")
+
+    // Collect the alert text rather than a boolean. "an alert appeared" is also
+    // satisfied by handleSubmit's "Failed to save filter", which would mean the
+    // request went out and failed - the opposite of what this test claims.
+    const alerts: string[] = []
+    page.on("dialog", async (browserDialog) => {
+      alerts.push(browserDialog.message())
+      await browserDialog.accept()
     })
 
-    // Try to create without filling required fields
-    await page.getByRole("button", { name: /create filter/i }).click()
+    await dialog.getByRole("button", { name: /^create filter$/i }).click()
+    await expect.poll(() => alerts).toEqual(["Filter name is required"])
+    await expect(dialog).toBeVisible()
 
-    expect(alertShown).toBe(true)
+    // Naming it is not enough: the scaffolded rule still has no pattern. Losing
+    // this gate would not silently create a bad filter - FilterRule validates
+    // reg_exp presence, so the POST comes back 422 - but the user would get
+    // handleSubmit's generic "Failed to save filter" instead of being told
+    // which field is empty, so the message is the behaviour worth pinning.
+    await dialog.getByLabel("Filter Name").fill("E2E rejected " + Date.now())
+    await dialog.getByRole("button", { name: /^create filter$/i }).click()
+    await expect
+      .poll(() => alerts)
+      .toEqual(["Filter name is required", "All rules must have a pattern"])
+    await expect(dialog).toBeVisible()
+
+    // Nothing reached the server on either attempt.
+    expect(await listFiltersViaApi(page)).toHaveLength(before.length)
   })
 })
 
