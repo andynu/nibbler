@@ -4,6 +4,10 @@ import { describe, it, expect, vi } from "vitest"
 import { SearchResultList } from "./SearchResultList"
 import { mockSearchResult } from "../../../test/fixtures/data"
 
+/** Entry::HEADLINE_START / Entry::HEADLINE_STOP, as the server sends them. */
+const START = String.fromCharCode(2)
+const STOP = String.fromCharCode(3)
+
 describe("SearchResultList", () => {
   const defaultProps = {
     results: [],
@@ -213,22 +217,31 @@ describe("SearchResultList", () => {
     )
   })
 
-  it("marks the query terms in the title and the snippet", () => {
+  // Two marking routes, one appearance. The title arrives plain and is marked
+  // here against the query; the snippet arrives already delimited by
+  // ts_headline, which is how it can mark a stem the query never spelled out.
+  it("marks the query in the title and the server's delimited run in the snippet", () => {
     const { container } = render(
       <SearchResultList
         {...defaultProps}
-        query="rails"
+        query="studies"
         results={[
           mockSearchResult({
-            title: "Rails 8 released",
-            snippet: "...the rails team shipped it...",
+            title: "Studies Concluded",
+            snippet: `...a ${START}study${STOP} of quokkas...`,
           }),
         ]}
       />
     )
 
+    // "study" is marked because ts_headline delimited it, not because the
+    // query is in it: matching "studies" against this snippet here would find
+    // nothing, which is the whole reason the excerpt is cut on the server.
     const marked = Array.from(container.querySelectorAll("mark"))
-    expect(marked.map((m) => m.textContent)).toEqual(["Rails", "rails"])
+    expect(marked.map((m) => m.textContent)).toEqual(["Studies", "study"])
+    expect(screen.getByRole("option")).toHaveTextContent(
+      "...a study of quokkas..."
+    )
   })
 
   it("renders markup from the query and the snippet as text, never as elements", () => {
@@ -239,7 +252,7 @@ describe("SearchResultList", () => {
         results={[
           mockSearchResult({
             title: "Tag soup",
-            snippet: "...<script>alert(1)</script>...",
+            snippet: `...${START}<script>alert(1)</script>${STOP}...`,
           }),
         ]}
       />

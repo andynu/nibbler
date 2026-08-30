@@ -26,10 +26,11 @@ module Api
 
         total = @user_entries.count
         @user_entries = @user_entries.offset(offset).limit(per_page)
+        snippets = snippets_for(@user_entries)
 
         render json: {
           query: params[:q],
-          entries: @user_entries.map { |ue| search_result_json(ue) },
+          entries: @user_entries.map { |ue| search_result_json(ue, snippets) },
           pagination: {
             page: page,
             per_page: per_page,
@@ -69,7 +70,23 @@ module Api
         }
       end
 
-      def search_result_json(user_entry)
+      # One extra query for the page's excerpts, keyed by entry id.
+      #
+      # ts_headline is deliberately not a column of the search query itself. It
+      # re-parses the whole document for every row it is evaluated on, and in a
+      # query that sorts by rank the target list is computed below the sort, so
+      # riding along there would headline every match in the result set to show
+      # the fifty that survive the limit. Here the rows are already chosen.
+      def snippets_for(user_entries)
+        entry_ids = user_entries.map(&:entry_id).uniq
+        return {} if entry_ids.empty?
+
+        Entry.where(id: entry_ids)
+             .pluck(:id, Arel.sql(Entry.text_search_headline(params[:q])))
+             .to_h
+      end
+
+      def search_result_json(user_entry, snippets)
         entry = user_entry.entry
         feed = user_entry.feed
 
@@ -84,33 +101,10 @@ module Api
           published: entry.updated,
           unread: user_entry.unread,
           starred: user_entry.marked,
-          # Include snippet with highlighted matches
-          snippet: generate_snippet(entry, params[:q])
+          # The excerpt, with the matched lexemes wrapped in Entry's delimiters
+          # for the client to turn into <mark> elements.
+          snippet: snippets[entry.id]
         }
-      end
-
-      def generate_snippet(entry, query)
-        # Strip HTML and get plain text
-        plain_content = ActionController::Base.helpers.strip_tags(entry.content.to_s)
-
-        # Find the first occurrence of any query word
-        words = query.to_s.split(/\s+/).reject(&:blank?)
-        return plain_content.truncate(200) if words.empty?
-
-        pattern = Regexp.new("(" + words.map { |w| Regexp.escape(w) }.join("|") + ")", Regexp::IGNORECASE)
-
-        # Find position of first match
-        match_pos = plain_content =~ pattern
-        if match_pos
-          # Extract context around the match
-          start_pos = [ match_pos - 80, 0 ].max
-          excerpt = plain_content[start_pos, 200]
-          excerpt = "..." + excerpt if start_pos > 0
-          excerpt = excerpt + "..." if start_pos + 200 < plain_content.length
-          excerpt
-        else
-          plain_content.truncate(200)
-        end
       end
     end
   end

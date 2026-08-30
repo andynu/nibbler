@@ -1,9 +1,17 @@
 import { render, screen } from "@testing-library/react"
 import { describe, it, expect } from "vitest"
-import { highlightTerms, searchTerms } from "./searchHighlight"
+import { highlightHeadline, highlightTerms, searchTerms } from "./searchHighlight"
+
+/** Entry::HEADLINE_START / Entry::HEADLINE_STOP, as the server sends them. */
+const START = String.fromCharCode(2)
+const STOP = String.fromCharCode(3)
 
 function renderHighlighted(text: string, query: string) {
   return render(<div data-testid="out">{highlightTerms(text, query)}</div>)
+}
+
+function renderHeadline(headline: string) {
+  return render(<div data-testid="out">{highlightHeadline(headline)}</div>)
 }
 
 function marks() {
@@ -112,5 +120,80 @@ describe("highlightTerms", () => {
 
     expect(container.querySelector("script")).toBeNull()
     expect(screen.getByTestId("out")).toHaveTextContent("<script>alert(1)</script>")
+  })
+})
+
+describe("highlightHeadline", () => {
+  it("marks the run the server delimited and leaves the rest as text", () => {
+    renderHeadline(`The ${START}study${STOP} of quokkas concluded.`)
+
+    expect(marks()).toHaveLength(1)
+    expect(marks()[0]).toHaveTextContent("study")
+    expect(screen.getByTestId("out")).toHaveTextContent(
+      "The study of quokkas concluded."
+    )
+  })
+
+  it("marks a stem the query never contained literally", () => {
+    // ts_headline matched "studies" -> "studi" -> "study". No substring pass
+    // over this snippet could have found the query in it.
+    renderHeadline(`A ${START}study${STOP} of quokkas`)
+
+    expect(marks()[0]).toHaveTextContent("study")
+  })
+
+  it("marks every delimited run", () => {
+    renderHeadline(`${START}Rails${STOP} and more ${START}rails${STOP}`)
+
+    expect(marks().map((m) => m.textContent)).toEqual(["Rails", "rails"])
+  })
+
+  it("keeps the delimiters out of the rendered text", () => {
+    renderHeadline(`The ${START}study${STOP} of quokkas`)
+
+    expect(screen.getByTestId("out").textContent).toBe("The study of quokkas")
+  })
+
+  it("returns the snippet untouched when the server marked nothing", () => {
+    renderHeadline("The study of quokkas concluded.")
+
+    expect(marks()).toHaveLength(0)
+    expect(screen.getByTestId("out")).toHaveTextContent(
+      "The study of quokkas concluded."
+    )
+  })
+
+  it("returns an empty snippet untouched", () => {
+    renderHeadline("")
+
+    expect(screen.getByTestId("out").textContent).toBe("")
+  })
+
+  it("does not mark to the end of the snippet on an unclosed delimiter", () => {
+    renderHeadline(`before${START}after`)
+
+    expect(marks()).toHaveLength(0)
+    expect(screen.getByTestId("out")).toHaveTextContent("beforeafter")
+  })
+
+  it("renders markup in the snippet as visible text rather than elements", () => {
+    // The snippet is server-supplied article text. It is a string, not HTML:
+    // nothing here goes through dangerouslySetInnerHTML, so a script tag that
+    // survived into the excerpt is characters on the page, not an element.
+    const { container } = renderHeadline(
+      `...${START}rails${STOP} <script>alert(1)</script>...`
+    )
+
+    expect(container.querySelector("script")).toBeNull()
+    expect(screen.getByTestId("out")).toHaveTextContent("<script>alert(1)</script>")
+  })
+
+  it("renders markup inside a marked run as visible text too", () => {
+    const { container } = renderHeadline(
+      `${START}<img src=x onerror=alert(1)>${STOP} follows`
+    )
+
+    expect(container.querySelector("img")).toBeNull()
+    expect(marks()[0]).toHaveTextContent("<img src=x onerror=alert(1)>")
   })
 })

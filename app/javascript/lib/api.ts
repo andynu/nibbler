@@ -142,6 +142,11 @@ export interface SearchResult {
   published: string
   unread: boolean
   starred: boolean
+  /**
+   * The excerpt `ts_headline` cut around the match, with each matched run
+   * wrapped in U+0002 / U+0003. Plain text, not markup: render it through
+   * `highlightHeadline`, which turns the delimiters into `<mark>` elements.
+   */
   snippet: string
 }
 

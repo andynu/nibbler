@@ -1,6 +1,6 @@
 import { Circle, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { highlightTerms } from "@/lib/searchHighlight"
+import { highlightHeadline, highlightTerms } from "@/lib/searchHighlight"
 import type { SearchResult } from "@/lib/api"
 
 interface SearchResultListProps {
@@ -128,7 +128,7 @@ export function SearchResultList({
               </div>
               {result.snippet && (
                 <div className="mt-0.5 text-xs leading-snug text-muted-foreground line-clamp-2">
-                  {highlightTerms(result.snippet, query)}
+                  {highlightHeadline(result.snippet)}
                 </div>
               )}
               <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">

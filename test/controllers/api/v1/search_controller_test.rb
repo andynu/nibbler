@@ -100,13 +100,43 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "Quokka Report Beta", "Quokka Report Alpha" ], titles
   end
 
-  test "returns a snippet around the match" do
+  test "returns a snippet around the match, with the match delimited" do
     subscribe(create_entry(title: "Nothing To See", content: "<p>The wombat burrow collapsed overnight.</p>"))
 
     get api_v1_search_url, params: { q: "wombat" }
 
     assert_response :success
-    assert_includes json["entries"].first["snippet"], "wombat"
+    assert_includes json["entries"].first["snippet"], marked("wombat")
+  end
+
+  # The case substring matching cannot reach, and the reason ts_headline is
+  # here. "studies" stems to "studi", which matches a body that says "study", so
+  # the row comes back ranked -- and a /studies/i scan over that body finds
+  # nothing, so the excerpt used to fall back to the opening of the article and
+  # the reader got a hit with no visible reason for it. The filler is what makes
+  # that fallback wrong rather than accidentally right: "study" is well past the
+  # first 200 characters.
+  test "excerpts around a match the query only reaches by stemming" do
+    subscribe(create_entry(
+      title: "Nothing To See",
+      content: "<p>#{"Filler about bandicoots. " * 12}The study of quokkas concluded.</p>"
+    ))
+
+    get api_v1_search_url, params: { q: "studies" }
+
+    assert_response :success
+    snippet = json["entries"].first["snippet"]
+    assert_includes snippet, "study"
+    assert_includes snippet, marked("study")
+  end
+
+  test "leaves the entry title unmarked so it stays the plain title" do
+    subscribe(create_entry(title: "Quokkas Return To Rottnest"))
+
+    get api_v1_search_url, params: { q: "quokkas" }
+
+    assert_response :success
+    assert_equal "Quokkas Return To Rottnest", json["entries"].first["title"]
   end
 
   # Every scoping test below seeds a match on BOTH sides of the filter, so an
@@ -305,6 +335,10 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
   def json = @json ||= JSON.parse(response.body)
 
   def titles = json["entries"].map { |e| e["title"] }
+
+  # A run of snippet text as ts_headline delimits it when the query matched
+  # there. The client splits on these to build its <mark> elements.
+  def marked(text) = "#{Entry::HEADLINE_START}#{text}#{Entry::HEADLINE_STOP}"
 
   # +updated+ is the publication date, which is the clock the Fresh window and
   # its per-feed cap read; +date_entered+ is the import date, which breaks
