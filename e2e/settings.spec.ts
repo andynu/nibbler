@@ -1,4 +1,5 @@
-import { test, expect } from "./fixtures"
+import { test, expect, type Page } from "./fixtures"
+import type { FeedsPage, SettingsPage } from "./pages"
 // The one import from app source in this suite: the palette guard below has to
 // compare the compiled stylesheet against the registry itself, not a copy of it.
 import { THEMES } from "@/lib/themes"
@@ -526,6 +527,111 @@ test.describe("Theme Selection", () => {
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
     await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
+  })
+})
+
+/**
+ * The `dark:` utilities against a disagreeing OS preference.
+ *
+ * Tailwind v4 compiles `dark:` to `@media (prefers-color-scheme: dark)` unless
+ * a custom variant says otherwise, which put the handful of `dark:` call sites
+ * (NibblerLogo, ui/input, ui/textarea, ui/badge, ui/context-menu,
+ * FeedOrganizer) on the OS preference while every `--color-*` token followed
+ * the pinned palette. application.tailwind.css now declares
+ * `@custom-variant dark (&:where(.dark, .dark *))`.
+ *
+ * Both directions have to be emulated: with the OS and the palette agreeing,
+ * the broken build and the fixed one are indistinguishable. The logo is the
+ * probe because `dark:bg-white` paints a white disc behind it, which is the
+ * one difference a reader notices, and because the img needs no interaction to
+ * reach.
+ */
+const LOGO_DISC = "rgb(255, 255, 255)"
+const NO_DISC = "rgba(0, 0, 0, 0)"
+
+/**
+ * Background painted behind the sidebar logo.
+ *
+ * Measured with the settings dialog closed. Radix marks the rest of the page
+ * aria-hidden while the dialog is open, which takes the img out of the
+ * accessibility tree and so out of reach of a role query. `transition-colors`
+ * also means the value arrives a frame or two after the swap, so every caller
+ * polls this rather than reading it once.
+ */
+async function logoBackground(page: Page): Promise<string> {
+  return page
+    .getByRole("img", { name: "Nibbler" })
+    .first()
+    .evaluate((el) => getComputedStyle(el).backgroundColor)
+}
+
+async function pinTheme(
+  feedsPage: FeedsPage,
+  settingsPage: SettingsPage,
+  label: string
+): Promise<void> {
+  await feedsPage.openSettings()
+  await settingsPage.goToPreferencesTab()
+  await settingsPage.selectTheme(label)
+  await settingsPage.close()
+}
+
+test.describe("dark: utilities on a light-preference OS", () => {
+  test.use({ colorScheme: "light" })
+
+  test.beforeEach(async ({ feedsPage }) => {
+    await feedsPage.waitForBranding()
+  })
+
+  // Every dark palette, not just the stock one: the variant keys off the class
+  // ThemeContext writes for any registry entry with base "dark", so a palette
+  // added later is covered without being named here.
+  for (const label of ["Dark", "Gruvbox Dark"] as const) {
+    test(`${label} still paints the logo disc`, async ({ feedsPage, settingsPage, page }) => {
+      await expect.poll(() => logoBackground(page)).toBe(NO_DISC)
+
+      await pinTheme(feedsPage, settingsPage, label)
+
+      await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
+      await expect.poll(() => logoBackground(page)).toBe(LOGO_DISC)
+    })
+  }
+})
+
+test.describe("dark: utilities on a dark-preference OS", () => {
+  test.use({ colorScheme: "dark" })
+
+  test.beforeEach(async ({ feedsPage }) => {
+    await feedsPage.waitForBranding()
+  })
+
+  test("a pinned light palette drops the logo disc", async ({
+    feedsPage,
+    settingsPage,
+    page,
+  }) => {
+    // "system" resolves through the OS preference, so the disc is there first.
+    await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
+    await expect.poll(() => logoBackground(page)).toBe(LOGO_DISC)
+
+    await pinTheme(feedsPage, settingsPage, "Sepia")
+
+    await expect(page.locator("html")).not.toHaveClass(/(^|\s)dark(\s|$)/)
+    await expect.poll(() => logoBackground(page)).toBe(NO_DISC)
+  })
+
+  // Selecting "system" has to keep tracking the OS: the variant reads the
+  // class, and ThemeContext resolves "system" to a concrete palette (and so to
+  // the class) from the same media query the variant used to read directly.
+  test("system follows the OS preference", async ({ feedsPage, settingsPage, page }) => {
+    await pinTheme(feedsPage, settingsPage, "Light")
+    await expect.poll(() => logoBackground(page)).toBe(NO_DISC)
+
+    await pinTheme(feedsPage, settingsPage, "System (auto)")
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
+    await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
+    await expect.poll(() => logoBackground(page)).toBe(LOGO_DISC)
   })
 })
 

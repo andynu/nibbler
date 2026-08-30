@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* Key the `dark:` variant off the `dark` class rather than Tailwind v4's
+   default `@media (prefers-color-scheme: dark)`.
+
+   Without this the `dark:` utilities follow the OS while every semantic
+   `--color-*` token follows the app theme, so pinning a light palette on a
+   dark-preference OS (or a dark palette on a light one) left the two
+   disagreeing. ThemeContext puts `dark` on <html> for any theme whose registry
+   base is dark, including when the selection is "system" (it resolves the OS
+   preference to a concrete palette first), so keying off the class tracks the
+   applied palette in every case and still follows the OS under "system".
+
+   `&:where(...)` keeps the variant at zero specificity, matching what the
+   media query contributed, so utility ordering is unchanged. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: hsl(0 0% 100%);
   --color-foreground: hsl(0 0% 3.9%);
