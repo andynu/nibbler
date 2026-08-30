@@ -651,6 +651,159 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
       "index and headlines must agree under a tag filter"
   end
 
+  # The scoping params #headlines reads had coverage only for tag and the fresh
+  # view. The tests from here to #create_audio_user_entry pin the rest of the
+  # vocabulary - unread, starred, published, feed_id, category_id and the three
+  # non-fresh virtual views - so the endpoint's filtering is described by tests
+  # independently of which code applies it.
+  def headline_titles(params)
+    get headlines_api_v1_entries_url, params: params, as: :json
+    assert_response :success
+    JSON.parse(response.body)["headlines"].map { |h| h["title"] }
+  end
+
+  test "headlines unread param selects unread when true and read when false" do
+    read_entry = create_entry("Read State Headline", updated: 1.hour.ago)
+    unread_entry = create_entry("Unread State Headline", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: read_entry, feed: @feed, uuid: SecureRandom.uuid, unread: false)
+    @user.user_entries.create!(entry: unread_entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    titles = headline_titles(unread: "true")
+    assert_includes titles, "Unread State Headline"
+    refute_includes titles, "Read State Headline"
+
+    titles = headline_titles(unread: "false")
+    assert_includes titles, "Read State Headline"
+    refute_includes titles, "Unread State Headline"
+  end
+
+  test "headlines starred param keeps only marked articles" do
+    starred = create_entry("Starred Headline Row", updated: 1.hour.ago)
+    plain = create_entry("Unstarred Headline Row", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: starred, feed: @feed, uuid: SecureRandom.uuid, unread: true, marked: true)
+    @user.user_entries.create!(entry: plain, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    titles = headline_titles(starred: "true")
+    assert_includes titles, "Starred Headline Row"
+    refute_includes titles, "Unstarred Headline Row"
+  end
+
+  test "headlines published param keeps only published articles" do
+    published = create_entry("Published Headline Row", updated: 1.hour.ago)
+    plain = create_entry("Unpublished Headline Row", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: published, feed: @feed, uuid: SecureRandom.uuid, unread: true, published: true)
+    @user.user_entries.create!(entry: plain, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    titles = headline_titles(published: "true")
+    assert_includes titles, "Published Headline Row"
+    refute_includes titles, "Unpublished Headline Row"
+  end
+
+  test "headlines feed_id param keeps only that feed's articles" do
+    other_feed = feeds(:low_frequency)
+
+    mine = create_entry("Wanted Feed Headline", updated: 1.hour.ago)
+    theirs = create_entry("Other Feed Headline", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: mine, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    @user.user_entries.create!(entry: theirs, feed: other_feed, uuid: SecureRandom.uuid, unread: true)
+
+    titles = headline_titles(feed_id: @feed.id)
+    assert_includes titles, "Wanted Feed Headline"
+    refute_includes titles, "Other Feed Headline"
+  end
+
+  test "headlines category_id param covers the category's whole subtree" do
+    parent = Category.create!(title: "Parent Category", user: @user)
+    child = Category.create!(title: "Child Category", user: @user, parent: parent)
+    outside = Category.create!(title: "Outside Category", user: @user)
+
+    @feed.update!(category: child)
+    other_feed = feeds(:low_frequency)
+    other_feed.update!(category: outside)
+
+    nested = create_entry("Nested Category Headline", updated: 1.hour.ago)
+    unrelated = create_entry("Unrelated Category Headline", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: nested, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    @user.user_entries.create!(entry: unrelated, feed: other_feed, uuid: SecureRandom.uuid, unread: true)
+
+    titles = headline_titles(category_id: parent.id)
+    assert_includes titles, "Nested Category Headline",
+      "a parent category must include the feeds filed under its children"
+    refute_includes titles, "Unrelated Category Headline"
+  end
+
+  test "headlines category_id from another user filters nothing" do
+    other_user = User.create!(login: "other_headline_category_user", password: "password123")
+    foreign = Category.create!(title: "Foreign Category", user: other_user)
+
+    entry = create_entry("Foreign Category Headline", updated: 1.hour.ago)
+    @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    titles = headline_titles(category_id: foreign.id)
+    assert_includes titles, "Foreign Category Headline",
+      "an unreachable category id must filter nothing rather than leak or empty the list"
+  end
+
+  test "headlines starred published and archived views match their filters" do
+    starred = create_entry("Starred View Headline", updated: 1.hour.ago)
+    published = create_entry("Published View Headline", updated: 1.hour.ago)
+    archived = create_entry("Archived View Headline", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: starred, feed: @feed, uuid: SecureRandom.uuid, unread: true, marked: true)
+    @user.user_entries.create!(entry: published, feed: @feed, uuid: SecureRandom.uuid, unread: true, published: true)
+    @user.user_entries.create!(entry: archived, feed: @feed, uuid: SecureRandom.uuid, unread: false)
+
+    titles = headline_titles(view: "starred")
+    assert_equal [ "Starred View Headline" ], titles
+
+    titles = headline_titles(view: "published")
+    assert_equal [ "Published View Headline" ], titles
+
+    titles = headline_titles(view: "archived")
+    assert_equal [ "Archived View Headline" ], titles
+  end
+
+  test "headlines applies unread starred and category filters together" do
+    parent = Category.create!(title: "Combined Parent", user: @user)
+    @feed.update!(category: parent)
+    feeds(:low_frequency).update!(category: nil)
+
+    wanted = create_entry("Combined Match Headline", updated: 1.hour.ago)
+    wrong_state = create_entry("Combined Read Headline", updated: 1.hour.ago)
+    wrong_flag = create_entry("Combined Unstarred Headline", updated: 1.hour.ago)
+    wrong_feed = create_entry("Combined Other Category Headline", updated: 1.hour.ago)
+
+    @user.user_entries.create!(entry: wanted, feed: @feed, uuid: SecureRandom.uuid, unread: true, marked: true)
+    @user.user_entries.create!(entry: wrong_state, feed: @feed, uuid: SecureRandom.uuid, unread: false, marked: true)
+    @user.user_entries.create!(entry: wrong_flag, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    @user.user_entries.create!(entry: wrong_feed, feed: feeds(:low_frequency), uuid: SecureRandom.uuid, unread: true, marked: true)
+
+    titles = headline_titles(unread: "true", starred: "true", category_id: parent.id)
+    assert_equal [ "Combined Match Headline" ], titles
+  end
+
+  test "headlines pagination total counts the filtered rows not the whole table" do
+    3.times do |i|
+      entry = create_entry("Paged Headline #{i}", updated: 1.hour.ago, date_entered: (i + 1).minutes.ago)
+      @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true, marked: true)
+    end
+    ignored = create_entry("Unpaged Headline", updated: 1.hour.ago)
+    @user.user_entries.create!(entry: ignored, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+
+    get headlines_api_v1_entries_url, params: { starred: "true", per_page: 2 }, as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_equal 3, json["pagination"]["total"]
+    assert_equal 2, json["pagination"]["total_pages"]
+    assert_equal 2, json["headlines"].length
+  end
+
   # The audio endpoint resolves entries through current_user, so tests need an
   # entry owned by the user setup signed in as.
   def create_audio_user_entry

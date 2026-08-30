@@ -209,44 +209,11 @@ module Api
         # Apply ordering (feeds already joined above)
         @user_entries = apply_sorting(@user_entries)
 
-        # Apply same filters as index
-        @user_entries = @user_entries.where(unread: params[:unread] == "true") if params[:unread].present?
-        @user_entries = @user_entries.where(marked: true) if params[:starred] == "true"
-        @user_entries = @user_entries.where(published: true) if params[:published] == "true"
-        @user_entries = @user_entries.where(feed_id: params[:feed_id]) if params[:feed_id].present?
-        if params[:category_id].present?
-          category = current_user.categories.find_by(id: params[:category_id])
-          if category
-            category_ids = category.self_and_descendant_ids
-            @user_entries = @user_entries.where(feeds: { category_id: category_ids })
-          end
-        end
-
-        # Filter by tag via Entry -> EntryTag -> Tag join, matching #index
-        if params[:tag].present?
-          tag_name = params[:tag].downcase.strip
-          @user_entries = @user_entries
-            .joins(entry: :tags)
-            .where(tags: { user_id: current_user.id, name: tag_name })
-        end
-
-        # Keep this block after the filters above, matching
-        # EntryScoping#apply_virtual_view: the Fresh per-feed cap must rank the
-        # final row set, not a superset of it. This is still a hand-rolled copy
-        # of that scoping because #headlines filters a select-list relation; see
-        # ttrb-brv2.
-        case params[:view]
-        when "fresh"
-          @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
-          per_feed = fresh_per_feed_limit(params[:fresh_per_feed])
-          @user_entries = limit_per_feed(@user_entries, per_feed) if per_feed
-        when "starred"
-          @user_entries = @user_entries.where(marked: true)
-        when "published"
-          @user_entries = @user_entries.where(published: true)
-        when "archived"
-          @user_entries = @user_entries.where(unread: false)
-        end
+        # Same scoping as #index, read through EntryScoping. The concern only
+        # adds WHERE clauses and association joins, so the select list above
+        # survives: its joins(:feed) and joins(:entry) collapse into the ones
+        # already declared rather than aliasing a second copy of the table.
+        @user_entries = apply_entry_scoping(@user_entries)
 
         # Pagination
         page = (params[:page] || 1).to_i
