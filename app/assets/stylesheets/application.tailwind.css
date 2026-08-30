@@ -35,7 +35,17 @@
   --color-muted-foreground: hsl(0 0% 44%);
   --color-accent: hsl(0 0% 96.1%);
   --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 84.2% 60.2%);
+  /* 48%, not shadcn's 60.2%. The stock value is a red-500, and
+     --color-destructive-foreground on it measures 3.61:1, under AA for normal
+     text while the Button labels it carries are 14px. Of everything this fill
+     paints, the one that matters most is ConfirmDialog's destructive action:
+     the control that confirms a deletion was the least legible thing on the
+     default palette. 48% is rgb(225,19,19) and carries hsl(0 0% 98%) at 4.67:1.
+
+     Light only. Dark (9.60), Gruvbox Dark (4.59), Gruvbox Light (7.48) and
+     Sepia (6.36) already cleared the bar, so their fills are untouched. See
+     ttrb-j3dx. */
+  --color-destructive: hsl(0 84.2% 48%);
   --color-destructive-foreground: hsl(0 0% 98%);
   /* Destructive comes as a pair because the two halves are measured against
      different things and one value cannot satisfy both.
@@ -52,6 +62,12 @@
      menu item resolves to bg-accent, and accent equals muted in every palette),
      and --color-destructive/10 behind the tinted error boxes. Every palette
      clears 4.5:1 on all three; the ratios are in ttrb-x7zz.
+
+     That third surface is derived from the fill, so darkening Light's fill
+     darkens it too. The tint composites over card and popover rather than over
+     muted (OpmlPanel's and EditFeedDialog's error boxes, ContextMenuItem's
+     focus state), and on Light the text on it moved from 4.76:1 to 4.59:1,
+     still over the bar.
 
      Painting the fill as text was the bug: stock Dark's fill is a dark red
      built to carry white text at 9.60:1, and as text on that palette's
@@ -194,7 +210,7 @@
     --color-muted-foreground: hsl(0 0% 44%);
     --color-accent: hsl(0 0% 96.1%);
     --color-accent-foreground: hsl(0 0% 9%);
-    --color-destructive: hsl(0 84.2% 60.2%);
+    --color-destructive: hsl(0 84.2% 48%);
     --color-destructive-foreground: hsl(0 0% 98%);
     --color-destructive-text: hsl(0 84.2% 45%);
     --color-success: hsl(145 80% 26%);

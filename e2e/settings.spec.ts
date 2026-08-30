@@ -620,11 +620,18 @@ test.describe("Theme Selection", () => {
   //   Dark          1.98 on background, 1.51 on muted
   //   Gruvbox Dark  pass on background, 3.69 on muted
   //
-  // --color-destructive stays out of this list: it is never painted as text
-  // any more, and app/javascript/lib/themeTokens.test.ts is what keeps it that
-  // way. Its own pair (--color-destructive-foreground on --color-destructive)
-  // is also absent, because it fails on Light at 3.61:1 -- white on a light
-  // red button, a fill problem rather than a text one, filed as ttrb-j3dx.
+  // --color-destructive stays out of the text pairs: it is never painted as
+  // text any more, and app/javascript/lib/themeTokens.test.ts is what keeps it
+  // that way. It appears below in the background slot instead, carrying
+  // --color-destructive-foreground. That is the pair every destructive Button,
+  // the badge destructive variant and ConfirmDialog's destructive action
+  // render, and it was itself exempt until ttrb-j3dx: white on Light's stock
+  // red-500 fill measured 3.61:1. Darkening that one palette's fill to
+  // hsl(0 84.2% 48%) puts it at 4.67 and the other four were already over the
+  // bar, so nothing is exempt any more.
+  //
+  //   Light 4.67   Dark 9.60   Gruvbox Dark 4.59
+  //   Gruvbox Light 7.48   Sepia 6.36
   //
   // Muted is checked as well as background because `hover:` and `focus:` on a
   // ghost Button or a menu item resolve to bg-accent, and accent equals muted
@@ -640,10 +647,11 @@ test.describe("Theme Selection", () => {
     ["--color-warning", "--color-muted"],
     ["--color-destructive-text", "--color-background"],
     ["--color-destructive-text", "--color-muted"],
+    ["--color-destructive-foreground", "--color-destructive"],
   ] as const
 
   for (const theme of THEMES) {
-    test(`${theme.name} keeps body, muted and status text above WCAG AA`, async ({
+    test(`${theme.name} keeps body, muted, status and on-fill text above WCAG AA`, async ({
       feedsPage,
       settingsPage,
       page,
