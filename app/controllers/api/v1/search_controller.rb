@@ -31,14 +31,24 @@ module Api
 
       private
 
+      # One pass: PostgreSQL filters and ranks the user's own rows. The earlier
+      # form ran Entry.search over the whole shared entries table, plucked every
+      # matching id into Ruby, and sent it back as an IN list, which also
+      # discarded the ts_rank ordering the scope had just paid for.
+      #
+      # Results come back by relevance, not by date. Search is the one place in
+      # the app where the user has said what they are looking for, so the best
+      # match belongs at the top; date_entered DESC is the right default for the
+      # entry list, where the question is "what is new", and it stays the
+      # tiebreak here. The final user_entries.id keeps paging deterministic when
+      # two rows tie on both.
       def search_user_entries
-        entry_ids = Entry.search(params[:q]).pluck(:id)
-
         current_user.user_entries
-          .where(entry_id: entry_ids)
-          .includes(:entry, :feed)
           .joins(:entry)
-          .order("entries.date_entered DESC")
+          .includes(:entry, :feed)
+          .where(Arel.sql(Entry.text_search_condition(params[:q])))
+          .order(Arel.sql("#{Entry.text_search_rank(params[:q])} DESC"))
+          .order("entries.date_entered DESC", "user_entries.id DESC")
       end
 
       def filter_by_feed(scope)

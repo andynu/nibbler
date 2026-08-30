@@ -61,6 +61,45 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "Quokkas In The Scrub" ], titles
   end
 
+  # The two entries below are seeded so relevance order and date order
+  # disagree: the denser match is the older row. An assertion that held under
+  # either ordering would prove nothing.
+  test "puts the denser match first even when a thinner one is newer" do
+    subscribe(create_entry(
+      title: "Nothing To See",
+      content: "<p>A quokka appeared once.</p>",
+      date_entered: Time.current
+    ))
+    subscribe(create_entry(
+      title: "Quokka Quokka Quokka",
+      content: "<p>Quokka quokka quokka quokka.</p>",
+      date_entered: 1.week.ago
+    ))
+
+    get api_v1_search_url, params: { q: "quokka" }
+
+    assert_response :success
+    assert_equal [ "Quokka Quokka Quokka", "Nothing To See" ], titles
+  end
+
+  test "breaks a relevance tie with the more recent entry" do
+    subscribe(create_entry(
+      title: "Quokka Report Alpha",
+      content: "<p>A quokka.</p>",
+      date_entered: 1.week.ago
+    ))
+    subscribe(create_entry(
+      title: "Quokka Report Beta",
+      content: "<p>A quokka.</p>",
+      date_entered: Time.current
+    ))
+
+    get api_v1_search_url, params: { q: "quokka" }
+
+    assert_response :success
+    assert_equal [ "Quokka Report Beta", "Quokka Report Alpha" ], titles
+  end
+
   test "returns a snippet around the match" do
     subscribe(create_entry(title: "Nothing To See", content: "<p>The wombat burrow collapsed overnight.</p>"))
 
@@ -76,7 +115,7 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
 
   def titles = json["entries"].map { |e| e["title"] }
 
-  def create_entry(title:, content: "<p>Nothing to see.</p>")
+  def create_entry(title:, content: "<p>Nothing to see.</p>", date_entered: Time.current)
     Entry.create!(
       guid: "search-#{SecureRandom.uuid}",
       title: title,
@@ -85,7 +124,7 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
       content_hash: SecureRandom.hex(8),
       author: "",
       updated: Time.current,
-      date_entered: Time.current,
+      date_entered: date_entered,
       date_updated: Time.current
     )
   end

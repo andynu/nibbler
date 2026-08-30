@@ -40,12 +40,34 @@ class Entry < ApplicationRecord
 
   scope :recent, -> { order(date_entered: :desc) }
 
-  # Full-text search using PostgreSQL tsvector
+  # Full-text search using PostgreSQL tsvector, most relevant first.
   scope :search, ->(query) {
     return none if query.blank?
 
-    sanitized = sanitize_sql_like(query)
-    where("tsvector_combined @@ plainto_tsquery('english', ?)", sanitized)
-      .order(Arel.sql("ts_rank(tsvector_combined, plainto_tsquery('english', #{connection.quote(sanitized)})) DESC"))
+    where(Arel.sql(text_search_condition(query)))
+      .order(Arel.sql("#{text_search_rank(query)} DESC"))
   }
+
+  # The two halves of the search scope, exposed so a query that reaches entries
+  # from the other side of the join (UserEntry, say) can apply the same
+  # predicate and the same ranking in one pass. Without these, the only way to
+  # combine a user's rows with full-text search is to run Entry.search, pluck
+  # its ids, and re-query — which materialises every match in the shared entries
+  # table and throws the ranking away.
+  #
+  # Both interpolate a quoted literal rather than a bind parameter because a
+  # rank expression has to appear in ORDER BY, where Rails will not bind for us.
+  # connection.quote handles the escaping.
+  def self.text_search_condition(query)
+    "entries.tsvector_combined @@ #{tsquery_sql(query)}"
+  end
+
+  def self.text_search_rank(query)
+    "ts_rank(entries.tsvector_combined, #{tsquery_sql(query)})"
+  end
+
+  def self.tsquery_sql(query)
+    "plainto_tsquery('english', #{connection.quote(sanitize_sql_like(query.to_s))})"
+  end
+  private_class_method :tsquery_sql
 end
