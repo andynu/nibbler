@@ -43,6 +43,7 @@ import type { Feed, Category } from "@/lib/api"
 import { CategoryDialog } from "@/components/CategoryDialog"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { getVirtualFoldersByMode, SmartFolderIcon } from "@/lib/virtualFolders"
+import { categoryAncestorIds } from "@/lib/categoryNavigation"
 
 type VirtualFeed = string | null
 
@@ -74,6 +75,11 @@ interface FeedSidebarProps {
   isCollapsed: boolean
   onToggleCollapse: () => void
   trackedFeedId: number | null
+  /**
+   * Category to flash because Shift+J/Shift+K had nowhere further to go. Null
+   * the rest of the time; the caller clears it once the animation has run.
+   */
+  boundaryHitCategoryId?: number | null
 }
 
 export function FeedSidebar({
@@ -100,6 +106,7 @@ export function FeedSidebar({
   isCollapsed,
   onToggleCollapse,
   trackedFeedId,
+  boundaryHitCategoryId = null,
 }: FeedSidebarProps) {
   const { preferences, updatePreference } = usePreferences()
 
@@ -386,6 +393,54 @@ export function FeedSidebar({
 
     return () => clearTimeout(timeoutId)
   }, [trackedFeedId, feeds, categories])
+
+  // Bring the selected category's row into view, opening whatever folders it is
+  // buried under first. Clicking a category cannot need this - a row you can
+  // click is already on screen and already reachable - but Shift+J and Shift+K
+  // walk the whole tree, collapsed folders included, so without this the
+  // selection can move somewhere the reader cannot see.
+  useEffect(() => {
+    if (selectedCategoryId === null) return
+
+    // The category's own folder is left as the reader set it. Only its
+    // ancestors have to open, and only those are written back to localStorage.
+    const ancestors = categoryAncestorIds(categories, selectedCategoryId).slice(1)
+    if (ancestors.length > 0) {
+      setExpandedCategories((prev) => {
+        const next = new Set(prev)
+        let changed = false
+        ancestors.forEach((id) => {
+          if (!next.has(id)) {
+            next.add(id)
+            changed = true
+          }
+        })
+        return changed ? next : prev
+      })
+    }
+
+    // Same shape as the tracked-feed scroll above: wait for the expansion to
+    // paint, then adjust scrollTop by hand so a wide row cannot drag the
+    // sidebar sideways the way scrollIntoView would.
+    const timeoutId = setTimeout(() => {
+      const categoryElement = document.querySelector(
+        `[data-category-id="${selectedCategoryId}"]`
+      ) as HTMLElement | null
+      const viewport = scrollViewportRef.current
+      if (!categoryElement || !viewport) return
+
+      const elementRect = categoryElement.getBoundingClientRect()
+      const viewportRect = viewport.getBoundingClientRect()
+
+      if (elementRect.top < viewportRect.top) {
+        viewport.scrollTop += elementRect.top - viewportRect.top - 8
+      } else if (elementRect.bottom > viewportRect.bottom) {
+        viewport.scrollTop += elementRect.bottom - viewportRect.bottom + 8
+      }
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [selectedCategoryId, categories])
 
   // Helper to filter and sort feeds
   const filterAndSortFeeds = (feedList: Feed[]): Feed[] => {
@@ -1185,6 +1240,7 @@ export function FeedSidebar({
                 expandedCategories={expandedCategories}
                 selectedFeedId={selectedFeedId}
                 selectedCategoryId={selectedCategoryId}
+                boundaryHitCategoryId={boundaryHitCategoryId}
                 refreshingFeedId={refreshingFeedId}
                 trackedFeedId={trackedFeedId}
                 activeDragId={activeDragId}
@@ -1277,6 +1333,7 @@ interface CategoryItemProps {
   expandedCategories: Set<number>
   selectedFeedId: number | null
   selectedCategoryId: number | null
+  boundaryHitCategoryId: number | null
   refreshingFeedId: number | null
   trackedFeedId: number | null
   activeDragId: number | null
@@ -1307,6 +1364,7 @@ function CategoryItem({
   expandedCategories,
   selectedFeedId,
   selectedCategoryId,
+  boundaryHitCategoryId,
   refreshingFeedId,
   trackedFeedId,
   activeDragId,
@@ -1355,6 +1413,7 @@ function CategoryItem({
 
   const hasSelectedChild = hasSelectedDescendant(category)
   const isSelected = selectedCategoryId === category.id
+  const showBoundaryFlash = boundaryHitCategoryId === category.id
 
   // Determine button style based on selection state
   const getButtonStyle = () => {
@@ -1389,7 +1448,11 @@ function CategoryItem({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div ref={setNodeRef} className="group/category">
+        <div
+          ref={setNodeRef}
+          className={cn("group/category", showBoundaryFlash && "animate-boundary-flash")}
+          data-category-id={category.id}
+        >
           <div className="flex items-center min-w-0">
             <Button
               variant="ghost"
@@ -1494,6 +1557,7 @@ function CategoryItem({
                 expandedCategories={expandedCategories}
                 selectedFeedId={selectedFeedId}
                 selectedCategoryId={selectedCategoryId}
+                boundaryHitCategoryId={boundaryHitCategoryId}
                 refreshingFeedId={refreshingFeedId}
                 trackedFeedId={trackedFeedId}
                 activeDragId={activeDragId}

@@ -56,6 +56,83 @@ test.describe("Article Navigation (j/k)", () => {
   })
 })
 
+test.describe("Category Navigation (Shift+J / Shift+K)", () => {
+  // The list header is driven by the sidebar selection, so it is the visible
+  // answer to "which category am I in". E2eDataset seeds Technology with the
+  // child Programming, then Science, which the sidebar paints in that order.
+  const listTitle = (page: Page) => page.getByRole("heading", { level: 2 })
+
+  test.beforeEach(async ({ page }) => {
+    await waitForAppReady(page)
+    // The categories request has to have landed: with an empty tree the
+    // shortcut has nowhere to go and would correctly do nothing.
+    await expect(page.locator("[data-category-id]").first()).toBeVisible()
+  })
+
+  test("Shift+J moves the sidebar selection down the tree", async ({ page }) => {
+    await expect(listTitle(page)).toHaveText("All Feeds")
+
+    await page.keyboard.press("Shift+J")
+    await expect(listTitle(page)).toHaveText("Technology")
+
+    // Into the child folder rather than over it.
+    await page.keyboard.press("Shift+J")
+    await expect(listTitle(page)).toHaveText("Programming")
+
+    // Out of a view scoped to a single category, which is the case that used
+    // to do nothing at all.
+    await page.keyboard.press("Shift+J")
+    await expect(listTitle(page)).toHaveText("Science")
+  })
+
+  test("Shift+J stops at the last category instead of wrapping", async ({ page }) => {
+    await page.keyboard.press("Shift+J")
+    await page.keyboard.press("Shift+J")
+    await page.keyboard.press("Shift+J")
+    await expect(listTitle(page)).toHaveText("Science")
+
+    await page.keyboard.press("Shift+J")
+    await expect(listTitle(page)).toHaveText("Science")
+  })
+
+  test("Shift+K moves the sidebar selection back up the tree", async ({ page }) => {
+    // From a virtual folder, the first press back lands on the last category.
+    await page.keyboard.press("Shift+K")
+    await expect(listTitle(page)).toHaveText("Science")
+
+    await page.keyboard.press("Shift+K")
+    await expect(listTitle(page)).toHaveText("Programming")
+
+    await page.keyboard.press("Shift+K")
+    await expect(listTitle(page)).toHaveText("Technology")
+  })
+
+  test("Shift+K stops at the first category instead of wrapping", async ({ page }) => {
+    await page.keyboard.press("Shift+J")
+    await expect(listTitle(page)).toHaveText("Technology")
+
+    await page.keyboard.press("Shift+K")
+    await expect(listTitle(page)).toHaveText("Technology")
+  })
+
+  test("Shift+J from a feed lands on the category after that feed's own", async ({
+    page,
+  }) => {
+    // Rust Weekly lives in Programming, so the next category is Science. The
+    // feed's accessible name carries its unread badge ("Rust Weekly 4") and the
+    // row has a second button beside it ("Rust Weekly menu"), hence the
+    // anchored pattern.
+    await page
+      .getByRole("navigation", { name: "Feeds" })
+      .getByRole("button", { name: /^Rust Weekly(?! menu)/ })
+      .click()
+    await expect(listTitle(page)).toHaveText("Rust Weekly")
+
+    await page.keyboard.press("Shift+J")
+    await expect(listTitle(page)).toHaveText("Science")
+  })
+})
+
 test.describe("Article Actions", () => {
   test.beforeEach(async ({ page }) => {
     await waitForAppReady(page)
@@ -257,22 +334,6 @@ test.describe("Input Focus Handling", () => {
 
     // Shortcuts should work again
     await page.keyboard.press("j")
-    await waitForStable(page)
-  })
-})
-
-test.describe("Category Navigation (Shift+J/K)", () => {
-  test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page)
-  })
-
-  test("Shift+J navigates to next category", async ({ page }) => {
-    await page.keyboard.press("Shift+J")
-    await waitForStable(page)
-  })
-
-  test("Shift+K navigates to previous category", async ({ page }) => {
-    await page.keyboard.press("Shift+K")
     await waitForStable(page)
   })
 })

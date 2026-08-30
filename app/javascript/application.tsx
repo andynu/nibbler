@@ -24,6 +24,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { api, Feed, Entry, Category, FreshMaxAge, SearchResult, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
+import { useCategoryNavigation } from "@/hooks/useCategoryNavigation"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
 import { useNewEntries } from "@/hooks/useNewEntries"
@@ -90,6 +91,9 @@ function App() {
   const { showIframe, toggleIframe } = useContentViewMode(preferences.content_view_mode)
   const [focusMode, setFocusMode] = useState(false)
   const [boundaryHit, setBoundaryHit] = useState<"start" | "end" | null>(null)
+  // Category whose sidebar row is flashing because Shift+J/K could not move
+  // past it. Null the rest of the time.
+  const [categoryBoundaryHitId, setCategoryBoundaryHitId] = useState<number | null>(null)
   // Stories view state (only used when virtualFeed === "stories")
   const [selectedStoryId, setSelectedStoryId] = useState<number | null>(null)
   const [storiesReloadKey, setStoriesReloadKey] = useState(0)
@@ -709,58 +713,37 @@ function App() {
     // No unread found after current position
   }, [entries, currentIndex])
 
-  // Helper to get category_id for an entry via its feed
-  const getCategoryForEntry = useCallback(
-    (entry: Entry): number | null => {
-      const feed = feeds.find((f) => f.id === entry.feed_id)
-      return feed?.category_id ?? null
+  // Flash the row of the category the reader is parked on when Shift+J/K has
+  // nowhere further to go. The entry-list flash above is the wrong surface for
+  // a sidebar move, and an empty list has no row to flash at all.
+  const triggerCategoryBoundaryFlash = useCallback((categoryId: number) => {
+    setCategoryBoundaryHitId(categoryId)
+    setTimeout(() => setCategoryBoundaryHitId(null), 300)
+  }, [])
+
+  const handleCategoryBoundary = useCallback(
+    (direction: "next" | "previous", categoryId: number | null) => {
+      if (categoryId !== null) {
+        triggerCategoryBoundaryFlash(categoryId)
+      } else {
+        // Nothing selected and no category to select: there is no sidebar row
+        // to flash, so fall back to the list's own end-of-the-line feedback.
+        triggerBoundaryFeedback(direction === "next" ? "end" : "start")
+      }
     },
-    [feeds]
+    [triggerCategoryBoundaryFlash, triggerBoundaryFeedback]
   )
 
-  const handleKeyboardNextCategory = useCallback(() => {
-    if (entries.length === 0) return
-    const startIndex = currentIndex === -1 ? 0 : currentIndex
-    const currentCategory = getCategoryForEntry(entries[startIndex])
-
-    // Find next entry with a different category
-    for (let i = startIndex + 1; i < entries.length; i++) {
-      if (getCategoryForEntry(entries[i]) !== currentCategory) {
-        loadEntry(entries[i].id)
-        return
-      }
-    }
-    // No different category found - stay at current position
-  }, [entries, currentIndex, getCategoryForEntry])
-
-  const handleKeyboardPreviousCategory = useCallback(() => {
-    if (entries.length === 0) return
-    const startIndex = currentIndex === -1 ? entries.length - 1 : currentIndex
-    const currentCategory = getCategoryForEntry(entries[startIndex])
-
-    // Find previous entry with a different category, then go to the first entry of that category
-    let targetCategory: number | null | undefined = undefined
-    let firstOfTargetCategory = -1
-
-    for (let i = startIndex - 1; i >= 0; i--) {
-      const entryCategory = getCategoryForEntry(entries[i])
-      if (targetCategory === undefined && entryCategory !== currentCategory) {
-        // Found a different category
-        targetCategory = entryCategory
-        firstOfTargetCategory = i
-      } else if (targetCategory !== undefined && entryCategory === targetCategory) {
-        // Still in the target category, update first index
-        firstOfTargetCategory = i
-      } else if (targetCategory !== undefined && entryCategory !== targetCategory) {
-        // We've passed through the target category, stop
-        break
-      }
-    }
-
-    if (firstOfTargetCategory >= 0) {
-      loadEntry(entries[firstOfTargetCategory].id)
-    }
-  }, [entries, currentIndex, getCategoryForEntry])
+  const categoryNavigation = useCategoryNavigation({
+    categories,
+    feeds,
+    selectedCategoryId,
+    selectedFeedId,
+    onSelectCategory: handleSelectCategory,
+    onBoundary: handleCategoryBoundary,
+  })
+  const handleKeyboardNextCategory = categoryNavigation.selectNextCategory
+  const handleKeyboardPreviousCategory = categoryNavigation.selectPreviousCategory
 
   // Keyboard action handlers
   const handleKeyboardToggleRead = useCallback(() => {
@@ -1129,6 +1112,7 @@ function App() {
             isCollapsed={false}
             onToggleCollapse={layout.goToList}
             trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
+            boundaryHitCategoryId={categoryBoundaryHitId}
           />
         </SidebarDrawer>
       ) : (
@@ -1176,6 +1160,7 @@ function App() {
             isCollapsed={preferences.sidebar_collapsed === "true"}
             onToggleCollapse={handleToggleSidebar}
             trackedFeedId={preferences.sync_to_tree === "true" && selectedEntry?.feed_id ? selectedEntry.feed_id : null}
+            boundaryHitCategoryId={categoryBoundaryHitId}
           />
         </div>
       )}
