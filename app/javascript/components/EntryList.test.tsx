@@ -484,6 +484,78 @@ describe("EntryList", () => {
 
       expect(screen.queryByText("Sort:")).not.toBeInTheDocument()
     })
+
+    describe("scope", () => {
+      const scope = {
+        place: "list" as const,
+        history: "list" as const,
+        onPlaceChange: vi.fn(),
+        onHistoryChange: vi.fn(),
+        placeLabel: "Ruby Weekly",
+        historyLabel: "Unread",
+      }
+
+      it("shows the scope the hits came from under the box", () => {
+        render(
+          <EntryList
+            {...defaultProps}
+            search={{ ...idleSearch, query: "rails", isActive: true, scope }}
+          />
+        )
+
+        const group = screen.getByRole("group", { name: "Search scope" })
+        expect(group).toHaveTextContent("Ruby Weekly")
+        expect(group).toHaveTextContent("Unread")
+      })
+
+      it("hands a pill press back to the caller", async () => {
+        const user = userEvent.setup()
+        const onPlaceChange = vi.fn()
+        render(
+          <EntryList
+            {...defaultProps}
+            search={{
+              ...idleSearch,
+              query: "rails",
+              isActive: true,
+              scope: { ...scope, onPlaceChange },
+            }}
+          />
+        )
+
+        await user.click(screen.getByRole("button", { name: "Ruby Weekly" }))
+
+        expect(onPlaceChange).toHaveBeenCalledWith("everything")
+      })
+
+      it("offers the count from outside the scope on an empty result set", async () => {
+        const user = userEvent.setup()
+        const onWiden = vi.fn()
+        render(
+          <EntryList
+            {...defaultProps}
+            search={{
+              ...idleSearch,
+              query: "zzzz",
+              isActive: true,
+              scope,
+              scopeLabel: "Ruby Weekly, unread",
+              widerMatchCount: 42,
+              onWiden,
+            }}
+          />
+        )
+
+        expect(
+          screen.getByText(/no matches for "zzzz" in ruby weekly, unread/i)
+        ).toBeInTheDocument()
+        await user.click(
+          screen.getByRole("button", { name: "42 matches in all articles" })
+        )
+
+        expect(onWiden).toHaveBeenCalledTimes(1)
+      })
+    })
   })
 
   describe("new entries affordance", () => {

@@ -19,6 +19,7 @@ import { SortableHeaderRow, toggleSort } from "@/components/SortableColumnHeader
 import { SortDropdown } from "@/components/SortDropdown"
 import { SearchBar } from "@/components/SearchBar"
 import { SearchResultList } from "@/components/SearchResultList"
+import type { SearchScopeControl } from "@/components/SearchScopeControls"
 import type { Entry, Feed, FreshMaxAge, SearchResult, SortConfig, SortColumn } from "@/lib/api"
 
 /**
@@ -30,6 +31,8 @@ import type { Entry, Feed, FreshMaxAge, SearchResult, SortConfig, SortColumn } f
 export interface EntryListSearch {
   query: string
   onQueryChange: (query: string) => void
+  /** Escape on a non-empty box and the clear button: empties it and resets the scope. */
+  onClear?: () => void
   /** Escape on an empty box; wired to the close-entry command. */
   onDismiss: () => void
   inputRef: React.Ref<HTMLInputElement>
@@ -39,11 +42,17 @@ export interface EntryListSearch {
   results: SearchResult[]
   error: string | null
   /**
-   * The feed or category the search was narrowed to, named in the empty state
-   * so a no-hit query reads as "nothing here" rather than "nothing anywhere".
-   * Null when the search covered everything.
+   * The scope in effect, named in the empty state so a no-hit query reads as
+   * "nothing here" rather than "nothing anywhere". Null when the search
+   * covered everything.
    */
   scopeLabel?: string | null
+  /** The two widening controls, shown under the box while a query is present. */
+  scope?: SearchScopeControl
+  /** Matches outside the current scope, offered as a way out of an empty result set. */
+  widerMatchCount?: number | null
+  /** Drops every scope filter and re-runs the query. */
+  onWiden?: () => void
 }
 
 interface EntryListProps {
@@ -216,8 +225,10 @@ export function EntryList({
           ref={search!.inputRef}
           value={search!.query}
           onChange={search!.onQueryChange}
+          onClear={search!.onClear}
           onDismiss={search!.onDismiss}
           isSearching={search!.isSearching}
+          scope={search!.scope}
         />
       )}
       {/* Fresh view parameters */}
@@ -376,8 +387,8 @@ export function EntryList({
         </div>
       </div>
       {/* Sort controls - entries mode with a sort handler, and not while a
-          search is running: search results come back in the server's own order
-          (entries.date_entered DESC) and these controls cannot reorder them. */}
+          search is running: search results come back ranked by relevance and
+          these controls cannot reorder them. */}
       {displayMode === "entries" && onSortChange && !searchActive && (
         <>
           {/* Mobile: dropdown */}
@@ -433,6 +444,8 @@ export function EntryList({
               onSelectResult={onSelectEntry}
               formatDate={formatListDate}
               scopeLabel={search!.scopeLabel}
+              widerMatchCount={search!.widerMatchCount}
+              onWiden={search!.onWiden}
             />
           ) : displayMode === "feeds" ? (
             // Feed-list mode: show filtered feeds

@@ -98,15 +98,6 @@ function App() {
   const contentScrollRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Article search. Scope follows the current list, but only as far as the
-  // server honours it: SearchController filters on feed and category and
-  // ignores view/tag/read-state, so the virtual folders and the tag filter do
-  // not narrow a search yet (ttrb-aawe, ttrb-prmg).
-  const entrySearch = useEntrySearch({
-    feedId: selectedFeedId,
-    categoryId: selectedCategoryId,
-  })
-
   // Navigation history for back button support
   const navigationHistory = useNavigationHistory({
     onSelectFeed: (feedId) => {
@@ -283,6 +274,18 @@ function App() {
     freshMaxAge,
     freshPerFeed,
   ])
+
+  // Article search, inheriting the list's own scope. `entriesQuery` is passed
+  // through untouched apart from the two params that mean nothing to a ranked
+  // result set, so the search and the list beside it cannot answer different
+  // questions: every filter the list applies, the search applies too, until the
+  // reader drops one from the pills under the box.
+  const searchListScope = useMemo(() => {
+    const { sort: _sort, per_page: _perPage, ...scope } = entriesQuery
+    return scope
+  }, [entriesQuery])
+
+  const entrySearch = useEntrySearch(searchListScope)
 
   // Load entries when selection, sort order, filter preferences, or fresh params change
   useEffect(() => {
@@ -895,20 +898,58 @@ function App() {
     return "All Feeds"
   }
 
-  // What the empty search state names. Deliberately not getListTitle(): that
-  // reports the list's own heading, including virtual folders and the tag
-  // filter, none of which reach the search endpoint. Only the feed and category
-  // actually narrow a search, so only they may be blamed for zero hits.
-  const getSearchScopeLabel = () => {
-    if (selectedFeedId) {
-      const feed = feeds.find((f) => f.id === selectedFeedId)
-      return feed?.title || "this feed"
+  // The scope labels are read off `searchListScope`, the same object the
+  // request is built from, rather than off the selection state behind it. A
+  // label derived independently is a label that can drift into naming a filter
+  // the request never carried.
+  //
+  // Place: which articles the list is showing at all. Everything here is
+  // dropped together by the "All feeds" pill.
+  const searchPlaceLabel = useMemo(() => {
+    const parts: string[] = []
+    if (searchListScope.feed_id) {
+      parts.push(feeds.find((f) => f.id === searchListScope.feed_id)?.title || "This feed")
     }
-    if (selectedCategoryId) {
-      const category = categories.find((c) => c.id === selectedCategoryId)
-      return category?.title || "this category"
+    if (searchListScope.category_id) {
+      parts.push(
+        categories.find((c) => c.id === searchListScope.category_id)?.title || "This category"
+      )
     }
+    if (searchListScope.view === "starred") parts.push("Starred")
+    if (searchListScope.view === "published") parts.push("Published")
+    if (searchListScope.tag) parts.push(`#${searchListScope.tag}`)
+    if (searchListScope.starred) parts.push("Starred only")
+    return parts.length > 0 ? parts.join(" · ") : null
+  }, [searchListScope, feeds, categories])
+
+  // History: how far back the list reaches. Fresh is unread within a window,
+  // Archived is read-only, and the hide-read preference is plain unread.
+  const searchHistoryLabel = useMemo(() => {
+    if (searchListScope.view === "fresh") return "Fresh"
+    if (searchListScope.view === "archived") return "Read"
+    if (searchListScope.unread === true) return "Unread"
+    if (searchListScope.unread === false) return "Read"
     return null
+  }, [searchListScope])
+
+  // What the empty state blames for finding nothing: the narrowings still in
+  // effect, in the reader's own words. Null once both pills have been widened,
+  // which is when "all articles" is the honest thing to say.
+  const searchScopeLabel = () => {
+    const parts: string[] = []
+    if (entrySearch.canWidenPlace && entrySearch.place === "list" && searchPlaceLabel) {
+      parts.push(searchPlaceLabel)
+    }
+    if (entrySearch.canWidenHistory && entrySearch.history === "list" && searchHistoryLabel) {
+      parts.push(searchHistoryLabel.toLowerCase())
+    }
+    return parts.length > 0 ? parts.join(", ") : null
+  }
+
+  // The empty state's way out: drop both narrowings at once, keeping the query.
+  const widenSearchToEverything = () => {
+    entrySearch.setPlace("everything")
+    entrySearch.setHistory("all")
   }
 
   // Compute pane visibility based on breakpoint and current pane
@@ -1146,13 +1187,27 @@ function App() {
             search={{
               query: entrySearch.query,
               onQueryChange: entrySearch.setQuery,
+              onClear: entrySearch.clear,
               onDismiss: handleKeyboardClose,
               inputRef: searchInputRef,
               isActive: entrySearch.isActive,
               isSearching: entrySearch.isSearching,
               results: entrySearch.results,
               error: entrySearch.error,
-              scopeLabel: getSearchScopeLabel(),
+              scopeLabel: searchScopeLabel(),
+              scope: {
+                place: entrySearch.place,
+                history: entrySearch.history,
+                onPlaceChange: entrySearch.setPlace,
+                onHistoryChange: entrySearch.setHistory,
+                // A pill only appears where the hook says there is something to
+                // widen, so the control can never advertise an escape from a
+                // filter the request does not carry.
+                placeLabel: entrySearch.canWidenPlace ? searchPlaceLabel : null,
+                historyLabel: entrySearch.canWidenHistory ? searchHistoryLabel : null,
+              },
+              widerMatchCount: entrySearch.widerMatchCount,
+              onWiden: widenSearchToEverything,
             }}
           />
         )}

@@ -2,10 +2,19 @@ import { forwardRef } from "react"
 import type { KeyboardEvent } from "react"
 import { Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { SearchScopeControls } from "@/components/SearchScopeControls"
+import type { SearchScopeControl } from "@/components/SearchScopeControls"
 
 interface SearchBarProps {
   value: string
   onChange: (value: string) => void
+  /**
+   * Escape on a non-empty box and the clear button. Distinct from
+   * `onChange("")` so that emptying the box deliberately can also put the
+   * scope back, while backspacing to empty leaves a widened scope alone.
+   * Falls back to `onChange("")` when the caller has no scope to reset.
+   */
+  onClear?: () => void
   /**
    * Called when Escape arrives on an already-empty box. `useKeyboardCommands`
    * drops every key whose target is an input, so Escape can only reach the
@@ -14,16 +23,49 @@ interface SearchBarProps {
   onDismiss?: () => void
   /** Shown while a request is in flight, next to the magnifier. */
   isSearching?: boolean
+  /**
+   * The scope pills, shown under the input once there is a query. Omitted
+   * entirely by callers that have no scope to offer.
+   */
+  scope?: SearchScopeControl
   placeholder?: string
   className?: string
 }
 
 export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
   function SearchBar(
-    { value, onChange, onDismiss, isSearching, placeholder = "Search articles", className },
+    {
+      value,
+      onChange,
+      onClear,
+      onDismiss,
+      isSearching,
+      scope,
+      placeholder = "Search articles",
+      className,
+    },
     ref
   ) {
+    const clear = () => (onClear ? onClear() : onChange(""))
+
     const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+      // The scope shortcuts have to live here rather than in the shared
+      // catalog: `useKeyboardCommands` ignores every key whose target is an
+      // input, and the whole point is reaching them without leaving the box.
+      // Matched on `event.code`, because Alt+A on a Mac layout arrives as "å".
+      if (event.altKey && !event.ctrlKey && !event.metaKey && scope) {
+        if (event.code === "KeyA" && scope.placeLabel) {
+          event.preventDefault()
+          scope.onPlaceChange(scope.place === "list" ? "everything" : "list")
+          return
+        }
+        if (event.code === "KeyH" && scope.historyLabel) {
+          event.preventDefault()
+          scope.onHistoryChange(scope.history === "list" ? "all" : "list")
+          return
+        }
+      }
+
       if (event.key !== "Escape") return
 
       if (value !== "") {
@@ -31,7 +73,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
         // the search box has not asked to lose their place in the reader.
         event.preventDefault()
         event.stopPropagation()
-        onChange("")
+        clear()
         return
       }
 
@@ -77,13 +119,16 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
             <button
               type="button"
               aria-label="Clear search"
-              onClick={() => onChange("")}
+              onClick={clear}
               className="absolute right-1 p-0.5 rounded hover:bg-accent text-muted-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
+        {/* Only once there is a query: an idle box has no result set whose
+            scope needs describing, and the pills would just be chrome. */}
+        {scope && value !== "" && <SearchScopeControls {...scope} />}
       </div>
     )
   }

@@ -38,6 +38,8 @@ export type ShortcutId =
   | "open-original"
   | "refresh"
   | "focus-search"
+  | "search-widen-place"
+  | "search-widen-history"
   | "toggle-focus-mode"
   | "toggle-sidebar"
   | "command-palette"
@@ -48,7 +50,10 @@ export type ShortcutId =
  * Shortcuts whose listener lives outside the command table. They still appear in
  * the help dialog but `buildKeyboardCommands` never asks for a handler.
  */
-export type ExternallyBoundShortcutId = "command-palette"
+export type ExternallyBoundShortcutId =
+  | "command-palette"
+  | "search-widen-place"
+  | "search-widen-history"
 
 /** Shortcut ids that must be given a handler in the command table. */
 export type BoundShortcutId = Exclude<ShortcutId, ExternallyBoundShortcutId>
@@ -207,6 +212,22 @@ export const shortcutCatalog: ShortcutDefinition[] = [
     // Not Ctrl+F: that is page-down-content, paired with Ctrl+B above.
     description: "Search articles",
     bindings: [{ key: "/" }],
+  },
+  {
+    id: "search-widen-place",
+    section: "Actions",
+    keys: "Alt+A",
+    description: "Search all feeds / just this list",
+    bindings: [],
+    boundElsewhere: "SearchBar in components/SearchBar.tsx",
+  },
+  {
+    id: "search-widen-history",
+    section: "Actions",
+    keys: "Alt+H",
+    description: "Search all history / just this list's",
+    bindings: [],
+    boundElsewhere: "SearchBar in components/SearchBar.tsx",
   },
   {
     id: "toggle-focus-mode",

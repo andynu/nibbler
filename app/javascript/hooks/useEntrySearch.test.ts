@@ -33,7 +33,10 @@ describe("useEntrySearch", () => {
   beforeEach(() => {
     vi.useFakeTimers()
     search.mockReset()
-    search.mockResolvedValue(mockSearchResponse([]))
+    // A hit by default. An empty response makes the hook go back for the
+    // outside-the-scope count, which would show up as a second call in every
+    // test that is only interested in the first one.
+    search.mockResolvedValue(mockSearchResponse([mockSearchResult()]))
   })
 
   afterEach(() => {
@@ -181,11 +184,9 @@ describe("useEntrySearch", () => {
     })
   })
 
-  describe("scope", () => {
+  describe("scope inherited from the list", () => {
     it("sends the feed and category the list is currently showing", async () => {
-      const { result } = renderHook(() =>
-        useEntrySearch({ feedId: 7, categoryId: 3 })
-      )
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7, category_id: 3 }))
 
       act(() => result.current.setQuery("rails"))
       await settle()
@@ -193,24 +194,36 @@ describe("useEntrySearch", () => {
       expect(search).toHaveBeenCalledWith({ q: "rails", feed_id: 7, category_id: 3 })
     })
 
-    it("omits scope the list does not have", async () => {
-      const { result } = renderHook(() =>
-        useEntrySearch({ feedId: null, categoryId: null })
-      )
+    it("sends nothing but the query when the list narrows nothing", async () => {
+      const { result } = renderHook(() => useEntrySearch({}))
 
       act(() => result.current.setQuery("rails"))
       await settle()
 
-      expect(search).toHaveBeenCalledWith({
-        q: "rails",
-        feed_id: undefined,
-        category_id: undefined,
-      })
+      expect(search).toHaveBeenCalledWith({ q: "rails" })
     })
 
-    it("re-runs the query when the scope changes", async () => {
+    it("carries the tag filter, which the list applies too", async () => {
+      const { result } = renderHook(() => useEntrySearch({ tag: "ruby" }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenCalledWith({ q: "rails", tag: "ruby" })
+    })
+
+    it("carries the list's unread filter, so a read article cannot match", async () => {
+      const { result } = renderHook(() => useEntrySearch({ unread: true }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenCalledWith({ q: "rails", unread: true })
+    })
+
+    it("re-runs the query when the list moves under it", async () => {
       const { result, rerender } = renderHook(
-        ({ feedId }: { feedId: number }) => useEntrySearch({ feedId }),
+        ({ feedId }: { feedId: number }) => useEntrySearch({ feed_id: feedId }),
         { initialProps: { feedId: 7 } }
       )
 
@@ -225,6 +238,282 @@ describe("useEntrySearch", () => {
       expect(search).toHaveBeenLastCalledWith(
         expect.objectContaining({ q: "rails", feed_id: 9 })
       )
+    })
+  })
+
+  describe("Fresh", () => {
+    const freshList = {
+      view: "fresh" as const,
+      fresh_max_age: "month" as const,
+      fresh_per_feed: 5,
+    }
+
+    it("sends the view, the max age and the per-feed cap together", async () => {
+      const { result } = renderHook(() => useEntrySearch(freshList))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      // All three or none: view alone would fall back to the server's default
+      // window and no cap, quietly searching wider than the list shown.
+      expect(search).toHaveBeenCalledWith({
+        q: "rails",
+        view: "fresh",
+        fresh_max_age: "month",
+        fresh_per_feed: 5,
+      })
+    })
+
+    it("drops all three when the reader asks for deeper history", async () => {
+      const { result } = renderHook(() => useEntrySearch(freshList))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setHistory("all"))
+      await settle()
+
+      // view: "fresh" IS unread plus an age cutoff server-side, so keeping it
+      // here would hand back an unread-only result set under a control that
+      // claims to have widened.
+      expect(search).toHaveBeenLastCalledWith({ q: "rails" })
+    })
+
+    it("keeps the Fresh window when only the place is widened", async () => {
+      const { result } = renderHook(() =>
+        useEntrySearch({ ...freshList, feed_id: 7 })
+      )
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setPlace("everything"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({
+        q: "rails",
+        view: "fresh",
+        fresh_max_age: "month",
+        fresh_per_feed: 5,
+      })
+    })
+
+    it("offers deeper history but not a wider place, which Fresh does not narrow", () => {
+      const { result } = renderHook(() => useEntrySearch(freshList))
+
+      expect(result.current.canWidenHistory).toBe(true)
+      expect(result.current.canWidenPlace).toBe(false)
+    })
+  })
+
+  describe("widening the place", () => {
+    const list = { feed_id: 7, tag: "ruby", unread: true }
+
+    it("drops the feed and tag but keeps the read-state window", async () => {
+      const { result } = renderHook(() => useEntrySearch(list))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      expect(search).toHaveBeenCalledWith({
+        q: "rails",
+        feed_id: 7,
+        tag: "ruby",
+        unread: true,
+      })
+
+      act(() => result.current.setPlace("everything"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails", unread: true })
+    })
+
+    it("drops a place view without touching the history axis", async () => {
+      const { result } = renderHook(() =>
+        useEntrySearch({ view: "starred", unread: true })
+      )
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setPlace("everything"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails", unread: true })
+    })
+
+    it("goes back to the list scope when narrowed again", async () => {
+      const { result } = renderHook(() => useEntrySearch(list))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setPlace("everything"))
+      await settle()
+      act(() => result.current.setPlace("list"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({
+        q: "rails",
+        feed_id: 7,
+        tag: "ruby",
+        unread: true,
+      })
+    })
+  })
+
+  describe("widening the history", () => {
+    it("drops unread but keeps the feed the reader is standing in", async () => {
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7, unread: true }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setHistory("all"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails", feed_id: 7 })
+    })
+
+    it("drops the archived view, which is a read-state filter of its own", async () => {
+      const { result } = renderHook(() => useEntrySearch({ view: "archived" }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      expect(search).toHaveBeenCalledWith({ q: "rails", view: "archived" })
+
+      act(() => result.current.setHistory("all"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails" })
+    })
+
+    it("reports nothing to widen when the list imposes no read-state window", () => {
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7 }))
+
+      expect(result.current.canWidenHistory).toBe(false)
+      expect(result.current.canWidenPlace).toBe(true)
+    })
+  })
+
+  describe("scope persistence", () => {
+    it("survives editing the query", async () => {
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7, unread: true }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => {
+        result.current.setPlace("everything")
+        result.current.setHistory("all")
+      })
+      await settle()
+
+      act(() => result.current.setQuery("rails engine"))
+      await settle()
+
+      expect(result.current.place).toBe("everything")
+      expect(result.current.history).toBe("all")
+      expect(search).toHaveBeenLastCalledWith({ q: "rails engine" })
+    })
+
+    it("survives the list being re-rendered around it", async () => {
+      const { result, rerender } = renderHook(() =>
+        useEntrySearch({ feed_id: 7, unread: true })
+      )
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => result.current.setPlace("everything"))
+      await settle()
+
+      rerender()
+
+      expect(result.current.place).toBe("everything")
+    })
+
+    it("resets to the list's own scope when the box is cleared", async () => {
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7, unread: true }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      act(() => {
+        result.current.setPlace("everything")
+        result.current.setHistory("all")
+      })
+      await settle()
+
+      act(() => result.current.clear())
+
+      expect(result.current.place).toBe("list")
+      expect(result.current.history).toBe("list")
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenLastCalledWith({ q: "rails", feed_id: 7, unread: true })
+    })
+  })
+
+  describe("matches outside the scope", () => {
+    it("counts them when a narrowed search finds nothing", async () => {
+      search
+        .mockResolvedValueOnce(mockSearchResponse([]))
+        .mockResolvedValueOnce(mockSearchResponse([], { pagination: { page: 1, per_page: 1, total: 42, total_pages: 42 } }))
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7 }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenCalledTimes(2)
+      expect(search).toHaveBeenLastCalledWith({ q: "rails", per_page: 1 })
+      expect(result.current.widerMatchCount).toBe(42)
+    })
+
+    it("does not ask when the search was not narrowed in the first place", async () => {
+      search.mockResolvedValue(mockSearchResponse([]))
+      const { result } = renderHook(() => useEntrySearch({}))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenCalledTimes(1)
+      expect(result.current.widerMatchCount).toBeNull()
+    })
+
+    it("does not ask when the narrowed search found something", async () => {
+      search.mockResolvedValue(mockSearchResponse([mockSearchResult()]))
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7 }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(search).toHaveBeenCalledTimes(1)
+      expect(result.current.widerMatchCount).toBeNull()
+    })
+
+    it("keeps the empty result set when the count request fails", async () => {
+      search
+        .mockResolvedValueOnce(mockSearchResponse([]))
+        .mockRejectedValueOnce(new Error("HTTP 500"))
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7 }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+
+      expect(result.current.error).toBeNull()
+      expect(result.current.widerMatchCount).toBeNull()
+    })
+
+    it("forgets the count once the scope is widened and hits come back", async () => {
+      search
+        .mockResolvedValueOnce(mockSearchResponse([]))
+        .mockResolvedValueOnce(mockSearchResponse([], { pagination: { page: 1, per_page: 1, total: 42, total_pages: 42 } }))
+        .mockResolvedValueOnce(mockSearchResponse([mockSearchResult()]))
+      const { result } = renderHook(() => useEntrySearch({ feed_id: 7 }))
+
+      act(() => result.current.setQuery("rails"))
+      await settle()
+      expect(result.current.widerMatchCount).toBe(42)
+
+      act(() => result.current.setPlace("everything"))
+      await settle()
+
+      expect(result.current.widerMatchCount).toBeNull()
+      expect(result.current.results).toHaveLength(1)
     })
   })
 

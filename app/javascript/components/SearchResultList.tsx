@@ -12,13 +12,19 @@ interface SearchResultListProps {
   onSelectResult: (userEntryId: number) => void
   formatDate: (date: Date | string) => string
   /**
-   * What the search was narrowed to, for the empty state: a feed or category
-   * title, or null when nothing narrowed it. Only the scope the endpoint
-   * actually honours belongs here (see `EntrySearchScope`) -- naming a
-   * virtual folder or tag that the search ignored would send the user off to
-   * widen something that was never applied.
+   * The scope that produced these results, named: "Ruby Weekly, unread". Null
+   * when nothing narrowed the search. Built from the scope actually sent, not
+   * from the list's heading, so it cannot blame a filter the request did not
+   * carry.
    */
   scopeLabel?: string | null
+  /**
+   * Matches the same query has with every filter dropped. Rendered as a way
+   * out of an empty result set; null when unknown or not worth offering.
+   */
+  widerMatchCount?: number | null
+  /** Drops every scope filter and re-runs the query. Required for the offer to render. */
+  onWiden?: () => void
 }
 
 /**
@@ -35,6 +41,8 @@ export function SearchResultList({
   onSelectResult,
   formatDate,
   scopeLabel = null,
+  widerMatchCount = null,
+  onWiden,
 }: SearchResultListProps) {
   if (error) {
     return (
@@ -62,11 +70,19 @@ export function SearchResultList({
         <p className="text-sm">
           No matches for "{query}" in {scopeLabel || "all articles"}
         </p>
-        {scopeLabel && (
-          <p className="mt-1 text-xs">
-            Only this feed or category was searched. Go to All Feeds to search
-            everything.
-          </p>
+        {/* Widening is only discoverable if the reader is told there is
+            something to widen into. Without the count this reads as a dead end
+            and the query gets retyped somewhere else (ttrb-prmg). */}
+        {onWiden && widerMatchCount !== null && widerMatchCount > 0 && (
+          <button
+            type="button"
+            onClick={onWiden}
+            className="mt-2 text-xs underline underline-offset-2 hover:text-foreground"
+          >
+            {widerMatchCount === 1
+              ? "1 match in all articles"
+              : `${widerMatchCount} matches in all articles`}
+          </button>
         )}
       </div>
     )

@@ -101,19 +101,78 @@ describe("SearchResultList", () => {
 
   it("names the scope that produced an empty result set", () => {
     render(
-      <SearchResultList {...defaultProps} query="zzzz" scopeLabel="Ruby Weekly" />
+      <SearchResultList
+        {...defaultProps}
+        query="zzzz"
+        scopeLabel="Ruby Weekly, unread"
+      />
     )
 
     expect(
-      screen.getByText(/no matches for "zzzz" in ruby weekly/i)
+      screen.getByText(/no matches for "zzzz" in ruby weekly, unread/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/go to all feeds to search everything/i)).toBeInTheDocument()
   })
 
-  it("does not offer to widen a search that was never narrowed", () => {
-    render(<SearchResultList {...defaultProps} query="zzzz" />)
+  describe("the way out of an empty result set", () => {
+    it("counts what widening would find and widens when asked", async () => {
+      const user = userEvent.setup()
+      const onWiden = vi.fn()
+      render(
+        <SearchResultList
+          {...defaultProps}
+          query="zzzz"
+          scopeLabel="Ruby Weekly"
+          widerMatchCount={42}
+          onWiden={onWiden}
+        />
+      )
 
-    expect(screen.queryByText(/go to all feeds/i)).not.toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "42 matches in all articles" }))
+
+      expect(onWiden).toHaveBeenCalledTimes(1)
+    })
+
+    it("counts one match without pluralising it", () => {
+      render(
+        <SearchResultList
+          {...defaultProps}
+          query="zzzz"
+          widerMatchCount={1}
+          onWiden={vi.fn()}
+        />
+      )
+
+      expect(
+        screen.getByRole("button", { name: "1 match in all articles" })
+      ).toBeInTheDocument()
+    })
+
+    it("stays quiet when there is nothing outside the scope either", () => {
+      render(
+        <SearchResultList
+          {...defaultProps}
+          query="zzzz"
+          scopeLabel="Ruby Weekly"
+          widerMatchCount={0}
+          onWiden={vi.fn()}
+        />
+      )
+
+      expect(screen.queryByRole("button", { name: /in all articles/i })).not.toBeInTheDocument()
+    })
+
+    it("stays quiet while the count is unknown", () => {
+      render(
+        <SearchResultList
+          {...defaultProps}
+          query="zzzz"
+          scopeLabel="Ruby Weekly"
+          onWiden={vi.fn()}
+        />
+      )
+
+      expect(screen.queryByRole("button", { name: /in all articles/i })).not.toBeInTheDocument()
+    })
   })
 
   it("reports a failed search instead of an empty result set", () => {
