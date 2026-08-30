@@ -128,6 +128,15 @@ export function buildSearchParams(
   return params
 }
 
+/**
+ * The per-row state a search hit can be shown in, and therefore the only state
+ * a reader can change out from under one. `is_published`, `score`, `note` and
+ * `tags` are all absent from the SearchController projection and from the row
+ * SearchResultList draws, so toggling them has nothing to patch here (see
+ * `SearchResult` in lib/api.ts).
+ */
+export type SearchResultPatch = Partial<Pick<SearchResult, "unread" | "starred">>
+
 export interface EntrySearch {
   query: string
   setQuery: (query: string) => void
@@ -138,6 +147,25 @@ export interface EntrySearch {
   /** True from the first keystroke until the matching response settles. */
   isSearching: boolean
   results: SearchResult[]
+  /**
+   * Applies `patch` to the hit whose user_entry id is `userEntryId`, so a row
+   * marked read or starred elsewhere in the app stops claiming otherwise while
+   * the search is still on screen. Keyed on `id`, the user_entry id the entry
+   * handlers work in, not on `entry_id`.
+   *
+   * Rows are updated where they stand rather than dropped, even when the patch
+   * takes one outside the scope that found it: the entry list does the same
+   * thing, and an article that vanished the instant it was opened would make
+   * search behave unlike the list it inherited its scope from. The next
+   * request reconciles (ttrb-zgvy).
+   */
+  updateResult: (userEntryId: number, patch: SearchResultPatch) => void
+  /**
+   * The bulk form, for a change the server applied to a whole scope at once.
+   * The caller supplies the matcher because only it knows which rows that
+   * scope covered.
+   */
+  updateResults: (match: (result: SearchResult) => boolean, patch: SearchResultPatch) => void
   error: string | null
   place: SearchPlace
   setPlace: (place: SearchPlace) => void
@@ -274,6 +302,29 @@ export function useEntrySearch(
     debounceMs,
   ])
 
+  const updateResults = useCallback(
+    (match: (result: SearchResult) => boolean, patch: SearchResultPatch) => {
+      setResults((prev) => {
+        let changed = false
+        const next = prev.map((result) => {
+          if (!match(result)) return result
+          changed = true
+          return { ...result, ...patch }
+        })
+        // Nothing matched, so hand back the same array: a new one would rerender
+        // every row of a result set the change had no bearing on.
+        return changed ? next : prev
+      })
+    },
+    []
+  )
+
+  const updateResult = useCallback(
+    (userEntryId: number, patch: SearchResultPatch) =>
+      updateResults((result) => result.id === userEntryId, patch),
+    [updateResults]
+  )
+
   // Escape and the clear button both land here, which is what makes the scope
   // reset on Escape rather than on any keystroke that happens to empty the box.
   const clear = useCallback(() => {
@@ -298,6 +349,8 @@ export function useEntrySearch(
     isActive: trimmed.length > 0,
     isSearching,
     results,
+    updateResult,
+    updateResults,
     error,
     place,
     setPlace,

@@ -21,7 +21,7 @@ import { I18nProvider } from "@/contexts/I18nContext"
 import { AudioPlayerProvider, useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
-import { api, Feed, Entry, Category, FreshMaxAge, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
+import { api, Feed, Entry, Category, FreshMaxAge, SearchResult, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -358,6 +358,11 @@ function App() {
         setEntries((prev) =>
           prev.map((e) => (e.id === entryId ? { ...e, unread: false } : e))
         )
+        // The search owns its own rows, so the entry list update above does not
+        // reach them. Opening a hit is the commonest way into that: the reader
+        // takes no deliberate action and the row they just clicked would go on
+        // claiming to be unread (ttrb-zgvy).
+        entrySearch.updateResult(entryId, { unread: false })
         loadFeeds() // Refresh unread counts
         loadCounters() // Refresh virtual folder counts
       }
@@ -463,6 +468,7 @@ function App() {
       setEntries((prev) =>
         prev.map((e) => (e.id === entryId ? { ...e, unread: result.unread } : e))
       )
+      entrySearch.updateResult(entryId, { unread: result.unread })
       if (selectedEntry?.id === entryId) {
         setSelectedEntry({ ...selectedEntry, unread: result.unread })
       }
@@ -479,6 +485,7 @@ function App() {
       setEntries((prev) =>
         prev.map((e) => (e.id === entryId ? { ...e, starred: result.starred } : e))
       )
+      entrySearch.updateResult(entryId, { starred: result.starred })
       if (selectedEntry?.id === entryId) {
         setSelectedEntry({ ...selectedEntry, starred: result.starred })
       }
@@ -488,6 +495,10 @@ function App() {
     }
   }
 
+  // No `entrySearch.updateResult` here, or in handleSetScore below, unlike the
+  // read and starred handlers: SearchController's projection carries neither
+  // `is_published` nor `score`, and SearchResultList draws neither, so a search
+  // row has nothing that could go stale (ttrb-zgvy).
   const handleTogglePublishedEntry = async (entryId: number) => {
     try {
       const result = await api.entries.togglePublished(entryId)
@@ -558,6 +569,34 @@ function App() {
     }
   }
 
+  // Which search hits the mark-all-read sweep actually reached. While the
+  // search is still on the list's own scope, all of them are: EntryScoping
+  // resolves `category_id` through `self_and_descendant_ids`, the same
+  // expansion mark_all_read does, so the hits are a subset of what was just
+  // marked. Once the reader has widened to "everything" the results straddle
+  // that boundary, and flipping the outside ones would show an article as read
+  // on the strength of a sweep that never touched it.
+  const sweptByMarkAllRead = useCallback(
+    (result: SearchResult) => {
+      if (entrySearch.place === "list") return true
+      if (selectedFeedId) return result.feed_id === selectedFeedId
+      if (selectedCategoryId) {
+        // The feed's own category, then up the tree: marking a parent read
+        // takes the feeds under its children with it. Bounded by the number of
+        // categories, so bad data cannot spin here.
+        let categoryId = feeds.find((f) => f.id === result.feed_id)?.category_id ?? null
+        for (let step = 0; categoryId !== null && step <= categories.length; step++) {
+          if (categoryId === selectedCategoryId) return true
+          categoryId = categories.find((c) => c.id === categoryId)?.parent_id ?? null
+        }
+        return false
+      }
+      // Neither: the sweep was unscoped and reached every article the user has.
+      return true
+    },
+    [entrySearch.place, selectedFeedId, selectedCategoryId, feeds, categories]
+  )
+
   const doMarkAllRead = async () => {
     try {
       await api.entries.markAllRead({
@@ -565,6 +604,7 @@ function App() {
         category_id: selectedCategoryId || undefined,
       })
       setEntries((prev) => prev.map((e) => ({ ...e, unread: false })))
+      entrySearch.updateResults(sweptByMarkAllRead, { unread: false })
       loadFeeds() // Refresh unread counts
       loadCounters() // Refresh virtual folder counts
     } catch (error) {

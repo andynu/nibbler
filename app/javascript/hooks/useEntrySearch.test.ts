@@ -517,6 +517,121 @@ describe("useEntrySearch", () => {
     })
   })
 
+  describe("updating a result in place", () => {
+    /** Two unread hits from two different feeds, already on screen. */
+    async function searched(list: Parameters<typeof useEntrySearch>[0] = {}) {
+      search.mockResolvedValue(
+        mockSearchResponse([
+          mockSearchResult({ id: 1, entry_id: 100, feed_id: 7, title: "First" }),
+          mockSearchResult({ id: 2, entry_id: 200, feed_id: 9, title: "Second" }),
+        ])
+      )
+      const rendered = renderHook(() => useEntrySearch(list))
+      act(() => rendered.result.current.setQuery("rails"))
+      await settle()
+      expect(rendered.result.current.results).toHaveLength(2)
+      return rendered
+    }
+
+    it("marks the named row read and leaves the others alone", async () => {
+      const { result } = await searched()
+
+      act(() => result.current.updateResult(1, { unread: false }))
+
+      expect(result.current.results[0].unread).toBe(false)
+      expect(result.current.results[1].unread).toBe(true)
+    })
+
+    it("keys off the user_entry id, not the entry id", async () => {
+      const { result } = await searched()
+
+      // 100 is row 1's `entry_id`. The entry handlers work in user_entry ids,
+      // so a hook that matched on entry_id would mark the wrong row, or none.
+      act(() => result.current.updateResult(100, { unread: false }))
+
+      expect(result.current.results.map((r) => r.unread)).toEqual([true, true])
+    })
+
+    it("carries a starred change onto the row", async () => {
+      const { result } = await searched()
+
+      act(() => result.current.updateResult(2, { starred: true }))
+
+      expect(result.current.results[1].starred).toBe(true)
+      expect(result.current.results[0].starred).toBe(false)
+    })
+
+    it("leaves the rest of the row intact", async () => {
+      const { result } = await searched()
+
+      act(() => result.current.updateResult(1, { unread: false }))
+
+      expect(result.current.results[0]).toMatchObject({
+        id: 1,
+        entry_id: 100,
+        title: "First",
+        starred: false,
+      })
+      expect(result.current.results[0].snippet).not.toBe("")
+    })
+
+    it("keeps a row that has stopped matching the scope rather than dropping it", async () => {
+      // An unread-only search: marking a hit read makes it fail the filter the
+      // scope pill is still claiming. It stays put, the way the entry list
+      // keeps read articles until the next load.
+      const { result } = await searched({ unread: true })
+
+      act(() => result.current.updateResult(1, { unread: false }))
+
+      expect(result.current.results).toHaveLength(2)
+      expect(result.current.results[0].id).toBe(1)
+    })
+
+    it("does nothing for an id that is not in the result set", async () => {
+      const { result } = await searched()
+      const before = result.current.results
+
+      act(() => result.current.updateResult(999, { unread: false }))
+
+      // Same array, not just equal: a new one rerenders every row for nothing.
+      expect(result.current.results).toBe(before)
+    })
+
+    it("updates every row a bulk matcher accepts", async () => {
+      const { result } = await searched()
+
+      act(() => result.current.updateResults(() => true, { unread: false }))
+
+      expect(result.current.results.map((r) => r.unread)).toEqual([false, false])
+    })
+
+    it("leaves rows the bulk matcher rejects untouched", async () => {
+      // Mark-all-read is scoped to a feed; a search widened past that feed can
+      // be showing rows the sweep never reached.
+      const { result } = await searched()
+
+      act(() =>
+        result.current.updateResults((r) => r.feed_id === 7, { unread: false })
+      )
+
+      expect(result.current.results.map((r) => r.unread)).toEqual([false, true])
+    })
+
+    it("is overwritten by the server's answer on the next request", async () => {
+      const { result } = await searched()
+      act(() => result.current.updateResult(1, { unread: false }))
+      expect(result.current.results[0].unread).toBe(false)
+
+      search.mockResolvedValue(
+        mockSearchResponse([mockSearchResult({ id: 1, entry_id: 100, unread: true })])
+      )
+      act(() => result.current.setQuery("rails engine"))
+      await settle()
+
+      expect(result.current.results[0].unread).toBe(true)
+    })
+  })
+
   describe("failure", () => {
     it("surfaces the error and shows no stale results", async () => {
       search.mockResolvedValueOnce(mockSearchResponse([mockSearchResult()]))
