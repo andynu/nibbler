@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, forwardRef, useRef } from "react"
+import { useState, useLayoutEffect, useMemo, forwardRef, useRef } from "react"
 import {
   DndContext,
   DragOverlay,
@@ -247,71 +247,95 @@ export function FeedOrganizer({
     })
   }
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if we're editing
-      if (editingId) return
+  // Keyboard navigation.
+  //
+  // Built fresh on every render so it sees this render's selection and tree,
+  // then published to `latestKeyDown` in the commit phase. The document listener
+  // below is registered once and forwards through that ref, so its identity
+  // never changes. Same shape and same reasoning as hooks/useKeyboardCommands.ts,
+  // which carries the long version: layout effects run inside the commit phase,
+  // synchronously and strictly before the browser may paint, so whenever the
+  // screen shows render N the ref already holds render N.
+  //
+  // Building this inside a useEffect over [selectedId, editingId, sortableIds,
+  // showQuickMove] had a window, because passive effects run after paint
+  // (ttrb-fuky). Held j on a long feed list is the easy way in: every press
+  // re-renders the whole tree, and a repeat dispatched during that commit ran
+  // against the previous selection, so navigateNext re-selected the row already
+  // on screen and the press was swallowed. Expanding a category and immediately
+  // pressing j got there too, with the stale sortableIds skipping the feeds that
+  // had just appeared.
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Ignore if we're editing
+    if (editingId) return
 
-      // Ignore if focus is in an input
-      if (document.activeElement?.tagName === "INPUT") return
+    // Ignore if focus is in an input
+    if (document.activeElement?.tagName === "INPUT") return
 
-      switch (e.key) {
-        case "j":
-        case "ArrowDown":
+    switch (e.key) {
+      case "j":
+      case "ArrowDown":
+        e.preventDefault()
+        navigateNext()
+        break
+      case "k":
+      case "ArrowUp":
+        e.preventDefault()
+        navigatePrevious()
+        break
+      case "Enter":
+        e.preventDefault()
+        if (selectedId?.startsWith("category-")) {
+          const categoryId = parseInt(selectedId.replace("category-", ""), 10)
+          toggleCategory(categoryId)
+        } else if (selectedId) {
+          startEditing(selectedId)
+        }
+        break
+      case " ":
+        e.preventDefault()
+        if (selectedId?.startsWith("category-")) {
+          const categoryId = parseInt(selectedId.replace("category-", ""), 10)
+          toggleCategory(categoryId)
+        }
+        break
+      case "m":
+        if (e.ctrlKey || e.metaKey) {
           e.preventDefault()
-          navigateNext()
-          break
-        case "k":
-        case "ArrowUp":
+          if (selectedId?.startsWith("feed-")) {
+            setShowQuickMove(true)
+          }
+        }
+        break
+      case "Delete":
+      case "Backspace":
+        if (selectedId) {
           e.preventDefault()
-          navigatePrevious()
-          break
-        case "Enter":
-          e.preventDefault()
-          if (selectedId?.startsWith("category-")) {
-            const categoryId = parseInt(selectedId.replace("category-", ""), 10)
-            toggleCategory(categoryId)
-          } else if (selectedId) {
-            startEditing(selectedId)
-          }
-          break
-        case " ":
-          e.preventDefault()
-          if (selectedId?.startsWith("category-")) {
-            const categoryId = parseInt(selectedId.replace("category-", ""), 10)
-            toggleCategory(categoryId)
-          }
-          break
-        case "m":
-          if (e.ctrlKey || e.metaKey) {
-            e.preventDefault()
-            if (selectedId?.startsWith("feed-")) {
-              setShowQuickMove(true)
-            }
-          }
-          break
-        case "Delete":
-        case "Backspace":
-          if (selectedId) {
-            e.preventDefault()
-            handleDelete(selectedId)
-          }
-          break
-        case "Escape":
-          // Don't clear selection if quick move dialog is open or just closed
-          if (showQuickMove || quickMoveJustClosedRef.current) {
-            quickMoveJustClosedRef.current = false
-            return
-          }
-          setSelectedId(null)
-          break
-      }
+          handleDelete(selectedId)
+        }
+        break
+      case "Escape":
+        // Don't clear selection if quick move dialog is open or just closed
+        if (showQuickMove || quickMoveJustClosedRef.current) {
+          quickMoveJustClosedRef.current = false
+          return
+        }
+        setSelectedId(null)
+        break
     }
+  }
 
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [selectedId, editingId, sortableIds, showQuickMove])
+  const latestKeyDown = useRef(handleKeyDown)
+
+  useLayoutEffect(() => {
+    latestKeyDown.current = handleKeyDown
+  })
+
+  useLayoutEffect(() => {
+    const listener = (e: KeyboardEvent) => latestKeyDown.current(e)
+    document.addEventListener("keydown", listener)
+    return () => document.removeEventListener("keydown", listener)
+  }, [])
 
   const navigateNext = () => {
     if (!selectedId) {

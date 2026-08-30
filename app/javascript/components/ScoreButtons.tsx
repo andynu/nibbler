@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useLayoutEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
 
 // Rainbow palette: Red, Orange, Green, Blue, Purple
@@ -37,36 +37,58 @@ export function ScoreButtons({
     setIsExpanded(score === 0)
   }, [score])
 
-  // Handle keyboard shortcuts
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Only handle when not in an input/textarea
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-      return
-    }
+  // Handle keyboard shortcuts.
+  //
+  // One listener, registered at mount, whose identity never changes. It closes
+  // over nothing and reads the props out of a ref at event time. Same shape and
+  // same reasoning as hooks/useKeyboardCommands.ts, which carries the long
+  // version: layout effects run inside the commit phase, synchronously and
+  // strictly before the browser may paint, so whenever the screen shows render
+  // N the ref already holds render N.
+  //
+  // The straightforward version - a useCallback over `score` and
+  // `onScoreChange` swapped in by a useEffect - had a window, because passive
+  // effects run after paint (ttrb-fuky). What arrived in that window here was
+  // not a dropped press but a misdirected write: `onScoreChange` in
+  // application.tsx is a fresh arrow over the current `selectedEntry`, and
+  // `loadEntry` is async, so the next entry's score paints when the response
+  // lands. A digit pressed at that moment ran the previous render's closure and
+  // scored the entry the reader had just navigated away from.
+  const latest = useRef({ score, onScoreChange, keyboardEnabled })
 
-    // Only enable keyboard when scored (collapsed state)
-    if (!keyboardEnabled || score === 0) return
+  useLayoutEffect(() => {
+    latest.current = { score, onScoreChange, keyboardEnabled }
+  })
 
-    const key = e.key
-    if (key >= "1" && key <= "5") {
-      e.preventDefault()
-      const newScore = parseInt(key, 10)
-      if (newScore !== score) {
-        onScoreChange(newScore)
+  useLayoutEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const { score, onScoreChange, keyboardEnabled } = latest.current
+
+      // Only handle when not in an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
       }
-    } else if (key === "0") {
-      e.preventDefault()
-      onScoreChange(0)
-      setIsExpanded(true)
-    }
-  }, [keyboardEnabled, score, onScoreChange])
 
-  useEffect(() => {
-    if (keyboardEnabled) {
-      document.addEventListener("keydown", handleKeyDown)
-      return () => document.removeEventListener("keydown", handleKeyDown)
+      // Only enable keyboard when scored (collapsed state)
+      if (!keyboardEnabled || score === 0) return
+
+      const key = e.key
+      if (key >= "1" && key <= "5") {
+        e.preventDefault()
+        const newScore = parseInt(key, 10)
+        if (newScore !== score) {
+          onScoreChange(newScore)
+        }
+      } else if (key === "0") {
+        e.preventDefault()
+        onScoreChange(0)
+        setIsExpanded(true)
+      }
     }
-  }, [keyboardEnabled, handleKeyDown])
+
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   const buttonSize = size === "sm" ? "h-5 min-w-5 text-xs" : "h-6 min-w-6 text-sm"
 
