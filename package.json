@@ -8,6 +8,7 @@
     "build": "esbuild app/javascript/application.tsx --bundle --sourcemap --format=esm --outdir=app/assets/builds --public-path=/assets --loader:.tsx=tsx --loader:.ts=ts --alias:@=./app/javascript",
     "build:css": "npx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --minify",
     "typecheck": "tsc --noEmit",
+    "lint:js": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -46,6 +47,8 @@
     "yarn": "^1.22.22"
   },
   "devDependencies": {
+    "@babel/core": "^8.0.1",
+    "@babel/eslint-parser": "^8.0.1",
     "@playwright/test": "^1.57.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.1",
@@ -56,6 +59,8 @@
     "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.1.10",
     "esbuild": "^0.28.2",
+    "eslint": "^10.9.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "happy-dom": "^20.0.11",
     "typescript": "^7.0.2",
     "vitest": "^4.0.16"
