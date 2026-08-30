@@ -28,10 +28,15 @@ vi.mock("@/lib/accentColors", () => ({
   DEFAULT_ACCENT_HUE: 217,
 }))
 
-// Mock i18n
+// Mock i18n. The language picker's own wiring is covered end to end, against
+// real i18next and a second language, in PreferencesPanel.language.test.tsx.
 vi.mock("@/lib/i18n", () => ({
   initI18n: vi.fn(),
-  changeLanguage: vi.fn(),
+  applyLanguage: vi.fn(),
+  resolveLanguage: vi.fn(() => "en"),
+  readStoredLanguage: vi.fn(() => undefined),
+  storeLanguage: vi.fn(),
+  isSupportedLanguage: vi.fn(() => false),
   SUPPORTED_LANGUAGES: [{ code: "en", name: "English" }],
   i18n: { language: "en" },
 }))

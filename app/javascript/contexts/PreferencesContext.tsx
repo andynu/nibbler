@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
 import { api, Preferences } from "@/lib/api"
 import { applyAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
+import { applyLanguage, readStoredLanguage, storeLanguage } from "@/lib/i18n"
 
 interface PreferencesContextValue {
   preferences: Preferences
@@ -57,13 +58,38 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     loadPreferences()
   }, [])
 
+  // The language a reader chose before the choice was stored server-side
+  // exists only in their browser. Reading "" back from the server and acting on
+  // it would silently put them in English on their next load, so adopt what
+  // the browser still holds and write it to the server, once. The picker
+  // clears that cache when the reader chooses "Browser default", which is what
+  // keeps this from undoing that choice.
+  const adoptStoredLanguage = async (serverLanguage: string): Promise<string> => {
+    if (serverLanguage) return serverLanguage
+
+    const cached = readStoredLanguage()
+    if (!cached) return ""
+
+    try {
+      await api.preferences.update({ user_language: cached })
+    } catch (error) {
+      console.error("Failed to store cached language preference:", error)
+    }
+    return cached
+  }
+
   const loadPreferences = async () => {
     try {
       const data = await api.preferences.get()
-      setPreferences(data)
+      const language = await adoptStoredLanguage(data.user_language)
+      setPreferences(language === data.user_language ? data : { ...data, user_language: language })
       // Apply accent colors when preferences are loaded
       const hue = parseInt(data.accent_hue, 10) || DEFAULT_ACCENT_HUE
       applyAccentColors(hue)
+      // user_language is the answer; localStorage is a cache of it, kept only
+      // so the paint before this request returns is in the right language.
+      storeLanguage(language)
+      await applyLanguage(language)
     } catch (error) {
       console.error("Failed to load preferences:", error)
       // Apply default accent colors on error

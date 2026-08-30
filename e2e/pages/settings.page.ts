@@ -121,6 +121,16 @@ export class SettingsPage {
     await this.page.getByRole("option", { name: label, exact: true }).click()
   }
 
+  getLanguageSelect(): Locator {
+    return this.page.getByRole("combobox", { name: "Language" })
+  }
+
+  /** Pick a language by its label, e.g. "English" or "Browser default". */
+  async selectLanguage(label: string): Promise<void> {
+    await this.getLanguageSelect().click()
+    await this.page.getByRole("option", { name: label, exact: true }).click()
+  }
+
   async getAppearanceSection(): Promise<Locator> {
     return this.page.getByText("Appearance")
   }

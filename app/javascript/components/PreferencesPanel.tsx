@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/select"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useTheme } from "@/contexts/ThemeContext"
-import { useI18n } from "@/contexts/I18nContext"
+import { useI18n, type LanguagePreference } from "@/contexts/I18nContext"
 import { applyAccentColors, generateAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
 import { SYSTEM_THEME, THEMES, normalizeThemeSelection } from "@/lib/themes"
 import type { LanguageCode } from "@/lib/i18n"
@@ -193,14 +193,18 @@ export function PreferencesPanel() {
               <Select
                 value={preferences.user_language || "auto"}
                 onValueChange={(value) => {
-                  if (value === "auto") {
-                    updatePreference("user_language", "")
-                  } else {
-                    setLanguage(value as LanguageCode)
-                  }
+                  // Both halves, both branches. setLanguage moves the running
+                  // interface and the cache it reads on the next first paint;
+                  // updatePreference is what makes the choice outlive this
+                  // browser. "auto" stores "", which is how the server records
+                  // "no language chosen".
+                  const language: LanguagePreference =
+                    value === "auto" ? "" : (value as LanguageCode)
+                  updatePreference("user_language", language)
+                  setLanguage(language)
                 }}
               >
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger id="language" className="w-[160px]">
                   <SelectValue placeholder="Browser default" />
                 </SelectTrigger>
                 <SelectContent>

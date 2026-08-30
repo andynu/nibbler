@@ -530,6 +530,39 @@ test.describe("Theme Selection", () => {
   })
 })
 
+test.describe("Language Selection", () => {
+  test.beforeEach(async ({ feedsPage }) => {
+    await feedsPage.waitForBranding()
+  })
+
+  // The picker used to change the language in the browser and nowhere else, so
+  // the account never learned about it and the control reset itself. The cache
+  // is cleared before the reload because it is the only thing that made the
+  // broken version look like it worked within one browser; what is left to
+  // carry the choice is the account.
+  test("the chosen language survives a reload on an empty cache", async ({
+    feedsPage,
+    settingsPage,
+    page,
+  }) => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
+    await settingsPage.selectLanguage("English")
+    await expect(settingsPage.getLanguageSelect()).toHaveText("English")
+
+    await page.evaluate(() => localStorage.removeItem("nibbler-language"))
+    await page.reload()
+    await feedsPage.waitForBranding()
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
+
+    await expect(settingsPage.getLanguageSelect()).toHaveText("English")
+    await expect(
+      page.evaluate(() => localStorage.getItem("nibbler-language"))
+    ).resolves.toBe("en")
+  })
+})
+
 /**
  * The `dark:` utilities against a disagreeing OS preference.
  *

@@ -2,19 +2,31 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { I18nProvider, useI18n } from "./I18nContext"
 
-// Mock i18n module
-const mockInitI18n = vi.fn()
-const mockChangeLanguage = vi.fn()
-
-vi.mock("@/lib/i18n", () => ({
-  initI18n: (...args: unknown[]) => mockInitI18n(...args),
-  changeLanguage: (...args: unknown[]) => mockChangeLanguage(...args),
-  SUPPORTED_LANGUAGES: [
+// A second language, so the catalog this context hands out has something to
+// distinguish. The app bundles English only.
+vi.mock("@/lib/i18n/languages", () => {
+  const SUPPORTED_LANGUAGES = [
     { code: "en", name: "English" },
     { code: "es", name: "Español" },
-  ],
-  i18n: { language: "en" },
-}))
+  ] as const
+  return {
+    SUPPORTED_LANGUAGES,
+    isSupportedLanguage: (code?: string | null) =>
+      !!code && SUPPORTED_LANGUAGES.some((language) => language.code === code),
+  }
+})
+
+// Only the i18next handoff is stubbed; the localStorage cache these tests read
+// through is the real one.
+const mockInitI18n = vi.fn()
+
+vi.mock("@/lib/i18n", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/i18n")>()
+  return {
+    ...actual,
+    initI18n: (...args: unknown[]) => mockInitI18n(...args),
+  }
+})
 
 // Mock react-i18next
 vi.mock("react-i18next", () => ({
@@ -49,7 +61,6 @@ describe("I18nContext", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
-    mockChangeLanguage.mockResolvedValue(undefined)
   })
 
   describe("initialization", () => {
