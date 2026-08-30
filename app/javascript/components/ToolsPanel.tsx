@@ -70,8 +70,20 @@ export function ToolsPanel() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
+            {/*
+              The href is set imperatively, not via the href prop. React 19
+              sanitizes javascript: URLs on their way to the DOM, replacing them
+              with `javascript:throw new Error('React has blocked a javascript:
+              URL as a security precaution.')`. Dragging the button to the
+              bookmarks bar then produced a bookmark that threw when clicked.
+              setAttribute bypasses that substitution, so the bookmark holds the
+              real code. Do not turn this back into href={minifiedBookmarklet}.
+              ToolsPanel.test.tsx asserts on the rendered href attribute.
+            */}
             <a
-              href={minifiedBookmarklet}
+              ref={(el) => {
+                el?.setAttribute("href", minifiedBookmarklet)
+              }}
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
               onClick={(e) => e.preventDefault()}
               draggable
