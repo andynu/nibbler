@@ -189,7 +189,7 @@ export function SubscribeFeedDialog({
             {preview && (
               <div className="rounded-md border bg-muted/50 p-3 space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-success" />
                   <span className="font-medium">Feed found</span>
                 </div>
                 <div className="grid gap-1 text-sm">

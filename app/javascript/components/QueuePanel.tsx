@@ -108,7 +108,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
         {item.status === "ready" && (
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <CheckCircle2 className="h-4 w-4 text-success" />
         )}
         {item.status === "error" && (
           <AlertCircle className="h-4 w-4 text-destructive" />

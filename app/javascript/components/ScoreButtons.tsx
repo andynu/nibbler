@@ -3,6 +3,12 @@ import { cn } from "@/lib/utils"
 
 // Rainbow palette: Red, Orange, Green, Blue, Purple
 // Each color has a border/text color and a filled background color
+//
+// Deliberately literal rather than theme tokens (ttrb-x7fn). The five colours
+// encode an ordinal scale, so they have to stay distinguishable from each other
+// and in the same order on every palette; deriving them per-theme would give
+// five sets that a reader who switches themes has to relearn. Same reasoning as
+// lib/tag-colors.ts.
 const SCORE_COLORS: Record<number, { color: string; bg: string }> = {
   1: { color: "#cc0000", bg: "#cc0000" },     // Scarlet Red
   2: { color: "#f57900", bg: "#f57900" },     // Orange

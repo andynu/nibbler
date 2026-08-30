@@ -1,5 +1,13 @@
 // Rainbow palette with good contrast for tag display
 // Each color has a background and foreground color for accessibility
+//
+// Deliberately literal rather than theme tokens (ttrb-x7fn). A tag chip carries
+// its own fill and its own text colour, so its legibility is a property of the
+// pair and not of the page it sits on: the same chip reads the same on all five
+// palettes. The identity is also the point -- a tag is recognised by being the
+// same colour everywhere -- and the values reach the database as per-tag
+// fg_color/bg_color, so they outlive any theme the reader picks.
+// See also LabelManager.tsx (the picker offering these) and ScoreButtons.tsx.
 
 interface TagColor {
   bg: string

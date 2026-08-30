@@ -93,7 +93,7 @@ function NextSyncIndicator({ feed }: { feed: Feed }) {
           <span
             className={cn(
               "flex items-center gap-0.5 text-xs shrink-0",
-              ready ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+              ready ? "text-success" : "text-muted-foreground"
             )}
           >
             {ready ? (

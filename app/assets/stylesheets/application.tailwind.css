@@ -27,11 +27,25 @@
   --color-secondary: hsl(0 0% 96.1%);
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 96.1%);
-  --color-muted-foreground: hsl(0 0% 45.1%);
+  /* 44%, not shadcn's 45.1%. At 45.1% this token measures 4.35:1 on
+     --color-muted, which is under AA for normal text, and it is used at 12px
+     (ThemePicker's group headings, FeedOrganizer's sync labels). 44% is
+     rgb(112,112,112), the lightest grey that clears 4.5:1 on muted: 4.54 on
+     muted, 4.95 on background. See ttrb-x7fn. */
+  --color-muted-foreground: hsl(0 0% 44%);
   --color-accent: hsl(0 0% 96.1%);
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 84.2% 60.2%);
   --color-destructive-foreground: hsl(0 0% 98%);
+  /* Success and warning. Every palette must supply these: they are what the
+     status states paint with, and hardcoded Tailwind palette utilities
+     (text-green-600, bg-yellow-50, ...) are what this token pair replaced.
+     Each palette's values are chosen to clear 4.5:1 against that palette's own
+     --color-muted, which is the harder of the two surfaces they land on
+     (--color-background is lighter on light bases and darker on dark ones), so
+     they hold as 12px text as well as as icons. Measurements in ttrb-x7fn. */
+  --color-success: hsl(145 80% 26%);
+  --color-warning: hsl(40 95% 29%);
   --color-border: hsl(0 0% 89.8%);
   --color-input: hsl(0 0% 89.8%);
   --color-ring: hsl(0 0% 3.9%);
@@ -72,9 +86,27 @@
   .tts-word {
     transition: background-color 0.15s ease-out, color 0.15s ease-out, box-shadow 0.15s ease-out;
   }
+  /* The highlight pairs below take both halves from the accent ramp
+     applyAccentColors derives from the reader's hue (lib/accentColors.ts).
+     Which halves matters, because the ramp is fixed-lightness HSL: every step
+     holds its L across the hue wheel, but relative luminance does not, so a
+     yellow --color-accent-primary is roughly six times as bright as a blue one
+     at the same L. Pairing anything against `primary` therefore holds at some
+     hues and collapses at others.
+
+     Measured over the wheel at 15-degree steps (ttrb-x7fn):
+
+       primary bg + white text (was here)      1.51:1 at h60, under 4.5 at 16/24 hues
+       lighter bg + `dark` text (was here)     2.61:1 at h60, under 4.5 at 11/24 hues
+       darker bg + `light` text (dark base)    4.95:1 worst, clears 4.5 at every hue
+       lighter bg + `darker` text (light base) 7.83:1 worst, clears 4.5 at every hue
+
+     The two survivors pair steps from opposite ends of the ramp, which is what
+     makes them hue-stable: `lighter` (L 92%) and `darker` (L 20%) stay light
+     and dark respectively whatever the hue does. */
   .tts-word-active {
     background-color: var(--color-accent-primary-lighter);
-    color: var(--color-accent-primary-dark);
+    color: var(--color-accent-primary-darker);
     border-radius: 3px;
     padding: 0 2px;
     margin: 0 -2px;
@@ -83,8 +115,8 @@
   }
   /* Dark mode TTS highlighting - use darker background with light text */
   .dark .tts-word-active {
-    background-color: var(--color-accent-primary);
-    color: white;
+    background-color: var(--color-accent-primary-darker);
+    color: var(--color-accent-primary-light);
     box-shadow: 0 0 0 2px var(--color-accent-primary-light);
   }
 
@@ -93,14 +125,14 @@
      against a dark theme, so both themes are set explicitly. */
   .search-mark {
     background-color: var(--color-accent-primary-lighter);
-    color: var(--color-accent-primary-dark);
+    color: var(--color-accent-primary-darker);
     border-radius: 2px;
     padding: 0 1px;
     font-weight: 500;
   }
   .dark .search-mark {
-    background-color: var(--color-accent-primary-dark);
-    color: white;
+    background-color: var(--color-accent-primary-darker);
+    color: var(--color-accent-primary-light);
   }
 
   /* Named theme palettes.
@@ -137,11 +169,13 @@
     --color-secondary: hsl(0 0% 96.1%);
     --color-secondary-foreground: hsl(0 0% 9%);
     --color-muted: hsl(0 0% 96.1%);
-    --color-muted-foreground: hsl(0 0% 45.1%);
+    --color-muted-foreground: hsl(0 0% 44%);
     --color-accent: hsl(0 0% 96.1%);
     --color-accent-foreground: hsl(0 0% 9%);
     --color-destructive: hsl(0 84.2% 60.2%);
     --color-destructive-foreground: hsl(0 0% 98%);
+    --color-success: hsl(145 80% 26%);
+    --color-warning: hsl(40 95% 29%);
     --color-border: hsl(0 0% 89.8%);
     --color-input: hsl(0 0% 89.8%);
     --color-ring: hsl(0 0% 3.9%);
@@ -164,6 +198,8 @@
     --color-accent-foreground: hsl(0 0% 98%);
     --color-destructive: hsl(0 62.8% 30.6%);
     --color-destructive-foreground: hsl(0 0% 98%);
+    --color-success: hsl(145 55% 48%);
+    --color-warning: hsl(42 75% 50%);
     --color-border: hsl(0 0% 14.9%);
     --color-input: hsl(0 0% 14.9%);
     --color-ring: hsl(0 0% 83.1%);
@@ -193,6 +229,10 @@
        against a background that is itself much lighter than #0a0a0a. */
     --color-destructive: hsl(6 95% 63%);
     --color-destructive-foreground: hsl(20 6% 16%);
+    /* Olive-leaning green rather than the emerald the greyscale pair uses, so
+       success sits in gruvbox's warm family instead of reading as an import. */
+    --color-success: hsl(105 45% 56%);
+    --color-warning: hsl(45 65% 55%);
     --color-border: hsl(22 7% 27%);
     --color-input: hsl(22 7% 27%);
     --color-ring: hsl(39 24% 66%);
@@ -217,6 +257,8 @@
     --color-accent-foreground: hsl(20 5% 22%);
     --color-destructive: hsl(358 100% 31%);
     --color-destructive-foreground: hsl(48 87% 88%);
+    --color-success: hsl(115 80% 21%);
+    --color-warning: hsl(35 95% 24%);
     --color-border: hsl(40 38% 76%);
     --color-input: hsl(40 38% 76%);
     --color-ring: hsl(27 10% 36%);
@@ -242,6 +284,8 @@
     --color-accent-foreground: hsl(29 17% 25%);
     --color-destructive: hsl(10 56% 36%);
     --color-destructive-foreground: hsl(43 56% 90%);
+    --color-success: hsl(125 55% 25%);
+    --color-warning: hsl(30 75% 28%);
     --color-border: hsl(41 35% 79%);
     --color-input: hsl(41 35% 79%);
     --color-ring: hsl(33 22% 34%);

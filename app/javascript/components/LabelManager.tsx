@@ -14,6 +14,9 @@ import {
 import { api, Tag } from "@/lib/api"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 
+// Deliberately literal rather than theme tokens (ttrb-x7fn): these are the
+// swatches offered for a tag's stored fg_color/bg_color, and a tag chip carries
+// its own fill and text colour. See lib/tag-colors.ts for the full reasoning.
 const DEFAULT_COLORS = [
   { fg: "#ffffff", bg: "#ef4444" }, // Red
   { fg: "#ffffff", bg: "#f97316" }, // Orange

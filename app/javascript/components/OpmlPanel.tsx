@@ -137,20 +137,20 @@ export function OpmlPanel({ onImportComplete }: OpmlPanelProps) {
               <span className="text-muted-foreground">
                 Found {preview.total} feeds:
               </span>
-              <span className="text-green-600">
+              <span className="text-success">
                 {preview.new_feeds} new
               </span>
-              <span className="text-yellow-600">
+              <span className="text-warning">
                 {preview.existing_feeds} already subscribed
               </span>
             </div>
 
             {preview.errors.length > 0 && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm font-medium text-yellow-800 mb-1">
+              <div className="p-3 bg-warning/10 border border-warning/20 rounded-md">
+                <p className="text-sm font-medium text-warning mb-1">
                   Warnings:
                 </p>
-                <ul className="text-sm text-yellow-700 list-disc pl-4">
+                <ul className="text-sm text-warning list-disc pl-4">
                   {preview.errors.map((err, i) => (
                     <li key={i}>{err}</li>
                   ))}
@@ -170,7 +170,7 @@ export function OpmlPanel({ onImportComplete }: OpmlPanelProps) {
                   >
                     <FileCheck className={cn(
                       "h-4 w-4 shrink-0",
-                      feed.exists ? "text-muted-foreground" : "text-green-600"
+                      feed.exists ? "text-muted-foreground" : "text-success"
                     )} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{feed.title}</p>
@@ -201,11 +201,11 @@ export function OpmlPanel({ onImportComplete }: OpmlPanelProps) {
 
         {importResult && (
           <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-md flex items-start gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+            <div className="p-4 bg-success/10 border border-success/20 rounded-md flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-green-800">Import Complete</p>
-                <p className="text-sm text-green-700 mt-1">{importResult.summary}</p>
+                <p className="font-medium text-success">Import Complete</p>
+                <p className="text-sm text-success mt-1">{importResult.summary}</p>
               </div>
             </div>
             <Button variant="outline" onClick={handleReset}>

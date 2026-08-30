@@ -151,7 +151,7 @@ export function SmartFolderIcon({
     <span className="relative inline-flex">
       <Icon className={className} style={iconColor ? { color: iconColor } : undefined} />
       <Sparkles
-        className="absolute -top-1 -right-1 h-2.5 w-2.5 text-amber-500"
+        className="absolute -top-1 -right-1 h-2.5 w-2.5 text-warning"
         strokeWidth={2.5}
       />
     </span>

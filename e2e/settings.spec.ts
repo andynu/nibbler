@@ -591,64 +591,189 @@ test.describe("Theme Selection", () => {
     }
   })
 
-  // The reason these palettes exist is that the greyscale pair sits near 20:1
-  // and vibrates. Lower contrast is the point, so the floor has to be checked
-  // rather than assumed: body text and the muted foreground both stay above
-  // WCAG AA at normal size.
+  // The reason the warm palettes exist is that the greyscale pair sits near
+  // 20:1 and vibrates. Lower contrast is the point, so the floor has to be
+  // checked rather than assumed.
   //
-  // Only the low-contrast palettes are asserted. The stock Light theme already
-  // sits at 4.35 for muted-foreground on muted and would fail this bar; that
-  // predates the named themes and belongs to the colour audit (ttrb-x7fn), not
-  // here. Dark passes at 6.0.
-  test("the low-contrast palettes keep body and muted text above WCAG AA", async ({
+  // All five palettes, and the status tokens as well as the text ones
+  // (ttrb-x7fn). Light used to be excluded here: --color-muted-foreground sat
+  // at 4.35:1 on --color-muted, under AA. The token is now 44% rather than
+  // shadcn's 45.1%, which puts it at 4.54, so nothing is exempt any more.
+  //
+  // The bar is 4.5:1, WCAG AA for normal text, applied to the two status
+  // tokens as well: `text-success` and `text-warning` paint 12px text in
+  // FeedOrganizer's sync indicator and 14px in OpmlPanel, and 12px is normal
+  // text, not large. Clearing 4.5 subsumes the 3:1 non-text minimum for the
+  // same tokens used as icon fills.
+  //
+  // --color-destructive is deliberately absent. It fails on both stock
+  // palettes (1.98:1 on Dark, 3.76:1 on Light) because shadcn ships it as a
+  // fill colour while this app paints it as text in 29 places; the three
+  // hand-authored palettes already pass. Fixing it moves the destructive
+  // Button's appearance, so it is ttrb-x7zz rather than part of this guard.
+  const CONTRAST_PAIRS = [
+    ["--color-foreground", "--color-background"],
+    ["--color-muted-foreground", "--color-background"],
+    ["--color-muted-foreground", "--color-muted"],
+    ["--color-success", "--color-background"],
+    ["--color-success", "--color-muted"],
+    ["--color-warning", "--color-background"],
+    ["--color-warning", "--color-muted"],
+  ] as const
+
+  for (const theme of THEMES) {
+    test(`${theme.name} keeps body, muted and status text above WCAG AA`, async ({
+      feedsPage,
+      settingsPage,
+      page,
+    }) => {
+      await feedsPage.openSettings()
+      await settingsPage.goToPreferencesTab()
+      await settingsPage.selectTheme(theme.name)
+
+      // Reported as one labelled row per pair rather than a single minimum, so
+      // a failure names the token that dropped instead of only a number.
+      // transition-colors means a measurement taken immediately after the swap
+      // catches the animation mid-flight; poll until the values settle.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              ([pairs, bar]) => {
+                // Tailwind emits its own palette in oklch and the theme tokens
+                // in hsl, and getComputedStyle hands both back in the notation
+                // they were written in. A canvas is what resolves any of them
+                // to the sRGB triple the screen actually shows.
+                const canvas = document.createElement("canvas")
+                canvas.width = canvas.height = 1
+                const ctx = canvas.getContext("2d", { willReadFrequently: true })!
+                const srgb = (color: string) => {
+                  ctx.clearRect(0, 0, 1, 1)
+                  ctx.fillStyle = "rgb(255,255,255)"
+                  ctx.fillRect(0, 0, 1, 1)
+                  ctx.fillStyle = color
+                  ctx.fillRect(0, 0, 1, 1)
+                  const d = ctx.getImageData(0, 0, 1, 1).data
+                  return [d[0], d[1], d[2]] as const
+                }
+                const channel = (c: number) =>
+                  c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+                const luminance = ([r, g, b]: readonly [number, number, number]) =>
+                  0.2126 * channel(r / 255) +
+                  0.7152 * channel(g / 255) +
+                  0.0722 * channel(b / 255)
+                const ratio = (
+                  a: readonly [number, number, number],
+                  b: readonly [number, number, number]
+                ) => {
+                  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+                  return (hi + 0.05) / (lo + 0.05)
+                }
+
+                const styles = getComputedStyle(document.documentElement)
+                const resolve = (token: string) =>
+                  srgb(styles.getPropertyValue(token).trim())
+
+                return pairs.map(([fg, bg]) => {
+                  const value = ratio(resolve(fg), resolve(bg))
+                  return `${fg} on ${bg}: ${value >= bar ? "pass" : value.toFixed(2)}`
+                })
+              },
+              [CONTRAST_PAIRS.map(([fg, bg]) => [fg, bg] as const), 4.5] as const
+            ),
+          { message: theme.id }
+        )
+        .toEqual(CONTRAST_PAIRS.map(([fg, bg]) => `${fg} on ${bg}: pass`))
+    })
+  }
+
+  // The TTS and search highlights take both halves of their colour pair from
+  // the accent ramp applyAccentColors derives from the reader's hue, so their
+  // contrast is a function of that hue and not of the palette. The ramp is
+  // fixed-lightness HSL, which holds L across the wheel but not luminance: a
+  // yellow --color-accent-primary is roughly six times as bright as a blue one
+  // at the same L. Pairing against `primary` therefore held at some hues and
+  // collapsed at others -- white on primary measured 1.51:1 at hue 60 before
+  // ttrb-x7fn -- so the whole wheel is swept rather than the default hue.
+  test("the accent highlights stay above WCAG AA at every hue", async ({
     feedsPage,
-    settingsPage,
     page,
   }) => {
-    await feedsPage.openSettings()
-    await settingsPage.goToPreferencesTab()
+    await feedsPage.waitForBranding()
 
-    for (const { label } of PALETTES) {
-      await settingsPage.selectTheme(label)
-      // transition-colors means a measurement taken immediately after the swap
-      // catches the animation mid-flight; wait for the value to settle.
-      await expect
-        .poll(() =>
-          page.evaluate(() => {
-            const styles = getComputedStyle(document.body)
-            const channel = (c: number) =>
-              c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-            const luminance = (color: string) => {
-              const [r, g, b] = color.match(/[\d.]+/g)!.map((v) => Number(v) / 255)
-              return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-            }
-            const ratio = (a: string, b: string) => {
-              const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
-              return (hi + 0.05) / (lo + 0.05)
-            }
+    const failures = await page.evaluate(() => {
+      const canvas = document.createElement("canvas")
+      canvas.width = canvas.height = 1
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!
+      const srgb = (color: string) => {
+        ctx.clearRect(0, 0, 1, 1)
+        ctx.fillStyle = "rgb(255,255,255)"
+        ctx.fillRect(0, 0, 1, 1)
+        ctx.fillStyle = color
+        ctx.fillRect(0, 0, 1, 1)
+        const d = ctx.getImageData(0, 0, 1, 1).data
+        return [d[0], d[1], d[2]] as const
+      }
+      const channel = (c: number) =>
+        c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+      const luminance = ([r, g, b]: readonly [number, number, number]) =>
+        0.2126 * channel(r / 255) + 0.7152 * channel(g / 255) + 0.0722 * channel(b / 255)
+      const ratio = (
+        a: readonly [number, number, number],
+        b: readonly [number, number, number]
+      ) => {
+        const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+        return (hi + 0.05) / (lo + 0.05)
+      }
 
-            const read = (token: string) =>
-              getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+      const root = document.documentElement
+      const wasDark = root.classList.contains("dark")
+      const failures: string[] = []
+
+      // The same derivation as generateAccentColors in lib/accentColors.ts.
+      // Written out rather than imported because the highlights read the CSS
+      // variables, so the sweep has to set those; importing the function would
+      // test the stylesheet against itself only at whatever hue is stored.
+      for (let hue = 0; hue < 360; hue += 15) {
+        root.style.setProperty("--color-accent-primary", `hsl(${hue}, 70%, 50%)`)
+        root.style.setProperty("--color-accent-primary-lighter", `hsl(${hue}, 40%, 92%)`)
+        root.style.setProperty("--color-accent-primary-light", `hsl(${hue}, 60%, 70%)`)
+        root.style.setProperty("--color-accent-primary-dark", `hsl(${hue}, 75%, 35%)`)
+        root.style.setProperty("--color-accent-primary-darker", `hsl(${hue}, 50%, 20%)`)
+
+        for (const dark of [false, true]) {
+          root.classList.toggle("dark", dark)
+          for (const className of ["tts-word-active", "search-mark"]) {
             const probe = document.createElement("span")
+            probe.className = className
+            probe.textContent = "x"
             document.body.appendChild(probe)
-            const resolve = (token: string) => {
-              probe.style.color = read(token)
-              return getComputedStyle(probe).color
-            }
-            const background = styles.backgroundColor
-            const muted = resolve("--color-muted")
-            const mutedForeground = resolve("--color-muted-foreground")
+            const styles = getComputedStyle(probe)
+            const value = ratio(srgb(styles.color), srgb(styles.backgroundColor))
             probe.remove()
+            if (value < 4.5) {
+              failures.push(
+                `${dark ? "dark" : "light"} .${className} at hue ${hue}: ${value.toFixed(2)}`
+              )
+            }
+          }
+        }
+      }
 
-            return Math.min(
-              ratio(styles.color, background),
-              ratio(mutedForeground, background),
-              ratio(mutedForeground, muted)
-            )
-          })
-        )
-        .toBeGreaterThanOrEqual(4.5)
-    }
+      for (const token of [
+        "--color-accent-primary",
+        "--color-accent-primary-lighter",
+        "--color-accent-primary-light",
+        "--color-accent-primary-dark",
+        "--color-accent-primary-darker",
+      ]) {
+        root.style.removeProperty(token)
+      }
+      root.classList.toggle("dark", wasDark)
+      return failures
+    })
+
+    expect(failures).toEqual([])
   })
 
   // The picker used to write the choice to localStorage and nowhere else, so
@@ -745,12 +870,35 @@ test.describe("Language Selection", () => {
  *
  * Both directions have to be emulated: with the OS and the palette agreeing,
  * the broken build and the fixed one are indistinguishable. The logo is the
- * probe because `dark:bg-white` paints a white disc behind it, which is the
+ * probe because `dark:bg-foreground` paints a plate behind it, which is the
  * one difference a reader notices, and because the img needs no interaction to
  * reach.
  */
-const LOGO_DISC = "rgb(255, 255, 255)"
 const NO_DISC = "rgba(0, 0, 0, 0)"
+
+/**
+ * The disc colour a dark palette should paint, read off that palette rather
+ * than written down here.
+ *
+ * The utility is `dark:bg-foreground`, not `dark:bg-white` (ttrb-x7fn): the
+ * logo art is black linework on transparency and needs a light plate, but a
+ * white one is a white disc on a cream page under Gruvbox Dark. Asserting the
+ * palette's own `--color-foreground` is what makes this test say "the plate is
+ * this palette's light colour" instead of "the plate is white", so a palette
+ * added later needs no literal here.
+ */
+async function paletteForeground(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const probe = document.createElement("span")
+    document.body.appendChild(probe)
+    probe.style.color = getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-foreground")
+      .trim()
+    const resolved = getComputedStyle(probe).color
+    probe.remove()
+    return resolved
+  })
+}
 
 /**
  * Background painted behind the sidebar logo.
@@ -796,7 +944,7 @@ test.describe("dark: utilities on a light-preference OS", () => {
       await pinTheme(feedsPage, settingsPage, label)
 
       await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
-      await expect.poll(() => logoBackground(page)).toBe(LOGO_DISC)
+      await expect.poll(() => logoBackground(page)).toBe(await paletteForeground(page))
     })
   }
 })
@@ -815,7 +963,7 @@ test.describe("dark: utilities on a dark-preference OS", () => {
   }) => {
     // "system" resolves through the OS preference, so the disc is there first.
     await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
-    await expect.poll(() => logoBackground(page)).toBe(LOGO_DISC)
+    await expect.poll(() => logoBackground(page)).toBe(await paletteForeground(page))
 
     await pinTheme(feedsPage, settingsPage, "Sepia")
 
@@ -834,7 +982,7 @@ test.describe("dark: utilities on a dark-preference OS", () => {
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
     await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)
-    await expect.poll(() => logoBackground(page)).toBe(LOGO_DISC)
+    await expect.poll(() => logoBackground(page)).toBe(await paletteForeground(page))
   })
 })
 

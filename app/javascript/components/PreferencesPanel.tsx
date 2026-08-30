@@ -130,6 +130,11 @@ export function PreferencesPanel() {
                 }}
                 className="w-32 h-2 rounded-lg appearance-none cursor-pointer"
                 style={{
+                  // Deliberately literal rather than theme tokens (ttrb-x7fn):
+                  // this track is the hue wheel the slider selects from, so it
+                  // has to show the actual hues at the saturation and lightness
+                  // generateAccentColors will use. Tinting it per palette would
+                  // make it lie about what the reader is picking.
                   background: `linear-gradient(to right,
                     hsl(0, 70%, 50%),
                     hsl(60, 70%, 50%),
