@@ -27,6 +27,7 @@ import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useCategoryNavigation } from "@/hooks/useCategoryNavigation"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
+import { useCableHeartbeat } from "@/hooks/useCableHeartbeat"
 import { useNewEntries } from "@/hooks/useNewEntries"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
@@ -1418,6 +1419,11 @@ function App() {
 
 function AuthenticatedApp() {
   const { isLoading, isAuthenticated } = useAuth()
+
+  // Above the early returns because the rules of hooks say so, and gated on
+  // isAuthenticated because ApplicationCable::Connection rejects a socket with
+  // no session: opening one from the login screen would only ever be refused.
+  useCableHeartbeat(isAuthenticated)
 
   if (isLoading) {
     return (

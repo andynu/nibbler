@@ -23,7 +23,13 @@ FileUtils.chdir APP_ROOT do
   #   FileUtils.cp "config/database.yml.sample", "config/database.yml"
   # end
 
-  puts "\n== Preparing database =="
+  # db:prepare walks every entry under `development` in config/database.yml, so
+  # this creates and loads ttrb_development_cable (db/cable_schema.rb) as well as
+  # the primary. Development runs the solid_cable Action Cable adapter rather
+  # than :async -- see the comment in config/cable.yml -- and a missing cable
+  # database does not announce itself: the app boots, pages render, and the
+  # first subscribe raises PG::UndefinedTable somewhere nobody is watching.
+  puts "\n== Preparing databases (primary and cable) =="
   system! "bin/rails db:prepare"
   system! "bin/rails db:reset" if ARGV.include?("--reset")
 
