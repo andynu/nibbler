@@ -39,6 +39,29 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, json["pagination"]["total"]
   end
 
+  test "drops an entry carrying an excluded term" do
+    subscribe(create_entry(title: "Quokka Census Published"))
+    subscribe(create_entry(title: "Quokka Census Delayed", content: "<p>The wombat survey took the budget.</p>"))
+
+    get api_v1_search_url, params: { q: "quokka -wombat" }
+
+    assert_response :success
+    assert_equal [ "Quokka Census Published" ], titles
+  end
+
+  # A search with nothing to look for is answered rather than run: !'wombat'
+  # matches almost every row in the shared entries table and the GIN index
+  # cannot serve it. The message is what the reader sees, so it has to say what
+  # to do about it.
+  test "refuses a query that only excludes" do
+    subscribe(create_entry(title: "Quokka Census Published"))
+
+    get api_v1_search_url, params: { q: "-wombat" }
+
+    assert_response :unprocessable_entity
+    assert_includes json["error"], "word to search for"
+  end
+
   test "does not return an entry another user subscribes to" do
     entry = create_entry(title: "Quokkas Return To Rottnest")
     other_feed = Feed.create!(user: users(:two), title: "Other", feed_url: "https://example.com/other.rss")
@@ -128,6 +151,31 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     snippet = json["entries"].first["snippet"]
     assert_includes snippet, "study"
     assert_includes snippet, marked("study")
+  end
+
+  # ts_headline does not read the negation: hand it "wombat -quokka" over a
+  # document holding both words and it marks both, verified against the running
+  # server. What keeps an excluded term out of a snippet is the predicate above
+  # it, since a row that came back cannot contain the term it was selected for
+  # not containing. This pins the end result rather than the reasoning, so a
+  # future change to either half is caught by it.
+  test "an excluded term is never marked in a snippet" do
+    subscribe(create_entry(
+      title: "Field Notes",
+      content: "<p>The wombat burrow collapsed overnight.</p>"
+    ))
+    subscribe(create_entry(
+      title: "Other Notes",
+      content: "<p>The wombat and the quokka shared a burrow.</p>"
+    ))
+
+    get api_v1_search_url, params: { q: "wombat -quokka" }
+
+    assert_response :success
+    assert_equal [ "Field Notes" ], titles
+    snippet = json["entries"].first["snippet"]
+    assert_includes snippet, marked("wombat")
+    assert_not_includes snippet, "quokka"
   end
 
   test "leaves the entry title unmarked so it stays the plain title" do

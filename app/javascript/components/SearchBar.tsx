@@ -126,6 +126,22 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
             </button>
           )}
         </div>
+        {/* The query goes to websearch_to_tsquery, so the box takes three
+            operators, and an operator nobody has been told about is one nobody
+            types. The moment to say so is while the reader is deciding what to
+            type, which is also the moment the scope pills below have no result
+            set to describe: the two rows share the space rather than stack. */}
+        {value === "" && (
+          <p
+            role="note"
+            aria-label="Search syntax"
+            className="mt-1 text-[11px] text-muted-foreground"
+          >
+            <SyntaxToken>-word</SyntaxToken> excludes,{" "}
+            <SyntaxToken>&quot;exact phrase&quot;</SyntaxToken> keeps words together,{" "}
+            <SyntaxToken>this or that</SyntaxToken> matches either
+          </p>
+        )}
         {/* Only once there is a query: an idle box has no result set whose
             scope needs describing, and the pills would just be chrome. */}
         {scope && value !== "" && <SearchScopeControls {...scope} />}
@@ -133,3 +149,12 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
     )
   }
 )
+
+/**
+ * One operator, shown as the reader would type it. Monospace and a shade
+ * darker than the surrounding sentence, so the row reads as three examples
+ * with prose between them rather than as a paragraph about searching.
+ */
+function SyntaxToken({ children }: { children: string }) {
+  return <code className="font-mono text-foreground/80">{children}</code>
+}

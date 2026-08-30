@@ -6,6 +6,7 @@ module Api
       # GET /api/v1/search?q=query
       def index
         return render_empty_results if params[:q].blank?
+        return render_nothing_to_search_for if Entry.excludes_only?(params[:q])
 
         # The same scoping vocabulary the entry list reads, applied to the same
         # shape of relation, so a search is the intersection of the query and
@@ -68,6 +69,16 @@ module Api
           entries: [],
           pagination: { page: 1, per_page: 50, total: 0, total_pages: 0 }
         }
+      end
+
+      # An answer rather than a run. "-wombat" alone is a valid tsquery that
+      # matches almost every row in the shared entries table, and one the GIN
+      # index cannot serve, so the honest response is to say what is missing
+      # from the query. The client renders this string, so it names the fix.
+      def render_nothing_to_search_for
+        render json: {
+          error: 'Add a word to search for. "-term" on its own only says what to leave out.'
+        }, status: :unprocessable_entity
       end
 
       # One extra query for the page's excerpts, keyed by entry id.

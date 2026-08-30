@@ -61,7 +61,7 @@ class Entry < ApplicationRecord
 
   # Full-text search using PostgreSQL tsvector, most relevant first.
   scope :search, ->(query) {
-    return none if query.blank?
+    return none if query.blank? || excludes_only?(query)
 
     where(Arel.sql(text_search_condition(query)))
       .order(Arel.sql("#{text_search_rank(query)} DESC"))
@@ -100,14 +100,46 @@ class Entry < ApplicationRecord
     "ts_headline('english', #{SEARCH_DOCUMENT_SQL}, #{tsquery_sql(query)}, #{connection.quote(options)})"
   end
 
-  # The query is a phrase to be tokenised, not a LIKE pattern. This used to run
-  # through sanitize_sql_like first, which named a protection that was not the
-  # one in force here: measured against plainto_tsquery, foo_bar, 50%, C_plus
-  # and back\slash all produce an identical tsquery with and without the
-  # escaping, because the text search parser already treats _, % and \ as
-  # separators. What actually keeps this safe is connection.quote.
+  # True when the query says only what to leave out: "-oil", or "-oil -gas".
+  #
+  # Such a query is a valid tsquery -- !'oil' -- and it matches every article
+  # that does not mention oil, which is nearly the whole shared entries table.
+  # The GIN index cannot answer a pure negation, so PostgreSQL falls back to a
+  # sequential scan to produce a result set nobody asked for. The caller is
+  # expected to say so rather than run it.
+  #
+  # Asked of PostgreSQL rather than parsed here, because the question is what
+  # the real parser made of the string. A tsquery matches the empty document
+  # exactly when every branch it can be satisfied by is a negation, which is the
+  # definition wanted: "climate -oil" needs a lexeme and fails, "climate or
+  # -oil" can be satisfied by the negated branch alone and passes. An all
+  # stopword query ("a -the") parses to the empty tsquery, which matches nothing
+  # at all and so is not this case.
+  def self.excludes_only?(query)
+    return false if query.blank?
+
+    connection.select_value("SELECT ''::tsvector @@ #{tsquery_sql(query)}")
+  end
+
+  # The query is a search box's worth of text handed to websearch_to_tsquery,
+  # the one PostgreSQL parser meant for input a person typed. Bare words are
+  # ANDed, exactly as plainto_tsquery did before it, and three operators are
+  # honoured on top of that: a leading "-" negates, "quoted words" become a
+  # phrase, and a bare "or" alternates.
+  #
+  # It is also the parser that cannot fail. to_tsquery raises on malformed
+  # input, which a search box guarantees a supply of; websearch_to_tsquery
+  # returns the empty tsquery instead. Verified against the running server for
+  # an unmatched double quote, a lone "-", a bare "or", the tsquery operators
+  # themselves and an empty string: no error, no match.
+  #
+  # This is not a LIKE pattern, so there is no sanitize_sql_like call. That was
+  # dropped as a no-op against plainto_tsquery and it stays a no-op here:
+  # foo_bar, 50%, C_plus and back\slash each produce an identical tsquery with
+  # and without the escaping, because _, % and \ are separators to the text
+  # search parser under either function. What keeps this safe is connection.quote.
   def self.tsquery_sql(query)
-    "plainto_tsquery('english', #{connection.quote(query.to_s)})"
+    "websearch_to_tsquery('english', #{connection.quote(query.to_s)})"
   end
   private_class_method :tsquery_sql
 end

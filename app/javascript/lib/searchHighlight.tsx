@@ -16,10 +16,17 @@ function escapeRegExp(value: string): string {
 /**
  * The words of `query` that are worth marking: punctuation trimmed off each
  * end, blanks and single characters dropped, duplicates removed.
+ *
+ * Two tokens of the search syntax are dropped before any of that, because they
+ * are instructions rather than words to look for. A `-term` is an exclusion, so
+ * a row that came back is guaranteed not to contain it and marking it could
+ * only be a false positive; a bare `or` is the alternation operator, and left
+ * in it would mark every "order" and "Oregon" in a result title.
  */
 export function searchTerms(query: string): string[] {
   const terms = query
     .split(/\s+/)
+    .filter((term) => !term.startsWith("-") && term.toLowerCase() !== "or")
     .map((term) => term.replace(/^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_]+$/gu, ""))
     .filter((term) => term.length >= MIN_TERM_LENGTH)
 
@@ -40,9 +47,9 @@ export function searchTerms(query: string): string[] {
  * characters rather than as an element.
  *
  * Matching is looser than the search that produced the hit, on purpose.
- * Postgres puts the query through `plainto_tsquery`, which stems, so a result
- * can come back with no literal occurrence of what was typed. Anchoring each
- * term at a word start and extending the mark over the rest of the word
+ * Postgres puts the query through `websearch_to_tsquery`, which stems, so a
+ * result can come back with no literal occurrence of what was typed. Anchoring
+ * each term at a word start and extending the mark over the rest of the word
  * recovers the common English case: `run` marks `running`. The other direction
  * (`running` typed, `run` in the title) and irregular stems (`ran`, `mice`)
  * stay unmarked. A title is short and shown whole, so an unmarked stem there

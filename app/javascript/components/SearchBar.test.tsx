@@ -52,6 +52,25 @@ describe("SearchBar", () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  // The operators are the whole reason to know they exist; a reader who is
+  // never told about them types plain words forever.
+  describe("syntax hint", () => {
+    it("names the operators while the box is empty", () => {
+      render(<SearchBar {...defaultProps} />)
+
+      const hint = screen.getByRole("note", { name: "Search syntax" })
+      expect(hint).toHaveTextContent("-word")
+      expect(hint).toHaveTextContent('"exact phrase"')
+      expect(hint).toHaveTextContent("this or that")
+    })
+
+    it("gets out of the way once there is a query to read", () => {
+      render(<SearchBar value="quokka" onChange={vi.fn()} />)
+
+      expect(screen.queryByRole("note", { name: "Search syntax" })).not.toBeInTheDocument()
+    })
+  })
+
   describe("scope pills", () => {
     const scope = {
       place: "list" as const,

@@ -40,6 +40,21 @@ describe("searchTerms", () => {
   it("collapses repeats so a term is not marked twice over", () => {
     expect(searchTerms("rails rails")).toEqual(["rails"])
   })
+
+  // The query is websearch_to_tsquery syntax, so two of its tokens are not
+  // words the reader is looking for and must not be marked as though they were.
+  it("drops an excluded term, which no result can contain", () => {
+    expect(searchTerms("rails -turbo")).toEqual(["rails"])
+  })
+
+  it("drops the or operator rather than marking words that start with it", () => {
+    expect(searchTerms("rails or hanami")).toEqual(["rails", "hanami"])
+    expect(searchTerms("rails OR hanami")).toEqual(["rails", "hanami"])
+  })
+
+  it("keeps a hyphen that is part of a word", () => {
+    expect(searchTerms("well-known")).toEqual(["well-known"])
+  })
 })
 
 describe("highlightTerms", () => {
