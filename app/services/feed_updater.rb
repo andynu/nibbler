@@ -1,14 +1,20 @@
 # Orchestrates feed fetching, parsing, and entry creation
 # Handles deduplication and user entry creation
 class FeedUpdater
-  class UpdateResult
-    attr_reader :feed, :new_entries_count, :status, :error
+  # An item the fetch could not store, kept so the caller can report it rather
+  # than have it vanish. Carries enough to find the offending item in the source
+  # feed without re-fetching.
+  SkippedEntry = Data.define(:guid, :title, :error)
 
-    def initialize(feed:, new_entries_count: 0, status:, error: nil)
+  class UpdateResult
+    attr_reader :feed, :new_entries_count, :status, :error, :skipped_entries
+
+    def initialize(feed:, new_entries_count: 0, status:, error: nil, skipped_entries: [])
       @feed = feed
       @new_entries_count = new_entries_count
       @status = status
       @error = error
+      @skipped_entries = skipped_entries
     end
 
     def success?
@@ -17,6 +23,10 @@ class FeedUpdater
 
     def rate_limited?
       status == :rate_limited
+    end
+
+    def skipped_entries_count
+      skipped_entries.size
     end
   end
 
@@ -83,6 +93,7 @@ class FeedUpdater
 
   def process_entries(parse_result, fetch_result)
     new_count = 0
+    skipped = []
 
     ActiveRecord::Base.transaction do
       # Reset backoff on successful fetch
@@ -93,7 +104,7 @@ class FeedUpdater
 
       # Process each entry
       parse_result.entries.each do |parsed_entry|
-        if create_entry(parsed_entry)
+        if store_entry(parsed_entry, skipped)
           new_count += 1
         end
       end
@@ -103,9 +114,32 @@ class FeedUpdater
     @feed.update_polling_stats!(new_count)
     @feed.refresh_entry_stats! if new_count > 0
 
-    UpdateResult.new(feed: @feed, new_entries_count: new_count, status: :ok)
+    UpdateResult.new(feed: @feed, new_entries_count: new_count, status: :ok, skipped_entries: skipped)
   rescue StandardError => e
     handle_error("Database error: #{e.message}")
+  end
+
+  # Writes one entry inside its own savepoint so a failure costs only that item.
+  #
+  # Every entry in a fetch used to share the single outer transaction, so any
+  # per-entry error rolled the whole batch back and the rescue above reported it
+  # as a feed-level "Database error". A feed carrying one permanently
+  # unstorable item therefore ingested nothing, on every cycle, forever. The
+  # savepoint bounds the damage to the offending item: the feed metadata and
+  # every sibling entry stay committed.
+  #
+  # The skip is recorded rather than swallowed - warned to the log with the
+  # feed and guid, and returned on UpdateResult so the caller can report a count.
+  def store_entry(parsed_entry, skipped)
+    ActiveRecord::Base.transaction(requires_new: true) do
+      create_entry(parsed_entry)
+    end
+  rescue StandardError => e
+    skipped << SkippedEntry.new(guid: parsed_entry.guid, title: parsed_entry.title, error: e.message)
+    Rails.logger.warn(
+      "Skipped entry #{parsed_entry.guid.inspect} on feed #{@feed.id} (#{@feed.title}): #{e.message}"
+    )
+    false
   end
 
   def update_feed_metadata(parse_result, fetch_result)

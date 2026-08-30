@@ -39,7 +39,7 @@ class UpdateFeedJob < ApplicationJob
     result = fetch(feed)
 
     if result.success?
-      Rails.logger.info "Updated feed #{feed.id} (#{feed.title}): #{result.new_entries_count} new entries"
+      Rails.logger.info "Updated feed #{feed.id} (#{feed.title}): #{result.new_entries_count} new entries#{skipped_note(result)}"
     elsif result.rate_limited?
       Rails.logger.warn "Rate limited on feed #{feed.id} (#{feed.title}): backoff until #{feed.retry_after}"
     else
@@ -48,6 +48,16 @@ class UpdateFeedJob < ApplicationJob
   end
 
   private
+
+  # Items the fetch could not store are skipped rather than failing the batch,
+  # so the success line has to say when some were dropped. Silence here would
+  # make a feed that stores half its items look identical to a healthy one.
+  def skipped_note(result)
+    return "" unless result.respond_to?(:skipped_entries_count)
+    return "" if result.skipped_entries_count.zero?
+
+    ", #{result.skipped_entries_count} skipped"
+  end
 
   # Re-enqueues the job for when the feed's domain is next free, and reports
   # whether it did so. Returns false (go ahead and fetch) when the domain is
