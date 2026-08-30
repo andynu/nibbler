@@ -271,14 +271,22 @@ test.describe("Tags", () => {
   })
 })
 
+// The search feature's own coverage is e2e/search.spec.ts, which drives the box
+// through the UI. These two check the endpoint's contract directly.
 test.describe("Search", () => {
-  test("search endpoint works", async ({ page }) => {
+  test("search endpoint returns the articles that match", async ({ page }) => {
     const response = await page.request.get("/api/v1/search?q=test")
     expect(response.ok()).toBe(true)
 
     const data = await response.json()
-    expect(data.entries).toBeDefined()
-    expect(Array.isArray(data.entries)).toBe(true)
+    // Every seeded body ends "...running the tests", so the whole fixture set
+    // matches. Asserting the count and a headline rather than the shape: an
+    // empty tsvector index answers `{entries: []}`, which is still an array
+    // (ttrb-i3ay).
+    expect(data.pagination.total).toBe(24)
+    expect(data.entries.map((entry: { title: string }) => entry.title)).toContain(
+      "Mapping the heliopause"
+    )
   })
 
   test("search with empty query returns empty results", async ({ page }) => {
