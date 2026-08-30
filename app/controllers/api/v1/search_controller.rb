@@ -2,6 +2,7 @@ module Api
   module V1
     class SearchController < BaseController
       include EntryScoping
+      include EntrySorting
 
       # The one column search has that the entry list cannot offer: an article
       # is only relevant to something once there is a query to be relevant to.
@@ -21,8 +22,6 @@ module Api
         "feed" => "feeds.title",
         "title" => "entries.title"
       }.freeze
-
-      VALID_DIRECTIONS = %w[asc desc].freeze
 
       # Relevance first, because search is the one place in the app where the
       # reader has said what they are looking for.
@@ -107,23 +106,15 @@ module Api
         @sort_specs ||= parse_sort_param(params[:sort])
       end
 
-      # Same "column:direction,column:direction" grammar the entry list uses.
-      # An unrecognised column is dropped rather than refused, and a request
-      # left with nothing recognisable falls back to relevance.
+      # The same "column:direction,column:direction" grammar the entry list
+      # reads, from EntrySorting. Only the vocabulary below is search's own:
+      # the column name is kept rather than resolved, because relevance has no
+      # fixed SQL to resolve to -- #sort_sql builds it from the query -- and
+      # #order_clauses still has to recognise "date" and "feed" by name.
       def parse_sort_param(sort_string)
-        return DEFAULT_SORT if sort_string.blank?
-
-        specs = sort_string.split(",").filter_map do |part|
-          column, direction = part.strip.split(":")
-          column = column.to_s.downcase
-          next unless column == RELEVANCE || SORT_COLUMN_MAP.key?(column)
-
-          direction = direction.to_s.downcase
-          direction = "desc" unless VALID_DIRECTIONS.include?(direction)
-          { column: column, direction: direction }
+        parse_sort_clauses(sort_string, default: DEFAULT_SORT) do |column|
+          column if column == RELEVANCE || SORT_COLUMN_MAP.key?(column)
         end
-
-        specs.presence || DEFAULT_SORT
       end
 
       def render_empty_results

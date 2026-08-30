@@ -254,6 +254,59 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     assert_equal tied.map(&:id).sort, paged_ids.sort
   end
 
+  # The sort grammar itself -- how "column:direction,column:direction" is split,
+  # downcased, whitelisted and defaulted -- as opposed to which columns search
+  # offers. Characterisation tests: they describe what the controller already
+  # does, so they pass before and after the parser moves out of it, and
+  # /entries carries the matching set for its own vocabulary.
+  #
+  # Each pair is seeded so relevance order and title order disagree, which is
+  # what stops an assertion below from being satisfied by the relevance default.
+
+  test "a search sort column and direction are matched case-insensitively" do
+    seed_grammar_pair(dense: "Zebra Grammar")
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: "TITLE:ASC"),
+      "an uppercase clause has to parse; unparsed, relevance puts the denser Zebra first"
+  end
+
+  test "a search sort direction the grammar does not know falls back to descending" do
+    seed_grammar_pair(dense: "Aardvark Grammar")
+
+    assert_equal [ "Zebra Grammar", "Aardvark Grammar" ], grammar_titles(sort: "title:sideways")
+  end
+
+  test "a search sort clause with no direction at all sorts descending" do
+    seed_grammar_pair(dense: "Aardvark Grammar")
+
+    assert_equal [ "Zebra Grammar", "Aardvark Grammar" ], grammar_titles(sort: "title")
+  end
+
+  test "a blank search sort falls back to relevance" do
+    seed_grammar_pair(dense: "Zebra Grammar")
+
+    assert_equal [ "Zebra Grammar", "Aardvark Grammar" ], grammar_titles(sort: "")
+  end
+
+  test "an unrecognised search sort column is dropped and the clauses beside it still apply" do
+    seed_grammar_pair(dense: "Zebra Grammar")
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: "score:desc,title:asc"),
+      "score is not search's to offer, but the title clause beside it still is"
+  end
+
+  test "an empty search sort clause between two commas is dropped rather than raising" do
+    seed_grammar_pair(dense: "Zebra Grammar")
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: "title:asc,,relevance:desc")
+  end
+
+  test "whitespace around each search sort clause is ignored" do
+    seed_grammar_pair(dense: "Zebra Grammar")
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: " title:asc , relevance:desc ")
+  end
+
   test "returns a snippet around the match, with the match delimited" do
     subscribe(create_entry(title: "Nothing To See", content: "<p>The wombat burrow collapsed overnight.</p>"))
 
@@ -550,5 +603,23 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
   def apply_tag(entry, name:, owner:)
     tag = Tag.create!(user: owner, name: name)
     EntryTag.create!(entry: entry, tag: tag)
+  end
+
+  # Two results matching the same word, one densely and one thinly, so relevance
+  # ranks them in an order the title does not. +dense+ names the one that wins on
+  # relevance. The word lives only in the body, leaving the titles free to sort.
+  def seed_grammar_pair(dense:)
+    thin = "<p>A quokka appeared once.</p>"
+    { "Aardvark Grammar" => thin, "Zebra Grammar" => thin }
+      .merge(dense => "<p>Quokka quokka quokka quokka.</p>")
+      .each { |title, content| subscribe(create_entry(title: title, content: content)) }
+  end
+
+  # Deliberately not the memoized +titles+: these read one response each, and
+  # the memo would hand the second test request the first one's body.
+  def grammar_titles(params)
+    get api_v1_search_url, params: { q: "quokka" }.merge(params)
+    assert_response :success
+    JSON.parse(response.body)["entries"].map { |e| e["title"] }
   end
 end

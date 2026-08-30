@@ -2,6 +2,7 @@ module Api
   module V1
     class EntriesController < BaseController
       include EntryScoping
+      include EntrySorting
 
       before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info, :embed_policy ]
 
@@ -319,7 +320,9 @@ module Api
         }
       end
 
-      # Column name to SQL mapping for sorting
+      # This endpoint's own sort vocabulary. "score" and "unread" are here and
+      # not in SearchController's map because the entry list's JSON carries
+      # both; "relevance" is there and not here for the same reason in reverse.
       SORT_COLUMN_MAP = {
         "date" => "entries.date_entered",
         "published" => "entries.updated",
@@ -329,23 +332,16 @@ module Api
         "unread" => "user_entries.unread"
       }.freeze
 
-      VALID_DIRECTIONS = %w[asc desc].freeze
+      # Newest import first, which is what the list has always opened on.
+      DEFAULT_SORT = [ { column: "entries.date_entered", direction: "desc" } ].freeze
 
       # Parse sort parameter (e.g., "date:desc,feed:asc,score:desc")
-      # Returns array of { column: "sql_column", direction: "asc"|"desc" }
+      # Returns array of { column: "sql_column", direction: "asc"|"desc" }.
+      #
+      # The grammar lives in EntrySorting; the block below is the only part of
+      # it this endpoint owns, and it resolves each name straight to SQL.
       def parse_sort_param(sort_string)
-        return [ { column: "entries.date_entered", direction: "desc" } ] if sort_string.blank?
-
-        sort_string.split(",").filter_map do |part|
-          column, direction = part.strip.split(":")
-          sql_column = SORT_COLUMN_MAP[column.to_s.downcase]
-          next unless sql_column # Skip invalid columns
-
-          direction = direction.to_s.downcase
-          direction = "desc" unless VALID_DIRECTIONS.include?(direction)
-
-          { column: sql_column, direction: direction }
-        end.presence || [ { column: "entries.date_entered", direction: "desc" } ]
+        parse_sort_clauses(sort_string, default: DEFAULT_SORT) { |column| SORT_COLUMN_MAP[column] }
       end
 
       # Apply sorting to query based on params
