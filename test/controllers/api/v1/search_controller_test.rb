@@ -109,13 +109,207 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     assert_includes json["entries"].first["snippet"], "wombat"
   end
 
+  # Every scoping test below seeds a match on BOTH sides of the filter, so an
+  # assertion that still held with the filter deleted would fail here.
+
+  test "restricts results to unread when unread=true" do
+    subscribe(create_entry(title: "Quokka Unread"))
+    subscribe(create_entry(title: "Quokka Read"), unread: false)
+
+    get api_v1_search_url, params: { q: "quokka", unread: "true" }
+
+    assert_response :success
+    assert_equal [ "Quokka Unread" ], titles
+    assert_equal 1, json["pagination"]["total"]
+  end
+
+  test "restricts results to read when unread=false" do
+    subscribe(create_entry(title: "Quokka Unread"))
+    subscribe(create_entry(title: "Quokka Read"), unread: false)
+
+    get api_v1_search_url, params: { q: "quokka", unread: "false" }
+
+    assert_response :success
+    assert_equal [ "Quokka Read" ], titles
+  end
+
+  test "searches regardless of read state when unread is omitted" do
+    subscribe(create_entry(title: "Quokka Unread"))
+    subscribe(create_entry(title: "Quokka Read"), unread: false)
+
+    get api_v1_search_url, params: { q: "quokka" }
+
+    assert_response :success
+    assert_equal 2, json["pagination"]["total"]
+  end
+
+  test "restricts results to starred when starred=true" do
+    subscribe(create_entry(title: "Quokka Starred"), marked: true)
+    subscribe(create_entry(title: "Quokka Plain"))
+
+    get api_v1_search_url, params: { q: "quokka", starred: "true" }
+
+    assert_response :success
+    assert_equal [ "Quokka Starred" ], titles
+  end
+
+  test "restricts results to starred for view=starred" do
+    subscribe(create_entry(title: "Quokka Starred"), marked: true)
+    subscribe(create_entry(title: "Quokka Plain"))
+
+    get api_v1_search_url, params: { q: "quokka", view: "starred" }
+
+    assert_response :success
+    assert_equal [ "Quokka Starred" ], titles
+  end
+
+  test "restricts results to published for view=published" do
+    subscribe(create_entry(title: "Quokka Published"), published: true)
+    subscribe(create_entry(title: "Quokka Plain"))
+
+    get api_v1_search_url, params: { q: "quokka", view: "published" }
+
+    assert_response :success
+    assert_equal [ "Quokka Published" ], titles
+  end
+
+  test "restricts results to read for view=archived" do
+    subscribe(create_entry(title: "Quokka Archived"), unread: false)
+    subscribe(create_entry(title: "Quokka Plain"))
+
+    get api_v1_search_url, params: { q: "quokka", view: "archived" }
+
+    assert_response :success
+    assert_equal [ "Quokka Archived" ], titles
+  end
+
+  # The decoy carries a tag of the same name owned by another user, so a filter
+  # that matched on name alone would return it.
+  test "restricts results to the current user's tag when tag is given" do
+    tagged = create_entry(title: "Quokka Tagged")
+    decoy = create_entry(title: "Quokka Untagged")
+    subscribe(tagged)
+    subscribe(decoy)
+    apply_tag(tagged, name: "marsupials", owner: @user)
+    apply_tag(decoy, name: "marsupials", owner: users(:two))
+
+    get api_v1_search_url, params: { q: "quokka", tag: "marsupials" }
+
+    assert_response :success
+    assert_equal [ "Quokka Tagged" ], titles
+  end
+
+  test "matches a tag case-insensitively and ignores surrounding space" do
+    tagged = create_entry(title: "Quokka Tagged")
+    subscribe(tagged)
+    subscribe(create_entry(title: "Quokka Untagged"))
+    apply_tag(tagged, name: "marsupials", owner: @user)
+
+    get api_v1_search_url, params: { q: "quokka", tag: "  Marsupials " }
+
+    assert_response :success
+    assert_equal [ "Quokka Tagged" ], titles
+  end
+
+  # Fresh is unread AND published inside the window, so the two decoys fail one
+  # half each.
+  test "restricts results to the Fresh window for view=fresh" do
+    subscribe(create_entry(title: "Quokka Fresh", updated: 1.hour.ago))
+    subscribe(create_entry(title: "Quokka Stale", updated: 3.days.ago))
+    subscribe(create_entry(title: "Quokka Fresh But Read", updated: 1.hour.ago), unread: false)
+
+    get api_v1_search_url, params: { q: "quokka", view: "fresh" }
+
+    assert_response :success
+    assert_equal [ "Quokka Fresh" ], titles
+  end
+
+  test "widens the Fresh window when fresh_max_age is given" do
+    subscribe(create_entry(title: "Quokka Recent", updated: 1.hour.ago))
+    subscribe(create_entry(title: "Quokka Three Days Old", updated: 3.days.ago))
+    subscribe(create_entry(title: "Quokka Two Months Old", updated: 2.months.ago))
+
+    get api_v1_search_url, params: { q: "quokka", view: "fresh", fresh_max_age: "week" }
+
+    assert_response :success
+    assert_equal [ "Quokka Recent", "Quokka Three Days Old" ].sort, titles.sort
+  end
+
+  # "all" drops the age limit but not the rest of Fresh, so the read decoy is
+  # still out. Without it this test would pass on a controller that ignored
+  # view entirely.
+  test "drops the age limit but not the unread half for fresh_max_age=all" do
+    subscribe(create_entry(title: "Quokka Recent", updated: 1.hour.ago))
+    subscribe(create_entry(title: "Quokka Two Months Old", updated: 2.months.ago))
+    subscribe(create_entry(title: "Quokka Ancient But Read", updated: 2.months.ago), unread: false)
+
+    get api_v1_search_url, params: { q: "quokka", view: "fresh", fresh_max_age: "all" }
+
+    assert_response :success
+    assert_equal [ "Quokka Recent", "Quokka Two Months Old" ].sort, titles.sort
+  end
+
+  # The cap keeps the newest matching article of each feed, so both feeds are
+  # represented and the older half of each is dropped.
+  test "caps Fresh results per feed when fresh_per_feed is given" do
+    second_feed = Feed.create!(user: @user, title: "Second", feed_url: "https://example.com/second.rss")
+    subscribe(create_entry(title: "Quokka One Newer", updated: 1.hour.ago))
+    subscribe(create_entry(title: "Quokka One Older", updated: 5.hours.ago))
+    subscribe(create_entry(title: "Quokka Two Newer", updated: 2.hours.ago), feed: second_feed)
+    subscribe(create_entry(title: "Quokka Two Older", updated: 6.hours.ago), feed: second_feed)
+
+    get api_v1_search_url, params: { q: "quokka", view: "fresh", fresh_per_feed: 1 }
+
+    assert_response :success
+    assert_equal [ "Quokka One Newer", "Quokka Two Newer" ].sort, titles.sort
+  end
+
+  # A category stands for its subtree on /entries, and search has to agree: the
+  # match sits in a feed filed under a CHILD of the requested category.
+  test "restricts results to a category and its descendants when category_id is given" do
+    parent = Category.create!(user: @user, title: "Wildlife")
+    child = Category.create!(user: @user, title: "Marsupials", parent: parent)
+    child_feed = Feed.create!(user: @user, title: "Child", feed_url: "https://example.com/child.rss", category: child)
+    subscribe(create_entry(title: "Quokka In Subtree"), feed: child_feed)
+    subscribe(create_entry(title: "Quokka Outside"))
+
+    get api_v1_search_url, params: { q: "quokka", category_id: parent.id }
+
+    assert_response :success
+    assert_equal [ "Quokka In Subtree" ], titles
+  end
+
+  test "does not scope to a category belonging to another user" do
+    other_category = Category.create!(user: users(:two), title: "Theirs")
+    subscribe(create_entry(title: "Quokka Ours"))
+
+    get api_v1_search_url, params: { q: "quokka", category_id: other_category.id }
+
+    assert_response :success
+    assert_equal [ "Quokka Ours" ], titles
+  end
+
+  test "intersects the query with the scope rather than replacing it" do
+    subscribe(create_entry(title: "Quokka Starred"), marked: true)
+    subscribe(create_entry(title: "Wombat Starred"), marked: true)
+    subscribe(create_entry(title: "Quokka Plain"))
+
+    get api_v1_search_url, params: { q: "quokka", starred: "true" }
+
+    assert_response :success
+    assert_equal [ "Quokka Starred" ], titles
+  end
+
   private
 
   def json = @json ||= JSON.parse(response.body)
 
   def titles = json["entries"].map { |e| e["title"] }
 
-  def create_entry(title:, content: "<p>Nothing to see.</p>", date_entered: Time.current)
+  # +updated+ is the publication date, which is the clock the Fresh window and
+  # its per-feed cap read; +date_entered+ is the import date, which breaks
+  # relevance ties.
+  def create_entry(title:, content: "<p>Nothing to see.</p>", date_entered: Time.current, updated: Time.current)
     Entry.create!(
       guid: "search-#{SecureRandom.uuid}",
       title: title,
@@ -123,13 +317,25 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
       content: content,
       content_hash: SecureRandom.hex(8),
       author: "",
-      updated: Time.current,
+      updated: updated,
       date_entered: date_entered,
       date_updated: Time.current
     )
   end
 
-  def subscribe(entry, feed: @feed)
-    @user.user_entries.create!(entry: entry, feed: feed, uuid: SecureRandom.uuid)
+  def subscribe(entry, feed: @feed, unread: true, marked: false, published: false)
+    @user.user_entries.create!(
+      entry: entry,
+      feed: feed,
+      uuid: SecureRandom.uuid,
+      unread: unread,
+      marked: marked,
+      published: published
+    )
+  end
+
+  def apply_tag(entry, name:, owner:)
+    tag = Tag.create!(user: owner, name: name)
+    EntryTag.create!(entry: entry, tag: tag)
   end
 end

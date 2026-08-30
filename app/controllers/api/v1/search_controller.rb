@@ -1,13 +1,23 @@
 module Api
   module V1
     class SearchController < BaseController
+      include EntryScoping
+
       # GET /api/v1/search?q=query
       def index
         return render_empty_results if params[:q].blank?
 
-        @user_entries = search_user_entries
-        @user_entries = filter_by_feed(@user_entries) if params[:feed_id].present?
-        @user_entries = filter_by_category(@user_entries) if params[:category_id].present?
+        # The same scoping vocabulary the entry list reads, applied to the same
+        # shape of relation, so a search is the intersection of the query and
+        # the list the user is looking at rather than a second opinion about
+        # what that list contains.
+        #
+        # The Fresh per-feed cap inside apply_entry_scoping still ranks by
+        # publication date, not by relevance: the cap decides which rows Fresh
+        # holds at all, and only then does the query rank what is left. Letting
+        # relevance choose the surviving 5 would make search invent rows the
+        # Fresh list beside it does not have.
+        @user_entries = apply_entry_scoping(search_user_entries)
 
         # Pagination
         page = (params[:page] || 1).to_i
@@ -49,14 +59,6 @@ module Api
           .where(Arel.sql(Entry.text_search_condition(params[:q])))
           .order(Arel.sql("#{Entry.text_search_rank(params[:q])} DESC"))
           .order("entries.date_entered DESC", "user_entries.id DESC")
-      end
-
-      def filter_by_feed(scope)
-        scope.where(feed_id: params[:feed_id])
-      end
-
-      def filter_by_category(scope)
-        scope.joins(:feed).where(feeds: { category_id: params[:category_id] })
       end
 
       def render_empty_results

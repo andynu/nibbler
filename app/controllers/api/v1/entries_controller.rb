@@ -1,7 +1,7 @@
 module Api
   module V1
     class EntriesController < BaseController
-      include FreshArticleWindow
+      include EntryScoping
 
       before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info, :embed_policy ]
 
@@ -19,62 +19,9 @@ module Api
         # Apply ordering
         @user_entries = apply_sorting(@user_entries)
 
-        # Filter by read/unread status
-        if params[:unread].present?
-          @user_entries = params[:unread] == "true" ? @user_entries.unread : @user_entries.read
-        end
-
-        # Filter by starred
-        if params[:starred].present? && params[:starred] == "true"
-          @user_entries = @user_entries.starred
-        end
-
-        # Filter by published
-        if params[:published].present? && params[:published] == "true"
-          @user_entries = @user_entries.published
-        end
-
-        # Filter by feed
-        if params[:feed_id].present?
-          @user_entries = @user_entries.where(feed_id: params[:feed_id])
-        end
-
-        # Filter by category (including all descendant categories)
-        if params[:category_id].present?
-          category = current_user.categories.find_by(id: params[:category_id])
-          if category
-            category_ids = category.self_and_descendant_ids
-            @user_entries = @user_entries.joins(:feed).where(feeds: { category_id: category_ids })
-          end
-        end
-
-        # Filter by tag via Entry -> EntryTag -> Tag join
-        if params[:tag].present?
-          tag_name = params[:tag].downcase.strip
-          @user_entries = @user_entries
-            .joins(entry: :tags)
-            .where(tags: { user_id: current_user.id, name: tag_name })
-        end
-
-        # Virtual feeds. Deliberately the last filter applied: the Fresh
-        # per-feed cap has to rank the rows the request actually asked for, so
-        # the toolbar's "5 per feed" means the newest 5 MATCHING articles of
-        # each feed. Capping before the tag filter instead would rank all fresh
-        # rows and let the tag filter thin the survivors, so a feed whose
-        # tagged articles rank 6th or later by import date would return none.
-        # #headlines applies its view block last for the same reason.
-        case params[:view]
-        when "fresh"
-          @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
-          per_feed = fresh_per_feed_limit(params[:fresh_per_feed])
-          @user_entries = limit_per_feed(@user_entries, per_feed) if per_feed
-        when "starred"
-          @user_entries = @user_entries.starred
-        when "published"
-          @user_entries = @user_entries.published
-        when "archived"
-          @user_entries = @user_entries.read
-        end
+        # Scoping params, read through EntryScoping so a search narrowed to this
+        # list applies exactly the same filters.
+        @user_entries = apply_entry_scoping(@user_entries)
 
         # Pagination
         page = (params[:page] || 1).to_i
@@ -283,8 +230,11 @@ module Api
             .where(tags: { user_id: current_user.id, name: tag_name })
         end
 
-        # Keep this block after the filters above, matching #index: the Fresh
-        # per-feed cap must rank the final row set, not a superset of it.
+        # Keep this block after the filters above, matching
+        # EntryScoping#apply_virtual_view: the Fresh per-feed cap must rank the
+        # final row set, not a superset of it. This is still a hand-rolled copy
+        # of that scoping because #headlines filters a select-list relation; see
+        # ttrb-brv2.
         case params[:view]
         when "fresh"
           @user_entries = @user_entries.fresh(fresh_article_cutoff_for_param(params[:fresh_max_age]))
@@ -388,14 +338,6 @@ module Api
           is_published: ue.published,
           score: ue.score
         }
-      end
-
-      # Limit results to N per feed by filtering the relation down to the ranked
-      # ids, never by rebuilding it: the caller's ordering, eager loads and
-      # filters all have to survive the cap. The ranking lives on UserEntry so
-      # the counters endpoint can size the same cap without materialising rows.
-      def limit_per_feed(user_entries, limit)
-        user_entries.where(id: UserEntry.top_per_feed_ids(user_entries, limit))
       end
 
       def enclosure_json(enclosure)

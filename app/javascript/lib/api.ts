@@ -550,14 +550,15 @@ export const api = {
    * GET /api/v1/search. Takes the same scoping params as api.entries.list so a
    * search can be narrowed to the list the user is already looking at.
    *
-   * NOT YET HONOURED SERVER-SIDE: unread, starred, view, tag, fresh_max_age and
-   * fresh_per_feed are serialised into the request, but SearchController filters
-   * on feed_id and category_id only and silently ignores the rest. Sending them
-   * today returns the same rows as an unscoped search. They begin to take effect
-   * when ttrb-aawe extends the controller; do not build UI that depends on them
-   * until it has.
+   * Every param here is honoured server-side: SearchController reads them
+   * through the same EntryScoping concern the entry list uses, so results are
+   * the intersection of the query and the list, not a second opinion about what
+   * that list holds. category_id covers the category's whole subtree, and
+   * view: "fresh" applies both fresh_max_age and the fresh_per_feed cap.
    *
-   * Result ordering is entries.date_entered DESC, not relevance (see ttrb-soaj).
+   * Results come back ranked by relevance, with entries.date_entered DESC as
+   * the tiebreak. The sort/order_by params api.entries.list accepts have no
+   * meaning here and are not sent.
    */
   search: (params: SearchParams): Promise<SearchResponse> => {
     const q = params.q.trim()
