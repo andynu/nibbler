@@ -1,4 +1,4 @@
-import { Page, expect } from "@playwright/test"
+import { type APIResponse, type Page, expect } from "@playwright/test"
 
 /**
  * Auth helpers for E2E tests.
@@ -9,13 +9,16 @@ import { Page, expect } from "@playwright/test"
  */
 
 /**
- * Login via API endpoint
+ * Login via API endpoint.
+ *
+ * Returns Playwright's APIResponse, not the DOM Response: `ok` and `status`
+ * are methods here, not properties.
  */
 export async function loginViaApi(
   page: Page,
   login: string,
   password: string
-): Promise<Response> {
+): Promise<APIResponse> {
   const response = await page.request.post("/api/v1/auth/login", {
     data: { login, password },
   })
@@ -25,7 +28,7 @@ export async function loginViaApi(
 /**
  * Logout via API endpoint
  */
-export async function logoutViaApi(page: Page): Promise<Response> {
+export async function logoutViaApi(page: Page): Promise<APIResponse> {
   const response = await page.request.delete("/api/v1/auth/logout")
   return response
 }

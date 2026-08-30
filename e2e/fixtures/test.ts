@@ -62,6 +62,12 @@ type Fixtures = {
   authenticatedPage: Page
 }
 
+// A fixture declares what it depends on by destructuring it, whether or not it
+// then uses the value: Playwright reads the dependency names out of the
+// function's source text. `noUnusedLocals` sees only a binding nobody reads, so
+// dependencies that exist purely for their ordering effect are renamed to an
+// underscore. Playwright takes the name before the colon, so the dependency is
+// unchanged; renaming the whole property would silently drop it.
 export const test = base.extend<Fixtures>({
   seededDatabase: [
     async ({ request }, use) => {
@@ -80,7 +86,7 @@ export const test = base.extend<Fixtures>({
   ],
 
   signedIn: [
-    async ({ seededDatabase, page }, use) => {
+    async ({ seededDatabase: _seededDatabase, page }, use) => {
       // page.request shares the browser context's cookie jar, so the session
       // this creates is the one the app sees when the page loads.
       const response = await page.request.post("/api/v1/auth/login", {
@@ -113,7 +119,7 @@ export const test = base.extend<Fixtures>({
     { auto: true },
   ],
 
-  feedsPage: async ({ signedIn, page }, use) => {
+  feedsPage: async ({ signedIn: _signedIn, page }, use) => {
     const feedsPage = new FeedsPage(page)
     await feedsPage.goto()
     await use(feedsPage)
@@ -129,7 +135,7 @@ export const test = base.extend<Fixtures>({
     await use(commandPalette)
   },
 
-  authenticatedPage: async ({ signedIn, page }, use) => {
+  authenticatedPage: async ({ signedIn: _signedIn, page }, use) => {
     await page.goto("/")
     // Wait for app to be ready
     await expect(page.getByTestId("app-root")).toBeVisible({ timeout: 10000 })

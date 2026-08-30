@@ -1,5 +1,5 @@
 import { test, expect, SEEDED_ADMIN } from "./fixtures"
-import { loginViaApi, logoutViaApi, getCurrentUser, waitForAppLoad } from "./fixtures/auth"
+import { loginViaApi, logoutViaApi } from "./fixtures/auth"
 
 /**
  * Authentication E2E tests.
