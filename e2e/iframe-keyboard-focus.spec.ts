@@ -134,18 +134,14 @@ async function openFirstEntry(page: Page) {
   const rows = page.getByRole("listbox", { name: "Entries" }).getByRole("option")
   await expect(rows.first()).toBeVisible()
 
-  // The press is retried rather than issued once, because a press landing in
-  // the few milliseconds between the rows painting and React flushing that
-  // render's effects is dropped: useKeyboardCommands swaps its keydown
-  // listener in a passive effect, so the live listener still closes over the
-  // previous render's empty entry list and handleKeyboardNext returns at its
-  // `entries.length === 0` guard (ttrb-lix7). Nothing is selected yet while
-  // the press is being retried, so every attempt opens the same first entry.
-  // Remove this once ttrb-lix7 lands.
-  await expect(async () => {
-    await page.keyboard.press("j")
-    await expect(iframeElement(page)).toBeVisible({ timeout: 5000 })
-  }).toPass({ timeout: 20000 })
+  // One press, deliberately not retried. A press issued the instant the rows
+  // appear used to be dropped about 2 times in 30, because useKeyboardCommands
+  // swapped its keydown listener in a passive effect and passive effects run
+  // after paint (ttrb-lix7). The listener is now registered once and reads the
+  // commands from a ref written in the commit phase, so this press cannot land
+  // on a stale closure. Retrying here again would hide that regression.
+  await page.keyboard.press("j")
+  await expect(iframeElement(page)).toBeVisible({ timeout: 5000 })
 
   await expect(embeddedField(page)).toBeVisible()
   await expectKeysInReader(page)

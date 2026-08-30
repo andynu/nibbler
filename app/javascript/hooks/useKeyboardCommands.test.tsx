@@ -1,4 +1,6 @@
-import { renderHook } from "@testing-library/react"
+import { render, renderHook, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { useLayoutEffect, useState } from "react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { useKeyboardCommands, KeyboardCommand } from "./useKeyboardCommands"
 
@@ -37,6 +39,12 @@ describe("useKeyboardCommands", () => {
     }
     document.dispatchEvent(event)
     return event
+  }
+
+  // The document picks up listeners from Testing Library and happy-dom too, so
+  // narrow a spy's calls to the ones this hook made.
+  function keydownCalls(spy: { mock: { calls: unknown[][] } }): unknown[][] {
+    return spy.mock.calls.filter((call) => call[0] === "keydown")
   }
 
   describe("basic functionality", () => {
@@ -356,7 +364,8 @@ describe("useKeyboardCommands", () => {
       expect(handler2).toHaveBeenCalledOnce()
     })
 
-    it("re-registers listener when enabled changes from false to true", () => {
+    it("starts handling keys when enabled changes from false to true", () => {
+      const addEventListenerSpy = vi.spyOn(document, "addEventListener")
       const handler = vi.fn()
       const commands: KeyboardCommand[] = [
         { key: "j", handler, description: "Next" },
@@ -375,6 +384,110 @@ describe("useKeyboardCommands", () => {
 
       dispatchKeyDown("j")
       expect(handler).toHaveBeenCalledOnce()
+
+      // Enabling does not re-register: the listener was attached at mount and
+      // reads `enabled` at event time.
+      expect(keydownCalls(addEventListenerSpy)).toHaveLength(1)
+    })
+  })
+
+  // The listener used to be a useCallback over `commands`, swapped in and out
+  // by a useEffect. Passive effects run after paint, so a key pressed in the
+  // window between the paint of render N and the flush of render N's effects
+  // reached render N-1's closure and was dropped (ttrb-lix7).
+  //
+  // These tests are about the listener lifecycle rather than about catching the
+  // window in the act. If there is only ever one listener and it reads state
+  // that is written in the commit phase, no such window exists at any timing.
+  describe("stale listener window (ttrb-lix7)", () => {
+    function nextCommand(handler: () => void): KeyboardCommand[] {
+      return [{ key: "j", handler, description: "Next" }]
+    }
+
+    it("registers one listener on mount and never swaps it as commands change", () => {
+      const addEventListenerSpy = vi.spyOn(document, "addEventListener")
+      const removeEventListenerSpy = vi.spyOn(document, "removeEventListener")
+
+      const { rerender } = renderHook(
+        ({ commands }) => useKeyboardCommands(commands),
+        { initialProps: { commands: nextCommand(vi.fn()) } }
+      )
+
+      // A fresh array holding a fresh closure on every render, which is what
+      // application.tsx produces each time `entries` or `currentIndex` moves.
+      for (let i = 0; i < 5; i++) {
+        rerender({ commands: nextCommand(vi.fn()) })
+      }
+
+      expect(keydownCalls(addEventListenerSpy)).toHaveLength(1)
+      expect(keydownCalls(removeEventListenerSpy)).toHaveLength(0)
+    })
+
+    it("routes through the mount-time listener to the newest handlers", () => {
+      const addEventListenerSpy = vi.spyOn(document, "addEventListener")
+      const first = vi.fn()
+      const second = vi.fn()
+
+      const { rerender } = renderHook(
+        ({ commands }) => useKeyboardCommands(commands),
+        { initialProps: { commands: nextCommand(first) } }
+      )
+
+      const registered = keydownCalls(addEventListenerSpy)[0][1] as EventListener
+      rerender({ commands: nextCommand(second) })
+
+      // Deliberately calls the function object captured at mount rather than
+      // dispatching on the document, because that object is what a key press
+      // reaches no matter how many renders have gone by.
+      registered(new KeyboardEvent("keydown", { key: "j", cancelable: true }))
+
+      expect(first).not.toHaveBeenCalled()
+      expect(second).toHaveBeenCalledOnce()
+    })
+
+    it("handles a key that arrives after the commit but before effects flush", async () => {
+      const user = userEvent.setup()
+      const seen: number[] = []
+
+      function Bound({ items }: { items: string[] }) {
+        useKeyboardCommands([
+          { key: "j", description: "Next", handler: () => seen.push(items.length) },
+        ])
+        return (
+          <ul>
+            {items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )
+      }
+
+      function Harness() {
+        const [items, setItems] = useState<string[]>([])
+
+        // A parent layout effect runs after every layout effect in the subtree
+        // beneath it and before any passive effect anywhere, so it sits in the
+        // same commit phase the browser paints at the end of. Pressing from
+        // here is "the rows are on screen and no passive effect has run yet",
+        // which is the state the dropped presses arrived in.
+        useLayoutEffect(() => {
+          if (items.length > 0) dispatchKeyDown("j")
+        }, [items])
+
+        return (
+          <>
+            <Bound items={items} />
+            <button onClick={() => setItems(["a", "b"])}>load</button>
+          </>
+        )
+      }
+
+      render(<Harness />)
+      await user.click(screen.getByRole("button", { name: "load" }))
+
+      // [0] is the failure this ticket is about: the handler running against the
+      // empty list of the render before the one on screen.
+      expect(seen).toEqual([2])
     })
   })
 })
