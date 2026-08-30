@@ -427,6 +427,94 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     # We just verify no error occurs - detailed order testing done above
   end
 
+  # The sort grammar itself: how "column:direction,column:direction" is split,
+  # downcased, whitelisted and defaulted, as opposed to which columns this
+  # endpoint offers. Characterisation tests -- they describe what the controller
+  # already does, so they pass before and after the parser moves out of it, and
+  # /search carries the matching set for its own vocabulary.
+  #
+  # Every pair below is seeded so title order and import-date order disagree.
+  # That is what keeps an assertion from being satisfied by the
+  # entries.date_entered DESC default the endpoint falls back to.
+  def seed_grammar_pair(aardvark:, zebra:)
+    { "Aardvark Grammar" => aardvark, "Zebra Grammar" => zebra }.each do |title, entered|
+      entry = create_entry(title, updated: 1.hour.ago, date_entered: entered)
+      @user.user_entries.create!(entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true)
+    end
+  end
+
+  def grammar_titles(params)
+    get api_v1_entries_url, params: params, as: :json
+    assert_response :success
+    JSON.parse(response.body)["entries"].map { |e| e["title"] }.grep(/Grammar/)
+  end
+
+  test "a sort column and direction are matched case-insensitively" do
+    seed_grammar_pair(aardvark: 1.week.ago, zebra: 1.hour.ago)
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: "DATE:ASC"),
+      "an uppercase clause has to parse; unparsed, the default puts the newer Zebra first"
+  end
+
+  test "a sort direction the grammar does not know falls back to descending" do
+    seed_grammar_pair(aardvark: 1.hour.ago, zebra: 1.week.ago)
+
+    assert_equal [ "Zebra Grammar", "Aardvark Grammar" ], grammar_titles(sort: "title:sideways")
+  end
+
+  test "a sort clause with no direction at all sorts descending" do
+    seed_grammar_pair(aardvark: 1.hour.ago, zebra: 1.week.ago)
+
+    assert_equal [ "Zebra Grammar", "Aardvark Grammar" ], grammar_titles(sort: "title")
+  end
+
+  test "a blank sort param falls back to import date descending" do
+    seed_grammar_pair(aardvark: 1.week.ago, zebra: 1.hour.ago)
+
+    assert_equal [ "Zebra Grammar", "Aardvark Grammar" ], grammar_titles(sort: "")
+  end
+
+  # "relevance" is search's column, not this endpoint's, and the two maps are
+  # meant to stay different. A sort carried over from a search has to land on
+  # the entry list's own default rather than error.
+  test "a sort naming only columns the entry list does not offer falls back to import date descending" do
+    seed_grammar_pair(aardvark: 1.week.ago, zebra: 1.hour.ago)
+
+    assert_equal [ "Zebra Grammar", "Aardvark Grammar" ], grammar_titles(sort: "nonsense:asc,relevance:desc")
+  end
+
+  test "an unrecognised sort column is dropped and the clauses beside it still apply" do
+    seed_grammar_pair(aardvark: 1.week.ago, zebra: 1.hour.ago)
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: "nonsense:desc,title:asc")
+  end
+
+  test "an empty sort clause between two commas is dropped rather than raising" do
+    seed_grammar_pair(aardvark: 1.week.ago, zebra: 1.hour.ago)
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: "title:asc,,date:desc")
+  end
+
+  test "whitespace around each sort clause is ignored" do
+    seed_grammar_pair(aardvark: 1.week.ago, zebra: 1.hour.ago)
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar" ], grammar_titles(sort: " title:asc , date:desc ")
+  end
+
+  # Clause order survives parsing: score decides first and title only breaks the
+  # tie score leaves, which is the opposite of what title alone would produce.
+  test "a later sort clause breaks the tie an earlier one leaves" do
+    { "Zebra Grammar" => 9, "Aardvark Grammar" => 9, "Aabbey Grammar" => 8 }.each do |title, score|
+      entry = create_entry(title, updated: 1.hour.ago, date_entered: 1.hour.ago)
+      @user.user_entries.create!(
+        entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true, score: score
+      )
+    end
+
+    assert_equal [ "Aardvark Grammar", "Zebra Grammar", "Aabbey Grammar" ],
+      grammar_titles(sort: "score:desc,title:asc")
+  end
+
   test "filters entries by tag" do
     # Create two entries - one tagged, one not
     tagged_entry = Entry.create!(
