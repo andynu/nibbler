@@ -64,6 +64,19 @@ class EntryTest < ActiveSupport::TestCase
     assert_includes Entry.search("photograph"), entry
   end
 
+  # The query used to be run through sanitize_sql_like on its way to
+  # plainto_tsquery, which escapes LIKE metacharacters for a statement that has
+  # no LIKE in it. Dropping that call changes no result, because the text search
+  # parser already treats _, % and \ as separators; this pins that so the escape
+  # cannot come back as a bug fix.
+  test "a query carrying LIKE metacharacters finds the entry that contains them" do
+    entry = build_entry(title: "Nothing To See", content: "<p>The foo_bar branch is 50% merged.</p>")
+    entry.save!
+
+    assert_includes Entry.search("foo_bar"), entry
+    assert_includes Entry.search("50%"), entry
+  end
+
   test "editing the title reindexes the entry" do
     entry = build_entry(title: "Quokkas Return To Rottnest")
     entry.save!

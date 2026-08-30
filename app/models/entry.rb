@@ -66,8 +66,14 @@ class Entry < ApplicationRecord
     "ts_rank(entries.tsvector_combined, #{tsquery_sql(query)})"
   end
 
+  # The query is a phrase to be tokenised, not a LIKE pattern. This used to run
+  # through sanitize_sql_like first, which named a protection that was not the
+  # one in force here: measured against plainto_tsquery, foo_bar, 50%, C_plus
+  # and back\slash all produce an identical tsquery with and without the
+  # escaping, because the text search parser already treats _, % and \ as
+  # separators. What actually keeps this safe is connection.quote.
   def self.tsquery_sql(query)
-    "plainto_tsquery('english', #{connection.quote(sanitize_sql_like(query.to_s))})"
+    "plainto_tsquery('english', #{connection.quote(query.to_s)})"
   end
   private_class_method :tsquery_sql
 end
