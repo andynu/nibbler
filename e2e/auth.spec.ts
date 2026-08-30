@@ -45,6 +45,13 @@ test.describe("App authentication", () => {
 
   test("API /me endpoint returns 401 once logged out", async ({ page }) => {
     await page.goto("/")
+    // page.request shares the page's cookie jar, and every authenticated
+    // response carries a Set-Cookie. A boot request still in flight when the
+    // logout lands therefore writes the pre-logout session back over the
+    // cleared one, and /me answers 200. Firefox boots the app late enough for
+    // its /auth/me to overlap (5 failures in 20 runs); Chromium finishes the
+    // test before React has asked for anything. Drain the boot traffic first.
+    await page.waitForLoadState("networkidle")
     await logoutViaApi(page)
 
     const response = await page.request.get("/api/v1/auth/me")

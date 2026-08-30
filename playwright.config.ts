@@ -23,25 +23,26 @@ export default defineConfig({
   },
   // Fail fast on first failure in CI to save time
   maxFailures: process.env.CI ? 5 : undefined,
+  // Every spec runs in both engines. Firefox started out on the three
+  // browse-mode specs alone, on the argument that cross-origin framing and
+  // focus crossing a document boundary were the only places the engines
+  // disagreed. Running the rest under Firefox disproved that: the suite went
+  // green after one fix, and the defect it turned up (e2e/auth.spec.ts, a
+  // pre-logout Set-Cookie racing the logout) was invisible under Chromium, as
+  // ttrb-ngol's focus-guard defect had been.
+  //
+  // Measured on one machine at 233s narrow against 491s wide, so the second
+  // engine costs about four and a quarter minutes of the test_e2e job. A
+  // curated middle - Firefox on the keyboard, theme and browser-history specs
+  // only - would save perhaps half of that and go stale the first time someone
+  // adds a spec file, silently, which is the failure this list started as.
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    // Browse mode is the one feature here whose correctness is browser
-    // behaviour rather than application logic: cross-origin framing, focus
-    // crossing a document boundary, and what a frame does when its src changes.
-    // Chromium and Firefox genuinely disagree there - Firefox fires no window
-    // blur when focus moves into a cross-origin frame - so these specs are the
-    // ones worth paying a second browser for. The rest of the suite is
-    // Chromium-only; widening it is ttrb-6yuw.
     {
       name: 'firefox',
-      testMatch: [
-        '**/iframe-keyboard-focus.spec.ts',
-        '**/embed-block-fallback.spec.ts',
-        '**/focus-mode-nav.spec.ts',
-      ],
       use: { ...devices['Desktop Firefox'] },
     },
   ],

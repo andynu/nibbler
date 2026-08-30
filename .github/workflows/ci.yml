@@ -170,15 +170,19 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
-      # Both browsers playwright.config.ts declares a project for. Firefox runs
-      # only the three browse-mode specs, so the extra download is cheap; drop
-      # it and every test in that project errors with a missing executable.
+      # Both browsers playwright.config.ts declares a project for. Every spec
+      # runs in both, so this step is not optional: drop firefox and half the
+      # suite errors with a missing executable.
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox
 
       # playwright.config.ts starts bin/e2e-server, which builds assets,
       # creates and seeds ttrb_e2e, and boots the server with feed fetching
       # stubbed out. Nothing here reaches the public internet.
+      #
+      # Both projects run in this one job, and the suite is workers: 1 against
+      # a single database, so the second engine is pure wall-clock on what is
+      # already the longest job here. Sharding it by project is ttrb-z2ui.
       - name: Run end-to-end tests
         run: npx playwright test
 
