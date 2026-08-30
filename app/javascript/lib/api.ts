@@ -260,7 +260,6 @@ export interface Preferences {
   fresh_article_max_age: string
   date_format: string
   hide_read_feeds: string
-  hide_read_shows_special: string
   feeds_sort_by_unread: string
   entries_sort_by_score: string
   // Multi-column sort: "date:desc,feed:asc". Optional because the API has no

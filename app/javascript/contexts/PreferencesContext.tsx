@@ -23,7 +23,6 @@ const defaultPreferences: Preferences = {
   fresh_article_max_age: "24",
   date_format: "relative",
   hide_read_feeds: "false",
-  hide_read_shows_special: "true",
   feeds_sort_by_unread: "false",
   entries_sort_by_score: "false",
   // entries_sort_config is deliberately absent, matching the API, which has no
