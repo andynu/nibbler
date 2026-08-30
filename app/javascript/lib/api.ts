@@ -257,7 +257,10 @@ export interface Preferences {
   hide_read_shows_special: string
   feeds_sort_by_unread: string
   entries_sort_by_score: string
-  entries_sort_config: string // Multi-column sort: "date:desc,feed:asc"
+  // Multi-column sort: "date:desc,feed:asc". Optional because the API has no
+  // default for it -- a default would shadow the legacy entries_sort_by_score
+  // fallback -- so it is absent until the reader stores a sort.
+  entries_sort_config?: string
   entries_hide_read: string
   entries_hide_unstarred: string
   entries_display_density: string

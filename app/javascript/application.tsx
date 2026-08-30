@@ -231,14 +231,13 @@ function App() {
   // The sort the list is asked for, resolved before it reaches the query below.
   //
   // It is deliberately the resolved string that the query depends on rather
-  // than the two preferences behind it. The API response carries no
-  // entries_sort_config key, so that preference goes from the reader's
-  // "date:desc" default to undefined the moment preferences land, while the
-  // sort it resolves to does not move. Depending on the raw preference made
-  // that a change, which rebuilt entriesQuery, which reloaded a list that had
-  // not changed -- and loadEntries clears the selection, so an article opened
-  // in the first moments after boot was closed again under the reader
-  // (ttrb-8zv5).
+  // than the two preferences behind it. entries_sort_config is absent from the
+  // API response until the reader has stored a sort, so the raw preference can
+  // move between renders while the sort it resolves to does not. Depending on
+  // the raw preference made that a change, which rebuilt entriesQuery, which
+  // reloaded a list that had not changed -- and loadEntries clears the
+  // selection, so an article opened in the first moments after boot was closed
+  // again under the reader (ttrb-8zv5).
   const entriesSort = preferences.entries_sort_config ||
     (preferences.entries_sort_by_score === "true" ? "score:desc" : "date:desc")
 

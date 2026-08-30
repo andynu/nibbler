@@ -21,6 +21,9 @@ module Api
 
       private
 
+      # Everything PATCH will store. This list must cover every field of the
+      # Preferences interface in app/javascript/lib/api.ts; a key the client
+      # writes but this list omits is accepted with a 200 and thrown away.
       def allowed_preference_keys
         %w[
           show_content_preview
@@ -36,6 +39,7 @@ module Api
           hide_read_shows_special
           feeds_sort_by_unread
           entries_sort_by_score
+          entries_sort_config
           entries_hide_read
           entries_hide_unstarred
           entries_display_density
@@ -46,9 +50,23 @@ module Api
           sidebar_collapsed
           sync_to_tree
           user_language
+          tts_playback_speed
+          digest_enable
+          digest_preferred_time
+          digest_catchup
+          digest_min_score
         ]
       end
 
+      # Values GET reports for a user who has stored nothing.
+      #
+      # entries_sort_config is intentionally absent. The reader resolves its
+      # sort as `entries_sort_config || (entries_sort_by_score == "true" ?
+      # "score:desc" : "date:desc")`, so a default here would always win and
+      # would silently ignore entries_sort_by_score for the users who still
+      # have only that older preference stored. Leaving the key out keeps the
+      # legacy fallback reachable; the key is writable, so once a reader picks
+      # a sort it is stored and returned from then on.
       def default_preferences
         {
           "show_content_preview" => "true",
@@ -73,7 +91,14 @@ module Api
           "accent_hue" => "210",
           "sidebar_collapsed" => "false",
           "sync_to_tree" => "false",
-          "user_language" => ""
+          "user_language" => "",
+          "tts_playback_speed" => "1",
+          "digest_enable" => "false",
+          # SendDigestsJob assumes 08:00 when no row exists; DigestMailer
+          # assumes a minimum score of 0. Keep these two in step with it.
+          "digest_preferred_time" => "08:00",
+          "digest_catchup" => "false",
+          "digest_min_score" => "0"
         }
       end
     end

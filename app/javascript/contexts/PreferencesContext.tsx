@@ -23,7 +23,12 @@ const defaultPreferences: Preferences = {
   hide_read_shows_special: "true",
   feeds_sort_by_unread: "false",
   entries_sort_by_score: "false",
-  entries_sort_config: "date:desc", // Default: date descending
+  // entries_sort_config is deliberately absent, matching the API, which has no
+  // default for it either. Claiming "date:desc" here made the value change from
+  // a string to undefined the moment the real preferences landed, for a sort
+  // that had not actually moved. Readers resolve the sort through
+  // entries_sort_by_score when this key is missing, which lands on "date:desc"
+  // anyway.
   entries_hide_read: "false",
   entries_hide_unstarred: "false",
   entries_display_density: "medium",
