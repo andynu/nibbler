@@ -19,21 +19,47 @@ default: &default
   # https://guides.rubyonrails.org/configuring.html#database-pooling
   #
   # One file is loaded by two kinds of process, so the pool has to cover
-  # whichever is larger: Puma's RAILS_MAX_THREADS in the `web` role, or
-  # GoodJob's max_threads plus its 2 shared utility threads
-  # (GoodJob::SharedExecutor::MAX_THREADS) in the `job` role. Undersizing the
-  # job side shows up as GoodJob's "more thread(s) than ActiveRecord's
-  # database connection pool size" warning and then as checkout timeouts.
-  max_connections: <%= [ ENV.fetch("RAILS_MAX_THREADS", 5).to_i, ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i + 2 ].max %>
+  # whichever is larger: the `web` role, or GoodJob's max_threads plus its 2
+  # shared utility threads (GoodJob::SharedExecutor::MAX_THREADS) in the `job`
+  # role. Undersizing the job side shows up as GoodJob's "more thread(s) than
+  # ActiveRecord's database connection pool size" warning and then as checkout
+  # timeouts.
+  #
+  # The web role is Puma's RAILS_MAX_THREADS *plus* Action Cable's worker pool,
+  # not just Puma's. Connection and channel callbacks do not run on the Puma
+  # thread that served the upgrade: ActionCable::Connection::Base#send_async
+  # hands them to ActionCable::Server::Worker's thread pool, and each of those
+  # threads holds an Active Record connection for the duration of its work --
+  # ApplicationCable::Connection#find_verified_user is a User lookup on every
+  # socket. Sizing on RAILS_MAX_THREADS alone leaves the two pools competing for
+  # one allocation, and the symptom is a websocket handshake timing out on
+  # checkout under load while ordinary requests look fine.
+  # config/application.rb sets worker_pool_size from the same variable.
+  max_connections: <%= [ ENV.fetch("RAILS_MAX_THREADS", 5).to_i + ENV.fetch("ACTION_CABLE_WORKER_POOL_SIZE", 4).to_i, ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i + 2 ].max %>
 
 
+# Development is multi-database for the same reason production is: Action Cable
+# runs the solid_cable adapter here too (config/cable.yml explains why it is not
+# `async`), and solid_cable_messages belongs in its own database rather than
+# alongside the application tables.
+#
+# The `url:` merge trap documented on the production `cache:` entry below does
+# not apply here -- neither development entry has a `url:` key, so the anchor
+# can be inherited wholesale and `database:` is the only thing that decides
+# which database is reached.
 development:
-  <<: *default
-  database: ttrb_development
-  username: ttrb
-  password: ttrb_dev
-  host: localhost
-  port: 5432
+  primary: &development_primary
+    <<: *default
+    database: ttrb_development
+    username: ttrb
+    password: ttrb_dev
+    host: localhost
+    port: 5432
+
+  cable:
+    <<: *development_primary
+    database: ttrb_development_cable
+    migrations_paths: db/cable_migrate
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
@@ -95,3 +121,13 @@ production:
     <<: *default
     url: <%= ENV.fetch("CACHE_DATABASE_URL") { ENV["DATABASE_URL"] && URI.parse(ENV["DATABASE_URL"]).tap { |u| u.path += "_cache" }.to_s } %>
     migrations_paths: db/cache_migrate
+
+  # Solid Cable derives its database the same way, for the same reason: the
+  # `url:` here must be its own or the URL's database name overrides
+  # `database:` and the cable tables are never created. The failure differs from
+  # the cache one only in being quieter -- nothing raises on a page load,
+  # subscribing and broadcasting just stop working.
+  cable:
+    <<: *default
+    url: <%= ENV.fetch("CABLE_DATABASE_URL") { ENV["DATABASE_URL"] && URI.parse(ENV["DATABASE_URL"]).tap { |u| u.path += "_cable" }.to_s } %>
+    migrations_paths: db/cable_migrate

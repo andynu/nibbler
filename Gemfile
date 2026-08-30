@@ -39,6 +39,12 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "solid_cache"
 gem "good_job"
 
+# Database-backed Action Cable adapter. Production runs GoodJob with
+# execution_mode :external, so broadcasts originate in a process that is not
+# Puma; the adapter has to be real cross-process pub/sub. The :async adapter is
+# in-process only and would swallow those broadcasts silently.
+gem "solid_cable"
+
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
 

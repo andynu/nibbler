@@ -1,0 +1,32 @@
+# Action Cable subscription adapters.
+#
+# Development is deliberately NOT the generator's `adapter: async`. Both
+# development and production run GoodJob with execution_mode :external
+# (config/environments/*.rb), so a broadcast can originate in `bin/jobs` while
+# the browser's websocket is held by Puma. The :async adapter is a per-process
+# in-memory bus: the job process would accept the broadcast, no subscriber in
+# that process would exist, and nothing would reach the browser -- no exception,
+# no log line. Running solid_cable in development means the cross-process path
+# is the one being exercised locally, not one that first runs in production.
+#
+# `cable` names the database entry in config/database.yml. Both environments
+# define one; keep the two files in step or SolidCable::Record raises at the
+# first subscribe.
+default: &default
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: 0.1.seconds
+  message_retention: 1.day
+
+development:
+  <<: *default
+
+# The suite never opens a websocket, and a solid_cable adapter here would give
+# every parallel worker a listener thread polling a database it does not own.
+test:
+  adapter: test
+
+production:
+  <<: *default

@@ -11,7 +11,7 @@ require "action_mailer/railtie"
 # require "action_mailbox/engine"
 # require "action_text/engine"
 require "action_view/railtie"
-# require "action_cable/engine"
+require "action_cable/engine"
 require "rails/test_unit/railtie"
 
 # Require the gems listed in Gemfile, including any gems
@@ -38,6 +38,13 @@ module Ttrb
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    # Action Cable runs connection and channel callbacks on its own thread pool,
+    # not on the Puma thread that served the upgrade, and each of those threads
+    # can hold an Active Record connection while it works. config/database.yml
+    # adds this to RAILS_MAX_THREADS when sizing the pool, so both have to read
+    # the same variable or the pool is undersized the moment either is tuned.
+    config.action_cable.worker_pool_size = ENV.fetch("ACTION_CABLE_WORKER_POOL_SIZE", 4).to_i
 
     # Text-to-speech shells out to the Python virtualenv described by
     # pyproject.toml. That venv is ~7G (forcealign pulls in torch and the CUDA
