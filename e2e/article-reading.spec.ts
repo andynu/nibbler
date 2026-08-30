@@ -192,6 +192,9 @@ test.describe("Star/Unstar Articles", () => {
 
     if (data.entries.length > 0) {
       const entryId = data.entries[0].id
+      // The endpoint toggles, so the entry belongs in the starred view exactly
+      // when it started out unstarred.
+      const shouldBeStarred = !data.entries[0].starred
 
       // Star the entry
       await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
@@ -200,10 +203,13 @@ test.describe("Star/Unstar Articles", () => {
       const starredResponse = await page.request.get(
         "/api/v1/entries?view=starred"
       )
-      const starredData = await starredResponse.json()
-
-      // Verify entry is in starred (or was already removed if originally starred)
       expect(starredResponse.ok()).toBe(true)
+
+      const starredData = await starredResponse.json()
+      const starredIds = starredData.entries.map(
+        (entry: { id: number }) => entry.id
+      )
+      expect(starredIds.includes(entryId)).toBe(shouldBeStarred)
 
       // Toggle back to original state
       await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
