@@ -177,14 +177,6 @@ const DOCUMENTED_EXCEPTIONS: { file: string; pattern: PatternName; reason: strin
     reason:
       "The drawer's scrim, same reasoning as components/ui/dialog.tsx.",
   },
-  {
-    file: "components/ui/context-menu.tsx",
-    pattern: "fill token as text",
-    reason:
-      "ContextMenuItem's destructive variant was ruled out of ttrb-x7zz's " +
-      "scope so its appearance would not move; it still paints the fill token " +
-      "as text and still measures 1.98:1 on Dark. Tracked as ttrb-dm5p.",
-  },
 ]
 
 /** Strip comments so a token name quoted in prose is not read as a use. */
