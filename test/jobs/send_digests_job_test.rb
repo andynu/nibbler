@@ -7,12 +7,12 @@ class SendDigestsJobTest < ActiveJob::TestCase
     @user = users(:one)
     @user.update!(
       email: "digest@example.com",
-      email_digest: true,
       last_digest_sent: nil
     )
     # Set preferred time to current hour so user is due for digest
     current_hour = Time.current.strftime("%H:00")
     @user.user_preferences.create!(pref_name: "digest_preferred_time", value: current_hour)
+    @user.user_preferences.create!(pref_name: "digest_enable", value: "true")
   end
 
   test "sends digest to eligible user" do
@@ -25,8 +25,40 @@ class SendDigestsJobTest < ActiveJob::TestCase
     assert @user.last_digest_sent > 1.minute.ago
   end
 
-  test "skips users with email_digest disabled" do
+  # --- The digest_enable gate -----------------------------------------------
+  #
+  # digest_enable is the preference the "Send daily digest" switch writes. The
+  # job used to select on users.email_digest, a column no endpoint ever wrote,
+  # so the switch changed nothing in either direction. These four cover both
+  # directions of the switch and both directions of the column.
+
+  test "skips users who turned the digest off" do
+    @user.user_preferences.find_by(pref_name: "digest_enable").update!(value: "false")
+
+    assert_no_emails do
+      SendDigestsJob.perform_now
+    end
+  end
+
+  test "skips users who never turned the digest on" do
+    @user.user_preferences.find_by(pref_name: "digest_enable").destroy!
+
+    assert_no_emails do
+      SendDigestsJob.perform_now
+    end
+  end
+
+  test "sends when the preference is on even though the email_digest column is false" do
     @user.update!(email_digest: false)
+
+    assert_emails 1 do
+      SendDigestsJob.perform_now
+    end
+  end
+
+  test "does not send on the email_digest column alone" do
+    @user.user_preferences.find_by(pref_name: "digest_enable").destroy!
+    @user.update!(email_digest: true)
 
     assert_no_emails do
       SendDigestsJob.perform_now

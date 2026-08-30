@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Api::V1::PreferencesControllerTest < ActionDispatch::IntegrationTest
+  include ActionMailer::TestHelper
+
   # Keys the reader writes that have no server-side default, so GET omits them
   # until the user has stored one. entries_sort_config is deliberately in this
   # set: a default would shadow the legacy entries_sort_by_score fallback the
@@ -117,6 +119,46 @@ class Api::V1::PreferencesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # --- The digest switch actually gates delivery -----------------------------
+  #
+  # Persistence is covered above and is not enough: digest_enable persisted
+  # correctly while SendDigestsJob selected on users.email_digest, a column no
+  # endpoint writes, so the switch moved a value nothing read. These two drive
+  # the same endpoint the switch drives and then run the job, in both
+  # directions, with the counterfactual asserted in each.
+
+  test "turning the digest on through the API starts delivery" do
+    users(:one).update!(email: "digest@example.com", last_digest_sent: nil)
+
+    patch_preferences("digest_preferred_time" => current_hour)
+    assert_no_emails { SendDigestsJob.perform_now }
+
+    patch_preferences("digest_enable" => "true")
+
+    assert_emails 1 do
+      SendDigestsJob.perform_now
+    end
+  end
+
+  test "turning the digest off through the API stops delivery" do
+    user = users(:one)
+    user.update!(email: "digest@example.com", last_digest_sent: nil)
+
+    patch_preferences("digest_enable" => "true", "digest_preferred_time" => current_hour)
+    assert_emails 1 do
+      SendDigestsJob.perform_now
+    end
+
+    # Clear the 23-hour guard so the switch is the only thing that can stop the
+    # next run.
+    user.update!(last_digest_sent: nil)
+    patch_preferences("digest_enable" => "false")
+
+    assert_no_emails do
+      SendDigestsJob.perform_now
+    end
+  end
+
   # --- Isolation ------------------------------------------------------------
 
   test "preferences are scoped to the signed-in user" do
@@ -128,6 +170,12 @@ class Api::V1::PreferencesControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  # The hour SendDigestsJob is running in, in the format digest_preferred_time
+  # stores.
+  def current_hour
+    Time.current.strftime("%H:00")
+  end
 
   # Field names from the Preferences interface in the TypeScript client. Parsed
   # rather than duplicated so the two sides cannot drift silently.

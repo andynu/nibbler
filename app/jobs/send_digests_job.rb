@@ -3,9 +3,17 @@
 #
 # Users receive a digest when:
 # - email is present and valid
-# - email_digest is true
+# - the digest_enable preference is "true" (the "Send daily digest" switch)
 # - digest_preferred_time matches current hour (default: 8:00 AM)
 # - last_digest_sent is nil or > 23 hours ago
+#
+# All four digest settings live in user_preferences: digest_enable here,
+# digest_preferred_time and digest_catchup below, digest_min_score in
+# DigestMailer. The users.email_digest column this job used to select on is no
+# longer read by anything -- no endpoint ever wrote it, so the switch in the
+# settings panel changed a value the job ignored. Migration
+# 20260830023650_backfill_digest_enable_preference copied the column's opted-in
+# users into the preference.
 class SendDigestsJob < ApplicationJob
   queue_as :default
 
@@ -28,9 +36,23 @@ class SendDigestsJob < ApplicationJob
 
     User
       .where.not(email: [ nil, "" ])
-      .where(email_digest: true)
+      .where(digest_enabled_sql)
       .where(digest_time_matches_sql, current_hour, default_hour, current_hour)
       .where("last_digest_sent IS NULL OR last_digest_sent < ?", 23.hours.ago)
+  end
+
+  def digest_enabled_sql
+    # Opt-in: no row means no digest, which matches the API default of "false".
+    # There is deliberately no fallback to users.email_digest -- one source of
+    # truth, so turning the switch off cannot leave a second copy saying on.
+    <<~SQL.squish
+      EXISTS (
+        SELECT 1 FROM user_preferences up
+        WHERE up.user_id = users.id
+          AND up.pref_name = 'digest_enable'
+          AND up.value = 'true'
+      )
+    SQL
   end
 
   def digest_time_matches_sql

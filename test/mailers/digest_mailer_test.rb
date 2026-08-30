@@ -3,7 +3,9 @@ require "test_helper"
 class DigestMailerTest < ActionMailer::TestCase
   setup do
     @user = users(:one)
-    @user.update!(email: "digest@example.com", email_digest: true)
+    # No digest_enable here: whether a user is subscribed is SendDigestsJob's
+    # question, and the mailer renders whatever it is handed.
+    @user.update!(email: "digest@example.com")
   end
 
   test "digest_email generates email with articles" do
