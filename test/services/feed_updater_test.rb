@@ -24,13 +24,13 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     result = update_with(mixed_payload)
 
     assert_equal :ok, result.status, "one bad item must not fail the whole fetch"
-    assert_equal %w[good-1 good-2], stored_guids
+    assert_equal %w[good-1 good-2 headline-only], stored_guids
   end
 
   test "counts only the items it actually stored" do
     result = update_with(mixed_payload)
 
-    assert_equal 2, result.new_entries_count
+    assert_equal 3, result.new_entries_count
   end
 
   test "records the skipped item rather than swallowing it" do
@@ -61,7 +61,7 @@ class FeedUpdaterTest < ActiveSupport::TestCase
   test "gives the user a user_entry for the items that stored" do
     update_with(mixed_payload)
 
-    assert_equal 2, @feed.user_entries.count
+    assert_equal 3, @feed.user_entries.count
   end
 
   # An entry that fails partway through must leave nothing behind. The savepoint
@@ -71,6 +71,44 @@ class FeedUpdaterTest < ActiveSupport::TestCase
 
     assert_nil Entry.find_by(guid: "untitled-1")
     assert_equal 0, UserEntry.joins(:entry).where(entries: { guid: "untitled-1" }).count
+  end
+
+  # ==========================================
+  # Headline-only items
+  # ==========================================
+
+  # 20 of the 50 items in the live Braintree, MA news flash feed carry a title
+  # and a link and no body at all. That is a normal RSS shape, not a defect, so
+  # a bodyless item has to store like any other.
+  test "stores an item that has a title and a link but no body" do
+    update_with(mixed_payload)
+
+    entry = Entry.find_by(guid: "headline-only")
+    assert_not_nil entry, "a headline-only item is a normal feed shape and must store"
+    assert_equal "", entry.content
+    assert_equal "Headline Only", entry.title
+  end
+
+  test "a feed of nothing but headline-only items ingests all of them" do
+    result = update_with(headline_only_payload)
+
+    assert_equal :ok, result.status
+    assert_equal 3, result.new_entries_count
+    assert_empty result.skipped_entries
+  end
+
+  # A bodyless entry still has to satisfy the NOT NULL column and hash to
+  # something, so the rest of the pipeline treats it like any other row.
+  #
+  # Whether it is findable by full-text search is a separate question: nothing
+  # populates tsvector_combined today, for any entry with or without a body.
+  # That is ttrb-voe4, not this change.
+  test "a bodyless entry stores an empty body rather than a null one" do
+    update_with(mixed_payload)
+    entry = Entry.find_by(guid: "headline-only")
+
+    assert_not_nil entry.content
+    assert_equal Digest::SHA256.hexdigest(""), entry.content_hash
   end
 
   # ==========================================
@@ -146,13 +184,23 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     XML
   end
 
-  # The middle item has a whitespace-only title, which no validation will ever
-  # accept. It stands in for any permanently unstorable item.
+  # Deliberately mixes three shapes: storable items, an item with a
+  # whitespace-only title that no validation will ever accept, and a
+  # headline-only item with no body.
   def mixed_payload
     rss(
       item(guid: "good-1", title: "First Good", body: "&lt;p&gt;one&lt;/p&gt;") +
       item(guid: "untitled-1", title: "   ", body: "&lt;p&gt;two&lt;/p&gt;") +
+      item(guid: "headline-only", title: "Headline Only") +
       item(guid: "good-2", title: "Second Good", body: "&lt;p&gt;three&lt;/p&gt;")
+    )
+  end
+
+  def headline_only_payload
+    rss(
+      item(guid: "flash-1", title: "Parking Ticket Appeal") +
+      item(guid: "flash-2", title: "Bulk Item Pickup") +
+      item(guid: "flash-3", title: "Health Fee Schedule")
     )
   end
 

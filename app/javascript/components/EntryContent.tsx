@@ -163,6 +163,12 @@ export function EntryContent({
     return shouldStripImages ? stripImages(entry.content) : entry.content
   }, [entry?.content, shouldStripImages])
 
+  // Headline-only and link-only items are a normal RSS shape, so an entry with
+  // no body is expected rather than broken. Injecting "" would render a
+  // zero-height prose block and leave the reader staring at a header over
+  // whitespace with no hint that the whole article is one click away.
+  const hasBody = processedContent.trim().length > 0
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -529,7 +535,7 @@ export function EntryContent({
                 [&_a]:text-primary [&_a]:underline
                 [&_img]:block [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
             />
-          ) : (
+          ) : hasBody ? (
             <div
               className="prose prose-sm max-w-none
                 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3
@@ -546,6 +552,30 @@ export function EntryContent({
                 [&_img]:block [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
               dangerouslySetInnerHTML={{ __html: processedContent }}
             />
+          ) : (
+            <div className="rounded-md border border-dashed p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                This item has no article text. The feed published a headline and a link only.
+              </p>
+              {/* The header carries icon-only controls for both of these, but
+                  they are unlabelled and the framing toggle is hidden below the
+                  xs breakpoint. Naming them here is the only in-place hint that
+                  the article is one click away. The wording is deliberately
+                  different from the header's so the two do not collide as
+                  duplicate accessible names. */}
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                <Button variant="outline" size="sm" onClick={onToggleIframe}>
+                  <Globe className="h-4 w-4 mr-1" />
+                  Read the page here
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={entry.link} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open the original site
+                  </a>
+                </Button>
+              </div>
+            </div>
           )}
 
           {(entry.note || isEditingNote) && (

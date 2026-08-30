@@ -23,8 +23,17 @@ class Entry < ApplicationRecord
   validates :guid, presence: true, uniqueness: true
   validates :title, presence: true
   validates :link, presence: true
-  validates :content, presence: true
   validates :content_hash, presence: true
+
+  # A body is optional. Headline-only and link-only items are a normal RSS
+  # shape, not a malformed one: 20 of the 50 items in the Braintree, MA news
+  # flash feed carry a title and a link and nothing else. Requiring presence
+  # here rejected those items at ingest, which is the wrong half of the pair to
+  # call invalid.
+  #
+  # nil is still rejected. The column is NOT NULL and update_tsvector reads the
+  # value on every save, so "" is the only acceptable way to have no body.
+  validates :content, exclusion: { in: [ nil ], message: "can't be nil" }
 
   scope :recent, -> { order(date_entered: :desc) }
 

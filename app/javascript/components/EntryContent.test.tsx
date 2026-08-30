@@ -453,6 +453,76 @@ describe("EntryContent", () => {
     })
   })
 
+  // Headline-only and link-only items are a normal RSS shape - 20 of the 50
+  // items in a municipal news flash feed carry a title and a link and no body.
+  // Nibbler now stores those instead of rejecting them at ingest, so the reader
+  // has to say something useful rather than render an empty pane.
+  describe("entries with no body", () => {
+    it("explains that the feed published no article text", () => {
+      const entry = mockEntryWithContent({ content: "" })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(
+        screen.getByText(/feed published a headline and a link only/i)
+      ).toBeInTheDocument()
+    })
+
+    it("offers the original page in a new tab", () => {
+      const entry = mockEntryWithContent({
+        content: "",
+        link: "https://braintreema.gov/1375",
+      })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      const link = screen.getByRole("link", { name: /open the original site/i })
+      expect(link).toHaveAttribute("href", "https://braintreema.gov/1375")
+      expect(link).toHaveAttribute("rel", "noopener noreferrer")
+    })
+
+    it("offers the framed original page", async () => {
+      const user = userEvent.setup()
+      const onToggleIframe = vi.fn()
+      const entry = mockEntryWithContent({ content: "" })
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={entry}
+          onToggleIframe={onToggleIframe}
+        />
+      )
+
+      await user.click(screen.getByRole("button", { name: /read the page here/i }))
+
+      expect(onToggleIframe).toHaveBeenCalled()
+    })
+
+    // Whitespace is not a body. A feed that emits "<p> </p>" should get the
+    // same treatment as one that emits nothing.
+    it("treats a whitespace-only body as no body", () => {
+      const entry = mockEntryWithContent({ content: "   \n  " })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(
+        screen.getByText(/feed published a headline and a link only/i)
+      ).toBeInTheDocument()
+    })
+
+    it("does not show the empty state when the entry has a body", () => {
+      const entry = mockEntryWithContent({ content: "<p>Real article text</p>" })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(screen.getByText("Real article text")).toBeInTheDocument()
+      expect(
+        screen.queryByText(/feed published a headline and a link only/i)
+      ).not.toBeInTheDocument()
+    })
+  })
+
   describe("iframe view keyboard focus", () => {
     /**
      * happy-dom really loads an iframe's src through its own fetch, which
