@@ -50,11 +50,9 @@ class LlmClientTest < ActiveSupport::TestCase
   end
 
   test "sends stream: false in request body" do
-    stub_request(:post, "#{@url}/api/generate")
-      .with(body: hash_including(stream: false))
-      .to_return(status: 200, body: { response: "ok" }.to_json)
+    body = captured_request_body { @client.generate(prompt: "hello") }
 
-    @client.generate(prompt: "hello")
+    assert_equal false, body["stream"]
   end
 
   # ===================
@@ -83,14 +81,9 @@ class LlmClientTest < ActiveSupport::TestCase
   end
 
   test "does not request format: json when format is nil" do
-    stub_request(:post, "#{@url}/api/generate")
-      .with { |req|
-        body = JSON.parse(req.body)
-        !body.key?("format")
-      }
-      .to_return(status: 200, body: { response: "plain" }.to_json)
+    body = captured_request_body { @client.generate(prompt: "hello") }
 
-    @client.generate(prompt: "hello")
+    assert_not body.key?("format"), "expected no format key, sent #{body.inspect}"
   end
 
   # ===================
@@ -238,24 +231,40 @@ class LlmClientTest < ActiveSupport::TestCase
   # ===================
 
   test "sends configured model in request body" do
-    stub_request(:post, "#{@url}/api/generate")
-      .with(body: hash_including(model: "test-model"))
-      .to_return(status: 200, body: { response: "ok" }.to_json)
+    body = captured_request_body { @client.generate(prompt: "hello") }
 
-    @client.generate(prompt: "hello")
+    assert_equal "test-model", body["model"]
   end
 
   test "can override model per-instance" do
     client = LlmClient.new(url: @url, model: "other-model")
 
-    stub_request(:post, "#{@url}/api/generate")
-      .with(body: hash_including(model: "other-model"))
-      .to_return(status: 200, body: { response: "ok" }.to_json)
+    body = captured_request_body { client.generate(prompt: "hello") }
 
-    client.generate(prompt: "hello")
+    assert_equal "other-model", body["model"]
   end
 
   private
+
+  # Stubs /api/generate, records the JSON the client actually posted, and hands
+  # it back parsed. Prefer this over constraining the stub with
+  # `.with(body: hash_including(...))`: a mismatched constraint makes WebMock
+  # raise NetConnectNotAllowedError from inside the client, which leaves the
+  # example with no assertions of its own and reports a wrong request body as an
+  # unrelated-looking connection error.
+  def captured_request_body
+    sent = nil
+
+    stub_request(:post, "#{@url}/api/generate").to_return do |request|
+      sent = request.body
+      { status: 200, body: { response: "ok" }.to_json }
+    end
+
+    yield
+
+    refute_nil sent, "LlmClient posted nothing to #{@url}/api/generate"
+    JSON.parse(sent)
+  end
 
   def assert_logs_match(pattern)
     logged = capture_logs { yield }
