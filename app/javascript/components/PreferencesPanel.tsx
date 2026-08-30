@@ -7,11 +7,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ThemePicker } from "@/components/ThemePicker"
 import { usePreferences } from "@/contexts/PreferencesContext"
-import { useTheme } from "@/contexts/ThemeContext"
 import { useI18n, type LanguagePreference } from "@/contexts/I18nContext"
 import { applyAccentColors, generateAccentColors, DEFAULT_ACCENT_HUE } from "@/lib/accentColors"
-import { SYSTEM_THEME, THEMES, normalizeThemeSelection } from "@/lib/themes"
 import type { LanguageCode } from "@/lib/i18n"
 
 const UPDATE_INTERVAL_OPTIONS = [
@@ -66,12 +65,6 @@ const PURGE_DAYS_OPTIONS = [
   { value: "0", label: "Never" },
 ]
 
-// Derived from the theme registry so a new palette appears here automatically.
-const THEME_OPTIONS = [
-  { value: SYSTEM_THEME, label: "System (auto)" },
-  ...THEMES.map((theme) => ({ value: theme.id, label: theme.name })),
-]
-
 const CONTENT_VIEW_MODE_OPTIONS = [
   { value: "rss", label: "RSS content (default)" },
   { value: "iframe", label: "Original page in iframe" },
@@ -99,7 +92,6 @@ const DIGEST_MIN_SCORE_OPTIONS = [
 
 export function PreferencesPanel() {
   const { preferences, updatePreference, isLoading } = usePreferences()
-  const { theme, setTheme } = useTheme()
   const { supportedLanguages, setLanguage, isInitialized: i18nInitialized } = useI18n()
 
   if (isLoading) {
@@ -115,29 +107,7 @@ export function PreferencesPanel() {
       <div>
         <h3 className="text-lg font-medium mb-4">Appearance</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="theme">Theme</Label>
-              <p className="text-sm text-muted-foreground">
-                Choose light, dark, or follow your system settings
-              </p>
-            </div>
-            <Select
-              value={theme}
-              onValueChange={(value) => setTheme(normalizeThemeSelection(value))}
-            >
-              <SelectTrigger id="theme" className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {THEME_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <ThemePicker />
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">

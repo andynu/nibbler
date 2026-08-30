@@ -11,7 +11,7 @@ import { mockPreferences } from "../../../test/fixtures/data"
 /**
  * The theme picker, end to end.
  *
- * These tests drive the real Select and then assert on the palette the document
+ * These tests drive the real control and then assert on the palette the document
  * is actually in, across a reload with the cache cleared. A test that only
  * checked the choice was written somewhere passes against every version of this
  * control, including the one that wrote it to localStorage and nowhere else
@@ -76,12 +76,11 @@ function renderPanel() {
   )
 }
 
-const themeSelect = () => screen.getByRole("combobox", { name: "Theme" })
+const themeOption = (name: string) => screen.getByRole("radio", { name })
 
-async function pickTheme(user: ReturnType<typeof userEvent.setup>, label: string) {
+async function pickTheme(user: ReturnType<typeof userEvent.setup>, name: string) {
   // The panel renders a loading message until the preferences request lands.
-  await user.click(await screen.findByRole("combobox", { name: "Theme" }))
-  await user.click(await screen.findByRole("option", { name: label }))
+  await user.click(await screen.findByRole("radio", { name }))
 }
 
 const root = () => document.documentElement
@@ -145,7 +144,7 @@ describe("PreferencesPanel theme picker", () => {
 
     await waitFor(() => expect(appliedTheme()).toBe("gruvbox-dark"))
     expect(root().classList.contains("dark")).toBe(true)
-    expect(themeSelect()).toHaveTextContent("Gruvbox Dark")
+    expect(themeOption("Gruvbox Dark")).toBeChecked()
   })
 
   it("starts in the palette the account holds, with nothing in localStorage", async () => {
@@ -154,7 +153,7 @@ describe("PreferencesPanel theme picker", () => {
     renderPanel()
 
     await waitFor(() => expect(appliedTheme()).toBe("sepia"))
-    expect(themeSelect()).toHaveTextContent("Sepia")
+    expect(themeOption("Sepia")).toBeChecked()
     // Reading the account is not a reason to write to it.
     expect(themeWrites()).toEqual([])
   })
@@ -166,7 +165,7 @@ describe("PreferencesPanel theme picker", () => {
 
     await waitFor(() => expect(themeWrites()).toEqual(["gruvbox-light"]))
     expect(appliedTheme()).toBe("gruvbox-light")
-    expect(themeSelect()).toHaveTextContent("Gruvbox Light")
+    expect(themeOption("Gruvbox Light")).toBeChecked()
   })
 
   it("does not bring back a palette the reader has moved away from", async () => {
@@ -176,7 +175,7 @@ describe("PreferencesPanel theme picker", () => {
 
     await waitFor(() => expect(appliedTheme()).toBe("dark"))
 
-    await pickTheme(user, "System (auto)")
+    await pickTheme(user, "System")
     await waitFor(() => expect(storedTheme).toBe("system"))
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("system")
 
@@ -196,7 +195,7 @@ describe("PreferencesPanel theme picker", () => {
     renderPanel()
 
     await waitFor(() => expect(appliedTheme()).toBe("light"))
-    expect(themeSelect()).toHaveTextContent("System (auto)")
+    expect(themeOption("System")).toBeChecked()
     // A palette a newer build wrote is left where it is rather than overwritten.
     expect(themeWrites()).toEqual([])
     expect(storedTheme).toBe("solarized")

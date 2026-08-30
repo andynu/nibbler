@@ -115,6 +115,38 @@
      base "dark". That is what the `.dark .foo` rules above key off, so a new
      dark palette inherits them without being named in a selector. */
 
+  /* Light. The same values as the @theme block, which is what makes them
+     duplicated here: a `[data-theme]` block is what lets a palette be scoped to
+     something other than <html>, and the theme picker's swatches rely on that
+     to paint each palette in its own colours (ThemePicker.tsx). Without this
+     block a nested `data-theme="light"` inherits whatever palette the page is
+     already in, so the Light swatch would look like the current theme.
+
+     The two copies are held together by the settings e2e spec, which reads the
+     compiled stylesheet and fails if this block and :root disagree on any
+     token. */
+  [data-theme="light"] {
+    --color-background: hsl(0 0% 100%);
+    --color-foreground: hsl(0 0% 3.9%);
+    --color-card: hsl(0 0% 100%);
+    --color-card-foreground: hsl(0 0% 3.9%);
+    --color-popover: hsl(0 0% 100%);
+    --color-popover-foreground: hsl(0 0% 3.9%);
+    --color-primary: hsl(0 0% 9%);
+    --color-primary-foreground: hsl(0 0% 98%);
+    --color-secondary: hsl(0 0% 96.1%);
+    --color-secondary-foreground: hsl(0 0% 9%);
+    --color-muted: hsl(0 0% 96.1%);
+    --color-muted-foreground: hsl(0 0% 45.1%);
+    --color-accent: hsl(0 0% 96.1%);
+    --color-accent-foreground: hsl(0 0% 9%);
+    --color-destructive: hsl(0 84.2% 60.2%);
+    --color-destructive-foreground: hsl(0 0% 98%);
+    --color-border: hsl(0 0% 89.8%);
+    --color-input: hsl(0 0% 89.8%);
+    --color-ring: hsl(0 0% 3.9%);
+  }
+
   [data-theme="dark"] {
     --color-background: hsl(0 0% 3.9%);
     --color-foreground: hsl(0 0% 98%);

@@ -10,6 +10,65 @@ import { THEMES } from "@/lib/themes"
  * Tests the settings dialog and user preferences that affect application behavior.
  */
 
+/**
+ * The `--color-*` declarations in the compiled stylesheet, read out of the
+ * browser: the `:root` defaults, and one map per `[data-theme]` palette block.
+ *
+ * A registry entry whose palette block is missing, or which forgets a token,
+ * does not throw: the token falls through to the `:root` defaults and the theme
+ * renders with a white patch where a surface should be. Nothing in vitest can
+ * see that, because vitest never compiles the stylesheet.
+ *
+ * Values come back resolved to the rgb strings the browser paints, not as the
+ * source text: the build minifies colours, so `hsl(0 0% 100%)` reaches the
+ * browser as `#fff` in one block and unchanged in another.
+ */
+async function readPalettes(page: Page): Promise<{
+  root: Record<string, string>
+  blocks: Record<string, Record<string, string>>
+}> {
+  return page.evaluate(() => {
+    const root: Record<string, string> = {}
+    const blocks: Record<string, Record<string, string>> = {}
+
+    const probe = document.createElement("span")
+    document.body.appendChild(probe)
+    const paint = (value: string) => {
+      probe.style.color = ""
+      probe.style.color = value
+      return getComputedStyle(probe).color
+    }
+
+    const visit = (rule: CSSRule) => {
+      // Order matters: Chrome's CSSStyleRule also exposes cssRules (for CSS
+      // nesting), so a grouping-first check would swallow every style rule.
+      if (rule instanceof CSSStyleRule) {
+        const tokens = Array.from(rule.style).filter((prop) => prop.startsWith("--color-"))
+        const declared = Object.fromEntries(
+          tokens.map((token) => [token, paint(rule.style.getPropertyValue(token).trim())])
+        )
+        if (/(^|,)\s*:root\b/.test(rule.selectorText)) {
+          Object.assign(root, declared)
+          return
+        }
+        const named = rule.selectorText.match(/\[data-theme="?([\w-]+)"?\]/)
+        if (named) blocks[named[1]] = declared
+        return
+      }
+      // @layer / @media wrappers; Tailwind emits the palettes inside one.
+      if ("cssRules" in rule) {
+        for (const child of Array.from((rule as CSSGroupingRule).cssRules)) visit(child)
+      }
+    }
+
+    for (const sheet of Array.from(document.styleSheets)) {
+      for (const rule of Array.from(sheet.cssRules)) visit(rule)
+    }
+    probe.remove()
+    return { root, blocks }
+  })
+}
+
 test.describe("Opening Settings", () => {
   test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
@@ -329,6 +388,60 @@ test.describe("Preference Toggle Interaction", () => {
   })
 })
 
+/** The five colours one theme's swatch paints, as rgb strings. */
+interface SwatchColors {
+  background: string
+  foreground: string
+  mutedForeground: string
+  muted: string
+  border: string
+}
+
+/** What the swatch on a theme's card actually paints. */
+async function swatchColors(page: Page, id: string): Promise<SwatchColors> {
+  return page.evaluate((themeId) => {
+    const face = document.querySelector<HTMLElement>(
+      `label:has(input[value="${themeId}"]) [data-theme="${themeId}"]`
+    )
+    if (!face) throw new Error(`no swatch for ${themeId}`)
+    const [foreground, mutedForeground, muted] = Array.from(face.children).map(
+      (bar) => getComputedStyle(bar)
+    )
+    return {
+      background: getComputedStyle(face).backgroundColor,
+      foreground: foreground.backgroundColor,
+      mutedForeground: mutedForeground.backgroundColor,
+      muted: muted.backgroundColor,
+      border: muted.borderTopColor,
+    }
+  }, id)
+}
+
+/** The same five colours, as the page paints them under the applied palette. */
+async function appliedColors(page: Page): Promise<SwatchColors> {
+  return page.evaluate(() => {
+    // The tokens hold hsl() text; a probe turns each into the rgb string
+    // getComputedStyle reports for a painted colour, so the two are comparable.
+    const probe = document.createElement("span")
+    document.body.appendChild(probe)
+    const resolve = (token: string) => {
+      probe.style.color = getComputedStyle(document.documentElement)
+        .getPropertyValue(token)
+        .trim()
+      return getComputedStyle(probe).color
+    }
+    const colors = {
+      background: getComputedStyle(document.body).backgroundColor,
+      foreground: resolve("--color-foreground"),
+      mutedForeground: resolve("--color-muted-foreground"),
+      muted: resolve("--color-muted"),
+      border: resolve("--color-border"),
+    }
+    probe.remove()
+    return colors
+  })
+}
+
 test.describe("Theme Selection", () => {
   test.beforeEach(async ({ feedsPage }) => {
     await feedsPage.waitForBranding()
@@ -397,46 +510,13 @@ test.describe("Theme Selection", () => {
     })
   }
 
-  // A registry entry whose palette block is missing, or which forgets a token,
-  // does not throw: the token falls through to the light `@theme` defaults and
-  // the theme renders with a white patch where a surface should be. Nothing in
-  // vitest can see that, so read the compiled stylesheet out of the browser and
-  // compare the two lists directly.
   test("every registered theme has a palette block defining every token", async ({ page }) => {
-    const palettes = await page.evaluate(() => {
-      const rootTokens = new Set<string>()
-      const blocks: Record<string, string[]> = {}
+    const palettes = await readPalettes(page)
 
-      const visit = (rule: CSSRule) => {
-        // Order matters: Chrome's CSSStyleRule also exposes cssRules (for CSS
-        // nesting), so a grouping-first check would swallow every style rule.
-        if (rule instanceof CSSStyleRule) {
-          const tokens = Array.from(rule.style).filter((prop) => prop.startsWith("--color-"))
-          if (/(^|,)\s*:root\b/.test(rule.selectorText)) {
-            for (const token of tokens) rootTokens.add(token)
-            return
-          }
-          const named = rule.selectorText.match(/\[data-theme="?([\w-]+)"?\]/)
-          if (named) blocks[named[1]] = tokens
-          return
-        }
-        // @layer / @media wrappers; Tailwind emits the palettes inside one.
-        if ("cssRules" in rule) {
-          for (const child of Array.from((rule as CSSGroupingRule).cssRules)) visit(child)
-        }
-      }
-
-      for (const sheet of Array.from(document.styleSheets)) {
-        for (const rule of Array.from(sheet.cssRules)) visit(rule)
-      }
-      return { rootTokens: Array.from(rootTokens), blocks }
-    })
-
-    // "light" is the :root default every other palette falls back to, so it is
-    // the one theme with no [data-theme] block of its own.
-    const expected = THEMES.map((theme) => theme.id)
-      .filter((id) => id !== "light")
-      .sort()
+    // Light included: it is the :root fallback, but it also needs a block of
+    // its own, because a block is what lets a palette be scoped to something
+    // that is not <html> -- which is how the picker's swatches are painted.
+    const expected = THEMES.map((theme) => theme.id).sort()
     expect(Object.keys(palettes.blocks).sort()).toEqual(expected)
 
     // Every palette must declare the same token set. :root carries more than
@@ -444,15 +524,70 @@ test.describe("Theme Selection", () => {
     // utility references, and the accent variables that applyAccentColors owns
     // as inline styles -- so the required set is the palettes' own union, and
     // :root is only checked for containing it.
-    const required = Array.from(new Set(Object.values(palettes.blocks).flat())).sort()
+    const required = Array.from(
+      new Set(Object.values(palettes.blocks).flatMap((block) => Object.keys(block)))
+    ).sort()
     expect(required).toContain("--color-background")
     expect(required).toContain("--color-muted-foreground")
     expect(required.length).toBeGreaterThanOrEqual(19)
     for (const id of expected) {
-      expect(palettes.blocks[id].sort(), `${id} palette`).toEqual(required)
+      expect(Object.keys(palettes.blocks[id]).sort(), `${id} palette`).toEqual(required)
     }
     for (const token of required) {
-      expect(palettes.rootTokens, `${token} has no :root fallback`).toContain(token)
+      expect(Object.keys(palettes.root), `${token} has no :root fallback`).toContain(token)
+    }
+  })
+
+  // A swatch that disagrees with the palette it advertises is worse than no
+  // swatch, and it is invisible to vitest, which never loads the stylesheet.
+  // Both sides are measured here rather than compared against literals: the
+  // swatch is read out of the picker, and the palette is read off the page with
+  // that theme applied, so nothing in this test knows what any theme looks like.
+  test("every swatch paints the palette its card names", async ({
+    feedsPage,
+    settingsPage,
+    page,
+  }) => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
+
+    for (const theme of THEMES) {
+      const swatch = await swatchColors(page, theme.id)
+
+      await settingsPage.selectTheme(theme.name)
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme.id)
+      // transition-colors means a reading taken straight after the swap catches
+      // the animation mid-flight; poll until the palette settles.
+      await expect.poll(() => appliedColors(page), { message: theme.id }).toEqual(swatch)
+    }
+  })
+
+  // The swatches are scoped by data-theme rather than painted from a list of
+  // colours, so the palette the page happens to be in must not reach into them.
+  test("a swatch shows its own palette whatever the page is in", async ({
+    feedsPage,
+    settingsPage,
+    page,
+  }) => {
+    await feedsPage.openSettings()
+    await settingsPage.goToPreferencesTab()
+
+    await settingsPage.selectTheme("Light")
+    const fromLight = await swatchColors(page, "gruvbox-dark")
+
+    await settingsPage.selectTheme("Gruvbox Light")
+    await expect.poll(() => swatchColors(page, "gruvbox-dark")).toEqual(fromLight)
+  })
+
+  // The light values are written twice -- once in @theme, which is what puts
+  // them on :root, and once in [data-theme="light"], which is what lets them be
+  // scoped to a swatch. Nothing in the stylesheet stops the two copies drifting,
+  // so it is checked here.
+  test("the light palette block and the :root defaults agree", async ({ page }) => {
+    const palettes = await readPalettes(page)
+
+    for (const [token, value] of Object.entries(palettes.blocks.light)) {
+      expect(palettes.root[token], `${token} differs from :root`).toBe(value)
     }
   })
 
@@ -695,7 +830,7 @@ test.describe("dark: utilities on a dark-preference OS", () => {
     await pinTheme(feedsPage, settingsPage, "Light")
     await expect.poll(() => logoBackground(page)).toBe(NO_DISC)
 
-    await pinTheme(feedsPage, settingsPage, "System (auto)")
+    await pinTheme(feedsPage, settingsPage, "System")
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
     await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/)

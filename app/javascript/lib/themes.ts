@@ -1,10 +1,10 @@
 // Registry of named color themes.
 //
 // A theme is one full set of the semantic `--color-*` tokens declared in
-// app/assets/stylesheets/application.tailwind.css. The light palette lives in
-// the `@theme` block (i.e. on `:root`) and is therefore the fallback for every
-// token a theme does not override; every other theme overrides the tokens it
-// cares about in a `[data-theme="<id>"]` block in that same file.
+// app/assets/stylesheets/application.tailwind.css. Every theme, light included,
+// declares its tokens in a `[data-theme="<id>"]` block there. The light values
+// appear a second time in the `@theme` block, which is what puts them on
+// `:root` as the fallback for any token a palette forgets.
 //
 // Applying a theme writes two things to <html>:
 //
@@ -47,8 +47,9 @@ export const DARK_MEDIA_QUERY = "(prefers-color-scheme: dark)"
  * the text, for readers who find white-on-black or black-on-white harsh.
  *
  * Each id needs a matching `[data-theme="<id>"]` block in
- * app/assets/stylesheets/application.tailwind.css (except `light`, which is the
- * `@theme` block). themes.test.ts reads that file and fails if the two drift.
+ * app/assets/stylesheets/application.tailwind.css. The settings e2e spec reads
+ * the compiled stylesheet out of the browser and fails if a registered id has
+ * no block, or if a block is missing a token another palette declares.
  */
 export const THEMES = [
   { id: "light", name: "Light", base: "light" },
@@ -89,6 +90,17 @@ const BASE_CLASSES: Record<ThemeBase, readonly string[]> = {
 const ALL_BASE_CLASSES = Array.from(
   new Set(Object.values(BASE_CLASSES).flat())
 )
+
+/**
+ * The classes that mark a base, as a className string.
+ *
+ * Exported so a preview can scope a palette to a nested element the same way
+ * `applyTheme` scopes one to <html>, without restating anywhere else which
+ * class means dark.
+ */
+export function themeBaseClassName(base: ThemeBase): string {
+  return (BASE_CLASSES[base] ?? []).join(" ")
+}
 
 export function getTheme(id: string | null | undefined): ThemeDefinition | undefined {
   return THEMES.find((theme) => theme.id === id)

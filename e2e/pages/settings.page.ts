@@ -107,18 +107,33 @@ export class SettingsPage {
 
   // Preferences tab helpers
 
+  // Exact: the picker's own group headings ("Light themes", "Dark themes")
+  // contain the word too.
   async getThemeText(): Promise<Locator> {
-    return this.page.getByText("Theme")
+    return this.page.getByText("Theme", { exact: true })
   }
 
-  getThemeSelect(): Locator {
-    return this.page.getByRole("combobox", { name: "Theme" })
+  getThemePicker(): Locator {
+    return this.page.getByRole("radiogroup", { name: "Theme" })
   }
 
-  /** Pick a theme by its label in the theme selector, e.g. "Dark". */
+  /** One card in the theme picker, by its name, e.g. "Dark" or "System". */
+  getThemeOption(label: string): Locator {
+    return this.getThemePicker().getByRole("radio", { name: label, exact: true })
+  }
+
+  /**
+   * The swatch a theme card previews itself with. The card's palette is scoped
+   * to this element by data-theme, so reading a computed colour off one of its
+   * bars is reading what the swatch actually paints.
+   */
+  getThemeSwatch(label: string): Locator {
+    return this.getThemePicker().locator(`label:has(input[value="${label}"]) [data-theme]`)
+  }
+
+  /** Pick a theme by its card name in the theme picker, e.g. "Dark". */
   async selectTheme(label: string): Promise<void> {
-    await this.getThemeSelect().click()
-    await this.page.getByRole("option", { name: label, exact: true }).click()
+    await this.getThemeOption(label).check()
   }
 
   getLanguageSelect(): Locator {
