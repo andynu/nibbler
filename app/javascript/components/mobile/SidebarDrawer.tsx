@@ -10,15 +10,25 @@ interface SidebarDrawerProps {
 
 export function SidebarDrawer({ children }: SidebarDrawerProps) {
   const layout = useLayout()
-
-  // Only render on mobile
-  if (!layout.isMobile) {
-    return <>{children}</>
-  }
-
+  const isMobile = layout.isMobile
   const isOpen = layout.currentPane === "sidebar"
 
-  // Close on escape key
+  // Close on escape key.
+  //
+  // Everything down to the early return has to run on every render, mobile or
+  // not. The `!isMobile` return used to sit above these three hooks, so an
+  // instance that had rendered on desktop ran none of them and the same
+  // instance on mobile ran all three. React does not throw on that here,
+  // because useContext takes no slot in the hook list and renderWithHooks
+  // treats an empty list as a mount, but the flip back up is unrecoverable:
+  // the desktop render consumes none of the hooks the mobile render mounted,
+  // so no cleanup runs, the keydown listener stays on the document and
+  // body.overflow keeps whatever the drawer last wrote. Unreachable from
+  // application.tsx, whose ternary unmounts the drawer rather than re-rendering
+  // it, and reachable from any second call site (ttrb-qlpd).
+  //
+  // The two effects carry the mobile check themselves so desktop behaviour is
+  // what it was: no listener attached, nothing written to body.overflow.
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -29,12 +39,16 @@ export function SidebarDrawer({ children }: SidebarDrawerProps) {
   )
 
   useEffect(() => {
+    if (!isMobile) return
+
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+  }, [isMobile, handleKeyDown])
 
   // Prevent body scroll when drawer is open
   useEffect(() => {
+    if (!isMobile) return
+
     if (isOpen) {
       document.body.style.overflow = "hidden"
     } else {
@@ -43,7 +57,12 @@ export function SidebarDrawer({ children }: SidebarDrawerProps) {
     return () => {
       document.body.style.overflow = ""
     }
-  }, [isOpen])
+  }, [isMobile, isOpen])
+
+  // Only render the drawer on mobile
+  if (!isMobile) {
+    return <>{children}</>
+  }
 
   return (
     <>
