@@ -100,9 +100,9 @@ class FeedUpdaterTest < ActiveSupport::TestCase
   # A bodyless entry still has to satisfy the NOT NULL column and hash to
   # something, so the rest of the pipeline treats it like any other row.
   #
-  # Whether it is findable by full-text search is a separate question: nothing
-  # populates tsvector_combined today, for any entry with or without a body.
-  # That is ttrb-voe4, not this change.
+  # Whether it is findable by full-text search is a separate question, settled
+  # in ttrb-voe4: PostgreSQL generates tsvector_combined from title and content,
+  # so a headline-only entry is indexed on its title alone.
   test "a bodyless entry stores an empty body rather than a null one" do
     update_with(mixed_payload)
     entry = Entry.find_by(guid: "headline-only")

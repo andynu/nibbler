@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_13_131412) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_30_003752) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -73,7 +73,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_13_131412) do
     t.integer "num_comments", default: 0, null: false
     t.text "plugin_data"
     t.text "title", null: false
-    t.tsvector "tsvector_combined"
+    t.virtual "tsvector_combined", type: :tsvector, as: "(to_tsvector('english'::regconfig, COALESCE(title, ''::text)) || to_tsvector('english'::regconfig, regexp_replace(\"left\"(COALESCE(content, ''::text), 100000), '<[^>]*>'::text, ' '::text, 'g'::text)))", stored: true
     t.datetime "updated", null: false
     t.index ["date_entered"], name: "index_entries_on_date_entered"
     t.index ["guid"], name: "index_entries_on_guid", unique: true

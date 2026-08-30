@@ -5,8 +5,11 @@
 # multiple users subscribe to the same feed.
 #
 # Each entry has a globally unique GUID from the source feed and a content_hash
-# for detecting updates. PostgreSQL full-text search is supported via a tsvector
-# column that indexes title and content.
+# for detecting updates. PostgreSQL full-text search is supported via
+# tsvector_combined, a GENERATED ALWAYS ... STORED column that PostgreSQL
+# computes from title and content (see the migration for the expression and for
+# why it is not a Rails callback). Nothing in Ruby writes it, and no write path
+# can skip it.
 #
 # @see UserEntry for per-user read state and interaction
 # @see Enclosure for attached media (audio, video, images)
@@ -31,8 +34,8 @@ class Entry < ApplicationRecord
   # here rejected those items at ingest, which is the wrong half of the pair to
   # call invalid.
   #
-  # nil is still rejected. The column is NOT NULL and update_tsvector reads the
-  # value on every save, so "" is the only acceptable way to have no body.
+  # nil is still rejected: the column is NOT NULL, so "" is the only acceptable
+  # way to have no body.
   validates :content, exclusion: { in: [ nil ], message: "can't be nil" }
 
   scope :recent, -> { order(date_entered: :desc) }
@@ -45,19 +48,4 @@ class Entry < ApplicationRecord
     where("tsvector_combined @@ plainto_tsquery('english', ?)", sanitized)
       .order(Arel.sql("ts_rank(tsvector_combined, plainto_tsquery('english', #{connection.quote(sanitized)})) DESC"))
   }
-
-  # Update tsvector when saving (only when searchable fields change)
-  before_save :update_tsvector, if: -> { title_changed? || content_changed? }
-
-  private
-
-  def update_tsvector
-    self.tsvector_combined = Entry.connection.execute(
-      Entry.sanitize_sql([
-        "SELECT to_tsvector('english', ?) || to_tsvector('english', ?)",
-        title.to_s,
-        ActionController::Base.helpers.strip_tags(content.to_s)
-      ])
-    ).first["to_tsvector"]
-  end
 end
