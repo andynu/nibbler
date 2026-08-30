@@ -1,7 +1,10 @@
 import { render, screen, fireEvent, act } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, it, expect } from "vitest"
-import { useIframeFocusGuard } from "./useIframeFocusGuard"
+import { describe, it, expect, vi } from "vitest"
+import {
+  useIframeFocusGuard,
+  HANDOFF_POLL_INTERVAL_MS,
+} from "./useIframeFocusGuard"
 
 interface HarnessProps {
   enabled: boolean
@@ -139,6 +142,54 @@ describe("useIframeFocusGuard", () => {
       expect(restore()).not.toBeInTheDocument()
     })
 
+    it("reports the handoff from activeElement alone, with no event fired", async () => {
+      vi.useFakeTimers()
+      try {
+        const { frame, restore } = setup()
+        // Firefox moves focus into a cross-origin frame without announcing it:
+        // activeElement becomes the iframe and no blur, focusout or focusin
+        // fires (measured in both engines, see the hook). Setting the property
+        // with no event is that browser, not a convenience.
+        vi.spyOn(document, "activeElement", "get").mockReturnValue(frame())
+
+        expect(restore()).not.toBeInTheDocument()
+
+        await act(async () => {
+          vi.advanceTimersByTime(HANDOFF_POLL_INTERVAL_MS)
+        })
+
+        expect(restore()).toBeInTheDocument()
+      } finally {
+        vi.restoreAllMocks()
+        vi.useRealTimers()
+      }
+    })
+
+    it("stops reading activeElement once no frame is on screen", async () => {
+      vi.useFakeTimers()
+      try {
+        const { rerender } = setup()
+        const reads = vi.spyOn(document, "activeElement", "get")
+
+        await act(async () => {
+          vi.advanceTimersByTime(HANDOFF_POLL_INTERVAL_MS * 3)
+        })
+        expect(reads).toHaveBeenCalled()
+
+        rerender({ enabled: false })
+        reads.mockClear()
+
+        await act(async () => {
+          vi.advanceTimersByTime(HANDOFF_POLL_INTERVAL_MS * 3)
+        })
+
+        expect(reads).not.toHaveBeenCalled()
+      } finally {
+        vi.restoreAllMocks()
+        vi.useRealTimers()
+      }
+    })
+
     it("reclaims focus onto the anchor when asked", async () => {
       const user = userEvent.setup()
       const { frame, anchor, restore } = setup()
@@ -161,6 +212,33 @@ describe("useIframeFocusGuard", () => {
       fireEvent.load(frame())
 
       expect(document.activeElement).toBe(anchor())
+    })
+
+    it("releases the frame before taking focus back", () => {
+      const { frame, anchor } = setup({ wireLoad: true })
+      const released = vi.spyOn(frame(), "blur")
+
+      frame().focus()
+      fireEvent.load(frame())
+
+      // Asserted as a call rather than through activeElement because a DOM
+      // stub moves focus on `.focus()` alone and so cannot tell the two apart.
+      // A real Firefox will not: with the frame focused and the anchor still
+      // this document's remembered focus, `anchor.focus()` does nothing and
+      // the reader keeps a dead keyboard. Releasing the frame is what moves it.
+      expect(released).toHaveBeenCalled()
+      expect(document.activeElement).toBe(anchor())
+    })
+
+    it("leaves the frame alone when it never had focus", () => {
+      const { frame, elsewhere } = setup({ wireLoad: true })
+      const released = vi.spyOn(frame(), "blur")
+
+      elsewhere().focus()
+      fireEvent.load(frame())
+
+      expect(released).not.toHaveBeenCalled()
+      expect(document.activeElement).toBe(elsewhere())
     })
 
     it("leaves focus in the frame on later loads from in-page navigation", () => {

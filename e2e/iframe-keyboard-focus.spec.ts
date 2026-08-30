@@ -17,6 +17,13 @@ import { test, expect, type Page } from "./fixtures"
  * is byte-identical, so a frame that never renavigated would be indistinguishable
  * from one that did, and the only thing left to assert is the src attribute -
  * which is set from the entry either way (ttrb-mq4n).
+ *
+ * It also records every key it receives. A key arriving here and not in the
+ * parent is what "the frame has the keyboard" means, and it is the same fact in
+ * both engines. The field's value is not: Playwright's click into a cross-origin
+ * frame leaves the frame's own activeElement on the input under Chromium and on
+ * the body under Firefox, so the key is delivered either way but only Chromium
+ * types a character with it.
  */
 const embeddedPage = (url: string) => `<!doctype html>
 <html>
@@ -25,8 +32,14 @@ const embeddedPage = (url: string) => `<!doctype html>
     <h1>Embedded page</h1>
     <p id="served-for">${url}</p>
     <input id="probe" aria-label="Embedded field" />
+    <p id="keylog"></p>
     <a id="embedded-link" href="/followed-from-inside">A link on the embedded page</a>
-    <script>document.getElementById("probe").focus()</script>
+    <script>
+      document.getElementById("probe").focus()
+      document.addEventListener("keydown", function (event) {
+        document.getElementById("keylog").textContent += event.key
+      }, true)
+    </script>
   </body>
 </html>`
 
@@ -42,26 +55,31 @@ function embeddedField(page: Page) {
   return embeddedFrame(page).locator("#probe")
 }
 
+/** Every key the embedded document has received, in order. */
+function embeddedKeylog(page: Page) {
+  return embeddedFrame(page).locator("#keylog")
+}
+
 const restoreShortcuts = (page: Page) =>
   page.getByRole("button", { name: /restore shortcuts/i })
 
 /**
- * Why the handoff examples do not run under Firefox (ttrb-ngol).
+ * Why the handoff examples are worth running under both engines (ttrb-ngol).
  *
- * The guard notices the handoff by watching for the parent window to blur while
- * `document.activeElement` is the frame. Chromium fires that blur when a click
- * lands inside a cross-origin frame; Firefox fires nothing at all - not blur,
- * not focusin - even though it does set `document.activeElement` to the iframe.
- * Measured with the same page and click in both: Chromium logs
- * `window blur: activeElement=IFRAME` and shows the button, Firefox logs no
- * event and shows no button, after which j is swallowed with no way back.
+ * The two browsers report a cross-origin focus handoff differently, and for a
+ * while the guard only understood one of them. Chromium fires focusout on the
+ * anchor and then a window blur, both with `document.activeElement` already the
+ * iframe. Firefox fires nothing at all on the way in - no blur, no focusout, no
+ * focusin, no focus event on the iframe element - while still setting
+ * `document.activeElement` to the iframe. The anchor's focusout does arrive in
+ * Firefox, but not until focus comes back to this document, so it marks the way
+ * out rather than the way in.
  *
- * So these are not flaky under Firefox, they are failing for a real reason, and
- * fixing the guard belongs to ttrb-ngol rather than to the browse-mode work
- * that added this file.
+ * The guard now reads `document.activeElement` on a timer, which is the one
+ * signal both engines produce, so these examples run in both. They are the
+ * regression test for the engine difference: an event-only guard passes them
+ * under Chromium and fails every one of them under Firefox.
  */
-const HANDOFF_UNDETECTED_IN_FIREFOX =
-  "ttrb-ngol: Firefox fires no window blur when focus enters a cross-origin frame, so the guard never sees the handoff"
 
 /**
  * The pane focus mode collapses.
@@ -217,9 +235,7 @@ test.describe("Keyboard control with a page embedded", () => {
 
   test("clicking into the frame hands the keys over and says so", async ({
     page,
-    browserName,
   }) => {
-    test.fixme(browserName === "firefox", HANDOFF_UNDETECTED_IN_FIREFOX)
     await openFirstEntry(page)
     const beforeClick = await currentSrc(page)
 
@@ -227,18 +243,18 @@ test.describe("Keyboard control with a page embedded", () => {
 
     await expect(restoreShortcuts(page)).toBeVisible()
 
-    // The keypress landing in the embedded document is both the proof that
-    // control really moved and a deterministic way to wait for it.
+    // The keypress landing in the embedded document rather than in the reader
+    // is both the proof that control really moved and a deterministic way to
+    // wait for it. The src assertion is the other half: j is the reader's own
+    // next-entry shortcut, so an unmoved frame says the parent never saw it.
     await page.keyboard.press("j")
-    await expect(embeddedField(page)).toHaveValue("j")
+    await expect(embeddedKeylog(page)).toHaveText("j")
     await expect(iframeElement(page)).toHaveAttribute("src", beforeClick)
   })
 
   test("the header still advances by mouse while the frame holds the keys", async ({
     page,
-    browserName,
   }) => {
-    test.fixme(browserName === "firefox", HANDOFF_UNDETECTED_IN_FIREFOX)
     await openFirstEntry(page)
     const beforeClick = await currentSrc(page)
 
@@ -250,8 +266,7 @@ test.describe("Keyboard control with a page embedded", () => {
     await expect(iframeElement(page)).not.toHaveAttribute("src", beforeClick)
   })
 
-  test("restoring shortcuts brings j back", async ({ page, browserName }) => {
-    test.fixme(browserName === "firefox", HANDOFF_UNDETECTED_IN_FIREFOX)
+  test("restoring shortcuts brings j back", async ({ page }) => {
     await openFirstEntry(page)
 
     await embeddedField(page).click()
@@ -269,9 +284,7 @@ test.describe("Keyboard control with a page embedded", () => {
 
   test("focus mode can be left by mouse after the frame takes the keys", async ({
     page,
-    browserName,
   }) => {
-    test.fixme(browserName === "firefox", HANDOFF_UNDETECTED_IN_FIREFOX)
     await openFirstEntry(page)
 
     await page.keyboard.press("Shift+F")

@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
+/**
+ * How often `document.activeElement` is re-read while a frame is on screen.
+ *
+ * One read plus a reference compare costs 133ns in Chromium and 22ns in Firefox
+ * (2M iterations, measured in each engine against a real cross-origin frame), so
+ * ten reads a second is about 1.3 microseconds of CPU per second in the more
+ * expensive engine. The interval is set by how long the reader should sit in
+ * front of a dead keyboard before the way back appears, not by the cost.
+ */
+export const HANDOFF_POLL_INTERVAL_MS = 100
+
 export interface IframeFocusGuard<T extends HTMLElement> {
   /**
    * Attach to the element that should hold keyboard focus on the reader's
@@ -43,10 +54,31 @@ export interface IframeFocusGuardOptions {
  * 2. Reports the handoff when it happens anyway (the reader clicks a link or
  *    scrolls by clicking inside the frame) so the UI can offer a way back.
  *
- * Detection is the standard one: the parent window blurs while
- * `document.activeElement` is the iframe element. Switching applications or
- * tabs also blurs the window, but leaves `activeElement` alone, so the two
- * cases stay distinguishable.
+ * The handoff is detected by reading `document.activeElement` on a timer, not
+ * by listening for an event, because in one of the two engines there is no
+ * event to listen for. The same click into a cross-origin frame, instrumented
+ * identically in both:
+ *
+ *   Chromium  focusout on the anchor, then window blur, both with
+ *             activeElement already the IFRAME
+ *   Firefox   nothing. No blur, no focusout, no focusin, no focus event on the
+ *             iframe element. The anchor's own focusout is deferred until focus
+ *             comes back to this document, so it arrives on the way out rather
+ *             than on the way in and cannot be used either.
+ *
+ * `document.hasFocus()` and `document.visibilityState` stay `true` and
+ * `visible` throughout in both engines, so neither separates the states.
+ * `document.activeElement` is the one signal both engines do produce: both set
+ * it to the iframe element, Firefox simply never announces it. Polling it is
+ * therefore the whole of the detection, and it is the same code in both
+ * engines rather than a branch.
+ *
+ * The event listeners are kept for latency, not for detection. Where an engine
+ * does fire something the handoff is reported on that event instead of up to
+ * HANDOFF_POLL_INTERVAL_MS later; where it does not, the poll covers it.
+ *
+ * Switching applications or tabs leaves `activeElement` alone, so it stays
+ * distinguishable from a handoff under either path.
  */
 export function useIframeFocusGuard<T extends HTMLElement = HTMLElement>({
   enabled,
@@ -59,6 +91,21 @@ export function useIframeFocusGuard<T extends HTMLElement = HTMLElement>({
 
   const reclaimKeyboard = useCallback(() => {
     setKeyboardHandedOff(false)
+
+    // Releasing the frame is what actually moves focus back across the
+    // boundary. Firefox will not hand focus to a parent element it already
+    // considers this document's focused element, and the anchor usually is
+    // one: the guard parks focus there on every entry navigation, and then the
+    // embedded page focuses itself, leaving the frame with the keys while the
+    // anchor is still the document's remembered focus. `anchorRef.focus()` is
+    // then a no-op and the reader is stuck. Measured in that state:
+    // anchor.focus() leaves activeElement on the IFRAME, so does
+    // anchor.blur() + anchor.focus(), and frame.blur() + anchor.focus()
+    // returns it to the anchor. Chromium does not need this and is unaffected
+    // by it.
+    if (document.activeElement === frameRef.current) {
+      frameRef.current?.blur()
+    }
     anchorRef.current?.focus({ preventScroll: true })
   }, [])
 
@@ -77,22 +124,30 @@ export function useIframeFocusGuard<T extends HTMLElement = HTMLElement>({
 
     let timer: ReturnType<typeof setTimeout> | undefined
 
+    const readHandoff = () => {
+      const frame = frameRef.current
+      setKeyboardHandedOff(!!frame && document.activeElement === frame)
+    }
+
     // activeElement settles after the blur handler returns, so read it on the
     // next tick rather than inside the event.
     const syncHandoff = () => {
       clearTimeout(timer)
-      timer = setTimeout(() => {
-        const frame = frameRef.current
-        setKeyboardHandedOff(!!frame && document.activeElement === frame)
-      }, 0)
+      timer = setTimeout(readHandoff, 0)
     }
 
     window.addEventListener("blur", syncHandoff)
     window.addEventListener("focus", syncHandoff)
     document.addEventListener("focusin", syncHandoff)
 
+    // Runs only while a frame is on screen: this effect is gated on `enabled`,
+    // which the caller ties to the frame being rendered, and the interval is
+    // cleared on the way out.
+    const poll = setInterval(readHandoff, HANDOFF_POLL_INTERVAL_MS)
+
     return () => {
       clearTimeout(timer)
+      clearInterval(poll)
       window.removeEventListener("blur", syncHandoff)
       window.removeEventListener("focus", syncHandoff)
       document.removeEventListener("focusin", syncHandoff)
