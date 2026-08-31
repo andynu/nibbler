@@ -23,6 +23,50 @@ const SCORE_COLORS: Record<number, { color: string; bg: string }> = {
 // array so the two cannot disagree about what the scale is.
 export const SCORE_VALUES = [1, 2, 3, 4, 5] as const
 
+/**
+ * Vertical hit-area margin, in Tailwind spacing steps, that brings each square
+ * up to a 44px target: 2.5 (10px) either side of the 24px `md` square, 3
+ * (12px) either side of the 20px `sm` one.
+ *
+ * Why the target is bigger than the square at all (ttrb-w0w6). 24x24 is exactly
+ * WCAG 2.5.8 Target Size (Minimum), the AA floor, and about half the practical
+ * guidance (Apple HIG 44pt, Material 48dp). Sitting on the floor is not a
+ * violation, so the argument here is not the standard but the shape of this
+ * control: the five squares are edge to edge, so a miss does not land on
+ * nothing the way a miss on an isolated icon button does. It lands on the
+ * NEIGHBOURING score and writes a wrong value to the article, with no error
+ * state and no undo prompt. A silently wrong write earns more margin than a
+ * visible no-op does.
+ *
+ * Why the margin is vertical only, and out of flow. The article header has no
+ * horizontal room to give: measured on the seeded first entry its action row is
+ * 450px wide against a pane of 320 at a 640px viewport and 464 at 1024, so the
+ * row already overflows and clips everywhere below about 1114px of viewport
+ * (ttrb-1zn8). Widening the squares would add 60px to that, re-breaking what
+ * ttrb-h12t and ttrb-s1xr just fixed. Widening the hit area sideways instead of
+ * the square would be worse: adjacent areas would overlap, so a tap aimed at a
+ * digit the reader can see would start writing the one beside it, which is the
+ * failure this is meant to prevent. `inset-x-0` keeps each area in its own
+ * column; only up and down are free, into the 6px of dead space the 36px
+ * toolbar row already reserves around a 24px control and the header's padding
+ * beyond it.
+ *
+ * A pseudo-element rather than padding because padding would grow the laid-out
+ * box and the painted square with it. This leaves both alone - the group is
+ * still 24px tall in the row - and changes only what answers a tap. It is why
+ * the group below cannot carry `overflow-hidden`: a clipped area is not
+ * hit-testable, so the corner rounding it used to provide sits on the end
+ * buttons instead.
+ *
+ * Geometry is unobservable under happy-dom, which loads no stylesheet, and
+ * boundingBox() reports the border box and knows nothing about a pseudo-element
+ * that overflows it. e2e/score-target-size.spec.ts probes points instead.
+ */
+const HIT_AREA_INSET = { sm: "after:-inset-y-3", md: "after:-inset-y-2.5" } as const
+
+/** Extends the tap target past the painted square without moving the layout. */
+const HIT_AREA = "relative after:absolute after:content-[''] after:inset-x-0"
+
 interface ScoreButtonsProps {
   score: number
   onScoreChange: (score: number) => void
@@ -97,6 +141,7 @@ export function ScoreButtons({
   }, [])
 
   const buttonSize = size === "sm" ? "h-5 min-w-5 text-xs" : "h-6 min-w-6 text-sm"
+  const hitArea = cn(HIT_AREA, HIT_AREA_INSET[size])
 
   const handleScoreClick = (newScore: number) => {
     onScoreChange(newScore)
@@ -114,7 +159,8 @@ export function ScoreButtons({
       <button
         className={cn(
           "font-bold flex items-center justify-center transition-opacity hover:opacity-80 rounded-sm",
-          buttonSize
+          buttonSize,
+          hitArea
         )}
         style={{
           backgroundColor: colors.bg,
@@ -132,7 +178,7 @@ export function ScoreButtons({
   // Expanded state: show all 5 buttons in a button group
   // Unselected = outline style, Selected = filled background
   return (
-    <div className="inline-flex rounded-sm overflow-hidden border border-border">
+    <div className="inline-flex rounded-sm border border-border">
       {SCORE_VALUES.map((n) => {
         const colors = SCORE_COLORS[n]
         const isActive = n === score
@@ -141,7 +187,12 @@ export function ScoreButtons({
             key={n}
             className={cn(
               "font-bold flex items-center justify-center transition-all border-r border-border last:border-r-0",
+              // The rounding the group's own `overflow-hidden` used to clip
+              // into it. That clip had to go: it also clipped each button's hit
+              // area, and a clipped area receives no taps.
+              "first:rounded-l-sm last:rounded-r-sm",
               buttonSize,
+              hitArea,
               !isActive && "hover:bg-accent/50"
             )}
             style={isActive ? {
