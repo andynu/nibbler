@@ -790,7 +790,11 @@ describe("FeedSidebar", () => {
         />
       )
 
-      await user.click(screen.getByRole("button", { name: /dead letter box/i }))
+      // The smart folder's row and its overflow menu are both buttons whose
+      // name starts with the folder name, so the menu has to be excluded.
+      await user.click(
+        screen.getByRole("button", { name: /dead letter box(?! menu)/i })
+      )
 
       return user
     }

@@ -326,7 +326,10 @@ export function EntryList({
           <div className="flex-1" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
+              {/* Not "<title> menu" like the sidebar rows: the selected feed's
+                  row is on screen at the same time as this toolbar, so that
+                  name would match two buttons at once. */}
+              <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Feed actions">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

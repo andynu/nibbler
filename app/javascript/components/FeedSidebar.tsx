@@ -1085,6 +1085,7 @@ export function FeedSidebar({
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 opacity-0 group-hover/smartfolder:opacity-100 transition-opacity"
+                            aria-label={`${folder.name} menu`}
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
