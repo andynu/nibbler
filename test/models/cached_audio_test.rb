@@ -30,6 +30,19 @@ class CachedAudioTest < ActiveSupport::TestCase
     assert_equal CachedAudio.hash_content(content2), CachedAudio.hash_content(content3)
   end
 
+  # The hash has to track the text Piper is handed, not the raw markup. Under
+  # strip_tags alone these two bodies both collapsed to "HelloWorld", so an
+  # edit that genuinely changed what would be spoken looked like a cache hit.
+  test "hash_content distinguishes bodies that strip_tags alone welded together" do
+    assert_not_equal CachedAudio.hash_content("<p>Hello</p><p>World</p>"),
+      CachedAudio.hash_content("<p>HelloWorld</p>")
+  end
+
+  test "hash_content ignores entity encoding, which is not spoken" do
+    assert_equal CachedAudio.hash_content("<p>AT&amp;T&nbsp;said</p>"),
+      CachedAudio.hash_content("<p>AT&T said</p>")
+  end
+
   test "hash_content produces different hash for different content" do
     content1 = "<p>Hello world</p>"
     content2 = "<p>Goodbye world</p>"

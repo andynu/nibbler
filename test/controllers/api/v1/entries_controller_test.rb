@@ -644,6 +644,59 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "1234", json["enclosures"].first["duration"]
   end
 
+  # strip_tags puts nothing in a removed tag's place, so the preview -- which
+  # is the opening of the body, where block boundaries are densest -- showed
+  # the reader "failed.Members" and a literal "&amp;".
+  test "content preview separates adjacent blocks and decodes entities" do
+    entry = Entry.create!(
+      guid: "preview-#{SecureRandom.uuid}",
+      title: "Town Meeting",
+      link: "https://example.com/preview",
+      content: "<p>The vote failed.</p><p>Members left early.</p><p>AT&amp;T&nbsp;declined.</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: Time.current,
+      date_entered: Time.current,
+      date_updated: Time.current
+    )
+    user_entry = @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+
+    get api_v1_entry_url(user_entry), as: :json
+    assert_response :success
+
+    assert_equal "The vote failed. Members left early. AT&T declined.",
+      JSON.parse(response.body)["content_preview"]
+  end
+
+  # detect_tags_in_content matches a tag name as a substring of the same text.
+  # A welded body hid any multi-word tag straddling a block boundary, and an
+  # encoded entity hid any tag name containing the character it encoded.
+  test "detected tags survive block boundaries and encoded entities" do
+    entry = Entry.create!(
+      guid: "detect-#{SecureRandom.uuid}",
+      title: "Wildlife",
+      link: "https://example.com/detect",
+      content: "<h2>Quokka</h2><p>Census results</p><p>AT&amp;T sponsored it.</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: Time.current,
+      date_entered: Time.current,
+      date_updated: Time.current
+    )
+    user_entry = @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+    Tag.create!(name: "Quokka Census", user: @user, fg_color: "#ffffff", bg_color: "#000000")
+    Tag.create!(name: "AT&T", user: @user, fg_color: "#ffffff", bg_color: "#000000")
+
+    get api_v1_entry_url(user_entry), as: :json
+    assert_response :success
+
+    detected = JSON.parse(response.body)["detected_tags"].map { |t| t["name"] }
+    assert_includes detected, "Quokka Census"
+    assert_includes detected, "AT&T"
+  end
+
   test "tag filter only shows entries tagged by current user" do
     # Create another user
     other_user = User.create!(login: "other_user", password: "password123")

@@ -97,6 +97,23 @@ class StoryQueryExtractorTest < ActiveSupport::TestCase
     refute_includes fake_client.last_prompt, "<p>"
   end
 
+  # strip_tags puts nothing in a removed tag's place, so the excerpt handed to
+  # the model welded a word pair at every block boundary and left entities
+  # encoded. The model then named the story after tokens the article does not
+  # contain.
+  test "prompt keeps a boundary between adjacent blocks and decodes entities" do
+    entry = @entry
+    def entry.content
+      "<p>The vote failed.</p><p>Members left early.</p><p>AT&amp;T&nbsp;declined.</p>"
+    end
+    fake_client = FakeLlmClient.new(response: { "topic" => "t", "queries" => [ "q" ] })
+
+    StoryQueryExtractor.new(llm_client: fake_client).extract(entry)
+
+    assert_includes fake_client.last_prompt, "The vote failed. Members left early. AT&T declined."
+    refute_includes fake_client.last_prompt, "&nbsp;"
+  end
+
   test "requests JSON format from LLM" do
     fake_client = FakeLlmClient.new(response: { "topic" => "t", "queries" => [ "q" ] })
     StoryQueryExtractor.new(llm_client: fake_client).extract(@entry)

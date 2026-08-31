@@ -285,9 +285,11 @@ module Api
 
       def content_preview(content)
         return nil if content.blank?
-        # Strip HTML tags and truncate to ~150 chars
-        text = ActionController::Base.helpers.strip_tags(content).squish
-        text.truncate(150)
+
+        # ArticleText, not strip_tags: the preview is the opening of the body,
+        # which is where the block boundaries are densest, so a stripped-only
+        # preview showed the reader words the article does not contain.
+        ArticleText.from_html(content).truncate(150)
       end
 
       # Lightweight JSON for headlines (uses select columns)
@@ -369,7 +371,7 @@ module Api
       def detect_tags_in_content(entry, user_id)
         user_tags = Tag.where(user_id: user_id).pluck(:id, :name)
         applied_tag_ids = entry.tags.where(user_id: user_id).pluck(:id)
-        content = "#{entry.title} #{ActionController::Base.helpers.strip_tags(entry.content || '')}".downcase
+        content = "#{entry.title} #{ArticleText.from_html(entry.content)}".downcase
 
         user_tags.reject { |id, _| applied_tag_ids.include?(id) }
                  .select { |_, name| content.include?(name.downcase) }

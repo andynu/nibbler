@@ -40,12 +40,15 @@ class CachedAudio < ApplicationRecord
   end
 
   # Generate a hash of content for cache validation
+  #
+  # Hashes the same text TtsGenerator hands Piper, via the same helper, so the
+  # cache key tracks what was actually spoken. A body whose only change is
+  # markup keeps its audio; a body whose words changed does not.
+  #
   # @param content [String] Article content to hash
   # @return [String] SHA256 hash of normalized content
   def self.hash_content(content)
-    # Strip HTML and normalize whitespace for consistent hashing
-    text = ActionController::Base.helpers.strip_tags(content.to_s).squish
-    Digest::SHA256.hexdigest(text)
+    Digest::SHA256.hexdigest(ArticleText.from_html(content))
   end
 
   # Delete the cached file when the record is destroyed

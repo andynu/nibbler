@@ -86,13 +86,13 @@ class TtsGenerator
     FileUtils.mkdir_p(Rails.configuration.x.audio_cache.dir)
   end
 
-  # Extract plain text from HTML content
+  # The text Piper is handed.
+  #
+  # ArticleText rather than strip_tags because strip_tags puts nothing in a
+  # tag's place, so every paragraph boundary welded the last word of one block
+  # to the first of the next and Piper pronounced the pair as one word.
   def extract_text(html)
-    return "" if html.blank?
-
-    text = ActionController::Base.helpers.strip_tags(html)
-    # Normalize whitespace
-    text.gsub(/\s+/, " ").strip
+    ArticleText.from_html(html)
   end
 
   # Generate audio using Python TTS script

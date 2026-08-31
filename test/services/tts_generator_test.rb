@@ -105,6 +105,28 @@ class TtsGeneratorTest < ActiveSupport::TestCase
     end
   end
 
+  # The one defect in this bug with a symptom a listener hears. strip_tags
+  # removes a tag and puts nothing in its place, so the last word of one block
+  # welded to the first of the next and Piper pronounced "failed.Members" as a
+  # single word -- at every paragraph, list item and cell boundary in every
+  # article. It also read "&amp;" and "&nbsp;" aloud as entities.
+  test "the text handed to Piper keeps a boundary between adjacent blocks" do
+    Rails.configuration.x.tts.enabled = true
+    @entry.update!(content: "<p>The vote failed.</p><p>Members left early.</p><p>AT&amp;T&nbsp;declined.</p>")
+
+    spoken = nil
+    capture_input = lambda do |*args, **_options|
+      spoken = File.read(args[args.index("--input") + 1])
+      [ "{}", "", FakeStatus.new(false) ]
+    end
+
+    Open3.stub(:capture3, capture_input) do
+      TtsGenerator.new(@entry).generate
+    end
+
+    assert_equal "The vote failed. Members left early. AT&T declined.", spoken
+  end
+
   private
 
   def build_cached_audio

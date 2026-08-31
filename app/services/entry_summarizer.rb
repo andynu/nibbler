@@ -1,5 +1,3 @@
-require "cgi"
-
 # Builds and executes the Ollama call that turns one article into a
 # one-paragraph triage summary.
 #
@@ -100,47 +98,26 @@ class EntrySummarizer
   # while the reader is still on the page. Retry belongs to the job, not here.
   DEFAULT_TIMEOUT = 60
 
-  # ActionView::Helpers::SanitizeHelper#strip_tags re-encodes special characters
-  # on the way out, so its output still carries &amp;, &lt; and &nbsp; as
-  # literal text. Left alone those reach the model as noise and, worse, inflate
-  # the character count the MIN_CONTENT_CHARS floor is measured against -- a
-  # non-breaking space costs six characters instead of one, which is enough
-  # padding to push a genuinely thin article over the floor.
-  NBSP_ENTITY = /&nbsp;/i
-
-  # Tags are replaced with a space before they are stripped, because
-  # strip_tags on its own removes them and leaves nothing in their place:
-  # "<p>holdings.</p><p>The filing" comes back as "holdings.The filing", and a
-  # long article welds a word pair at every paragraph, list item and table cell
-  # boundary. The model then reads tokens that are not in the article.
-  #
-  # This is the same substitution Entry::SEARCH_DOCUMENT_SQL and the
-  # tsvector_combined generated column make, for the same reason, and it rests
-  # on the same guarantee: ContentSanitizer runs every stored body through
-  # Loofah at ingest (FeedParser), which escapes any ">" inside an attribute
-  # value to &gt;, so no tag here contains the character that would end the
-  # match early. strip_tags still runs afterwards, so anything this pattern
-  # leaves behind is handled by the real sanitizer rather than by a regex.
-  TAG_PATTERN = /<[^>]*>/
-
   def initialize(llm_client: LlmClient.new)
     @llm_client = llm_client
   end
 
-  # The article's text as the model will see it: tags removed, entities
-  # decoded, whitespace collapsed.
+  # The article's text as the model will see it: tags flattened to spaces,
+  # entities decoded, whitespace collapsed.
   #
   # A class method because the read path needs to ask about length without
   # building a client or intending to generate anything.
   #
+  # The normalization itself lives in ArticleText, which every other consumer
+  # of a stored body now shares. It matters here beyond the model's reading:
+  # MIN_CONTENT_CHARS is measured against this string, and an undecoded
+  # non-breaking space costs six characters instead of one, which is enough
+  # padding to push a genuinely thin article over the floor.
+  #
   # @param entry [Entry]
   # @return [String]
   def self.article_text(entry)
-    html = entry.content.to_s
-    return "" if html.blank?
-
-    stripped = ActionController::Base.helpers.strip_tags(html.gsub(TAG_PATTERN, " "))
-    CGI.unescapeHTML(stripped.gsub(NBSP_ENTITY, " ")).squish
+    ArticleText.from_html(entry.content)
   end
 
   # Whether this entry has enough text to be worth summarizing.

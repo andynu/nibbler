@@ -40,6 +40,33 @@ class WordFrequencyAnalyzerTest < ActiveSupport::TestCase
     assert_equal [], results
   end
 
+  # strip_tags removes a tag and puts nothing in its place, so a block ending
+  # in a letter fused with the next one starting with a letter. The tokenizer
+  # then counted a term that appears in no article, and the two real words each
+  # lost a count. The re-encoded entities cost another two: "&nbsp;" and
+  # "&amp;" survive strip_tags as literal text and tokenize to "nbsp"/"amp".
+  test "block boundaries and entities do not invent their own terms" do
+    entry = Entry.create!(
+      guid: "wfa-welding-#{SecureRandom.hex(4)}",
+      title: "Wildlife survey",
+      link: "https://example.com/welding",
+      content: "<h2>Quokka</h2><p>Bilby&nbsp;numbers rose</p><p>Quokka numbers fell &amp; rose</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: Time.current,
+      date_entered: Time.current,
+      date_updated: Time.current
+    )
+
+    counts = WordFrequencyAnalyzer.for_entries(Entry.where(id: entry.id))
+                                  .analyze.to_h { |h| [ h[:word], h[:count] ] }
+
+    assert_equal 2, counts["quokka"]
+    assert_equal 1, counts["bilby"]
+    assert_not_includes counts.keys, "quokkabilby"
+    assert_not_includes counts.keys, "nbsp"
+    assert_not_includes counts.keys, "amp"
+  end
+
   test "analyzes real feed entries" do
     # Use fixture feed which has entries
     analyzer = WordFrequencyAnalyzer.new(@feed)

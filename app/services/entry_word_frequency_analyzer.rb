@@ -48,10 +48,11 @@ class EntryWordFrequencyAnalyzer
 
   private
 
+  # ArticleText rather than strip_tags: a tag removed with nothing in its place
+  # welds the words either side of it, and the welded pair is then counted as
+  # its own term while each real word loses a count.
   def extract_text(title, content)
-    text = [ title || "", ActionController::Base.helpers.strip_tags(content || "") ].join(" ")
-    # Normalize whitespace
-    text.gsub(/\s+/, " ").strip
+    [ title.to_s, ArticleText.from_html(content) ].join(" ").squish
   end
 
   def tokenize(text)

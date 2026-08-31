@@ -3,6 +3,15 @@
 # Performs case-insensitive word boundary regex matching against
 # the entry's title and HTML-stripped content. Used by feed tag
 # propagation to auto-apply tags to matching entries.
+#
+# @see ArticleText for why the content is not run through strip_tags alone.
+#   Without a separator at the block boundary a body that says
+#   "<li>Quokka</li><li>Bilby</li>" reads "QuokkaBilby", and neither word has a
+#   boundary left to match on. A block that ends in punctuation survives -- "."
+#   is itself a boundary -- so this only bites on headings, list items, table
+#   cells and inline links, which is most of the markup a feed sends. Either
+#   way it is a false negative: no error, no log line, the tag is simply not
+#   applied.
 class TagMatcher
   # Check if entry content matches the tag name
   #
@@ -26,6 +35,6 @@ class TagMatcher
   private
 
   def stripped_content
-    ActionController::Base.helpers.strip_tags(@entry.content.to_s)
+    ArticleText.from_html(@entry.content)
   end
 end

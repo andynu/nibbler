@@ -77,7 +77,6 @@ class StoryQueryExtractor
   end
 
   def build_excerpt(entry)
-    text = ActionController::Base.helpers.strip_tags(entry.content.to_s).squish
-    text.truncate(EXCERPT_CHAR_LIMIT, omission: "...")
+    ArticleText.from_html(entry.content).truncate(EXCERPT_CHAR_LIMIT, omission: "...")
   end
 end
