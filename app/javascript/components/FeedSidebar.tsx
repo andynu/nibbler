@@ -1002,7 +1002,29 @@ export function FeedSidebar({
         })}
       </div>
 
-      <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+      {/*
+        The arbitrary variant bounds Radix's own wrapper. ScrollArea.Viewport
+        renders its children inside a div Radix styles inline as
+        `min-width: 100%; display: table`, and a CSS table sizes to its content:
+        measured at 710px inside a 239px viewport, so the `truncate` on every
+        row title had nothing to truncate against. Titles rendered at full
+        width, rows grew with them, and the `shrink-0` unread badges landed 418
+        pixels beyond the sidebar's right edge - hidden rather than reachable,
+        because the viewport is `overflow-x: hidden` whenever no horizontal
+        scrollbar is mounted and this ScrollArea mounts only a vertical one
+        (ttrb-rdnc).
+
+        Forcing that wrapper to `display: block` makes it take the viewport's
+        width, which is the bound the row markup was already written against.
+        The `!` is what beats Radix's inline style. The child combinators keep
+        this off the nine other ScrollAreas: the article pane in particular
+        wants content-width sizing, since wide tables and pre blocks inside an
+        entry have nothing to truncate to.
+      */}
+      <ScrollArea
+        className="flex-1 [&>[data-slot=scroll-area-viewport]>div]:block!"
+        viewportRef={scrollViewportRef}
+      >
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
