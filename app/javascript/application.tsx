@@ -1112,7 +1112,14 @@ function App() {
     const deductions: string[] = []
 
     if (audioPlayer.isVisible) {
-      deductions.push("56px") // Audio panel height
+      // The panel's own height, from the one place it is defined. On a phone
+      // that is the bar alone, stacked on the nav bar whose variable follows;
+      // above the mobile breakpoint it is the bar plus the safe-area inset,
+      // because there is no nav bar under it to carry that. A literal 56px
+      // here reserved the right amount for the wrong arrangement: both bars
+      // were pinned to bottom-0, so 113px was set aside for one visible 57px
+      // band and the reader got a strip of empty background (ttrb-8k7e).
+      deductions.push("var(--audio-panel-height)")
     }
     if (layout.isMobile) {
       // The bar's own height, border and safe-area inset included, read from
@@ -1138,6 +1145,7 @@ function App() {
         window, and the last row of a full list could not be tapped: it sat two
         pixels proud of the bar with no scroll left to clear it (ttrb-0apn). */}
     <div
+      data-testid="app-main-row"
       style={{
         display: "flex",
         position: "relative",

@@ -220,10 +220,15 @@ export function QueuePanel() {
     return null
   }
 
+  // Sits on the audio panel, wherever that is. A `bottom-14` here put it 56px
+  // up from the bottom of the window, which was the panel's own height only
+  // while the panel was pinned to the bottom; on a phone the panel now stands
+  // on the nav bar and this has to clear both (ttrb-8k7e).
   return (
     <div
+      style={{ bottom: "calc(var(--audio-panel-bottom) + var(--audio-panel-height))" }}
       className={cn(
-        "fixed bottom-14 left-0 right-0 z-40",
+        "fixed left-0 right-0 z-40",
         "bg-background border-t border-border",
         "shadow-lg",
         "max-h-[50vh]",

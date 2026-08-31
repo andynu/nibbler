@@ -123,7 +123,39 @@
        an iPhone's safe-area inset would have widened that to 91 against 56.
        See ttrb-0apn. */
     --mobile-nav-height: calc(3.5rem + 1px + env(safe-area-inset-bottom, 0px));
+
+    /* Where AudioPanel's bar sits and how much of the viewport it owns.
+
+       On a phone it stacks on top of MobileNavBar rather than sharing the
+       bottom edge with it. Both were `fixed bottom-0` at z-50 and the panel
+       painted second, so at 375x720 the nav bar drew at 663..720 and the panel
+       at 664..720, covering every tab: elementFromPoint over each of the three
+       answered with the panel, and a click on any of them was intercepted in
+       Chromium and Firefox alike. A reader could not leave the article they
+       had just started playing. Stacking keeps the pane switcher reachable,
+       which giving the panel the bar's place would not.
+
+       The inset is split out because only the bottom-most bar may claim it,
+       and which bar that is depends on whether MobileNavBar is on screen:
+       below the breakpoint --mobile-nav-height already carries the inset for
+       both, above it the panel is alone down there and carries its own. See
+       ttrb-8k7e. */
+    --audio-panel-inset: 0px;
+    --audio-panel-bottom: var(--mobile-nav-height);
+    --audio-panel-height: calc(3.5rem + 1px + var(--audio-panel-inset));
   }
+
+  /* 640px is where LayoutContext stops calling the viewport mobile, and so
+     where MobileNavBar stops rendering and the panel inherits the bottom of
+     the screen. The same number as Tailwind's `sm`, which AudioPanel's own
+     classes already key off. */
+  @media (min-width: 640px) {
+    :root {
+      --audio-panel-inset: env(safe-area-inset-bottom, 0px);
+      --audio-panel-bottom: 0px;
+    }
+  }
+
   html, body {
     margin: 0;
     padding: 0;

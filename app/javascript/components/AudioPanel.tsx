@@ -57,10 +57,23 @@ export function AudioPanel() {
       {/* Queue panel slides up above the audio panel */}
       <QueuePanel />
 
+      {/* The bar's place and size come from the variables in
+          application.tailwind.css rather than from a `bottom-0` and an `h-14`
+          here, because on a phone it has to sit on top of MobileNavBar instead
+          of over it, and because application.tsx has to deduct exactly this
+          much from the main row. Box sizing is border-box, so the declared
+          height covers the top border and the safe-area padding and leaves the
+          controls their 56px row. See ttrb-8k7e. */}
       <div
+        data-testid="audio-panel"
+        style={{
+          bottom: "var(--audio-panel-bottom)",
+          height: "var(--audio-panel-height)",
+          paddingBottom: "var(--audio-panel-inset)",
+        }}
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50",
-          "h-14 px-4",
+          "fixed left-0 right-0 z-50",
+          "px-4",
           "bg-background border-t border-border",
           "flex items-center gap-2 sm:gap-4",
           "transition-transform duration-200 ease-out",
