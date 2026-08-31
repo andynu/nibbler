@@ -310,7 +310,31 @@ export function EntryContent({
       : "Show summary"
 
   return (
-    <div ref={swipeRef} className="h-full flex flex-col">
+    /*
+      `@container/article-pane` is what the header's shed-a-button breakpoints
+      below are measured against, and it is here rather than on the header
+      because this div's width IS the pane's width: it is a block-level child
+      of the pane element in application.tsx, which carries no padding, so a
+      `@min-[40rem]` query on it reads 640px of PANE.
+
+      Why a container and not the viewport (ttrb-1zn8). The three-pane layout
+      gives this pane a fraction of the window, so the viewport width says
+      almost nothing about how much room the toolbar has. Measured on the
+      seeded first entry: a 640px viewport leaves this pane 320px, 768 leaves
+      it 448, and 1024 leaves it 464 - all of them at or above Tailwind's `sm`,
+      so every `sm:` utility in the header fired and drew the full 450px action
+      row into a 320px box. The pane clips rather than scrolls, and
+      documentElement.scrollWidth stays at the viewport width, so nothing said
+      so: at 1024 the row ran 664..1114 and the score control, the framing
+      toggle, "Follow this story" and "Open in new tab" were simply not on
+      screen, with EntryActionsMenu hidden by that same `sm:` and therefore no
+      second route to any of them.
+
+      On a phone the pane IS the viewport, so keying the same 30rem/40rem
+      numbers to the container leaves every width ttrb-h12t and ttrb-tyvd
+      measured behaving exactly as it did.
+    */
+    <div ref={swipeRef} className="@container/article-pane h-full flex flex-col">
       <div
         data-testid="entry-header"
         className="h-12 px-3 flex items-center gap-2 border-b border-border shrink-0"
@@ -383,28 +407,51 @@ export function EntryContent({
               copyLinkStatus === "error" && "text-destructive-text"
             )}
           >
-            {/* Below xs the eight header buttons leave about 60px, and the
-                label needs half again that: measured at 375px it overhung the
-                read button by 17px. `sr-only` rather than `hidden` keeps the
-                words in the accessibility tree, so the announcement is the
-                same sentence at every width and only the icon is dropped from
-                the phone's view -- where the copy was a tap on a menu row that
-                said "Copy link" a moment earlier. */}
+            {/* Below 30rem of pane the eight header buttons leave about 60px,
+                and the label needs half again that: measured at 375px it
+                overhung the read button by 17px. `sr-only` rather than
+                `hidden` keeps the words in the accessibility tree, so the
+                announcement is the same sentence at every width and only the
+                icon is dropped from the phone's view -- where the copy was a
+                tap on a menu row that said "Copy link" a moment earlier.
+
+                Pane-keyed rather than viewport-keyed for the same reason the
+                action row is: this span is `shrink-0` inside the flexible
+                middle, so at a 320px pane on a 640px viewport it was 70-odd
+                pixels the row could not give (ttrb-1zn8). */}
             {copyLinkStatus === "copied" && (
               <>
                 <Check className="h-3.5 w-3.5" />
-                <span className="sr-only xs:not-sr-only">Link copied</span>
+                <span className="sr-only @min-[30rem]/article-pane:not-sr-only">Link copied</span>
               </>
             )}
             {copyLinkStatus === "error" && (
               <>
                 <TriangleAlert className="h-3.5 w-3.5" />
-                <span className="sr-only xs:not-sr-only">Copy failed</span>
+                <span className="sr-only @min-[30rem]/article-pane:not-sr-only">Copy failed</span>
               </>
             )}
           </span>
         </div>
-        <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
+        {/* The action row, and the one thing in this header with a width worth
+            budgeting: it is all fixed-size icon buttons, so it does not shrink
+            and the pane clips whatever does not fit.
+
+            What it costs at each tier, measured on the seeded first entry
+            (36px per icon button, 130px for the score control and its px-1),
+            and what the whole header then needs once the left cluster, the
+            px-3 and the two gap-2 seams are added - 116px of them here, 156
+            with the mobile back button:
+
+              pane < 30rem   read, star, open, overflow, focus   188   304
+              30rem..40rem   + publish, note, framing, follow     340   456
+              pane >= 40rem  + score, overflow dropped            450   566
+
+            Every tier fits the narrowest pane that selects it, with the widest
+            margin where the pane is tightest. The overflow menu is drawn at
+            every tier that sheds something and only there; see
+            EntryActionsMenu, which keys itself to the same two widths. */}
+        <div className="ml-auto flex items-center gap-0.5 @min-[40rem]/article-pane:gap-1">
           {/* Core actions - always visible */}
           <Button
             variant="ghost"
@@ -434,15 +481,15 @@ export function EntryContent({
               } : undefined}
             />
           </Button>
-          {/* Publish toggle - hidden on small mobile, where it is the button
-              that did not fit. Measured at 320px the row needed 344px against
-              320 of viewport and the overflow trigger was clipped at 296..332;
-              shedding this one (36px plus its 2px gap) brings the row to 306
-              and puts the trigger back on screen. It is the narrowest action
-              of the five that were left: read and star are the triage the
-              whole list runs on, "open in new tab" is how a phone escapes a
-              stub, and the menu is the only way to everything else. See
-              ttrb-h12t. */}
+          {/* Publish toggle - the first thing shed below 30rem of pane, where
+              it is the button that did not fit. Measured at 320px the row
+              needed 344px against 320 of pane and the overflow trigger was
+              clipped at 296..332; shedding this one (36px plus its 2px gap)
+              brings the row to 306 and puts the trigger back on screen. It is
+              the narrowest action of the five that were left: read and star
+              are the triage the whole list runs on, "open in new tab" is how a
+              phone escapes a stub, and the menu is the only way to everything
+              else. See ttrb-h12t. */}
           {onTogglePublished && (
             <Button
               variant="ghost"
@@ -450,7 +497,7 @@ export function EntryContent({
               onClick={onTogglePublished}
               aria-label={entry.is_published ? "Remove from public feed" : "Add to public feed"}
               title={entry.is_published ? "Remove from public feed" : "Add to public feed"}
-              className="hidden xs:inline-flex"
+              className="hidden @min-[30rem]/article-pane:inline-flex"
             >
               <Rss
                 className="h-4 w-4"
@@ -461,14 +508,14 @@ export function EntryContent({
               />
             </Button>
           )}
-          {/* Note button - hidden on small mobile */}
+          {/* Note button - shed below 30rem of pane */}
           {onUpdateNote && (
             <Button
               variant="ghost"
               size="icon"
               onClick={handleStartEditNote}
               aria-label={entry.note ? "Edit note" : "Add note"}
-              className="hidden xs:inline-flex"
+              className="hidden @min-[30rem]/article-pane:inline-flex"
             >
               <StickyNote
                 className="h-4 w-4"
@@ -478,9 +525,13 @@ export function EntryContent({
               />
             </Button>
           )}
-          {/* Score buttons - hidden on mobile */}
+          {/* Score buttons - the widest control here at 130px with its
+              padding, so it is the last one in and the first one out. Shed
+              below 40rem of pane: a 30rem pane leaves 364px for this row once
+              the left cluster and the header's own padding are paid, and the
+              row with the score control in it is 450. */}
           {onScoreChange && (
-            <div className="px-1 hidden sm:block">
+            <div className="px-1 hidden @min-[40rem]/article-pane:block">
               <ScoreButtons
                 score={entry.score}
                 onScoreChange={onScoreChange}
@@ -489,14 +540,14 @@ export function EntryContent({
               />
             </div>
           )}
-          {/* Iframe toggle - hidden on small mobile */}
+          {/* Iframe toggle - shed below 30rem of pane */}
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggleIframe}
             aria-label={showIframe ? "Show RSS content" : "Show original page"}
             title={showIframe ? "Show RSS content (i)" : "Show original page (i)"}
-            className="hidden xs:inline-flex"
+            className="hidden @min-[30rem]/article-pane:inline-flex"
           >
             {showIframe ? (
               <FileText className="h-4 w-4" />
@@ -504,14 +555,14 @@ export function EntryContent({
               <Globe className="h-4 w-4" />
             )}
           </Button>
-          {/* Follow this story - hidden on small mobile */}
+          {/* Follow this story - shed below 30rem of pane */}
           <Button
             variant="ghost"
             size="icon"
             onClick={handleFollowStory}
             aria-label="Follow this story"
             title="Follow this story"
-            className="hidden xs:inline-flex"
+            className="hidden @min-[30rem]/article-pane:inline-flex"
           >
             <Bookmark className="h-4 w-4" />
           </Button>
@@ -526,9 +577,11 @@ export function EntryContent({
               <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
-          {/* Overflow menu - the only way to reach the four actions above that
-              this header sheds as it narrows. Hides itself at the width where
-              nothing is missing any more; see EntryActionsMenu. */}
+          {/* Overflow menu - the only way to reach the five actions above that
+              this header sheds as its PANE narrows. Hides itself at the pane
+              width where nothing is missing any more; see EntryActionsMenu,
+              which reads the same @container this row does so the trigger
+              cannot go away while something is still shed. */}
           <EntryActionsMenu
             entry={entry}
             showIframe={showIframe}
@@ -539,7 +592,16 @@ export function EntryContent({
             onFollowStory={handleFollowStory}
             onCopyLink={onCopyLink}
           />
-          {/* Focus mode - hidden on mobile */}
+          {/* Focus mode - the one control here still keyed to the VIEWPORT,
+              deliberately. Everything else in this row asks "does the pane
+              have room for me"; this button is the answer to a narrow pane, so
+              keying it to the pane would delete it exactly where a reader
+              needs it - a 1024px window gives this pane 464px, and pressing
+              this is how they get the other 560 back. It is not in
+              EntryActionsMenu either, and does not need to be: below `sm` the
+              panes are swapped rather than tiled (see LayoutContext), so there
+              is no sidebar or list for focus mode to collapse and nothing is
+              being withheld. Above `sm` it is on screen at every pane width. */}
           {onToggleFocusMode && (
             <Button
               variant="ghost"

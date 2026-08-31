@@ -37,14 +37,13 @@ interface EntryActionsMenuProps {
 }
 
 /**
- * The article actions the header sheds as the viewport narrows (ttrb-tyvd).
+ * The article actions the header sheds as its pane narrows (ttrb-tyvd).
  *
  * The header drops the note button, the publish toggle, the framing toggle and
- * "Follow this story" below the custom xs breakpoint (30rem) and the score
- * control below Tailwind's sm (40rem). A phone in portrait is under both, and
- * until this existed there was no second way to reach any of them:
- * MobileNavBar switches panes and carries no article actions, and nothing on
- * screen hinted they existed.
+ * "Follow this story" below 30rem of pane, and the score control below 40rem.
+ * A phone in portrait is under both, and until this existed there was no second
+ * way to reach any of them: MobileNavBar switches panes and carries no article
+ * actions, and nothing on screen hinted they existed.
  *
  * The publish toggle joined that list once the row was measured (ttrb-h12t):
  * at 320px the header wanted 344px and clipped its own overflow trigger, and
@@ -57,13 +56,23 @@ interface EntryActionsMenuProps {
  * SCORE_VALUES from that same component and call the same onScoreChange, so the
  * scale cannot drift either.
  *
- * Visibility is left to the same breakpoints that hide the buttons, so the
- * trigger appears exactly when something is missing: sm when there is a score
- * control to lose, xs when there is not. Between xs and sm four of these are
- * in the header too; a menu that is a superset of the toolbar is the ordinary
- * shape for an overflow menu, and the alternative (per-item breakpoint classes)
- * would leave display:none rows inside a Radix menu, where they stay in the
- * roving-focus collection and arrow keys land on nothing.
+ * Visibility is left to the same widths that hide the buttons, so the trigger
+ * appears exactly when something is missing: 40rem when there is a score
+ * control to lose, 30rem when there is not. Between the two, four of these are
+ * in the header as well; a menu that is a superset of the toolbar is the
+ * ordinary shape for an overflow menu, and the alternative (per-item
+ * breakpoint classes) would leave display:none rows inside a Radix menu, where
+ * they stay in the roving-focus collection and arrow keys land on nothing.
+ *
+ * Those widths are the ARTICLE PANE's, read off the `article-pane` container
+ * EntryContent opens on its root, not the window's (ttrb-1zn8). On the
+ * viewport breakpoints this trigger used to carry, a 1024px window put the
+ * pane at 464px: the header drew all 450px of its action row into it, clipped
+ * the last 90, and hid this menu at the same time - so the score control, the
+ * framing toggle, "Follow this story" and "Open in new tab" were off screen
+ * with nothing left pointing at them. Keying trigger and buttons to one
+ * container is what makes that combination impossible rather than merely
+ * fixed: whatever the header sheds, it sheds at a width where this is drawn.
  */
 export function EntryActionsMenu({
   entry,
@@ -75,7 +84,12 @@ export function EntryActionsMenu({
   onFollowStory,
   onCopyLink,
 }: EntryActionsMenuProps) {
-  const hiddenAt = onScoreChange ? "sm:hidden" : "xs:hidden"
+  // Container queries, not media queries: these read EntryContent's
+  // `article-pane` container. A component rendered outside that container
+  // matches neither, which fails safe - the trigger stays visible.
+  const hiddenAt = onScoreChange
+    ? "@min-[40rem]/article-pane:hidden"
+    : "@min-[30rem]/article-pane:hidden"
 
   return (
     <DropdownMenu>
