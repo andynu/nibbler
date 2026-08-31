@@ -275,9 +275,17 @@ export function EntryList({
       {/* Fresh view parameters */}
       {isFreshView && onFreshMaxAgeChange && onFreshPerFeedChange && (
         <div className="px-3 py-1.5 flex items-center gap-3 border-b border-border shrink-0 bg-muted/20 text-xs">
+          {/* A <select> is named by its label, never by the options inside
+              it, so the text beside each one has to be a real <label> rather
+              than a <span> that merely sits next to it. The sr-only halves
+              finish the phrase for a reader who hears the control on its own,
+              without spending toolbar width on it. */}
           <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">time:</span>
+            <label htmlFor="fresh-max-age" className="text-muted-foreground">
+              time:<span className="sr-only"> range</span>
+            </label>
             <select
+              id="fresh-max-age"
               value={freshMaxAge}
               onChange={(e) => onFreshMaxAgeChange(e.target.value as FreshMaxAge)}
               className="bg-background border border-border rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -288,8 +296,11 @@ export function EntryList({
             </select>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">per:</span>
+            <label htmlFor="fresh-per-feed" className="text-muted-foreground">
+              per:<span className="sr-only"> feed</span>
+            </label>
             <select
+              id="fresh-per-feed"
               value={freshPerFeed ?? ""}
               onChange={(e) => {
                 const val = e.target.value

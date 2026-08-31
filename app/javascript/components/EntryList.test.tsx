@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { EntryList } from "./EntryList"
 import { PULL_THRESHOLD } from "@/hooks/usePullToRefresh"
 import { mockEntry, mockSearchResult } from "../../../test/fixtures/data"
+import type { FreshMaxAge } from "@/lib/api"
 
 // Mock the preferences context
 const mockPreferences = {
@@ -873,6 +874,55 @@ describe("EntryList", () => {
 
       await act(async () => { settle() })
       expect(screen.queryByTestId("pull-to-refresh")).not.toBeInTheDocument()
+    })
+  })
+
+  describe("fresh view parameters", () => {
+    const freshProps = {
+      ...defaultProps,
+      isFreshView: true,
+      freshMaxAge: "week" as FreshMaxAge,
+      freshPerFeed: 3,
+      onFreshMaxAgeChange: vi.fn(),
+      onFreshPerFeedChange: vi.fn(),
+    }
+
+    // A <select> takes its accessible name from a label, never from the
+    // options inside it, so both of these were announced as bare comboboxes
+    // until the "time:"/"per:" text became real labels.
+    it("names the max-age select after the visible text beside it", () => {
+      render(<EntryList {...freshProps} />)
+
+      expect(screen.getByRole("combobox", { name: "time: range" })).toHaveValue("week")
+    })
+
+    it("names the per-feed select after the visible text beside it", () => {
+      render(<EntryList {...freshProps} />)
+
+      expect(screen.getByRole("combobox", { name: "per: feed" })).toHaveValue("3")
+    })
+
+    it("reports the max-age choice", async () => {
+      const user = userEvent.setup()
+      const onFreshMaxAgeChange = vi.fn()
+      render(<EntryList {...freshProps} onFreshMaxAgeChange={onFreshMaxAgeChange} />)
+
+      await user.selectOptions(screen.getByRole("combobox", { name: /time/ }), "month")
+
+      expect(onFreshMaxAgeChange).toHaveBeenCalledWith("month")
+    })
+
+    it("reports the per-feed cap, and null when it is lifted", async () => {
+      const user = userEvent.setup()
+      const onFreshPerFeedChange = vi.fn()
+      render(<EntryList {...freshProps} onFreshPerFeedChange={onFreshPerFeedChange} />)
+      const perFeed = screen.getByRole("combobox", { name: /per/ })
+
+      await user.selectOptions(perFeed, "10")
+      expect(onFreshPerFeedChange).toHaveBeenCalledWith(10)
+
+      await user.selectOptions(perFeed, "")
+      expect(onFreshPerFeedChange).toHaveBeenCalledWith(null)
     })
   })
 })

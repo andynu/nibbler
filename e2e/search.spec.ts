@@ -96,16 +96,13 @@ function seededFeedButton(page: Page) {
     .filter({ hasText: "Rust Weekly" })
 }
 
-/**
- * The Fresh toolbar's two selects, told apart by the options they hold. Neither
- * carries an accessible name to locate it by (ttrb-i68l).
- */
+/** The Fresh toolbar's two selects, each named by the label beside it. */
 function freshTimeSelect(page: Page) {
-  return page.getByRole("combobox").filter({ hasText: "week" })
+  return page.getByRole("combobox", { name: "time: range" })
 }
 
 function freshPerFeedSelect(page: Page) {
-  return page.getByRole("combobox").filter({ hasText: "∞" })
+  return page.getByRole("combobox", { name: "per: feed" })
 }
 
 /** The headlines on screen, in the order the server ranked them. */
