@@ -170,26 +170,68 @@ class AnalyzeStoryJobTest < ActiveJob::TestCase
     assert_nil analyzer.last_new_articles
   end
 
-  test "discards rather than failing after retries exhausted on LlmClient::Unreachable" do
-    stub_analyzer(raise: LlmClient::Unreachable.new("baru down"))
+  # CATCHER for the retry_on/discard_on ordering bug: ActiveSupport::Rescuable
+  # searches rescue_handlers in reverse declaration order, so a
+  # `discard_on LlmClient::Unreachable` declared below the `retry_on` for the
+  # same class wins outright and the retries never run. This asserts the
+  # analyzer is actually invoked ATTEMPTS times; with the discard_on back in
+  # place it is invoked once and this fails 1 != 3.
+  test "retries LlmClient::Unreachable up to the declared attempts" do
+    analyzer = stub_analyzer(raise: LlmClient::Unreachable.new("baru down"))
 
-    # discard_on swallows the exception after retries are exhausted. In perform_now
-    # with no retry queue, discard_on triggers immediately (bypassing retry_on's
-    # requeue path), so the job completes without raising and without persisting.
-    logged = StringIO.new
-    original_logger = Rails.logger
-    Rails.logger = Logger.new(logged)
-
-    begin
-      assert_no_difference -> { @story.story_analyses.count } do
-        AnalyzeStoryJob.perform_now(@story.id)
-      end
-    ensure
-      Rails.logger = original_logger
+    perform_enqueued_jobs do
+      AnalyzeStoryJob.perform_later(@story.id)
     end
 
-    assert_match(/giving up after retries/, logged.string)
-    assert_match(/Ollama unreachable/, logged.string)
+    assert_equal 3, analyzer.call_count,
+      "expected the analyzer to be invoked once per declared attempt"
+  end
+
+  # CATCHER, via a different mechanism than the one above: after the first
+  # failure a retry must be sitting in the queue. A discard leaves the queue
+  # empty, so this fails when discard_on wins.
+  test "enqueues a retry after the first LlmClient::Unreachable failure" do
+    stub_analyzer(raise: LlmClient::Unreachable.new("baru down"))
+
+    assert_enqueued_with(job: AnalyzeStoryJob, args: [ @story.id ]) do
+      AnalyzeStoryJob.perform_now(@story.id)
+    end
+  end
+
+  # CATCHER: the give-up warning belongs on the LAST attempt only. When
+  # discard_on wins it is logged on the first failure, so the pairing of
+  # "one warning" with "three invocations" does not hold.
+  test "logs the give-up warning once, after the final attempt" do
+    analyzer = stub_analyzer(raise: LlmClient::Unreachable.new("baru down"))
+
+    logged = capture_rails_log do
+      perform_enqueued_jobs do
+        AnalyzeStoryJob.perform_later(@story.id)
+      end
+    end
+
+    assert_equal 3, analyzer.call_count
+    assert_equal 1, logged.scan(/giving up after retries/).size,
+      "expected exactly one give-up warning, emitted after the last attempt"
+    assert_match(/Ollama unreachable/, logged)
+    assert_match(/story #{@story.id} giving up/, logged)
+  end
+
+  # GUARD (passes before and after the fix): giving up must be a discard, not a
+  # failure. Nothing raises out, and no partial analysis row is written.
+  test "gives up quietly rather than failing when Ollama stays unreachable" do
+    stub_analyzer(raise: LlmClient::Unreachable.new("baru down"))
+
+    assert_no_difference -> { @story.story_analyses.count } do
+      assert_nothing_raised do
+        perform_enqueued_jobs do
+          AnalyzeStoryJob.perform_later(@story.id)
+        end
+      end
+    end
+
+    @story.reload
+    assert_equal "active", @story.status
   end
 
   test "does not change summary or status when analyzer raises" do
@@ -208,6 +250,16 @@ class AnalyzeStoryJobTest < ActiveJob::TestCase
 
   private
 
+  def capture_rails_log
+    buffer = StringIO.new
+    original_logger = Rails.logger
+    Rails.logger = Logger.new(buffer)
+    yield
+    buffer.string
+  ensure
+    Rails.logger = original_logger
+  end
+
   def analyzer_result(new_development: false, concluded: false, updated_summary: "Updated summary text.")
     {
       new_development: new_development,
@@ -219,14 +271,16 @@ class AnalyzeStoryJobTest < ActiveJob::TestCase
   end
 
   class StubAnalyzer
-    attr_reader :last_story, :last_new_articles
+    attr_reader :last_story, :last_new_articles, :call_count
 
     def initialize(result: nil, raise: nil)
       @result = result
       @raise = raise
+      @call_count = 0
     end
 
     def analyze(story, new_articles:)
+      @call_count += 1
       @last_story = story
       @last_new_articles = new_articles
       raise @raise if @raise

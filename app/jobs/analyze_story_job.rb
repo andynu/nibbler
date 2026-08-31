@@ -31,9 +31,16 @@ class AnalyzeStoryJob < ApplicationJob
   # tick (tomorrow morning) will re-enqueue a fresh run. We explicitly do
   # NOT do anything briefing-adjacent on discard — skipping cleanly beats
   # sending an empty or misleading summary.
-  retry_on LlmClient::Unreachable, wait: :polynomially_longer, attempts: 3
-
-  discard_on LlmClient::Unreachable do |job, error|
+  #
+  # The give-up path MUST be retry_on's block, not a separate
+  # `discard_on LlmClient::Unreachable`. ActiveSupport::Rescuable searches
+  # rescue_handlers in reverse declaration order (Rescuable#find_rescue_handler),
+  # so a discard_on declared after a retry_on for the same class wins outright
+  # and the retries never run — one attempt, then a silent discard. retry_on's
+  # block form is invoked only once attempts are exhausted, and it discards
+  # (run_after_discard_procs) instead of re-raising, which is exactly the
+  # behaviour described above.
+  retry_on LlmClient::Unreachable, wait: :polynomially_longer, attempts: 3 do |job, error|
     story_id = job.arguments.first
     Rails.logger.warn(
       "AnalyzeStoryJob: story #{story_id} giving up after retries — " \
