@@ -147,26 +147,30 @@ async function openFirstEntry(page: Page) {
   await expectKeysInReader(page)
 }
 
+async function bootInIframeView(page: Page) {
+  await page.route("https://e2e.invalid/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/html; charset=utf-8",
+      body: embeddedPage(route.request().url()),
+    })
+  )
+
+  // Start in iframe view from the first render. Toggling with `i` after load
+  // would race the preferences fetch, which sets the view mode when it lands.
+  const response = await page.request.patch("/api/v1/preferences", {
+    data: { content_view_mode: "iframe" },
+  })
+  expect(response.ok()).toBe(true)
+
+  await page.goto("/")
+  await expect(page.getByTestId("app-root")).toBeVisible({ timeout: 10000 })
+  await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
+}
+
 test.describe("Keyboard control with a page embedded", () => {
   test.beforeEach(async ({ page }) => {
-    await page.route("https://e2e.invalid/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/html; charset=utf-8",
-        body: embeddedPage(route.request().url()),
-      })
-    )
-
-    // Start in iframe view from the first render. Toggling with `i` after load
-    // would race the preferences fetch, which sets the view mode when it lands.
-    const response = await page.request.patch("/api/v1/preferences", {
-      data: { content_view_mode: "iframe" },
-    })
-    expect(response.ok()).toBe(true)
-
-    await page.goto("/")
-    await expect(page.getByTestId("app-root")).toBeVisible({ timeout: 10000 })
-    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
+    await bootInIframeView(page)
   })
 
   test("j keeps advancing once the framed page has loaded", async ({ page }) => {
@@ -296,3 +300,108 @@ test.describe("Keyboard control with a page embedded", () => {
     await expect(sidebarPane(page)).toHaveCSS("width", "240px")
   })
 })
+
+/**
+ * What the handoff costs a phone (ttrb-s1xr).
+ *
+ * "Restore shortcuts" is a text button, not an icon, and it used to render in
+ * the header's shrink-0 left cluster. Measured in Chromium with the frame
+ * holding the keys, the header wanted 441px at 320, 375 AND 414 - the same
+ * number at all three, because nothing in that row is width-responsive - and
+ * "More article actions" was laid out at 405..441 in every one of them. Off
+ * screen entirely at 320 and 375; 9 of its 36px on screen at 414. "Open in new
+ * tab" (367..403) went with it at the two narrower widths.
+ *
+ * That trigger is the whole toolbar below the xs breakpoint: note, publish,
+ * framing, follow, score and copy link are all behind it, and the framing row
+ * is how a phone leaves iframe view at all. So a tap on any field or link
+ * inside an embedded page took every one of them away, in a state the reader
+ * reaches by doing the ordinary thing with an embedded page. Shedding the
+ * publish button the way ttrb-h12t did does not reach this: 441 is the
+ * post-shed number.
+ *
+ * These cannot be component tests. happy-dom loads no stylesheet, so the
+ * responsive classes are inert and every header button answers getByRole at
+ * every width; EntryContent.test.tsx holds the structural half instead. Nor is
+ * a page-level overflow check enough: the pane clips rather than scrolls, and
+ * `documentElement.scrollWidth` stayed at the viewport width throughout. The
+ * header itself has to be measured, as ttrb-h12t did.
+ */
+const PHONE_WIDTHS = [320, 375, 414] as const
+
+const overflowTrigger = (page: Page) =>
+  page.getByRole("button", { name: "More article actions" })
+
+/**
+ * Opens by tap rather than by `j`. At these widths the list and the article are
+ * alternate panes rather than columns, and a phone has no keyboard to press.
+ */
+async function openFirstEntryByTap(page: Page) {
+  const rows = page.getByRole("listbox", { name: "Entries" }).getByRole("option")
+  await expect(rows.first()).toBeVisible()
+
+  await rows.first().click()
+  await expect(page.getByTestId("entry-header")).toBeVisible()
+  await expect(iframeElement(page)).toBeVisible({ timeout: 5000 })
+  await expect(embeddedField(page)).toBeVisible()
+  await expectKeysInReader(page)
+}
+
+/** Fully within the viewport, both edges. */
+function expectOnScreen(
+  box: { x: number; width: number } | null,
+  width: number
+) {
+  expect(box).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(width)
+}
+
+for (const width of PHONE_WIDTHS) {
+  test.describe(`A framed page holding the keys at ${width}px`, () => {
+    test.use({ viewport: { width, height: 720 } })
+
+    test.beforeEach(async ({ page }) => {
+      await bootInIframeView(page)
+      await openFirstEntryByTap(page)
+
+      await embeddedField(page).click()
+      await expect(restoreShortcuts(page)).toBeVisible()
+    })
+
+    test("leaves the header inside the viewport", async ({ page }) => {
+      const header = await page
+        .getByTestId("entry-header")
+        .evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }))
+
+      expect(header.scrollWidth).toBeLessThanOrEqual(header.clientWidth)
+    })
+
+    test("leaves the overflow trigger on screen", async ({ page }) => {
+      expectOnScreen(await overflowTrigger(page).boundingBox(), width)
+    })
+
+    // A guard, not a catcher: it passes against the unfixed header too, because
+    // Playwright dispatches a click at the trigger's centre whether or not that
+    // point is inside the viewport and a reader's thumb cannot. What it holds is
+    // the other half of the claim - that this menu really is the phone's only
+    // exit from iframe view, so the two examples above are about an exit and not
+    // about tidiness.
+    test("leaves the way out of iframe view reachable", async ({ page }) => {
+      await overflowTrigger(page).click()
+      await expect(page.getByRole("menu")).toBeVisible()
+
+      await page.getByRole("menuitem", { name: "Show RSS content" }).click()
+
+      await expect(iframeElement(page)).toHaveCount(0)
+    })
+
+    // Also a guard rather than a catcher - the control was on screen before the
+    // move too, at 136..275. It is here because the fix moves it, and an
+    // affordance parked past the right edge of a frame nobody can scroll would
+    // be the same bug wearing the other hat.
+    test("keeps the restore control itself on screen", async ({ page }) => {
+      expectOnScreen(await restoreShortcuts(page).boundingBox(), width)
+    })
+  })
+}

@@ -327,20 +327,17 @@ export function EntryContent({
           <Button variant="ghost" size="icon" onClick={onNext} disabled={!hasNext} aria-label="Next entry">
             <ChevronRight className="h-4 w-4" />
           </Button>
-          {/* Shown only while the embedded page holds the keys. The rest of the
-              time the shortcuts work and this would be noise. */}
-          {showIframe && iframeFocus.keyboardHandedOff && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={iframeFocus.reclaimKeyboard}
-              className="ml-1 h-7 gap-1.5 px-2 text-xs"
-              title="The embedded page has keyboard focus. Click to restore Nibbler's shortcuts."
-            >
-              <Keyboard className="h-3.5 w-3.5" />
-              Restore shortcuts
-            </Button>
-          )}
+          {/* "Restore shortcuts" used to sit here, and this row has no room for
+              it: 139px of button in a shrink-0 cluster took the header to 441px
+              at 320, 375 and 414 alike, and the control it pushed past the edge
+              was "More article actions" (laid out at 405..441 at all three).
+              That trigger is the only route to the note editor, the framing
+              toggle, follow, copy link, score and publish below xs -- including
+              the toggle that leaves iframe view -- so a tap into any field or
+              link on the embedded page took the whole menu off screen. The pane
+              clips rather than scrolls, and documentElement.scrollWidth stayed
+              at the viewport width, so nothing said so. It lives over the frame
+              now; see ttrb-s1xr. */}
         </div>
         {/* The header's flexible middle: focus mode's list context, and the
             copy indicator. Rendered even when both are empty, so the action
@@ -568,8 +565,30 @@ export function EntryContent({
         <div
           ref={iframeFocus.anchorRef}
           tabIndex={-1}
-          className="flex-1 min-h-0 flex flex-col outline-none"
+          className="relative flex-1 min-h-0 flex flex-col outline-none"
         >
+          {/* Shown only while the embedded page holds the keys. The rest of the
+              time the shortcuts work and this would be noise.
+
+              Over the frame rather than in the flow above it: an in-flow strip
+              would change the iframe's height twice per handoff, reflowing a
+              third-party document the moment the reader touched it, and the
+              reader has just tapped something in there. The overlay leaves the
+              frame's box alone and disappears the moment it is used. Top right
+              keeps it clear of the header's own controls and of the left edge a
+              thumb reaches for. */}
+          {iframeFocus.keyboardHandedOff && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={iframeFocus.reclaimKeyboard}
+              className="absolute right-2 top-2 z-10 h-7 gap-1.5 px-2 text-xs shadow-md"
+              title="The embedded page has keyboard focus. Click to restore Nibbler's shortcuts."
+            >
+              <Keyboard className="h-3.5 w-3.5" />
+              Restore shortcuts
+            </Button>
+          )}
           {embedPolicy.blocked ? (
             <div
               data-testid="embed-blocked-fallback"

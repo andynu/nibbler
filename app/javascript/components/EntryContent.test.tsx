@@ -642,6 +642,32 @@ describe("EntryContent", () => {
       expect(restoreButton()).toBeInTheDocument()
     })
 
+    /**
+     * Where it is, not just that it exists. The control is 139px of text button
+     * and the header row is a shrink-0 cluster with no slack: standing in there
+     * it took the row to 441px at 320, 375 and 414 alike and pushed "More
+     * article actions" off the right edge at every one of them, which below xs
+     * is the only route to the note editor, the framing toggle, follow, copy
+     * link, score and publish (ttrb-s1xr).
+     *
+     * happy-dom loads no stylesheet, so the width that causes it is unobservable
+     * here and the e2e suite measures it. What this can hold is the structural
+     * half: the control belongs to the frame, not to the toolbar.
+     */
+    it("keeps the restore control out of the header row", async () => {
+      const entry = iframeEntry()
+
+      render(<EntryContent {...defaultProps} entry={entry} showIframe={true} />)
+      await handOffToFrame(screen.getByTitle(entry.title))
+
+      expect(restoreButton()).toBeInTheDocument()
+      expect(
+        within(screen.getByTestId("entry-header")).queryByRole("button", {
+          name: /restore shortcuts/i,
+        })
+      ).not.toBeInTheDocument()
+    })
+
     it("leaves previous, next and focus mode clickable during the handoff", async () => {
       const entry = iframeEntry()
       const onNext = vi.fn()
