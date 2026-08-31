@@ -254,6 +254,10 @@ export default [
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      // `controlComponents` defaults to ["Button"]. Widening it to the other
+      // wrappers in use here -- DropdownMenuItem, ContextMenuItem, CommandItem,
+      // TabsTrigger, SelectTrigger, PopoverTrigger, TooltipTrigger -- finds
+      // nothing extra, so the default is not hiding a backlog.
       "local/icon-only-control-needs-label": "error",
     },
   },
