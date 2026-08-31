@@ -142,6 +142,28 @@ jobs:
   test_e2e:
     runs-on: ubuntu-latest
 
+    # One shard per Playwright project. Every spec runs in both engines and the
+    # suite is workers: 1 against a single database, so in one job the second
+    # engine was pure wall-clock on what is already the longest job here.
+    # Measured on one machine at 413 examples per project: chromium 372s,
+    # firefox 484s, against 856s for the two in series. Firefox sets the job's
+    # duration now, so the step goes from about 14 minutes to about 8.
+    #
+    # Each shard brings its own postgres service and its own bin/e2e-server, so
+    # they do not contend. What genuinely doubles is the scaffolding -- an
+    # extra checkout, bundle install, npm ci, apt for --with-deps, and postgres
+    # image pull. The browser payload does not: each shard installs only its
+    # own engine, so the bytes split rather than repeat. This repository is
+    # public, so the extra runner-minutes are free on the standard runners.
+    strategy:
+      # A failure in one engine must not cancel the other. Which engines fail
+      # is the whole signal a two-engine suite exists to produce -- Firefox-only
+      # is a portability defect, both is an application defect -- and cancelling
+      # the sibling shard throws that away exactly when it is wanted.
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox]
+
     services:
       postgres:
         image: postgres:17
@@ -177,27 +199,26 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
-      # Both browsers playwright.config.ts declares a project for. Every spec
-      # runs in both, so this step is not optional: drop firefox and half the
-      # suite errors with a missing executable.
+      # Only this shard's engine, which is what keeps the browser download
+      # split between the two runners instead of paid twice on each.
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
+        run: npx playwright install --with-deps ${{ matrix.project }}
 
       # playwright.config.ts starts bin/e2e-server, which builds assets,
       # creates and seeds ttrb_e2e, and boots the server with feed fetching
       # stubbed out. Nothing here reaches the public internet.
-      #
-      # Both projects run in this one job, and the suite is workers: 1 against
-      # a single database, so the second engine is pure wall-clock on what is
-      # already the longest job here. Sharding it by project is ttrb-z2ui.
       - name: Run end-to-end tests
-        run: npx playwright test
+        run: npx playwright test --project=${{ matrix.project }}
 
+      # Named per shard. Two shards uploading `playwright-results` collide, and
+      # actions/upload-artifact@v4 and up rejects the second one outright
+      # rather than merging it, so the losing engine's traces are the ones you
+      # would not have.
       - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.project }}
           path: test-results/
           retention-days: 7
 

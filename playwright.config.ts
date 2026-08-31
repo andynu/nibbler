@@ -31,11 +31,16 @@ export default defineConfig({
   // pre-logout Set-Cookie racing the logout) was invisible under Chromium, as
   // ttrb-ngol's focus-guard defect had been.
   //
-  // Measured on one machine at 233s narrow against 491s wide, so the second
-  // engine costs about four and a quarter minutes of the test_e2e job. A
-  // curated middle - Firefox on the keyboard, theme and browser-history specs
-  // only - would save perhaps half of that and go stale the first time someone
-  // adds a spec file, silently, which is the failure this list started as.
+  // A curated middle - Firefox on the keyboard, theme and browser-history
+  // specs only - would go stale the first time someone added a spec file,
+  // silently, which is the failure this list started as.
+  //
+  // The second engine no longer costs the CI job any wall clock: .github/
+  // workflows/ci.yml runs test_e2e as a matrix of one shard per project, so
+  // the two engines run on separate runners. Measured here at 413 examples
+  // each, chromium 372s against firefox 484s, so firefox sets the job's
+  // duration and chromium's shard finishes about two minutes early. Splitting
+  // further means --shard within firefox, not a third project.
   projects: [
     {
       name: 'chromium',
