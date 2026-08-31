@@ -1496,8 +1496,9 @@ describe("EntryContent", () => {
 
     // Andy's call on ttrb-ewz4: below EntrySummarizer::MIN_CONTENT_CHARS the
     // server refuses, so say why rather than offering a control that cannot
-    // work or a disabled one with no explanation.
-    it("says the feed publishes an excerpt instead of offering the control", () => {
+    // work or a disabled one with no explanation. Since the full-article fetch
+    // exists, the "why" has two answers, and only one of them is a dead end.
+    it("points at the full article rather than offering a control that would refuse", () => {
       render(
         <EntryContent
           {...defaultProps}
@@ -1505,10 +1506,31 @@ describe("EntryContent", () => {
         />
       )
 
-      expect(screen.getByText(/this feed publishes an excerpt only/i)).toBeInTheDocument()
+      expect(screen.getByText(/get the full article first/i)).toBeInTheDocument()
       expect(
         screen.queryByRole("button", { name: /summarize this article/i })
       ).not.toBeInTheDocument()
+    })
+
+    // Once the publisher's page has been asked for and refused, the feed's
+    // excerpt really is everything there is, and the line says so.
+    it("calls the excerpt final once the publisher's page has refused", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({
+            summarizable: false,
+            full_text: {
+              status: "unavailable",
+              message: "The full article could not be retrieved.",
+              fetched_at: "2026-08-31T12:00:00Z",
+            },
+          })}
+        />
+      )
+
+      expect(screen.getByText(/this feed publishes an excerpt only/i)).toBeInTheDocument()
+      expect(screen.queryByText(/get the full article first/i)).not.toBeInTheDocument()
     })
 
     // A summary written before the article shrank is still worth reaching.
@@ -1851,6 +1873,49 @@ describe("EntryContent", () => {
 
       expect(await screen.findByText(/voted 5-2/)).toBeInTheDocument()
       expect(screen.queryByText(/That is all this feed sends/)).not.toBeInTheDocument()
+    })
+
+    // The reason the fetch was built. The server measures the copy the reader
+    // can now see, so an article it refused to summarize on open is usually
+    // summarizable once this returns, and discovering that should not require
+    // closing the article and opening it again.
+    it("offers the summary control once the fetched article is long enough", async () => {
+      const user = userEvent.setup()
+      mockApiEntriesFullText.mockResolvedValue({
+        full_text: { status: "ready", content: ARTICLE, char_count: 2100, fetched_at: "2026-08-31T12:00:00Z" },
+        summarizable: true,
+      })
+
+      render(<EntryContent {...defaultProps} entry={excerptEntry()} />)
+      expect(
+        screen.queryByRole("button", { name: /summarize this article/i })
+      ).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: /get the full article/i }))
+
+      expect(
+        await screen.findByRole("button", { name: /summarize this article/i })
+      ).toBeInTheDocument()
+    })
+
+    // A publisher whose own page is three sentences. The floor did not move, so
+    // the answer is still no and the line stops pointing at a fetch that has
+    // already happened.
+    it("keeps the control hidden when the fetched article is thin too", async () => {
+      const user = userEvent.setup()
+      mockApiEntriesFullText.mockResolvedValue({
+        full_text: { status: "ready", content: ARTICLE, char_count: 46, fetched_at: "2026-08-31T12:00:00Z" },
+        summarizable: false,
+      })
+
+      render(<EntryContent {...defaultProps} entry={excerptEntry()} />)
+      await user.click(screen.getByRole("button", { name: /get the full article/i }))
+
+      expect(await screen.findByText(/voted 5-2/)).toBeInTheDocument()
+      expect(
+        screen.queryByRole("button", { name: /summarize this article/i })
+      ).not.toBeInTheDocument()
+      expect(screen.getByText(/this feed publishes an excerpt only/i)).toBeInTheDocument()
     })
 
     it("tells the reader when the publisher's page could not be read", async () => {

@@ -1423,4 +1423,72 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil row
     assert_not row.key?("full_text")
   end
+
+  # ===========================================
+  # A fetched article is what gets summarized
+  # ===========================================
+  #
+  # EntrySummarizer measures Entry#readable_content, so the fetch is the thing
+  # that lifts an excerpt-only article over MIN_CONTENT_CHARS. The whole point of
+  # having built the fetch was that the summary affordance could then appear.
+
+  # Enough repetitions that ArticleText measures the extracted body over
+  # EntrySummarizer::MIN_CONTENT_CHARS; the excerpt it replaces is two sentences.
+  LONG_PUBLISHER_PAGE = "<html><body><div class='content'>" \
+                        "#{"<p>#{ARTICLE_PARAGRAPH}</p>" * 16}" \
+                        "</div></body></html>".freeze
+
+  LONG_STORED_ARTICLE = ("<p>#{ARTICLE_PARAGRAPH}</p>" * 16).freeze
+
+  def store_long_full_text(entry)
+    store_full_text(
+      entry,
+      content: LONG_STORED_ARTICLE,
+      char_count: ArticleText.from_html(LONG_STORED_ARTICLE).length
+    )
+  end
+
+  # The client is holding the "no" that came down with the article, and this is
+  # the only request that can change the answer, so it sends the new one back.
+  test "full_text reports the article as summarizable once the publisher's copy is in hand" do
+    user_entry = create_excerpt_user_entry
+    stub_publisher(body: LONG_PUBLISHER_PAGE)
+
+    post full_text_api_v1_entry_url(user_entry), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "ready", json.dig("full_text", "status")
+    assert_equal true, json["summarizable"]
+  end
+
+  test "full_text keeps saying no when the publisher's page could not be read" do
+    user_entry = create_excerpt_user_entry
+    stub_publisher(status: 403, body: "denied")
+
+    post full_text_api_v1_entry_url(user_entry), as: :json
+
+    assert_equal "unavailable", JSON.parse(response.body).dig("full_text", "status")
+    assert_equal false, JSON.parse(response.body)["summarizable"]
+  end
+
+  test "show reports an excerpt-only article as summarizable once its full text is stored" do
+    user_entry = create_excerpt_user_entry
+    store_long_full_text(user_entry.entry)
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    assert_equal true, JSON.parse(response.body)["summarizable"]
+  end
+
+  test "summarize accepts an excerpt-only article whose full text has been fetched" do
+    user_entry = create_excerpt_user_entry
+    store_long_full_text(user_entry.entry)
+
+    assert_enqueued_with job: SummarizeEntryJob, args: [ user_entry.entry.id ] do
+      post summarize_api_v1_entry_url(user_entry), as: :json
+    end
+
+    assert_equal "queued", JSON.parse(response.body)["status"]
+  end
 end

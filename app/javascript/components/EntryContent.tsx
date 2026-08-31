@@ -312,20 +312,34 @@ export function EntryContent({
   // this would only be duplicate chrome competing for a narrow content header.
   const showListContext = focusMode && (hasPosition || !!listTitle)
 
+  // What the server last said about there being enough article here to
+  // summarize. A completed fetch supersedes what came down with the entry: the
+  // server measures the copy the reader can now see, so an excerpt-only article
+  // that was refused on open is usually summarizable once the publisher's page
+  // has been fetched, and making the reader close and re-open it to discover
+  // that would waste the fetch they just asked for.
+  const summarizable = fullArticle.summarizable ?? entry.summarizable
+
   // Below EntrySummarizer::MIN_CONTENT_CHARS the server refuses, so offering
   // the control would be offering something that cannot happen. Andy's call on
-  // ttrb-ewz4: say the feed publishes an excerpt only rather than render a
-  // disabled button with no explanation. `summarizable` is absent on the list
-  // payload, so only an explicit false suppresses the control -- and a summary
-  // written before the article shrank is still worth reaching.
-  const summaryOffered = entry.summarizable !== false || entrySummary.summary !== null
+  // ttrb-ewz4: say why rather than render a disabled button with no
+  // explanation. `summarizable` is absent on the list payload, so only an
+  // explicit false suppresses the control -- and a summary written before the
+  // article shrank is still worth reaching.
+  const summaryOffered = summarizable !== false || entrySummary.summary !== null
 
   // `summarizable` is false for exactly the feeds this is for: the server works
   // it out from the article's own length, so the offer to go and get the rest
   // appears in the one case where the summary affordance cannot. It stays on
   // screen once a fetch has happened, since a reader looking at the publisher's
   // copy should be told that is what it is.
-  const fullArticleOffered = !!entry.link && (entry.summarizable === false || fullArticle.state !== "idle")
+  const fullArticleOffered = !!entry.link && (summarizable === false || fullArticle.state !== "idle")
+
+  // Whether a fetch can still rescue this article, which decides whether the
+  // no-summary line is a dead end or a next step. Once a fetch has happened and
+  // the article is still under the floor, the excerpt really is all there is.
+  const fullArticleRescuable = fullArticleOffered && fullArticle.state === "idle"
+
   const summaryInFlight = entrySummary.state === "queued" || entrySummary.state === "running"
   const summaryButtonLabel = summaryVisible
     ? "Hide summary"
@@ -866,7 +880,9 @@ export function EntryContent({
                 </Button>
               ) : (
                 <span className="text-xs text-muted-foreground">
-                  No summary: this feed publishes an excerpt only.
+                  {fullArticleRescuable
+                    ? "No summary: get the full article first."
+                    : "No summary: this feed publishes an excerpt only."}
                 </span>
               )}
             </div>

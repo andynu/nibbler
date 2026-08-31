@@ -154,4 +154,63 @@ describe("useFullArticle", () => {
 
     await waitFor(() => expect(result.current.state).toBe("ready"))
   })
+
+  // The server measures the article the reader can now see, so a fetch is the
+  // one request that changes whether it can be summarized.
+  describe("summarizable", () => {
+    it("says nothing until a fetch has answered", () => {
+      const { result } = render({ id: 7, initial: ready() })
+
+      expect(result.current.summarizable).toBeNull()
+    })
+
+    it("carries the server's new answer once the article is in hand", async () => {
+      mockFullText.mockResolvedValue({ full_text: ready(), summarizable: true })
+      const { result } = render({ id: 7 })
+
+      await act(async () => {
+        await result.current.request()
+      })
+
+      expect(result.current.summarizable).toBe(true)
+    })
+
+    it("carries a no as readily as a yes, for a publisher page that is also thin", async () => {
+      mockFullText.mockResolvedValue({ full_text: ready(), summarizable: false })
+      const { result } = render({ id: 7 })
+
+      await act(async () => {
+        await result.current.request()
+      })
+
+      expect(result.current.summarizable).toBe(false)
+    })
+
+    // Nothing was learned, so the caller keeps believing what came with the
+    // article rather than being told a false no.
+    it("says nothing when the request itself failed", async () => {
+      mockFullText.mockRejectedValue(new Error("offline"))
+      const { result } = render({ id: 7 })
+
+      await act(async () => {
+        await result.current.request()
+      })
+
+      expect(result.current.summarizable).toBeNull()
+    })
+
+    it("forgets the answer when a different article is opened", async () => {
+      mockFullText.mockResolvedValue({ full_text: ready(), summarizable: true })
+      const { result, rerender } = render({ id: 7 })
+
+      await act(async () => {
+        await result.current.request()
+      })
+      expect(result.current.summarizable).toBe(true)
+
+      rerender({ id: 8, initial: null })
+
+      await waitFor(() => expect(result.current.summarizable).toBeNull())
+    })
+  })
 })

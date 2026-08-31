@@ -189,9 +189,24 @@ module Api
       # The URL fetched is the entry's own link and the entry comes from
       # current_user.user_entries, so this cannot be pointed at an arbitrary
       # host; it reaches only articles the reader already subscribes to.
+      #
+      # `summarizable` is recomputed and sent back because this request is the
+      # one thing that can change it. EntrySummarizer measures
+      # Entry#readable_content, so a successful fetch is what turns an
+      # excerpt-only article into one worth summarizing -- and the client is
+      # holding the answer #show gave it before the fetch, which said no. Only
+      # this response can correct it without re-opening the article.
       def full_text
         entry = @user_entry.entry
-        render json: { full_text: full_text_payload(EntryFullText.for(entry)) }
+        # Sequenced rather than inlined into the hash below: the fetch has to
+        # land before the article is measured, because it is the fetch that
+        # changes what there is to measure.
+        record = EntryFullText.for(entry)
+
+        render json: {
+          full_text: full_text_payload(record),
+          summarizable: EntrySummarizer.summarizable?(entry)
+        }
       end
 
       # GET /api/v1/entries/:id/info

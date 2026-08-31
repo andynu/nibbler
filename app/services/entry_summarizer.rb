@@ -60,9 +60,11 @@ class EntrySummarizer
   # work. Below it the model reformats the lede and spends throughput on a
   # shared local Ollama server that other summaries are queued behind.
   #
-  # Fetching the full article text for excerpt-only feeds is a separate
-  # capability. Until it exists, this makes the feature unavailable on those
-  # feeds rather than useless on them.
+  # The floor is measured against Entry#readable_content, so an excerpt-only
+  # feed is no longer a permanent refusal: fetching the publisher's page is what
+  # lifts such an entry over it, and the reader has a control for that. What the
+  # floor still refuses is an article that is genuinely short, whether the feed
+  # sent it that way or the publisher's own page is that thin.
   MIN_CONTENT_CHARS = 1500
 
   # Ceiling on the article text sent to the model, for the same reason
@@ -108,6 +110,15 @@ class EntrySummarizer
   # A class method because the read path needs to ask about length without
   # building a client or intending to generate anything.
   #
+  # Reads Entry#readable_content, not Entry#content, which is what makes this
+  # feature reachable on an excerpt-only feed at all: once a reader has fetched
+  # the publisher's page the whole article is what gets measured and summarized,
+  # and where no fetch has happened the accessor hands back the excerpt and
+  # nothing changes. Nothing here fetches. That stays a deliberate press on
+  # Api::V1::EntriesController#full_text, for the reason EntryFullText gives:
+  # going and getting a stranger's page is someone else's bandwidth, and this
+  # method is called on every render of an article.
+  #
   # The normalization itself lives in ArticleText, which every other consumer
   # of a stored body now shares. It matters here beyond the model's reading:
   # MIN_CONTENT_CHARS is measured against this string, and an undecoded
@@ -116,8 +127,9 @@ class EntrySummarizer
   #
   # @param entry [Entry]
   # @return [String]
+  # @see Entry#readable_content
   def self.article_text(entry)
-    ArticleText.from_html(entry.content)
+    ArticleText.from_html(entry.readable_content)
   end
 
   # Whether this entry has enough text to be worth summarizing.

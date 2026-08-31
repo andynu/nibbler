@@ -69,12 +69,16 @@ test.describe("Article summary", () => {
 
   // Below EntrySummarizer::MIN_CONTENT_CHARS the server refuses, so the reading
   // pane says why rather than offering a control that cannot work (ttrb-ewz4).
-  test("an excerpt-only article says so instead of offering the control", async ({ page }) => {
+  // The "why" is a next step rather than a dead end since ttrb-8ipo: the floor
+  // is measured on Entry#readable_content, so fetching the publisher's copy is
+  // what makes the control appear, and the control for that is on the page.
+  test("an excerpt-only article points at the full article instead of offering the control", async ({ page }) => {
     await openArticle(page, EXCERPT_HEADLINE)
 
-    await expect(page.getByText(/this feed publishes an excerpt only/i)).toBeVisible()
+    await expect(page.getByText(/get the full article first/i)).toBeVisible()
     await expect(page.getByRole("button", { name: "Summarize this article" })).toHaveCount(0)
     await expect(callout(page)).toHaveCount(0)
+    await expect(page.getByRole("button", { name: /get the full article/i })).toBeVisible()
   })
 
   /**
@@ -103,7 +107,7 @@ test.describe("Article summary", () => {
     test("an excerpt-only article's explanation is on screen too", async ({ page }) => {
       await openArticle(page, EXCERPT_HEADLINE)
 
-      await expect(page.getByText(/this feed publishes an excerpt only/i)).toBeVisible()
+      await expect(page.getByText(/get the full article first/i)).toBeVisible()
     })
   })
 

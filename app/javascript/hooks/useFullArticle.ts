@@ -11,6 +11,12 @@ export interface UseFullArticleResult {
   content: string | null
   /** The one thing the reader is told when it did not work. */
   message: string | null
+  /**
+   * The server's answer, as of the last fetch, to whether this article is now
+   * long enough to summarize. null until a fetch has returned one, which is the
+   * caller's cue to keep believing what came down with the article.
+   */
+  summarizable: boolean | null
   /** Go and get it. A second press while one is in flight does nothing. */
   request: () => Promise<void>
 }
@@ -34,21 +40,35 @@ interface FullArticleStatus {
   state: FullArticleState
   content: string | null
   message: string | null
+  summarizable: boolean | null
 }
 
-function initialStatus(full: FullArticle | null | undefined): FullArticleStatus {
+/**
+ * `summarizable` defaults to null rather than false: "the server has not told us
+ * since" is not "no", and the caller has the answer the article arrived with.
+ * Only a completed request carries a fresh one.
+ */
+function initialStatus(
+  full: FullArticle | null | undefined,
+  summarizable: boolean | null = null
+): FullArticleStatus {
   if (full?.status === "ready") {
-    return { state: "ready", content: full.content, message: null }
+    return { state: "ready", content: full.content, message: null, summarizable }
   }
 
   if (full?.status === "unavailable") {
-    return { state: "unavailable", content: null, message: full.message }
+    return { state: "unavailable", content: null, message: full.message, summarizable }
   }
 
-  return { state: "idle", content: null, message: null }
+  return { state: "idle", content: null, message: null, summarizable }
 }
 
-const UNAVAILABLE: FullArticleStatus = { state: "unavailable", content: null, message: REQUEST_FAILED }
+const UNAVAILABLE: FullArticleStatus = {
+  state: "unavailable",
+  content: null,
+  message: REQUEST_FAILED,
+  summarizable: null
+}
 
 /**
  * Fetch the publisher's own copy of an article whose feed published an excerpt.
@@ -86,7 +106,7 @@ export function useFullArticle({ id, initial }: UseFullArticleOptions): UseFullA
     if (id === null || stateRef.current === "fetching") return
 
     stateRef.current = "fetching"
-    setStatus({ state: "fetching", content: null, message: null })
+    setStatus({ state: "fetching", content: null, message: null, summarizable: null })
 
     try {
       const response = await api.entries.fullText(id)
@@ -94,7 +114,11 @@ export function useFullArticle({ id, initial }: UseFullArticleOptions): UseFullA
       // payload here is a server that did something unexpected rather than a
       // reader who may ask again. Reported as unavailable so the affordance does
       // not reset to a button that answered nothing.
-      setStatus(response.full_text ? initialStatus(response.full_text) : UNAVAILABLE)
+      setStatus(
+        response.full_text
+          ? initialStatus(response.full_text, response.summarizable ?? null)
+          : UNAVAILABLE
+      )
     } catch {
       // The server's own message is not available here, so the generic one
       // stands in. Nothing about the cause is guessed at, for the same reason

@@ -90,6 +90,10 @@ export interface Entry {
    * Whether the article has enough text to be worth summarizing. False for the
    * excerpt-only feeds, where the affordance should say so rather than be
    * offered and refused. Full-content response only.
+   *
+   * Measured on the article the reader can see, so it is the answer as of this
+   * response and not a permanent property of the feed: fetching the publisher's
+   * page can turn it true, and `entries.fullText` returns the new answer.
    */
   summarizable?: boolean
   /**
@@ -648,9 +652,17 @@ export const api = {
      * server, not tens of seconds of a local model, so there is no channel and
      * no queued state. The URL fetched is the entry's own link, so this cannot
      * be aimed at anything the reader is not already subscribed to.
+     *
+     * `summarizable` comes back with it because a successful fetch is the one
+     * thing that changes the answer: the server measures the article the reader
+     * can now see, so an excerpt that could not be summarized often can be once
+     * this returns.
      */
     fullText: (id: number) =>
-      request<{ full_text: FullArticle | null }>(`/entries/${id}/full_text`, { method: "POST" }),
+      request<{ full_text: FullArticle | null; summarizable: boolean }>(
+        `/entries/${id}/full_text`,
+        { method: "POST" }
+      ),
     keywords: (params?: { feed_id?: number; category_id?: number; limit?: number; entry_limit?: number }) => {
       const searchParams = new URLSearchParams()
       if (params?.feed_id) searchParams.set("feed_id", String(params.feed_id))

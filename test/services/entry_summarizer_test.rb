@@ -263,6 +263,69 @@ class EntrySummarizerTest < ActiveSupport::TestCase
     assert_not EntrySummarizer.summarizable?(@entry)
   end
 
+  # --- the fetched article --------------------------------------------------
+  #
+  # What gets measured and summarized is Entry#readable_content: the publisher's
+  # own copy where a current fetch exists, the feed's body where it does not.
+  # That is what makes the feature reachable on the excerpt-only feeds it was
+  # least available on. Nothing here goes near the network -- the rows are
+  # written directly, because this file is about which text is chosen, not about
+  # how it was obtained.
+
+  EXCERPT = "<p>Two sentences. That is all this feed publishes.</p>".freeze
+
+  # The row EntryFullText.for leaves behind, written by hand.
+  def store_full_text(content, status: EntryFullText::OK)
+    @entry.create_entry_full_text!(
+      status: status,
+      content: content,
+      char_count: ArticleText.from_html(content).length,
+      content_hash: @entry.content_hash,
+      fetched_at: Time.current
+    )
+    @entry.reload
+  end
+
+  test "an excerpt-only article becomes summarizable once the publisher's copy is fetched" do
+    @entry.update!(content: EXCERPT)
+    assert_not EntrySummarizer.summarizable?(@entry),
+      "precondition: the feed's own body is under the floor"
+
+    store_full_text("<p>#{body_of(2_000)}</p>")
+
+    assert EntrySummarizer.summarizable?(@entry)
+  end
+
+  test "the fetched article is what reaches the model, not the excerpt it replaced" do
+    @entry.update!(content: "<p>EXCERPTMARKER. Read on at the source.</p>")
+    store_full_text("<p>FETCHEDMARKER. #{body_of(2_000)}</p>")
+
+    fake = FakeLlmClient.new(response: PARAGRAPH)
+    summarizer(fake).summarize(@entry)
+
+    assert_includes fake.last_prompt, "FETCHEDMARKER"
+    assert_not_includes fake.last_prompt, "EXCERPTMARKER"
+  end
+
+  # Degrading to the excerpt is the whole contract of readable_content, so a
+  # publisher that refused leaves this exactly where it was.
+  test "a failed fetch leaves the feed's own body as the text that is measured" do
+    @entry.update!(content: EXCERPT)
+    store_full_text("", status: EntryFullText::FAILED)
+
+    assert_equal ArticleText.from_html(EXCERPT), EntrySummarizer.article_text(@entry)
+    assert_not EntrySummarizer.summarizable?(@entry)
+  end
+
+  # The floor did not move. A publisher whose own page is three sentences is
+  # still refused, which is the honest answer rather than a summary of nothing.
+  test "a fetched article that is itself thin is still refused" do
+    @entry.update!(content: EXCERPT)
+    store_full_text("<p>The publisher's own page is barely longer than the excerpt was.</p>")
+
+    assert_not EntrySummarizer.summarizable?(@entry)
+  end
+
   # strip_tags removes a tag and puts nothing in its place, so adjacent blocks
   # fuse: "<p>holdings.</p><p>The" comes back as "holdings.The". Over a long
   # article that invents a token at every paragraph, list item and cell
