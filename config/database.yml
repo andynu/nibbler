@@ -47,6 +47,30 @@ default: &default
 # not apply here -- neither development entry has a `url:` key, so the anchor
 # can be inherited wholesale and `database:` is the only thing that decides
 # which database is reached.
+#
+# Having a `cable:` entry here is also why db/cable_schema.rb is dumper output
+# rather than the copy of solid_cable's generator template it started as.
+# `bin/rails db:migrate` ends in db:_dump, which dumps *every* database in the
+# current environment, so any migration at all -- including ones that have
+# nothing to do with cable -- rewrote the hand-written file and left the churn
+# in `git status` next to the migration someone was actually working on. The
+# two forms are the same database on PostgreSQL: `t.binary limit:` is ignored
+# (bytea has no length) and `t.integer limit: 8` is spelled `t.bigint`, so both
+# load to an identical catalog and both dump back out as the committed form.
+# Do not "restore" the template shape; it is not a fixed point and db:migrate
+# will simply undo it.
+#
+# `schema_dump: false` is NOT the fix. It nils the path that
+# ActiveRecord::Tasks::DatabaseTasks uses for loading as well as dumping, and
+# db/cable_migrate is empty, so a fresh `bin/setup` would create the cable
+# database and never create solid_cable_messages -- the silent-at-broadcast
+# failure this split was set up to avoid.
+#
+# db/cache_schema.rb is still in template shape only because no environment
+# outside production configures a cache database (development is
+# :memory_store, test is :null_store, and production sets
+# dump_schema_after_migration = false). Add a `cache:` entry here and it picks
+# up the same behaviour; let it be dumped rather than fighting it.
 development:
   primary: &development_primary
     <<: *default
