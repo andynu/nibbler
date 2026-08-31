@@ -124,8 +124,12 @@ test.describe("Embedded page refused by its own headers", () => {
 
     await expect(fallback(page)).toBeVisible()
     await expect(fallback(page).getByText("This site blocks embedding")).toBeVisible()
+    // The panel used to say "Press i to read the feed's copy instead". That is
+    // a keystroke a phone cannot produce reaching a toggle a phone cannot see,
+    // so the way back is a button now (ttrb-tyvd); the shortcut survives as its
+    // tooltip. e2e/mobile-article-actions.spec.ts covers it at 375px.
     await expect(
-      fallback(page).getByText("Press i to read the feed's copy instead.")
+      fallback(page).getByRole("button", { name: "Show the feed's copy" })
     ).toBeVisible()
 
     // The panel replaces the frame; it does not sit alongside a blank one.

@@ -17,6 +17,12 @@ const SCORE_COLORS: Record<number, { color: string; bg: string }> = {
   5: { color: "#75507b", bg: "#75507b" },     // Plum (Purple, same tone as blue)
 }
 
+// The ordinal scale itself, in display order. Exported because the toolbar is
+// not the only place a reader picks a score: below Tailwind's sm the control is
+// hidden and EntryActionsMenu offers the same five values as menu rows. One
+// array so the two cannot disagree about what the scale is.
+export const SCORE_VALUES = [1, 2, 3, 4, 5] as const
+
 interface ScoreButtonsProps {
   score: number
   onScoreChange: (score: number) => void
@@ -127,7 +133,7 @@ export function ScoreButtons({
   // Unselected = outline style, Selected = filled background
   return (
     <div className="inline-flex rounded-sm overflow-hidden border border-border">
-      {[1, 2, 3, 4, 5].map((n) => {
+      {SCORE_VALUES.map((n) => {
         const colors = SCORE_COLORS[n]
         const isActive = n === score
         return (

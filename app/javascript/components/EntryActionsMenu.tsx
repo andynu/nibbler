@@ -1,0 +1,118 @@
+import { EllipsisVertical, StickyNote, FileText, Globe, Bookmark } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { SCORE_VALUES } from "@/components/ScoreButtons"
+import type { Entry } from "@/lib/api"
+
+interface EntryActionsMenuProps {
+  entry: Entry
+  showIframe: boolean
+  /** The header's own iframe toggle handler. */
+  onToggleIframe: () => void
+  /** The header's own note handler; absent when the entry cannot take a note. */
+  onEditNote?: () => void
+  /** The header's own score handler, the one ScoreButtons calls. */
+  onScoreChange?: (score: number) => void
+  /** Opens the same FollowStoryDialog the header's bookmark button opens. */
+  onFollowStory: () => void
+}
+
+/**
+ * The article actions the header sheds as the viewport narrows (ttrb-tyvd).
+ *
+ * The header drops the note button, the framing toggle and "Follow this story"
+ * below the custom xs breakpoint (30rem) and the score control below Tailwind's
+ * sm (40rem). A phone in portrait is under both, and until this existed there
+ * was no second way to reach any of them: MobileNavBar switches panes and
+ * carries no article actions, and nothing on screen hinted the four existed.
+ *
+ * Every item here calls the handler the header's own button calls rather than a
+ * copy of it, so a change to what "follow this story" means reaches both. The
+ * score rows are the one place the presentation is not shared - ScoreButtons
+ * draws five 24px squares, which is not a thumb target - but they map over
+ * SCORE_VALUES from that same component and call the same onScoreChange, so the
+ * scale cannot drift either.
+ *
+ * Visibility is left to the same breakpoints that hide the buttons, so the
+ * trigger appears exactly when something is missing: sm when there is a score
+ * control to lose, xs when there is not. Between xs and sm three of these are
+ * in the header too; a menu that is a superset of the toolbar is the ordinary
+ * shape for an overflow menu, and the alternative (per-item breakpoint classes)
+ * would leave display:none rows inside a Radix menu, where they stay in the
+ * roving-focus collection and arrow keys land on nothing.
+ */
+export function EntryActionsMenu({
+  entry,
+  showIframe,
+  onToggleIframe,
+  onEditNote,
+  onScoreChange,
+  onFollowStory,
+}: EntryActionsMenuProps) {
+  const hiddenAt = onScoreChange ? "sm:hidden" : "xs:hidden"
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {/* lucide-react marks its svg aria-hidden when the icon has no children
+            and no a11y prop, so an icon-only trigger without this label computes
+            an empty accessible name and is unreachable by both screen readers
+            and getByRole. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={hiddenAt}
+          aria-label="More article actions"
+        >
+          <EllipsisVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {onEditNote && (
+          <DropdownMenuItem onClick={onEditNote}>
+            <StickyNote className="h-4 w-4 mr-2" />
+            {entry.note ? "Edit note" : "Add note"}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={onToggleIframe}>
+          {showIframe ? (
+            <FileText className="h-4 w-4 mr-2" />
+          ) : (
+            <Globe className="h-4 w-4 mr-2" />
+          )}
+          {showIframe ? "Show RSS content" : "Show original page"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onFollowStory}>
+          <Bookmark className="h-4 w-4 mr-2" />
+          Follow this story
+        </DropdownMenuItem>
+        {onScoreChange && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Score</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={String(entry.score)}
+              onValueChange={(value) => onScoreChange(Number(value))}
+            >
+              <DropdownMenuRadioItem value="0">No score</DropdownMenuRadioItem>
+              {SCORE_VALUES.map((n) => (
+                <DropdownMenuRadioItem key={n} value={String(n)}>
+                  Score {n}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
