@@ -10,6 +10,7 @@ import { mockEntryWithContent } from "../../../test/fixtures/data"
 // API_BASE resolves against happy-dom's http://localhost:3000 and hits the network.
 const mockApiEntriesInfo = vi.fn()
 const mockApiEntriesEmbedPolicy = vi.fn()
+const mockApiEntriesSummarize = vi.fn()
 const mockApiStoriesExtractFromEntry = vi.fn()
 
 vi.mock("@/lib/api", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/lib/api", () => ({
     entries: {
       info: (...args: unknown[]) => mockApiEntriesInfo(...args),
       embedPolicy: (...args: unknown[]) => mockApiEntriesEmbedPolicy(...args),
+      summarize: (...args: unknown[]) => mockApiEntriesSummarize(...args),
     },
     stories: {
       extractFromEntry: (...args: unknown[]) =>
@@ -24,6 +26,23 @@ vi.mock("@/lib/api", () => ({
     },
   },
 }))
+
+// The other boundary the summary crosses. Mocked at the shared consumer rather
+// than at useEntrySummary, so these tests drive the real hook and the real
+// channel plumbing and the broadcast is the thing under test.
+const { getConsumer, cableCreate, cableUnsubscribe } = vi.hoisted(() => {
+  const cableUnsubscribe = vi.fn()
+  const cableCreate = vi.fn(
+    (_channel: unknown, _mixin: unknown) => ({ unsubscribe: cableUnsubscribe })
+  )
+  return {
+    cableCreate,
+    cableUnsubscribe,
+    getConsumer: vi.fn(() => ({ subscriptions: { create: cableCreate } })),
+  }
+})
+
+vi.mock("@/lib/cable", () => ({ getConsumer, resetConsumer: vi.fn() }))
 
 // Mock the preferences context
 const mockPreferences = {
@@ -40,7 +59,9 @@ vi.mock("@/contexts/PreferencesContext", () => ({
 // Mock the audio player context
 const mockAudioPlayer = {
   state: "idle" as const,
-  source: null,
+  // Widened so a test can put TTS playback on this entry, which is the state
+  // that used to take the whole action row off screen.
+  source: null as string | null,
   currentTime: 0,
   duration: 0,
   currentWordIndex: -1,
@@ -49,7 +70,7 @@ const mockAudioPlayer = {
   autoScroll: true,
   playbackSpeed: 1,
   isVisible: false,
-  activeEntryId: null,
+  activeEntryId: null as number | null,
   activeEntryTitle: null,
   activeFeedTitle: null,
   play: vi.fn(),
@@ -119,6 +140,11 @@ describe("EntryContent", () => {
     mockPreferences.strip_images = "false"
     mockApiEntriesInfo.mockResolvedValue({ top_words: [] })
     mockApiEntriesEmbedPolicy.mockResolvedValue({ status: "embeddable", reason: null })
+    mockApiEntriesSummarize.mockResolvedValue({ status: "queued" })
+    cableCreate.mockClear()
+    cableUnsubscribe.mockClear()
+    mockAudioPlayer.source = null
+    mockAudioPlayer.activeEntryId = null
     mockApiStoriesExtractFromEntry.mockResolvedValue({
       topic: "",
       queries: [],
@@ -1050,6 +1076,331 @@ describe("EntryContent", () => {
 
       expect(onPrevious).toHaveBeenCalledOnce()
       expect(onNext).toHaveBeenCalledOnce()
+    })
+  })
+
+  /**
+   * The summary control and the segment it opens.
+   *
+   * These drive the real useEntrySummary and the real useCableSubscription;
+   * only the HTTP client and the shared Action Cable consumer are mocked. So a
+   * broadcast here goes through the same ordering and merging the browser
+   * would, and the assertions are about what the reader ends up seeing. What
+   * they are NOT is proof that any of it is visible: happy-dom loads no
+   * stylesheet, so every element answers getByRole at every width. Reachability
+   * and legibility are e2e/article-summary.spec.ts's, and nothing here proves a
+   * real websocket ever delivers a message.
+   */
+  describe("article summary", () => {
+    const PARAGRAPH =
+      "Three brokerages will pay ninety million dollars to settle claims about order routing."
+
+    function summaryPayload(overrides: Record<string, unknown> = {}) {
+      return {
+        summary: PARAGRAPH,
+        model: "gemma4:e4b",
+        generated_at: "2026-08-30T12:00:00Z",
+        stale: false,
+        ...overrides,
+      }
+    }
+
+    /** The mixin the summary subscription was created with. */
+    function summaryChannel() {
+      const call = cableCreate.mock.calls.find(
+        ([channel]) =>
+          typeof channel === "object" &&
+          channel !== null &&
+          (channel as { channel?: string }).channel === "EntrySummaryChannel"
+      )
+      if (!call) throw new Error("no EntrySummaryChannel subscription was created")
+      return call
+    }
+
+    /** Deliver one broadcast the way the job would. */
+    function broadcast(message: Record<string, unknown>) {
+      const mixin = summaryChannel()[1] as { received: (data: unknown) => void }
+      act(() => {
+        mixin.received(message)
+      })
+    }
+
+    function summaryButton() {
+      return screen.getByRole("button", { name: /summarize this article|show summary|hide summary/i })
+    }
+
+    it("offers the control on an article with no summary yet", () => {
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      expect(
+        screen.getByRole("button", { name: "Summarize this article" })
+      ).toBeInTheDocument()
+    })
+
+    // Generation on a shared local model costs real throughput, so the press is
+    // the only thing that spends it.
+    it("generates nothing until the control is pressed", () => {
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      expect(mockApiEntriesSummarize).not.toHaveBeenCalled()
+      expect(screen.queryByTestId("entry-summary-callout")).not.toBeInTheDocument()
+    })
+
+    // TWO IDS. The POST is scoped through this user's UserEntry; the channel is
+    // keyed on the shared Entry, because the summary hangs off that and one
+    // generation serves every reader. The fixture makes them different numbers
+    // on purpose -- id 1, entry_id 100 -- so a swap cannot pass.
+    it("posts the user_entry id and subscribes on the shared entry id", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent({ id: 7, entry_id: 4242 })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(summaryChannel()[0]).toEqual({
+        channel: "EntrySummaryChannel",
+        entry_id: 4242,
+      })
+
+      await user.click(screen.getByRole("button", { name: "Summarize this article" }))
+
+      expect(mockApiEntriesSummarize).toHaveBeenCalledWith(7)
+    })
+
+    // The row this lives in used to disappear wholesale while TTS was playing.
+    // Summarizing has nothing to do with audio, and being read to is exactly
+    // when a reader might want the paragraph.
+    it("keeps the control while TTS is playing this entry", () => {
+      const entry = mockEntryWithContent()
+      mockAudioPlayer.source = "tts"
+      mockAudioPlayer.activeEntryId = entry.id
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(
+        screen.getByRole("button", { name: "Summarize this article" })
+      ).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /listen to article/i })).not.toBeInTheDocument()
+    })
+
+    it("shows the queued wait, then the running one, then the paragraph", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent()
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+      await user.click(screen.getByRole("button", { name: "Summarize this article" }))
+
+      const callout = () => within(screen.getByTestId("entry-summary-callout"))
+      expect(callout().getByText(/has not started on it yet/i)).toBeInTheDocument()
+
+      broadcast({ entry_id: entry.entry_id, state: "running" })
+      expect(callout().getByText(/a local model takes a few tens of seconds/i)).toBeInTheDocument()
+
+      broadcast({
+        entry_id: entry.entry_id,
+        state: "ready",
+        summary: summaryPayload(),
+      })
+      expect(callout().getByText(PARAGRAPH)).toBeInTheDocument()
+      expect(callout().getByText(/machine-generated by gemma4:e4b/i)).toBeInTheDocument()
+    })
+
+    // The paragraph arrives on the socket. Nothing polls, and the reader takes
+    // no second action.
+    it("takes the result from the broadcast with no further request", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent()
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+      await user.click(screen.getByRole("button", { name: "Summarize this article" }))
+      broadcast({ entry_id: entry.entry_id, state: "ready", summary: summaryPayload() })
+
+      expect(screen.getByText(PARAGRAPH)).toBeInTheDocument()
+      expect(mockApiEntriesSummarize).toHaveBeenCalledTimes(1)
+    })
+
+    // The summary comes down with the full-content fetch, so re-opening a
+    // summarized article costs no request and no model time.
+    it("shows a cached summary on open without asking for anything", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ summary: summaryPayload(), summarizable: true })}
+        />
+      )
+
+      expect(screen.getByTestId("entry-summary-callout")).toBeInTheDocument()
+      expect(screen.getByText(PARAGRAPH)).toBeInTheDocument()
+      expect(mockApiEntriesSummarize).not.toHaveBeenCalled()
+    })
+
+    it("shows a stale cached summary, marked, with a regenerate control", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent({ summary: summaryPayload({ stale: true }) })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(screen.getByText(/earlier version of the article/i)).toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: /regenerate/i }))
+
+      expect(mockApiEntriesSummarize).toHaveBeenCalledWith(entry.id)
+      // The old paragraph stays put while its replacement is written; a summary
+      // of slightly older text beats a blank space for a triage decision.
+      expect(screen.getByText(PARAGRAPH)).toBeInTheDocument()
+    })
+
+    it("reports a failure with a retry that asks again", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent()
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+      await user.click(screen.getByRole("button", { name: "Summarize this article" }))
+      broadcast({
+        entry_id: entry.entry_id,
+        state: "failed",
+        message: "The summary could not be generated.",
+      })
+
+      expect(screen.getByText("The summary could not be generated.")).toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: /try again/i }))
+      expect(mockApiEntriesSummarize).toHaveBeenCalledTimes(2)
+    })
+
+    it("words a summarizer that is down differently from a failed generation", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent()
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+      await user.click(screen.getByRole("button", { name: "Summarize this article" }))
+      broadcast({
+        entry_id: entry.entry_id,
+        state: "unavailable",
+        message: "The summarizer is not responding right now.",
+      })
+
+      expect(
+        screen.getByText("The summarizer is not responding right now.")
+      ).toBeInTheDocument()
+    })
+
+    // Andy's call on ttrb-ewz4: below EntrySummarizer::MIN_CONTENT_CHARS the
+    // server refuses, so say why rather than offering a control that cannot
+    // work or a disabled one with no explanation.
+    it("says the feed publishes an excerpt instead of offering the control", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ summarizable: false })}
+        />
+      )
+
+      expect(screen.getByText(/this feed publishes an excerpt only/i)).toBeInTheDocument()
+      expect(
+        screen.queryByRole("button", { name: /summarize this article/i })
+      ).not.toBeInTheDocument()
+    })
+
+    // A summary written before the article shrank is still worth reaching.
+    it("still offers the summary an unsummarizable article already has", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ summarizable: false, summary: summaryPayload() })}
+        />
+      )
+
+      expect(screen.getByText(PARAGRAPH)).toBeInTheDocument()
+      expect(screen.queryByText(/publishes an excerpt only/i)).not.toBeInTheDocument()
+    })
+
+    it("puts the segment away and brings it back without regenerating", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ summary: summaryPayload() })}
+        />
+      )
+
+      await user.click(screen.getByRole("button", { name: /dismiss summary/i }))
+      expect(screen.queryByTestId("entry-summary-callout")).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: "Show summary" }))
+      expect(screen.getByText(PARAGRAPH)).toBeInTheDocument()
+      expect(mockApiEntriesSummarize).not.toHaveBeenCalled()
+    })
+
+    it("hides the segment from the control that opened it", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ summary: summaryPayload() })}
+        />
+      )
+
+      await user.click(screen.getByRole("button", { name: "Hide summary" }))
+
+      expect(screen.queryByTestId("entry-summary-callout")).not.toBeInTheDocument()
+    })
+
+    it("opens the next article's summary even after this one was dismissed", async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ summary: summaryPayload() })}
+        />
+      )
+
+      await user.click(screen.getByRole("button", { name: /dismiss summary/i }))
+
+      rerender(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({
+            id: 2,
+            entry_id: 200,
+            summary: summaryPayload({ summary: "A different paragraph entirely." }),
+          })}
+        />
+      )
+
+      expect(screen.getByText("A different paragraph entirely.")).toBeInTheDocument()
+    })
+
+    it("announces the wait and the result in a live region", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent()
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      const region = screen.getByRole("status")
+      expect(region).toHaveTextContent("")
+
+      await user.click(screen.getByRole("button", { name: "Summarize this article" }))
+      expect(region).toHaveTextContent("Summary queued.")
+
+      broadcast({ entry_id: entry.entry_id, state: "ready", summary: summaryPayload() })
+      expect(region).toHaveTextContent("Summary ready.")
+    })
+
+    // The summary is drawn from the feed's copy of the article, which is not
+    // what an embedded publisher page shows.
+    it("is absent in iframe view", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ summary: summaryPayload() })}
+          showIframe={true}
+        />
+      )
+
+      expect(screen.queryByTestId("entry-summary-callout")).not.toBeInTheDocument()
+      expect(summaryButton).toThrow()
     })
   })
 })

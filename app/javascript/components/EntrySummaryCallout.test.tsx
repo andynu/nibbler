@@ -1,0 +1,227 @@
+import { render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { describe, it, expect, vi } from "vitest"
+import { EntrySummaryCallout } from "./EntrySummaryCallout"
+import type { EntrySummary } from "@/lib/api"
+
+const PARAGRAPH =
+  "Three brokerages will pay ninety million dollars to settle claims they routed retail orders to the highest bidder."
+
+function summary(overrides: Partial<EntrySummary> = {}): EntrySummary {
+  return {
+    summary: PARAGRAPH,
+    model: "gemma4:e4b",
+    generated_at: "2026-08-30T12:00:00Z",
+    stale: false,
+    ...overrides,
+  }
+}
+
+type Props = Parameters<typeof EntrySummaryCallout>[0]
+
+function draw(overrides: Partial<Props> = {}) {
+  const props: Props = {
+    visible: true,
+    state: "idle",
+    summary: null,
+    message: null,
+    contentLength: null,
+    connection: "connected",
+    onRegenerate: vi.fn(),
+    onDismiss: vi.fn(),
+    ...overrides,
+  }
+
+  return { ...render(<EntrySummaryCallout {...props} />), props }
+}
+
+/**
+ * The visible segment, excluding the live region.
+ *
+ * The two overlap on purpose -- the region says "Writing the summary." while
+ * the panel explains the wait -- so a bare screen.getByText finds both.
+ */
+function panel() {
+  return within(screen.getByTestId("entry-summary-callout"))
+}
+
+/**
+ * These are render assertions, not visibility ones. happy-dom loads no
+ * stylesheet, so every element answers getByRole at every viewport width here
+ * and nothing in this file can prove the segment is legible, positioned or
+ * reachable on a real screen. That is e2e/article-summary.spec.ts's job.
+ */
+describe("EntrySummaryCallout", () => {
+  describe("the live region", () => {
+    // A live region has to be in the document before its content changes for a
+    // screen reader to announce that change. Rendering it only alongside the
+    // panel would mean it appears already populated, which is read as ordinary
+    // page content if it is read at all.
+    it("is in the document before there is anything to announce", () => {
+      draw({ visible: false })
+
+      expect(screen.getByRole("status")).toBeInTheDocument()
+      expect(screen.getByRole("status")).toHaveTextContent("")
+    })
+
+    it("announces each wait and the result", () => {
+      const { rerender, props } = draw({ state: "queued" })
+      expect(screen.getByRole("status")).toHaveTextContent("Summary queued.")
+
+      rerender(<EntrySummaryCallout {...props} state="running" />)
+      expect(screen.getByRole("status")).toHaveTextContent("Writing the summary.")
+
+      rerender(<EntrySummaryCallout {...props} state="ready" summary={summary()} />)
+      expect(screen.getByRole("status")).toHaveTextContent("Summary ready.")
+    })
+
+    // Announcing the whole paragraph would talk over a reader who only wanted
+    // to know the wait had ended; the paragraph is in the document for them to
+    // read at their own pace.
+    it("announces that the summary arrived rather than reading it out", () => {
+      draw({ state: "ready", summary: summary() })
+
+      expect(screen.getByRole("status")).not.toHaveTextContent(PARAGRAPH)
+    })
+
+    it("says nothing while the segment is put away", () => {
+      draw({ visible: false, state: "ready", summary: summary() })
+
+      expect(screen.getByRole("status")).toHaveTextContent("")
+    })
+  })
+
+  describe("waiting", () => {
+    // The job broadcasts these as distinct states because the two waits mean
+    // different things: the server has the request, versus the model is
+    // writing. One undifferentiated spinner throws that away.
+    it("tells the queued wait from the running one", () => {
+      const { rerender, props } = draw({ state: "queued" })
+      expect(panel().getByText(/has not started on it yet/i)).toBeInTheDocument()
+
+      rerender(<EntrySummaryCallout {...props} state="running" />)
+      expect(panel().getByText(/a local model takes a few tens of seconds/i)).toBeInTheDocument()
+      expect(panel().queryByText(/has not started on it yet/i)).not.toBeInTheDocument()
+    })
+
+    // Action Cable does not retry a rejected subscription, so the result has no
+    // way of arriving and the spinner would spin for good.
+    it("says so when the channel refused this article", () => {
+      draw({ state: "running", connection: "rejected" })
+
+      expect(screen.getByText(/updates were refused/i)).toBeInTheDocument()
+    })
+
+    it("stays quiet about the channel while it is connected", () => {
+      draw({ state: "running", connection: "connected" })
+
+      expect(screen.queryByText(/updates were refused/i)).not.toBeInTheDocument()
+    })
+  })
+
+  describe("the paragraph", () => {
+    it("names the model that wrote it", () => {
+      draw({ state: "ready", summary: summary() })
+
+      expect(screen.getByText(PARAGRAPH)).toBeInTheDocument()
+      expect(screen.getByText(/machine-generated by gemma4:e4b/i)).toBeInTheDocument()
+    })
+
+    it("carries the generation time as a machine-readable date", () => {
+      draw({ state: "ready", summary: summary() })
+
+      expect(screen.getByText(/machine-generated by/i).querySelector("time")).toHaveAttribute(
+        "datetime",
+        "2026-08-30T12:00:00Z"
+      )
+    })
+
+    it("offers no regenerate control for a current summary", () => {
+      draw({ state: "ready", summary: summary() })
+
+      expect(screen.queryByRole("button", { name: /regenerate/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe("a stale summary", () => {
+    // Andy's decision on ttrb-h4oq, which overrides that ticket's own
+    // acceptance criteria: show it, mark it, and let the reader ask for a new
+    // one. Most feed edits are typo fixes, so the old paragraph is usually
+    // still broadly true and worth more than a blank space.
+    it("is shown, marked as describing an earlier version", () => {
+      draw({ state: "ready", summary: summary({ stale: true }) })
+
+      expect(screen.getByText(PARAGRAPH)).toBeInTheDocument()
+      expect(screen.getByText(/earlier version of the article/i)).toBeInTheDocument()
+    })
+
+    it("offers regeneration on the reader's initiative", async () => {
+      const user = userEvent.setup()
+      const { props } = draw({ state: "ready", summary: summary({ stale: true }) })
+
+      await user.click(screen.getByRole("button", { name: /regenerate/i }))
+
+      expect(props.onRegenerate).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe("when it did not work", () => {
+    it("shows the server's reason for a failure and offers a retry", async () => {
+      const user = userEvent.setup()
+      const { props } = draw({
+        state: "failed",
+        message: "The summary could not be generated.",
+      })
+
+      expect(screen.getByText("The summary could not be generated.")).toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: /try again/i }))
+      expect(props.onRegenerate).toHaveBeenCalledTimes(1)
+    })
+
+    // The local model being down is a different thing from the model producing
+    // rubbish, and the server words them differently on purpose.
+    it("words an unreachable summarizer as its own thing", () => {
+      draw({ state: "unavailable", message: "The summarizer is not responding right now." })
+
+      expect(screen.getByText("The summarizer is not responding right now.")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument()
+    })
+
+    it("falls back to its own wording when the server sent no message", () => {
+      draw({ state: "failed", message: null })
+
+      expect(screen.getByText(/could not be generated/i)).toBeInTheDocument()
+    })
+
+    // too_short is terminal and is not a failure: pressing again will not help,
+    // and the article is the reason.
+    it("offers no retry for an article that is too short", () => {
+      draw({
+        state: "too_short",
+        message: "This article is too short to summarize.",
+        contentLength: 412,
+      })
+
+      expect(panel().getByText(/too short to summarize/i)).toBeInTheDocument()
+      expect(panel().getByText(/412 characters of text/i)).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument()
+    })
+  })
+
+  it("can be put away", async () => {
+    const user = userEvent.setup()
+    const { props } = draw({ state: "ready", summary: summary() })
+
+    await user.click(screen.getByRole("button", { name: /dismiss summary/i }))
+
+    expect(props.onDismiss).toHaveBeenCalledTimes(1)
+  })
+
+  it("draws nothing but the live region while it is put away", () => {
+    draw({ visible: false, state: "ready", summary: summary() })
+
+    expect(screen.queryByTestId("entry-summary-callout")).not.toBeInTheDocument()
+    expect(screen.queryByText(PARAGRAPH)).not.toBeInTheDocument()
+  })
+})

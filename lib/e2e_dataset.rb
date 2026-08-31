@@ -80,6 +80,25 @@ class E2eDataset
   READ_INDEXES = [ 4, 5 ].freeze
   STARRED_INDEXES = [ 1 ].freeze
 
+  # The one article that ships with a summary already written.
+  #
+  # Seeded articles are a few hundred characters, well under
+  # EntrySummarizer::MIN_CONTENT_CHARS, so every one of them is unsummarizable
+  # and the reading pane says the feed publishes an excerpt only. That is half
+  # of what the summary spec checks; this row is what lets it also check the
+  # paragraph, the provenance line and the control that puts them away, with no
+  # model involved.
+  SUMMARIZED_HEADLINE = "Rust 1.90 stabilises const generics".freeze
+
+  SUMMARY_PARAGRAPH = (
+    "The release promotes const generics to stable after four years behind a " \
+    "feature gate, which lets array lengths and similar compile-time values be " \
+    "parameters rather than macros. Nothing else in the release notes changes " \
+    "existing code."
+  ).freeze
+
+  SUMMARY_MODEL = "gemma4:e4b".freeze
+
   class << self
     def enabled?
       ENV["ALLOW_E2E_RESET"] == "1"
@@ -118,6 +137,7 @@ class E2eDataset
     @feeds = create_feeds
     @tags = create_tags
     create_entries
+    create_summary
     create_filter
     @user
   end
@@ -218,6 +238,23 @@ class E2eDataset
       date_entered: published,
       date_updated: published,
       lang: "en"
+    )
+  end
+
+  # One article that already has a summary, so the browser suite can open a
+  # summarized article and see the paragraph without a model anywhere near it.
+  #
+  # content_hash matches the entry's, so the summary reads as current rather
+  # than stale. Exactly one row, on the first Rust article, and no counts move.
+  def create_summary
+    entry = Entry.find_by!(title: SUMMARIZED_HEADLINE)
+
+    EntrySummary.create!(
+      entry: entry,
+      summary: SUMMARY_PARAGRAPH,
+      model: SUMMARY_MODEL,
+      content_hash: entry.content_hash,
+      generated_at: @now - 20.minutes
     )
   end
 

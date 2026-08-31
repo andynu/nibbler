@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard, Sparkles, Loader2 } from "lucide-react"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
@@ -12,9 +12,11 @@ import { EntryActionsMenu } from "@/components/EntryActionsMenu"
 import { SuggestedTags } from "@/components/SuggestedTags"
 import { FollowStoryDialog } from "@/components/FollowStoryDialog"
 import { HighlightedContent } from "@/components/HighlightedContent"
+import { EntrySummaryCallout } from "@/components/EntrySummaryCallout"
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
 import { useIframeFocusGuard } from "@/hooks/useIframeFocusGuard"
 import { useEmbedPolicy } from "@/hooks/useEmbedPolicy"
+import { useEntrySummary } from "@/hooks/useEntrySummary"
 import type { Entry, Story } from "@/lib/api"
 
 interface EntryContentProps {
@@ -89,6 +91,7 @@ export function EntryContent({
   const [noteText, setNoteText] = useState("")
   const [isSavingNote, setIsSavingNote] = useState(false)
   const [followStoryOpen, setFollowStoryOpen] = useState(false)
+  const [summaryDismissed, setSummaryDismissed] = useState(false)
 
   // Check if TTS is active for this entry
   const isTtsActiveForThisEntry = audioPlayer.source === "tts" && audioPlayer.activeEntryId === entry?.id
@@ -127,10 +130,28 @@ export function EntryContent({
     resetKey: entry?.id ?? null,
   })
 
+  // TWO IDS, and they are different numbers. The POST goes through this user's
+  // UserEntry, which is what every /api/v1/entries route is keyed on, while the
+  // channel is keyed on the shared Entry because an EntrySummary hangs off that
+  // and one generation serves every reader of the article.
+  //
+  // `summary` comes down with the full-content fetch, so re-opening a
+  // summarized article costs no request and no model time. Nothing here starts
+  // a generation; only handleToggleSummary and the callout's regenerate control
+  // do, and both are a press.
+  const entrySummary = useEntrySummary({
+    id: entry?.id ?? null,
+    entryId: entry?.entry_id ?? null,
+    initialSummary: entry?.summary ?? null,
+  })
+
   // Reset state when entry changes
   useEffect(() => {
     setIsEditingNote(false)
     setNoteText(entry?.note || "")
+    // A dismissal is about one article. The next one opens with its own cached
+    // summary showing, if it has one.
+    setSummaryDismissed(false)
     // The scroll viewport survives the entry swap, so a new article would
     // otherwise open at the previous one's scroll position.
     if (scrollViewportRef?.current) {
@@ -153,6 +174,22 @@ export function EntryContent({
   // drift (ttrb-tyvd).
   const handleFollowStory = () => {
     setFollowStoryOpen(true)
+  }
+
+  // "idle" is the one state with nothing to show, so it is also the only state
+  // in which the button spends model time. Everything else -- a wait in
+  // progress, a paragraph, a refusal -- is already worth a panel, so the button
+  // is a disclosure for it and regeneration lives on the panel's own controls.
+  const summaryVisible = entrySummary.state !== "idle" && !summaryDismissed
+
+  const handleToggleSummary = () => {
+    if (summaryVisible) {
+      setSummaryDismissed(true)
+      return
+    }
+
+    setSummaryDismissed(false)
+    if (entrySummary.state === "idle") void entrySummary.request()
   }
 
   const handleSaveNote = async () => {
@@ -210,6 +247,20 @@ export function EntryContent({
   // Outside focus mode the list pane is right there with the same two facts, so
   // this would only be duplicate chrome competing for a narrow content header.
   const showListContext = focusMode && (hasPosition || !!listTitle)
+
+  // Below EntrySummarizer::MIN_CONTENT_CHARS the server refuses, so offering
+  // the control would be offering something that cannot happen. Andy's call on
+  // ttrb-ewz4: say the feed publishes an excerpt only rather than render a
+  // disabled button with no explanation. `summarizable` is absent on the list
+  // payload, so only an explicit false suppresses the control -- and a summary
+  // written before the article shrank is still worth reaching.
+  const summaryOffered = entry.summarizable !== false || entrySummary.summary !== null
+  const summaryInFlight = entrySummary.state === "queued" || entrySummary.state === "running"
+  const summaryButtonLabel = summaryVisible
+    ? "Hide summary"
+    : entrySummary.state === "idle"
+      ? "Summarize this article"
+      : "Show summary"
 
   return (
     <div ref={swipeRef} className="h-full flex flex-col">
@@ -501,41 +552,95 @@ export function EntryContent({
                 />
               </div>
             )}
-            {/* TTS Listen Buttons */}
-            {!isTtsActiveForThisEntry && (
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => audioPlayer.playNow({
-                    entryId: entry.id,
-                    entryTitle: entry.title,
-                    feedTitle: entry.feed_title || undefined,
-                    source: "tts",
-                  })}
-                  title="Listen to article"
-                >
-                  <Play className="h-4 w-4" />
-                  Listen
-                </Button>
+            {/* Article actions. Only the two TTS controls are gated on
+                playback -- they are the ones that would offer to start what is
+                already running. The summary control has nothing to do with
+                audio, so it stays put while the article is being read aloud,
+                which is exactly when a reader might want the paragraph.
+
+                Not mirrored into EntryActionsMenu, unlike the header toolbar's
+                controls: that menu exists for what the header sheds as the
+                viewport narrows (ttrb-tyvd), and this row sheds nothing. The
+                summary control is on screen at every width already, and the
+                menu is drawn in iframe view too, where there is nowhere for the
+                callout to appear. */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {!isTtsActiveForThisEntry && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => audioPlayer.playNow({
+                      entryId: entry.id,
+                      entryTitle: entry.title,
+                      feedTitle: entry.feed_title || undefined,
+                      source: "tts",
+                    })}
+                    title="Listen to article"
+                  >
+                    <Play className="h-4 w-4" />
+                    Listen
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => audioPlayer.addToQueue({
+                      entryId: entry.id,
+                      entryTitle: entry.title,
+                      feedTitle: entry.feed_title || undefined,
+                      source: "tts",
+                    })}
+                    title="Add to queue"
+                  >
+                    <ListPlus className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              {summaryOffered ? (
+                /* lucide-react marks its svg aria-hidden when the icon has no
+                   children and no a11y prop, so this label is the button's
+                   entire accessible name. Without it the control is
+                   unreachable by a screen reader and by getByRole. */
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => audioPlayer.addToQueue({
-                    entryId: entry.id,
-                    entryTitle: entry.title,
-                    feedTitle: entry.feed_title || undefined,
-                    source: "tts",
-                  })}
-                  title="Add to queue"
+                  onClick={handleToggleSummary}
+                  aria-label={summaryButtonLabel}
+                  aria-expanded={summaryVisible}
+                  title={summaryButtonLabel}
                 >
-                  <ListPlus className="h-4 w-4" />
+                  {summaryInFlight ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
                 </Button>
-              </div>
-            )}
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  No summary: this feed publishes an excerpt only.
+                </span>
+              )}
+            </div>
           </header>
+
+          {/* Between the header and the article, so a triage decision is made
+              before any of the piece has been read. Present only on this
+              branch: in iframe view the text on screen is the publisher's page
+              rather than the feed's copy, which is what would be summarized,
+              so the paragraph would be describing something else. */}
+          <EntrySummaryCallout
+            visible={summaryVisible}
+            state={entrySummary.state}
+            summary={entrySummary.summary}
+            message={entrySummary.message}
+            contentLength={entrySummary.contentLength}
+            connection={entrySummary.connection}
+            onRegenerate={() => void entrySummary.request()}
+            onDismiss={() => setSummaryDismissed(true)}
+          />
 
           {entry.enclosures && entry.enclosures.length > 0 && (
             <EnclosurePlayer
