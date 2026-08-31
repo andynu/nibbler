@@ -31,6 +31,7 @@ import { useCableHeartbeat } from "@/hooks/useCableHeartbeat"
 import { useNewEntries } from "@/hooks/useNewEntries"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
+import { useCopyLink } from "@/hooks/useCopyLink"
 import { useEntrySearch } from "@/hooks/useEntrySearch"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 import { applyUnreadCounts } from "@/lib/unreadCounts"
@@ -842,6 +843,19 @@ function App() {
     }
   }, [selectedEntry])
 
+  // `c` and the overflow menu's "Copy link" row both land here. What goes on
+  // the clipboard is entry.link, the publisher's URL that "Open in new tab"
+  // uses, not a Nibbler route. With no entry open there is nothing to copy and
+  // nowhere to report it, so the key does nothing at all; every other outcome,
+  // including an absent clipboard API outside a secure context, comes back as
+  // a status EntryContent draws (see useCopyLink).
+  const { status: copyLinkStatus, copy: copyLink } = useCopyLink()
+
+  const handleKeyboardCopyLink = useCallback(() => {
+    if (!selectedEntry) return
+    copyLink(selectedEntry.link)
+  }, [selectedEntry, copyLink])
+
   const handleKeyboardGoAll = useCallback(() => {
     handleSelectVirtualFeed(null)
   }, [])
@@ -907,6 +921,7 @@ function App() {
         "toggle-published": handleKeyboardTogglePublished,
         "toggle-iframe": toggleIframe,
         "open-original": handleKeyboardOpenOriginal,
+        "copy-link": handleKeyboardCopyLink,
         refresh: handleKeyboardRefresh,
         "focus-search": handleKeyboardFocusSearch,
         "toggle-focus-mode": handleToggleFocusMode,
@@ -928,6 +943,7 @@ function App() {
       handleKeyboardClose,
       handleKeyboardRefresh,
       handleKeyboardOpenOriginal,
+      handleKeyboardCopyLink,
       handleKeyboardGoAll,
       handleKeyboardGoFresh,
       handleKeyboardGoStarred,
@@ -1338,6 +1354,8 @@ function App() {
             onRemoveTag={handleRemoveTag}
             focusMode={focusMode}
             onToggleFocusMode={handleToggleFocusMode}
+            onCopyLink={handleKeyboardCopyLink}
+            copyLinkStatus={copyLinkStatus}
             listTitle={getListTitle()}
             entryIndex={currentIndex}
             entryCount={entries.length}

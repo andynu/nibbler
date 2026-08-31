@@ -3,7 +3,8 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 import { ScrollBar } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard, Sparkles, Loader2 } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard, Sparkles, Loader2, TriangleAlert } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
@@ -18,6 +19,7 @@ import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
 import { useIframeFocusGuard } from "@/hooks/useIframeFocusGuard"
 import { useEmbedPolicy } from "@/hooks/useEmbedPolicy"
 import { useEntrySummary } from "@/hooks/useEntrySummary"
+import type { CopyLinkStatus } from "@/hooks/useCopyLink"
 import type { Entry, Story } from "@/lib/api"
 
 interface EntryContentProps {
@@ -40,6 +42,14 @@ interface EntryContentProps {
   onRemoveTag?: (tag: string) => Promise<void>
   focusMode?: boolean
   onToggleFocusMode?: () => void
+  /**
+   * Puts entry.link on the clipboard. The `c` shortcut and the overflow menu's
+   * copy row both run this one handler, so the clipboard call and its outcome
+   * live in a single place (application.tsx, useCopyLink).
+   */
+  onCopyLink?: () => void
+  /** Drives the header's transient copy indicator; see useCopyLink. */
+  copyLinkStatus?: CopyLinkStatus
   // Focus mode collapses the sidebar and the list to 0px, so this header is the
   // only Nibbler chrome left. These carry the orientation the list normally
   // provides: which list is being walked, and how far into it we are.
@@ -78,6 +88,8 @@ export function EntryContent({
   onRemoveTag,
   focusMode = false,
   onToggleFocusMode,
+  onCopyLink,
+  copyLinkStatus = "idle",
   listTitle,
   entryIndex = -1,
   entryCount = 0,
@@ -296,23 +308,71 @@ export function EntryContent({
             </Button>
           )}
         </div>
-        {showListContext && (
-          <div className="flex-1 min-w-0 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            {listTitle && (
-              <span className="truncate" title={listTitle}>
-                {listTitle}
-              </span>
+        {/* The header's flexible middle: focus mode's list context, and the
+            copy indicator. Rendered even when both are empty, so the action
+            cluster on the right keeps its position whatever appears here -- a
+            2-second chip that shoved the buttons sideways and back would be
+            worse than no confirmation at all. */}
+        <div className="flex-1 min-w-0 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          {showListContext && (
+            <>
+              {listTitle && (
+                <span className="truncate" title={listTitle}>
+                  {listTitle}
+                </span>
+              )}
+              {hasPosition && (
+                <span
+                  className="shrink-0 tabular-nums"
+                  title={`Entry ${entryIndex + 1} of ${entryCount}`}
+                >
+                  {entryIndex + 1} / {entryCount}
+                </span>
+              )}
+            </>
+          )}
+          {/* The only evidence a keystroke produced anything: `c` has no button
+              to relabel the way the two copy buttons elsewhere in the app do,
+              and a silent success is indistinguishable from a silent failure.
+
+              aria-live rather than role="status" because EntrySummaryCallout
+              already puts a status region in this subtree, and two of them
+              make every getByRole("status") in this pane ambiguous. The two
+              roles are equivalent to polite + atomic, which is what is set
+              here. The element is mounted empty from first paint: assistive
+              tech announces a live region inserted together with its text
+              unreliably. */}
+          <span
+            data-testid="copy-link-status"
+            aria-live="polite"
+            aria-atomic="true"
+            className={cn(
+              "shrink-0 flex items-center gap-1",
+              copyLinkStatus === "copied" && "text-success",
+              copyLinkStatus === "error" && "text-destructive-text"
             )}
-            {hasPosition && (
-              <span
-                className="shrink-0 tabular-nums"
-                title={`Entry ${entryIndex + 1} of ${entryCount}`}
-              >
-                {entryIndex + 1} / {entryCount}
-              </span>
+          >
+            {/* Below xs the eight header buttons leave about 60px, and the
+                label needs half again that: measured at 375px it overhung the
+                read button by 17px. `sr-only` rather than `hidden` keeps the
+                words in the accessibility tree, so the announcement is the
+                same sentence at every width and only the icon is dropped from
+                the phone's view -- where the copy was a tap on a menu row that
+                said "Copy link" a moment earlier. */}
+            {copyLinkStatus === "copied" && (
+              <>
+                <Check className="h-3.5 w-3.5" />
+                <span className="sr-only xs:not-sr-only">Link copied</span>
+              </>
             )}
-          </div>
-        )}
+            {copyLinkStatus === "error" && (
+              <>
+                <TriangleAlert className="h-3.5 w-3.5" />
+                <span className="sr-only xs:not-sr-only">Copy failed</span>
+              </>
+            )}
+          </span>
+        </div>
         <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
           {/* Core actions - always visible */}
           <Button
@@ -435,6 +495,7 @@ export function EntryContent({
             onEditNote={onUpdateNote ? handleStartEditNote : undefined}
             onScoreChange={onScoreChange}
             onFollowStory={handleFollowStory}
+            onCopyLink={onCopyLink}
           />
           {/* Focus mode - hidden on mobile */}
           {onToggleFocusMode && (

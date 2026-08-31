@@ -954,6 +954,39 @@ describe("EntryContent", () => {
       ).toBeInTheDocument()
     })
 
+    // A phone has no keyboard, so `c` is unreachable there. The row calls the
+    // same handler the shortcut calls rather than copying to the clipboard
+    // itself, so the two cannot drift apart.
+    it("copies the link through the handler the shortcut runs", async () => {
+      const user = userEvent.setup()
+      const onCopyLink = vi.fn()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          onCopyLink={onCopyLink}
+        />
+      )
+
+      await openMenu(user)
+      await user.click(screen.getByRole("menuitem", { name: "Copy link" }))
+
+      expect(onCopyLink).toHaveBeenCalledOnce()
+    })
+
+    it("leaves the copy row out when the parent wires no handler", async () => {
+      const user = userEvent.setup()
+
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      await openMenu(user)
+
+      expect(
+        screen.queryByRole("menuitem", { name: "Copy link" })
+      ).not.toBeInTheDocument()
+    })
+
     it("opens the follow-story dialog the header's bookmark opens", async () => {
       const user = userEvent.setup()
 
@@ -1432,6 +1465,67 @@ describe("EntryContent", () => {
 
       expect(screen.queryByTestId("entry-summary-callout")).not.toBeInTheDocument()
       expect(summaryButton).toThrow()
+    })
+  })
+
+  /**
+   * The keyboard half of the copy has no button to relabel the way
+   * AccountPanel and ToolsPanel do, so this is the whole of the reader's
+   * evidence that `c` did anything (ttrb-rtti).
+   *
+   * It lives in the toolbar header rather than beside the title because the
+   * title is only drawn in the RSS branch: in iframe view the article header
+   * does not exist, while the shortcut still works up until focus crosses into
+   * the embedded document.
+   */
+  describe("the copied-link indicator", () => {
+    const indicator = () => screen.getByTestId("copy-link-status")
+
+    it("holds a live region open before there is anything to announce", () => {
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      // Mounted and empty, not absent: a live region inserted at the same
+      // moment as its text is announced unreliably.
+      expect(indicator()).toHaveTextContent("")
+      expect(indicator()).toHaveAttribute("aria-live", "polite")
+    })
+
+    it("confirms the copy without the reader checking the clipboard", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          copyLinkStatus="copied"
+        />
+      )
+
+      expect(indicator()).toHaveTextContent("Link copied")
+    })
+
+    it("says a failed copy failed, in different words", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          copyLinkStatus="error"
+        />
+      )
+
+      expect(indicator()).toHaveTextContent("Copy failed")
+      expect(indicator()).not.toHaveTextContent("Link copied")
+    })
+
+    it("is on screen in iframe view too", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ link: "about:blank" })}
+          showIframe={true}
+          copyLinkStatus="copied"
+        />
+      )
+
+      expect(indicator()).toHaveTextContent("Link copied")
     })
   })
 })

@@ -1,4 +1,4 @@
-import { EllipsisVertical, StickyNote, FileText, Globe, Bookmark } from "lucide-react"
+import { EllipsisVertical, StickyNote, FileText, Globe, Bookmark, Link } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -24,6 +24,11 @@ interface EntryActionsMenuProps {
   onScoreChange?: (score: number) => void
   /** Opens the same FollowStoryDialog the header's bookmark button opens. */
   onFollowStory: () => void
+  /**
+   * Puts the article's URL on the clipboard, through the same handler the `c`
+   * shortcut runs. Absent when the parent wires none.
+   */
+  onCopyLink?: () => void
 }
 
 /**
@@ -57,6 +62,7 @@ export function EntryActionsMenu({
   onEditNote,
   onScoreChange,
   onFollowStory,
+  onCopyLink,
 }: EntryActionsMenuProps) {
   const hiddenAt = onScoreChange ? "sm:hidden" : "xs:hidden"
 
@@ -95,6 +101,18 @@ export function EntryActionsMenu({
           <Bookmark className="h-4 w-4 mr-2" />
           Follow this story
         </DropdownMenuItem>
+        {/* The one row here that is not a shed header button. It is in this
+            menu for the same reason the others are: the keyboard is the only
+            other way to it, and a phone has no keyboard. The header keeps
+            "Open in new tab" at every width and this sits beside it in the
+            menu rather than in the toolbar, where a fifth icon would cost
+            every width to serve the widths that have no `c`. */}
+        {onCopyLink && (
+          <DropdownMenuItem onClick={onCopyLink}>
+            <Link className="h-4 w-4 mr-2" />
+            Copy link
+          </DropdownMenuItem>
+        )}
         {onScoreChange && (
           <>
             <DropdownMenuSeparator />

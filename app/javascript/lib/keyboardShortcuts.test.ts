@@ -64,6 +64,15 @@ describe("shortcutCatalog", () => {
     expect(ctrlF?.id).toBe("page-down-content")
   })
 
+  // c, on the mnemonic. The catalog's lineage is Google Reader and tt-rss
+  // (m/u, s, o, v, r), not vi, so there is no established yank key to defer to.
+  it("copies the article link on a bare c", () => {
+    const copyLink = shortcutCatalog.find((shortcut) => shortcut.id === "copy-link")
+
+    expect(copyLink?.section).toBe("Actions")
+    expect(copyLink?.bindings).toEqual([{ key: "c" }])
+  })
+
   it("gives every entry a display label and description", () => {
     for (const shortcut of shortcutCatalog) {
       expect(shortcut.keys).not.toBe("")

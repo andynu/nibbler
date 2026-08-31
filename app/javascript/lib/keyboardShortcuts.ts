@@ -36,6 +36,7 @@ export type ShortcutId =
   | "toggle-published"
   | "toggle-iframe"
   | "open-original"
+  | "copy-link"
   | "refresh"
   | "focus-search"
   | "search-widen-place"
@@ -197,6 +198,15 @@ export const shortcutCatalog: ShortcutDefinition[] = [
     keys: "v",
     description: "Open original link",
     bindings: [{ key: "v" }],
+  },
+  {
+    id: "copy-link",
+    section: "Actions",
+    // Next to open-original because it acts on the same value, entry.link: the
+    // publisher's URL rather than a Nibbler route.
+    keys: "c",
+    description: "Copy article link",
+    bindings: [{ key: "c" }],
   },
   {
     id: "refresh",
