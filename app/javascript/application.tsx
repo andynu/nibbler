@@ -817,8 +817,13 @@ function App() {
     }
   }, [focusMode])
 
+  // The one refresh the reader can ask for directly, reached by `r` and by
+  // pulling down at the top of the list on a phone (EntryList). It returns the
+  // load rather than dropping it so the gesture can keep its indicator up for
+  // exactly as long as the request takes; `r` ignores the promise, which is
+  // what a `() => void` handler slot means.
   const handleKeyboardRefresh = useCallback(() => {
-    loadEntries()
+    return loadEntries()
   }, [selectedFeedId, selectedCategoryId, virtualFeed, selectedTag])
 
   // Handle multi-column sort changes from EntryList
@@ -1243,6 +1248,11 @@ function App() {
             sortConfig={sortConfig}
             onSortChange={handleSortChange}
             onShowSidebar={layout.isMobile ? layout.goToSidebar : undefined}
+            // Same handler as `r`, so the touch gesture and the key cannot
+            // drift into refreshing different things. Mobile only, matching
+            // the sibling swipe gesture in EntryContent: on a desktop the
+            // pointer generates no touch events and the key is right there.
+            onPullToRefresh={layout.isMobile ? handleKeyboardRefresh : undefined}
             search={{
               query: entrySearch.query,
               onQueryChange: entrySearch.setQuery,

@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, act } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { EntryList } from "./EntryList"
+import { PULL_THRESHOLD } from "@/hooks/usePullToRefresh"
 import { mockEntry, mockSearchResult } from "../../../test/fixtures/data"
 
 // Mock the preferences context
@@ -786,6 +787,92 @@ describe("EntryList", () => {
 
       expect(scrollIntoView).not.toHaveBeenCalled()
       scrollIntoView.mockRestore()
+    })
+  })
+
+  describe("pull to refresh", () => {
+    /** The element Radix actually scrolls, which is where the gesture lives. */
+    function viewport(): HTMLElement {
+      const el = document.querySelector('[data-slot="scroll-area-viewport"]')
+      if (!el) throw new Error("the ScrollArea rendered no viewport")
+      return el as HTMLElement
+    }
+
+    const touch = (type: string, clientY: number) =>
+      new TouchEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        touches: type === "touchend" ? [] : ([{ clientX: 40, clientY }] as unknown as Touch[]),
+        changedTouches: [{ clientX: 40, clientY }] as unknown as Touch[],
+      })
+
+    async function pullDown(travel: number, target: HTMLElement = viewport()) {
+      await act(async () => { target.dispatchEvent(touch("touchstart", 100)) })
+      for (let step = 1; step <= 6; step++) {
+        await act(async () => {
+          target.dispatchEvent(touch("touchmove", 100 + (travel * step) / 6))
+        })
+      }
+      await act(async () => { target.dispatchEvent(touch("touchend", 100 + travel)) })
+    }
+
+    it("reloads the list when pulled down from the top", async () => {
+      const onPullToRefresh = vi.fn<() => Promise<void>>(() => Promise.resolve())
+      render(<EntryList {...defaultProps} onPullToRefresh={onPullToRefresh} />)
+
+      await pullDown(PULL_THRESHOLD + 40)
+
+      expect(onPullToRefresh).toHaveBeenCalledTimes(1)
+    })
+
+    it("stays off when no refresh handler is supplied, as on the desktop layout", async () => {
+      render(<EntryList {...defaultProps} />)
+
+      await pullDown(PULL_THRESHOLD + 40)
+
+      expect(screen.queryByTestId("pull-to-refresh")).not.toBeInTheDocument()
+    })
+
+    /**
+     * The discriminating test for the wiring. Hung on any wrapper around the
+     * viewport the gesture still fires - a wrapper never scrolls, so its
+     * scrollTop is 0 forever and the pull arms halfway down the list. Only a
+     * listener on the viewport itself sees the list's real scroll position.
+     */
+    it("takes its scroll position from the viewport, so it cannot fire mid-list", async () => {
+      const onPullToRefresh = vi.fn<() => Promise<void>>(() => Promise.resolve())
+      render(<EntryList {...defaultProps} onPullToRefresh={onPullToRefresh} />)
+      viewport().scrollTop = 400
+
+      await pullDown(PULL_THRESHOLD + 40)
+
+      expect(onPullToRefresh).not.toHaveBeenCalled()
+    })
+
+    it("says what the gesture will do, then that it is doing it", async () => {
+      let settle: () => void = () => {}
+      const onPullToRefresh = vi.fn<() => Promise<void>>(
+        () => new Promise<void>((resolve) => { settle = resolve })
+      )
+      render(<EntryList {...defaultProps} onPullToRefresh={onPullToRefresh} />)
+      const target = viewport()
+
+      await act(async () => { target.dispatchEvent(touch("touchstart", 100)) })
+
+      await act(async () => { target.dispatchEvent(touch("touchmove", 120)) })
+      expect(screen.getByTestId("pull-to-refresh")).toHaveTextContent("Pull to refresh")
+
+      await act(async () => { target.dispatchEvent(touch("touchmove", 100 + PULL_THRESHOLD + 40)) })
+      expect(screen.getByTestId("pull-to-refresh")).toHaveTextContent("Release to refresh")
+
+      await act(async () => { target.dispatchEvent(touch("touchend", 100 + PULL_THRESHOLD + 40)) })
+      // The one moment worth announcing, so this is also where the live region
+      // switches on.
+      expect(screen.getByRole("status")).toHaveTextContent("Refreshing")
+      expect(screen.getByTestId("pull-to-refresh")).toHaveTextContent("Refreshing")
+
+      await act(async () => { settle() })
+      expect(screen.queryByTestId("pull-to-refresh")).not.toBeInTheDocument()
     })
   })
 })

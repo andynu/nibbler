@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { getTagColor } from "@/lib/tag-colors"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
+import { usePullToRefresh } from "@/hooks/usePullToRefresh"
 import { ScoreBadge } from "@/components/ScoreButtons"
 import {
   SortableHeaderRow,
@@ -108,6 +109,12 @@ interface EntryListProps {
   onSortChange?: (newSort: SortConfig[]) => void
   // Mobile navigation
   onShowSidebar?: () => void
+  /**
+   * Reload the list, for a pull down at the top of it. Omit and the gesture is
+   * off, which is how the desktop layout leaves it: supplying this is what
+   * arms the touch listeners.
+   */
+  onPullToRefresh?: () => Promise<void>
   // Tag management
   onAddTag?: (entryId: number, tagName: string) => void
   // Article search
@@ -142,6 +149,7 @@ export function EntryList({
   sortConfig = [],
   onSortChange,
   onShowSidebar,
+  onPullToRefresh,
   onAddTag,
   search,
 }: EntryListProps) {
@@ -191,6 +199,16 @@ export function EntryList({
   const displayDensity = (preferences.entries_display_density || "medium") as "small" | "medium" | "large"
   const unreadCount = entries.filter((e) => e.unread).length
   const listRef = useRef<HTMLDivElement>(null)
+
+  // Pull down at the top of the list to reload it. The ref belongs on the
+  // ScrollArea's viewport rather than on any wrapper around it: the viewport is
+  // the element that scrolls, and everything above it reports scrollTop 0
+  // forever, which would arm the gesture halfway down the list.
+  const pull = usePullToRefresh<HTMLDivElement>({
+    onRefresh: onPullToRefresh ?? (() => Promise.resolve()),
+    enabled: Boolean(onPullToRefresh),
+  })
+  const pullVisible = pull.state.pullDistance > 0 || pull.state.isRefreshing
 
   const toggleHideRead = () => {
     updatePreference("entries_hide_read", hideRead ? "false" : "true")
@@ -457,112 +475,142 @@ export function EntryList({
         </div>
       )}
 
-      <ScrollArea className="flex-1 min-h-0">
-        <div ref={listRef}>
-          {searchActive ? (
-            <SearchResultList
-              results={search!.results}
-              query={search!.query}
-              isSearching={search!.isSearching}
-              error={search!.error}
-              selectedEntryId={selectedEntryId}
-              onSelectResult={onSelectEntry}
-              formatDate={formatListDate}
-              scopeLabel={search!.scopeLabel}
-              widerMatchCount={search!.widerMatchCount}
-              onWiden={search!.onWiden}
-            />
-          ) : displayMode === "feeds" ? (
-            // Feed-list mode: show filtered feeds
-            filteredFeeds.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">No feeds</div>
+      <div className="relative flex-1 min-h-0">
+        {/* Rides down with the finger and stays up for as long as the reload
+            takes, so the gesture always says whether it caught. Positioned
+            over the list rather than above it: pushing the rows down would
+            move the very row the reader is reaching for. */}
+        {pullVisible && (
+          <div
+            data-testid="pull-to-refresh"
+            // A status only once there is something worth announcing. Given the
+            // role throughout, it would narrate every frame of the drag, which
+            // is chatter for a reader who cannot see the finger that caused it.
+            role={pull.state.isRefreshing ? "status" : undefined}
+            aria-hidden={pull.state.isRefreshing ? undefined : true}
+            className="absolute inset-x-0 top-0 z-10 flex justify-center pointer-events-none"
+            style={pull.indicatorStyle}
+          >
+            <div className="mt-1 flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground shadow-sm">
+              <RefreshCw
+                className={cn("h-3.5 w-3.5", pull.state.isRefreshing && "animate-spin")}
+              />
+              {pull.state.isRefreshing
+                ? "Refreshing"
+                : pull.state.pastThreshold
+                  ? "Release to refresh"
+                  : "Pull to refresh"}
+            </div>
+          </div>
+        )}
+
+        <ScrollArea className="h-full" viewportRef={pull.containerRef}>
+          <div ref={listRef}>
+            {searchActive ? (
+              <SearchResultList
+                results={search!.results}
+                query={search!.query}
+                isSearching={search!.isSearching}
+                error={search!.error}
+                selectedEntryId={selectedEntryId}
+                onSelectResult={onSelectEntry}
+                formatDate={formatListDate}
+                scopeLabel={search!.scopeLabel}
+                widerMatchCount={search!.widerMatchCount}
+                onWiden={search!.onWiden}
+              />
+            ) : displayMode === "feeds" ? (
+              // Feed-list mode: show filtered feeds
+              filteredFeeds.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">No feeds</div>
+              ) : (
+                <div className="p-1">
+                  {filteredFeeds.map((feed) => (
+                    <div
+                      key={feed.id}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
+                        "hover:bg-accent"
+                      )}
+                      onClick={() => onSelectFeedFromList?.(feed.id)}
+                    >
+                      <div className="shrink-0">
+                        {feed.icon_url ? (
+                          <img
+                            src={feed.icon_url}
+                            alt=""
+                            className="h-4 w-4 rounded"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none"
+                            }}
+                          />
+                        ) : (
+                          <Rss className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{feed.title}</div>
+                        {feed.category_title && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {feed.category_title}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
+                        {feed.last_error && (
+                          <span title={feed.last_error} className="inline-flex">
+                            <AlertCircle className="h-3.5 w-3.5 text-destructive-text" />
+                          </span>
+                        )}
+                        {feed.newest_entry_date && (
+                          <span title={`Last post: ${new Date(feed.newest_entry_date).toLocaleDateString()}`}>
+                            {formatRelativeTime(feed.newest_entry_date)}
+                          </span>
+                        )}
+                        {feed.unread_count > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {feed.unread_count}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
             ) : (
-              <div className="p-1">
-                {filteredFeeds.map((feed) => (
-                  <div
-                    key={feed.id}
-                    className={cn(
-                      "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
-                      "hover:bg-accent"
-                    )}
-                    onClick={() => onSelectFeedFromList?.(feed.id)}
-                  >
-                    <div className="shrink-0">
-                      {feed.icon_url ? (
-                        <img
-                          src={feed.icon_url}
-                          alt=""
-                          className="h-4 w-4 rounded"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none"
-                          }}
-                        />
-                      ) : (
-                        <Rss className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{feed.title}</div>
-                      {feed.category_title && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {feed.category_title}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
-                      {feed.last_error && (
-                        <span title={feed.last_error} className="inline-flex">
-                          <AlertCircle className="h-3.5 w-3.5 text-destructive-text" />
-                        </span>
-                      )}
-                      {feed.newest_entry_date && (
-                        <span title={`Last post: ${new Date(feed.newest_entry_date).toLocaleDateString()}`}>
-                          {formatRelativeTime(feed.newest_entry_date)}
-                        </span>
-                      )}
-                      {feed.unread_count > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                          {feed.unread_count}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            // Entry-list mode: show entries (default)
-            isLoading ? (
-              <div role="status" aria-label="Loading entries" className="p-4 text-center text-muted-foreground">
-                Loading...
-              </div>
-            ) : entries.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">No entries</div>
-            ) : (
-              <div className="p-1" role="listbox" aria-label="Entries">
-                {entries.map((entry, index) => (
-                  <EntryItem
-                    key={entry.id}
-                    entry={entry}
-                    isSelected={selectedEntryId === entry.id}
-                    onSelect={() => onSelectEntry(entry.id)}
-                    onToggleRead={() => onToggleRead(entry.id)}
-                    onToggleStarred={() => onToggleStarred(entry.id)}
-                    onTogglePublished={onTogglePublished ? () => onTogglePublished(entry.id) : undefined}
-                    displayDensity={displayDensity}
-                    formatDate={formatListDate}
-                    showBoundaryFlash={
-                      (boundaryHit === "start" && index === 0) ||
-                      (boundaryHit === "end" && index === entries.length - 1)
-                    }
-                    onAddTag={onAddTag ? (tagName) => onAddTag(entry.id, tagName) : undefined}
-                  />
-                ))}
-              </div>
-            )
-          )}
-        </div>
-      </ScrollArea>
+              // Entry-list mode: show entries (default)
+              isLoading ? (
+                <div role="status" aria-label="Loading entries" className="p-4 text-center text-muted-foreground">
+                  Loading...
+                </div>
+              ) : entries.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">No entries</div>
+              ) : (
+                <div className="p-1" role="listbox" aria-label="Entries">
+                  {entries.map((entry, index) => (
+                    <EntryItem
+                      key={entry.id}
+                      entry={entry}
+                      isSelected={selectedEntryId === entry.id}
+                      onSelect={() => onSelectEntry(entry.id)}
+                      onToggleRead={() => onToggleRead(entry.id)}
+                      onToggleStarred={() => onToggleStarred(entry.id)}
+                      onTogglePublished={onTogglePublished ? () => onTogglePublished(entry.id) : undefined}
+                      displayDensity={displayDensity}
+                      formatDate={formatListDate}
+                      showBoundaryFlash={
+                        (boundaryHit === "start" && index === 0) ||
+                        (boundaryHit === "end" && index === entries.length - 1)
+                      }
+                      onAddTag={onAddTag ? (tagName) => onAddTag(entry.id, tagName) : undefined}
+                    />
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   )
 }
