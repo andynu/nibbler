@@ -25,6 +25,10 @@ class Entry < ApplicationRecord
   # On the entry rather than on UserEntry: a summary of the text is the same
   # summary whoever is reading, so one subscriber's request serves all of them.
   has_one :entry_summary, dependent: :destroy
+  # The publisher's own copy of the article, fetched on demand when the feed
+  # published only an excerpt. Shared for the same reason, and for one more: it
+  # costs the publisher a request, and one per subscriber would be rude.
+  has_one :entry_full_text, dependent: :destroy
 
   validates :guid, presence: true, uniqueness: true
   validates :title, presence: true
@@ -42,6 +46,28 @@ class Entry < ApplicationRecord
   validates :content, exclusion: { in: [ nil ], message: "can't be nil" }
 
   scope :recent, -> { order(date_entered: :desc) }
+
+  # The best article text available: the publisher's own copy when one has been
+  # fetched and is still current, otherwise whatever the feed sent.
+  #
+  # This is the seam every text consumer opts into. A feature reading #content
+  # directly gets the excerpt on excerpt-only feeds and behaves as it did before
+  # this table existed; one reading this gets the whole article where there is
+  # one and the excerpt where there is not, with no branch of its own and no
+  # error to handle when the fetch failed. Degrading to the excerpt is the whole
+  # contract.
+  #
+  # Deliberately not #cached_content: that is #content with its <img> URLs
+  # rewritten to locally cached copies, which is a rendering concern and not part
+  # of what the article says.
+  #
+  # @return [String]
+  def readable_content
+    full_text = entry_full_text
+    return full_text.content if full_text&.usable?
+
+    content
+  end
 
   # The delimiters ts_headline wraps a matched lexeme in: U+0002 START OF TEXT
   # and U+0003 END OF TEXT. Control characters rather than markup, because the

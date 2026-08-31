@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_31_034500) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_31_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -79,6 +79,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_31_034500) do
     t.index ["guid"], name: "index_entries_on_guid", unique: true
     t.index ["tsvector_combined"], name: "entries_tsvector_combined_idx", using: :gin
     t.index ["updated"], name: "index_entries_on_updated"
+  end
+
+  create_table "entry_full_texts", force: :cascade do |t|
+    t.integer "char_count", default: 0, null: false
+    t.text "content", default: "", null: false
+    t.string "content_hash", null: false
+    t.bigint "entry_id", null: false
+    t.string "failure_detail"
+    t.datetime "fetched_at", null: false
+    t.string "status", null: false
+    t.index ["entry_id"], name: "index_entry_full_texts_on_entry_id", unique: true
   end
 
   create_table "entry_summaries", force: :cascade do |t|
@@ -392,6 +403,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_31_034500) do
   add_foreign_key "categories", "categories", column: "parent_id", on_delete: :nullify
   add_foreign_key "categories", "users"
   add_foreign_key "enclosures", "entries", on_delete: :cascade
+  add_foreign_key "entry_full_texts", "entries", on_delete: :cascade
   add_foreign_key "entry_summaries", "entries", on_delete: :cascade
   add_foreign_key "entry_tags", "entries", on_delete: :cascade
   add_foreign_key "entry_tags", "tags", on_delete: :cascade
