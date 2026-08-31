@@ -1528,4 +1528,144 @@ describe("EntryContent", () => {
       expect(indicator()).toHaveTextContent("Link copied")
     })
   })
+
+  /**
+   * The control a scroll reader reaches at the end of the text (ttrb-fixw).
+   *
+   * These are wiring guards and nothing more. vitest runs on happy-dom with no
+   * stylesheet, so every element here answers getByRole at every width and no
+   * assertion below can show that the button is visible, that it sits after the
+   * article, or that it is reachable by scrolling on a phone. Those are
+   * Playwright's job, at a real viewport: see e2e/end-of-article-nav.spec.ts.
+   * What these do prove is which handler the press runs and what is drawn when
+   * there is no next article.
+   */
+  describe("the end-of-article next control", () => {
+    const nextButton = () =>
+      screen.getByRole("button", { name: /^Next article/ })
+
+    it("names the next article on the button", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          nextEntryTitle="The article that comes after this one"
+        />
+      )
+
+      expect(nextButton()).toHaveTextContent("The article that comes after this one")
+    })
+
+    // lucide-react marks its svg aria-hidden, so a chevron alone would leave
+    // this button with an empty accessible name. The text carries it, and it
+    // still has to carry it when the parent passed no title.
+    it("is still announced when no next title was passed", () => {
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      expect(nextButton()).toBeInTheDocument()
+    })
+
+    it("advances by the same handler the swipe and j use", async () => {
+      const user = userEvent.setup()
+      const onNext = vi.fn()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          onNext={onNext}
+          nextEntryTitle="Next up"
+        />
+      )
+
+      await user.click(nextButton())
+
+      // The prop is application.tsx's handleKeyboardNext, which is what the
+      // "next-entry" (j) command is bound to. One call, not two: the press must
+      // not also reach the swipe handler on the wrapper.
+      expect(onNext).toHaveBeenCalledTimes(1)
+    })
+
+    it("offers no dead action at the last article", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          hasNext={false}
+        />
+      )
+
+      expect(screen.queryByRole("button", { name: /^Next article/ })).not.toBeInTheDocument()
+      expect(
+        screen.getByText("That was the last article in this list.")
+      ).toBeInTheDocument()
+    })
+
+    it("is drawn inside the scrolling viewport, below the article", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          nextEntryTitle="Next up"
+        />
+      )
+
+      const viewport = document.querySelector("[data-slot=scroll-area-viewport]")
+      const nav = screen.getByTestId("end-of-article-nav")
+      const article = document.querySelector("article")
+
+      // Inside the scroller, so it is reached by scrolling rather than floating
+      // over the text, and after the body rather than beside it.
+      expect(viewport).toContainElement(nav)
+      expect(article).not.toContainElement(nav)
+      expect(
+        article!.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+    })
+
+    // The iframe branch is a different tree with no scroll position Nibbler can
+    // read, and the reader is looking at the publisher's own page there.
+    it("is absent in iframe view", () => {
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ link: "about:blank" })}
+          showIframe={true}
+          nextEntryTitle="Next up"
+        />
+      )
+
+      expect(screen.queryByTestId("end-of-article-nav")).not.toBeInTheDocument()
+    })
+
+    // Acceptance criterion from ttrb-fixw: confirm the existing reset covers
+    // the press rather than reimplementing it. The viewport is shared across
+    // entries, so without this the next article opens at the previous one's
+    // offset.
+    it("leaves the next article scrolled to the top", () => {
+      const scrollViewportRef = { current: null as HTMLDivElement | null }
+      const first = mockEntryWithContent({ id: 1, title: "First" })
+      const second = mockEntryWithContent({ id: 2, entry_id: 200, title: "Second" })
+
+      const { rerender } = render(
+        <EntryContent
+          {...defaultProps}
+          entry={first}
+          scrollViewportRef={scrollViewportRef}
+        />
+      )
+
+      scrollViewportRef.current!.scrollTop = 500
+
+      rerender(
+        <EntryContent
+          {...defaultProps}
+          entry={second}
+          scrollViewportRef={scrollViewportRef}
+        />
+      )
+
+      expect(scrollViewportRef.current!.scrollTop).toBe(0)
+    })
+  })
 })

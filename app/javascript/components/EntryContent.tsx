@@ -32,6 +32,13 @@ interface EntryContentProps {
   onNext: () => void
   hasPrevious: boolean
   hasNext: boolean
+  /**
+   * Title of the entry `onNext` would open, for the end-of-article button.
+   * "What is next" is the question a reader has at the end of the text, and the
+   * answer is already in the loaded list. Optional: when hasNext is true but no
+   * title came down, the button falls back to naming the action alone.
+   */
+  nextEntryTitle?: string
   isLoading: boolean
   scrollViewportRef?: React.RefObject<HTMLDivElement | null>
   onUpdateNote?: (note: string) => Promise<void>
@@ -78,6 +85,7 @@ export function EntryContent({
   onNext,
   hasPrevious,
   hasNext,
+  nextEntryTitle,
   isLoading,
   scrollViewportRef,
   onUpdateNote,
@@ -109,8 +117,13 @@ export function EntryContent({
   // Check if TTS is active for this entry
   const isTtsActiveForThisEntry = audioPlayer.source === "tts" && audioPlayer.activeEntryId === entry?.id
 
-  // Swipe navigation for mobile - swipe left/right to navigate articles
-  const handleSwipeLeft = useCallback(() => {
+  // Swipe navigation for mobile - swipe left/right to navigate articles.
+  //
+  // handleAdvanceToNext has two callers: the left swipe and the button at the
+  // end of the article body. They are the same action reached two ways, so they
+  // share the handler rather than each carrying its own copy of the hasNext
+  // guard, which is what would let the two paths drift (ttrb-fixw).
+  const handleAdvanceToNext = useCallback(() => {
     if (hasNext) onNext()
   }, [hasNext, onNext])
 
@@ -119,7 +132,7 @@ export function EntryContent({
   }, [hasPrevious, onPrevious])
 
   const swipeRef = useSwipeNavigation<HTMLDivElement>({
-    onSwipeLeft: handleSwipeLeft,
+    onSwipeLeft: handleAdvanceToNext,
     onSwipeRight: handleSwipeRight,
     enabled: layout.isMobile && !!entry,
     threshold: 60,
@@ -872,6 +885,62 @@ export function EntryContent({
             </div>
           )}
         </article>
+        {/*
+          The end of the text is where a scroll reader has decided to move on,
+          and until now there was nothing there: advancing meant a horizontal
+          swipe or the back-to-list pane, both gestures made with the article
+          still on screen (ttrb-fixw).
+
+          Drawn at every width, not just on mobile. A desktop reader who scrolls
+          reaches the same dead end, and a keyboard reader never scrolls this
+          far, so `j` costs nothing by this existing.
+
+          Outside <article> because it is not part of the article, but inside
+          the Viewport so it is reached by scrolling rather than floating over
+          the text. It repeats the article's own max-w-3xl mx-auto so the two
+          columns line up.
+
+          onClick is handleAdvanceToNext, the same callback the left swipe gets,
+          and that runs the `onNext` prop -- which is the handler `j` is bound
+          to in application.tsx. One path, four entry points.
+        */}
+        <nav
+          aria-label="Continue reading"
+          data-testid="end-of-article-nav"
+          className="max-w-3xl mx-auto px-4 pb-6 sm:px-6 sm:pb-8"
+        >
+          {hasNext ? (
+            <Button
+              variant="outline"
+              /* h-auto and whitespace-normal undo the Button base's fixed
+                 height and nowrap: an article title is as long as it is, and at
+                 375px it has to wrap rather than overhang the border. */
+              className="w-full h-auto justify-between gap-3 py-3 text-left whitespace-normal"
+              onClick={handleAdvanceToNext}
+            >
+              <span className="flex min-w-0 flex-col items-start gap-0.5">
+                <span className="text-xs font-normal text-muted-foreground">
+                  Next article
+                </span>
+                {nextEntryTitle && (
+                  <span className="font-medium">{nextEntryTitle}</span>
+                )}
+              </span>
+              {/* lucide sets aria-hidden on the svg, so the two spans above are
+                  this button's entire accessible name. "Next article" carries
+                  it on its own when no title was passed. */}
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            </Button>
+          ) : (
+            /* No dead action at the end of the list. The keyboard boundary
+               flash is the wrong treatment here: that answers a keypress that
+               had nowhere to go, while this is known before the reader presses
+               anything, so it says so instead. */
+            <p className="border-t pt-4 text-center text-sm text-muted-foreground">
+              That was the last article in this list.
+            </p>
+          )}
+        </nav>
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />
       <ScrollBar orientation="horizontal" />

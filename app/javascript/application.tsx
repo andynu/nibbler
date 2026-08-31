@@ -1344,6 +1344,11 @@ function App() {
             onNext={handleKeyboardNext}
             hasPrevious={currentIndex > 0}
             hasNext={currentIndex < entries.length - 1}
+            // Names the target on the end-of-article button. Indexed the same
+            // way handleKeyboardNext picks its entry, including the -1 case
+            // where that loads entries[0], so the label cannot name one article
+            // while the press opens another.
+            nextEntryTitle={entries[currentIndex + 1]?.title}
             isLoading={isLoadingEntry}
             scrollViewportRef={contentScrollRef}
             onUpdateNote={handleUpdateNote}
