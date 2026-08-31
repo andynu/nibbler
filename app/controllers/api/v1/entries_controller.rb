@@ -4,7 +4,7 @@ module Api
       include EntryScoping
       include EntrySorting
 
-      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :summarize, :info, :embed_policy ]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :summarize, :full_text, :info, :embed_policy ]
 
       # GET /api/v1/entries
       def index
@@ -81,7 +81,11 @@ module Api
       def audio
         entry = @user_entry.entry
         cached = entry.cached_audio
-        playable = cached&.valid_for_content?(entry.content) && File.exist?(cached.cached_path)
+        # readable_content, matching TtsGenerator: audio recorded from an excerpt
+        # stops being the article the moment the full text is fetched behind it,
+        # and hashing against a different string here than the generator used
+        # would report that stale audio as ready.
+        playable = cached&.valid_for_content?(entry.readable_content) && File.exist?(cached.cached_path)
 
         # Already-generated audio still plays where TTS itself cannot run, so
         # only the generation paths below are gated.
@@ -164,6 +168,30 @@ module Api
         # reaches every subscriber, including this one.
         SummarizeEntryJob.perform_later(entry.id)
         render json: { status: "queued" }
+      end
+
+      # POST /api/v1/entries/:id/full_text
+      #
+      # Fetches the publisher's own page for an article the feed only excerpted,
+      # and answers with what the reader now has.
+      #
+      # Inline rather than over a job and a channel, unlike #summarize. The two
+      # waits are not comparable: a local model takes tens of seconds to write a
+      # paragraph, while this is one HTTP request bounded at
+      # FullArticleFetcher::TIMEOUT. #embed_policy already fetches a stranger's
+      # page inside a request for the same reason, and doing it here costs no
+      # job, no stream and no new wire states.
+      #
+      # POST because it spends someone else's bandwidth. Nothing calls it from a
+      # render: a stored answer travels with the article in #show, so reaching
+      # this action is always a deliberate press.
+      #
+      # The URL fetched is the entry's own link and the entry comes from
+      # current_user.user_entries, so this cannot be pointed at an arbitrary
+      # host; it reaches only articles the reader already subscribes to.
+      def full_text
+        entry = @user_entry.entry
+        render json: { full_text: full_text_payload(EntryFullText.for(entry)) }
       end
 
       # GET /api/v1/entries/:id/info
@@ -323,9 +351,44 @@ module Api
           # `summarizable` costs a pass over the whole body.
           json[:summary] = EntrySummaryChannel.summary_payload(entry.entry_summary)
           json[:summarizable] = EntrySummarizer.summarizable?(entry)
+          # A fetched article travels with the entry for the same reason a
+          # summary does, and so does a fetch that failed: telling the reader
+          # the publisher's page could not be read is worth doing on open rather
+          # than only after they press a button and wait for nothing.
+          json[:full_text] = full_text_payload(entry.entry_full_text)
         end
 
         json
+      end
+
+      # The one shape a fetched article takes on the wire, for both #full_text
+      # and the article payload in #show.
+      #
+      # nil means "nothing settled, the reader may ask": no row, a row whose
+      # entry has been republished underneath it, or a failure old enough to be
+      # worth retrying. Everything else is a current answer, and there are only
+      # two of those.
+      #
+      # The unavailable branch carries one message whatever went wrong, and does
+      # not say what did. See FullArticleFetcher for why a cause is not
+      # attributed; the specific reason is on the row and in the log.
+      def full_text_payload(record)
+        return nil if record.nil? || record.refetchable?
+
+        if record.usable?
+          {
+            status: "ready",
+            content: record.content,
+            char_count: record.char_count,
+            fetched_at: record.fetched_at
+          }
+        else
+          {
+            status: "unavailable",
+            message: EntryFullText::UNAVAILABLE_MESSAGE,
+            fetched_at: record.fetched_at
+          }
+        end
       end
 
       def content_preview(content)

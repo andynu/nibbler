@@ -92,7 +92,31 @@ export interface Entry {
    * offered and refused. Full-content response only.
    */
   summarizable?: boolean
+  /**
+   * The publisher's own copy of the article, where one has been fetched because
+   * the feed sent an excerpt. Full-content response only.
+   *
+   * null means nothing is settled and the reader may ask: no fetch yet, or one
+   * old enough to be worth retrying. A "unavailable" object means the last
+   * attempt did not work and the reader should be told so without pressing
+   * anything.
+   */
+  full_text?: FullArticle | null
 }
+
+/**
+ * What came of fetching the publisher's page, in the one shape it takes with
+ * the article and in the reply to a fetch request.
+ *
+ * There is no "why" on the unavailable branch on purpose. A paywall, a bot
+ * filter, a timeout and a page with no prose in it are not distinguishable from
+ * the server's side, and a timeout reported as a paywall would be worse than
+ * one sentence that claims nothing. The article's own link is what the reader
+ * can act on instead.
+ */
+export type FullArticle =
+  | { status: "ready"; content: string; char_count: number; fetched_at: string }
+  | { status: "unavailable"; message: string; fetched_at: string }
 
 /**
  * A generated summary, in the one shape it takes wherever it arrives: with the
@@ -617,6 +641,16 @@ export const api = {
      */
     summarize: (id: number) =>
       request<EntrySummaryResponse>(`/entries/${id}/summarize`, { method: "POST" }),
+    /**
+     * Fetch the publisher's own page for an article the feed only excerpted.
+     *
+     * Unlike `summarize` this waits for the work: it is one HTTP request on the
+     * server, not tens of seconds of a local model, so there is no channel and
+     * no queued state. The URL fetched is the entry's own link, so this cannot
+     * be aimed at anything the reader is not already subscribed to.
+     */
+    fullText: (id: number) =>
+      request<{ full_text: FullArticle | null }>(`/entries/${id}/full_text`, { method: "POST" }),
     keywords: (params?: { feed_id?: number; category_id?: number; limit?: number; entry_limit?: number }) => {
       const searchParams = new URLSearchParams()
       if (params?.feed_id) searchParams.set("feed_id", String(params.feed_id))

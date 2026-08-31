@@ -15,10 +15,12 @@ import { SuggestedTags } from "@/components/SuggestedTags"
 import { FollowStoryDialog } from "@/components/FollowStoryDialog"
 import { HighlightedContent } from "@/components/HighlightedContent"
 import { EntrySummaryCallout } from "@/components/EntrySummaryCallout"
+import { FullArticleNotice } from "@/components/FullArticleNotice"
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation"
 import { useIframeFocusGuard } from "@/hooks/useIframeFocusGuard"
 import { useEmbedPolicy } from "@/hooks/useEmbedPolicy"
 import { useEntrySummary } from "@/hooks/useEntrySummary"
+import { useFullArticle } from "@/hooks/useFullArticle"
 import type { CopyLinkStatus } from "@/hooks/useCopyLink"
 import type { Entry, Story } from "@/lib/api"
 
@@ -192,6 +194,14 @@ export function EntryContent({
     initialSummary: entry?.summary ?? null,
   })
 
+  // The publisher's own copy, for feeds that publish an excerpt. Nothing is
+  // fetched on render: a stored answer travels with the article, and going and
+  // getting one is always a press.
+  const fullArticle = useFullArticle({
+    id: entry?.id ?? null,
+    initial: entry?.full_text ?? null,
+  })
+
   // Reset state when entry changes
   useEffect(() => {
     setIsEditingNote(false)
@@ -250,10 +260,17 @@ export function EntryContent({
     }
   }
 
+  // The publisher's copy wins where there is one, for the body on screen and for
+  // the text TTS reads: TtsGenerator hashes and speaks Entry#readable_content,
+  // which makes the same choice on the server, so the highlighted words and the
+  // rendered paragraphs are the same document. Rendering the excerpt here while
+  // the audio read the whole article would put the highlight on the wrong words
+  // from the first sentence on.
   const processedContent = useMemo(() => {
-    if (!entry?.content) return ""
-    return shouldStripImages ? stripImages(entry.content) : entry.content
-  }, [entry?.content, shouldStripImages])
+    const html = fullArticle.content ?? entry?.content
+    if (!html) return ""
+    return shouldStripImages ? stripImages(html) : html
+  }, [entry?.content, fullArticle.content, shouldStripImages])
 
   // Headline-only and link-only items are a normal RSS shape, so an entry with
   // no body is expected rather than broken. Injecting "" would render a
@@ -302,6 +319,13 @@ export function EntryContent({
   // payload, so only an explicit false suppresses the control -- and a summary
   // written before the article shrank is still worth reaching.
   const summaryOffered = entry.summarizable !== false || entrySummary.summary !== null
+
+  // `summarizable` is false for exactly the feeds this is for: the server works
+  // it out from the article's own length, so the offer to go and get the rest
+  // appears in the one case where the summary affordance cannot. It stays on
+  // screen once a fetch has happened, since a reader looking at the publisher's
+  // copy should be told that is what it is.
+  const fullArticleOffered = !!entry.link && (entry.summarizable === false || fullArticle.state !== "idle")
   const summaryInFlight = entrySummary.state === "queued" || entrySummary.state === "running"
   const summaryButtonLabel = summaryVisible
     ? "Hide summary"
@@ -936,6 +960,19 @@ export function EntryContent({
                 </Button>
               </div>
             </div>
+          )}
+
+          {/* Under the body, which is where a reader arrives at the end of two
+              sentences wanting the rest. Only on this branch: in iframe view the
+              publisher's page is already on screen, so there is nothing to
+              fetch and nothing to say. */}
+          {fullArticleOffered && (
+            <FullArticleNotice
+              state={fullArticle.state}
+              message={fullArticle.message}
+              link={entry.link}
+              onFetch={() => void fullArticle.request()}
+            />
           )}
 
           {(entry.note || isEditingNote) && (

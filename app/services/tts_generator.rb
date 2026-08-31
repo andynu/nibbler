@@ -52,17 +52,24 @@ class TtsGenerator
 
     ensure_cache_dir_exists
 
-    # Extract plain text from content
-    text = extract_text(@entry.content)
+    # Extract plain text from content.
+    #
+    # readable_content rather than content: on a feed that publishes an excerpt,
+    # content is two sentences, and TTS reading two sentences and stopping is the
+    # whole complaint this reads past. Where no full text has been fetched the two
+    # are the same string, so nothing changes for a feed that publishes in full.
+    text = extract_text(@entry.readable_content)
     return error_result("No text content to generate audio for") if text.blank?
     return error_result("Text too long (#{text.length} chars, max #{MAX_TEXT_LENGTH})") if text.length > MAX_TEXT_LENGTH
 
     # Check for existing valid cache. The file has to actually be there: a
     # record whose audio is gone (a container without the cache volume, a
     # manual purge) would otherwise be reported as ready and play a 404.
-    content_hash = CachedAudio.hash_content(@entry.content)
+    # Hashed over the same string that was read aloud, so audio recorded from an
+    # excerpt is invalidated the moment the full article arrives behind it.
+    content_hash = CachedAudio.hash_content(@entry.readable_content)
     existing = @entry.cached_audio
-    if existing&.valid_for_content?(@entry.content) && File.exist?(existing.cached_path)
+    if existing&.valid_for_content?(@entry.readable_content) && File.exist?(existing.cached_path)
       Rails.logger.debug { "Using cached TTS audio for entry #{@entry.id}" }
       return GenerationResult.new(success: true, cached_audio: existing, error: nil)
     end

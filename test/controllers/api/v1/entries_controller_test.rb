@@ -1272,4 +1272,155 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_not row.key?("summary")
     assert_not row.key?("summarizable")
   end
+
+  # ==========================
+  # Fetching the full article
+  # ==========================
+  #
+  # Every request below is answered by WebMock. test_helper disables outbound
+  # connections for the whole suite, so an unstubbed publisher raises rather
+  # than being visited.
+
+  ARTICLE_PARAGRAPH = "The council voted 5-2 to reject the rezoning, ending a two-year fight " \
+                      "over the parcel on Fourth Street, which neighbours had opposed since 2024.".freeze
+
+  PUBLISHER_PAGE = "<html><body><div class='content'>" \
+                   "<p>#{ARTICLE_PARAGRAPH}</p><p>#{ARTICLE_PARAGRAPH}</p><p>#{ARTICLE_PARAGRAPH}</p>" \
+                   "</div></body></html>".freeze
+
+  def create_excerpt_user_entry
+    create_summarizable_user_entry(content: "<p>Two sentences. That is all this feed sends.</p>")
+  end
+
+  def stub_publisher(status: 200, body: PUBLISHER_PAGE)
+    stub_request(:get, "https://example.com/summary-article")
+      .to_return(status: status, body: body, headers: { "Content-Type" => "text/html" })
+  end
+
+  def store_full_text(entry, **attributes)
+    entry.create_entry_full_text!({
+      status: EntryFullText::OK,
+      content: "<p>#{ARTICLE_PARAGRAPH}</p>",
+      char_count: ARTICLE_PARAGRAPH.length,
+      content_hash: entry.content_hash,
+      fetched_at: Time.current
+    }.merge(attributes))
+  end
+
+  test "full_text fetches the publisher's page and answers with the article" do
+    user_entry = create_excerpt_user_entry
+    stub_publisher
+
+    post full_text_api_v1_entry_url(user_entry), as: :json
+
+    assert_response :success
+    payload = JSON.parse(response.body)["full_text"]
+    assert_equal "ready", payload["status"]
+    assert_includes payload["content"], "voted 5-2"
+    assert_operator payload["char_count"], :>, 0
+  end
+
+  # One message, no cause. A 403 from a bot filter, a paywall and a timeout are
+  # not distinguishable from this side, and guessing between them is worse than
+  # saying nothing.
+  test "full_text answers with one generic message when the page cannot be read" do
+    user_entry = create_excerpt_user_entry
+    stub_publisher(status: 403, body: "denied")
+
+    post full_text_api_v1_entry_url(user_entry), as: :json
+
+    assert_response :success
+    payload = JSON.parse(response.body)["full_text"]
+    assert_equal "unavailable", payload["status"]
+    assert_equal EntryFullText::UNAVAILABLE_MESSAGE, payload["message"]
+    assert_not_includes response.body, "403"
+  end
+
+  test "full_text does not ask the publisher again while a recent failure stands" do
+    user_entry = create_excerpt_user_entry
+    store_full_text(user_entry.entry, status: EntryFullText::FAILED, content: "", char_count: 0, fetched_at: 5.minutes.ago)
+
+    post full_text_api_v1_entry_url(user_entry), as: :json
+
+    assert_equal "unavailable", JSON.parse(response.body).dig("full_text", "status")
+    assert_not_requested :get, "https://example.com/summary-article"
+  end
+
+  test "full_text returns a stored article without asking the publisher again" do
+    user_entry = create_excerpt_user_entry
+    store_full_text(user_entry.entry)
+
+    post full_text_api_v1_entry_url(user_entry), as: :json
+
+    assert_equal "ready", JSON.parse(response.body).dig("full_text", "status")
+    assert_not_requested :get, "https://example.com/summary-article"
+  end
+
+  # The URL fetched comes from the entry, and the entry comes from this user's
+  # own subscriptions, so this endpoint cannot be aimed anywhere else.
+  test "full_text will not answer for another user's entry" do
+    user_entry = create_excerpt_user_entry
+    sign_in(User.where.not(id: @user.id).first)
+
+    post full_text_api_v1_entry_url(user_entry), as: :json
+
+    assert_response :not_found
+    assert_not_requested :get, "https://example.com/summary-article"
+  end
+
+  test "show carries a fetched article with the entry" do
+    user_entry = create_excerpt_user_entry
+    store_full_text(user_entry.entry)
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    payload = JSON.parse(response.body)["full_text"]
+    assert_equal "ready", payload["status"]
+    assert_includes payload["content"], "voted 5-2"
+  end
+
+  # So a reader re-opening the article is told why there is no full text,
+  # instead of pressing a button and waiting for a fetch that will not happen.
+  test "show carries the generic message for a fetch that failed" do
+    user_entry = create_excerpt_user_entry
+    store_full_text(user_entry.entry, status: EntryFullText::FAILED, content: "", char_count: 0)
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    payload = JSON.parse(response.body)["full_text"]
+    assert_equal "unavailable", payload["status"]
+    assert_equal EntryFullText::UNAVAILABLE_MESSAGE, payload["message"]
+  end
+
+  # Nothing settled: the reader may ask.
+  test "show says nothing about full text when none has been fetched" do
+    user_entry = create_excerpt_user_entry
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    assert_nil JSON.parse(response.body)["full_text"]
+  end
+
+  test "show says nothing about a failure old enough to be worth retrying" do
+    user_entry = create_excerpt_user_entry
+    store_full_text(
+      user_entry.entry, status: EntryFullText::FAILED, content: "", char_count: 0,
+      fetched_at: EntryFullText::RETRY_AFTER.ago - 1.minute
+    )
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    assert_nil JSON.parse(response.body)["full_text"]
+  end
+
+  test "the entry list does not carry fetched articles" do
+    user_entry = create_excerpt_user_entry
+    store_full_text(user_entry.entry)
+
+    get api_v1_entries_url, params: { per_page: 100 }, as: :json
+
+    row = JSON.parse(response.body)["entries"].find { |e| e["id"] == user_entry.id }
+    assert_not_nil row
+    assert_not row.key?("full_text")
+  end
 end

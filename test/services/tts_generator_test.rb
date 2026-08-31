@@ -127,7 +127,55 @@ class TtsGeneratorTest < ActiveSupport::TestCase
     assert_equal "The vote failed. Members left early. AT&T declined.", spoken
   end
 
+  # The complaint this reads past: on an excerpt-only feed, TTS read two
+  # sentences and stopped. Entry#readable_content is the seam, so where a full
+  # article has been fetched it is what Piper is given.
+  test "Piper is given the publisher's copy where one has been fetched" do
+    Rails.configuration.x.tts.enabled = true
+    @entry.update!(content: "<p>Two sentences. That is all.</p>")
+    build_full_text("<p>The council voted 5-2 to reject the rezoning.</p>")
+
+    spoken = nil
+    capture_input = lambda do |*args, **_options|
+      spoken = File.read(args[args.index("--input") + 1])
+      [ "{}", "", FakeStatus.new(false) ]
+    end
+
+    Open3.stub(:capture3, capture_input) do
+      TtsGenerator.new(@entry.reload).generate
+    end
+
+    assert_equal "The council voted 5-2 to reject the rezoning.", spoken
+  end
+
+  # Audio recorded from the excerpt is no longer the article once the rest of it
+  # arrives, so the hash it is checked against has to be the same string that was
+  # read aloud.
+  test "generate treats audio recorded from the excerpt as a miss once the article is fetched" do
+    Rails.configuration.x.tts.enabled = true
+    audio = build_cached_audio
+    FileUtils.mkdir_p(File.dirname(audio.cached_path))
+    File.write(audio.cached_path, "wav")
+    build_full_text("<p>The council voted 5-2 to reject the rezoning.</p>")
+
+    Open3.stub(:capture3, ->(*_args, **_options) { [ "{}", "", FakeStatus.new(false) ] }) do
+      TtsGenerator.new(@entry.reload).generate
+    end
+
+    assert_not CachedAudio.exists?(audio.id)
+  end
+
   private
+
+  def build_full_text(html)
+    @entry.create_entry_full_text!(
+      status: EntryFullText::OK,
+      content: html,
+      char_count: ArticleText.from_html(html).length,
+      content_hash: @entry.content_hash,
+      fetched_at: Time.current
+    )
+  end
 
   def build_cached_audio
     CachedAudio.create!(

@@ -11,6 +11,7 @@ import { mockEntryWithContent } from "../../../test/fixtures/data"
 const mockApiEntriesInfo = vi.fn()
 const mockApiEntriesEmbedPolicy = vi.fn()
 const mockApiEntriesSummarize = vi.fn()
+const mockApiEntriesFullText = vi.fn()
 const mockApiStoriesExtractFromEntry = vi.fn()
 
 vi.mock("@/lib/api", () => ({
@@ -19,6 +20,7 @@ vi.mock("@/lib/api", () => ({
       info: (...args: unknown[]) => mockApiEntriesInfo(...args),
       embedPolicy: (...args: unknown[]) => mockApiEntriesEmbedPolicy(...args),
       summarize: (...args: unknown[]) => mockApiEntriesSummarize(...args),
+      fullText: (...args: unknown[]) => mockApiEntriesFullText(...args),
     },
     stories: {
       extractFromEntry: (...args: unknown[]) =>
@@ -141,6 +143,7 @@ describe("EntryContent", () => {
     mockApiEntriesInfo.mockResolvedValue({ top_words: [] })
     mockApiEntriesEmbedPolicy.mockResolvedValue({ status: "embeddable", reason: null })
     mockApiEntriesSummarize.mockResolvedValue({ status: "queued" })
+    mockApiEntriesFullText.mockResolvedValue({ full_text: null })
     cableCreate.mockClear()
     cableUnsubscribe.mockClear()
     mockAudioPlayer.source = null
@@ -1809,6 +1812,92 @@ describe("EntryContent", () => {
       )
 
       expect(scrollViewportRef.current!.scrollTop).toBe(0)
+    })
+  })
+
+  describe("full article", () => {
+    const ARTICLE = "<p>The council voted 5-2 to reject the rezoning.</p>"
+
+    function excerptEntry(overrides = {}) {
+      return mockEntryWithContent({
+        summarizable: false,
+        content: "<p>Two sentences. That is all this feed sends.</p>",
+        ...overrides,
+      })
+    }
+
+    // `summarizable` false is the server saying the article is shorter than a
+    // summary needs, which is the same condition this offer exists for.
+    it("offers to fetch the article on a feed that publishes an excerpt", () => {
+      render(<EntryContent {...defaultProps} entry={excerptEntry()} />)
+
+      expect(screen.getByRole("button", { name: /get the full article/i })).toBeInTheDocument()
+    })
+
+    it("says nothing about fetching on a feed that publishes in full", () => {
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent({ summarizable: true })} />)
+
+      expect(screen.queryByTestId("full-article-notice")).not.toBeInTheDocument()
+    })
+
+    it("shows the publisher's copy in place of the excerpt once it arrives", async () => {
+      const user = userEvent.setup()
+      mockApiEntriesFullText.mockResolvedValue({
+        full_text: { status: "ready", content: ARTICLE, char_count: 46, fetched_at: "2026-08-31T12:00:00Z" },
+      })
+
+      render(<EntryContent {...defaultProps} entry={excerptEntry()} />)
+      await user.click(screen.getByRole("button", { name: /get the full article/i }))
+
+      expect(await screen.findByText(/voted 5-2/)).toBeInTheDocument()
+      expect(screen.queryByText(/That is all this feed sends/)).not.toBeInTheDocument()
+    })
+
+    it("tells the reader when the publisher's page could not be read", async () => {
+      const user = userEvent.setup()
+      mockApiEntriesFullText.mockResolvedValue({
+        full_text: {
+          status: "unavailable",
+          message: "The full article could not be retrieved.",
+          fetched_at: "2026-08-31T12:00:00Z",
+        },
+      })
+
+      render(<EntryContent {...defaultProps} entry={excerptEntry()} />)
+      await user.click(screen.getByRole("button", { name: /get the full article/i }))
+
+      expect(await screen.findByText("The full article could not be retrieved.")).toBeInTheDocument()
+      expect(
+        screen.getByRole("link", { name: /read it on the publisher's site/i })
+      ).toHaveAttribute("href", excerptEntry().link)
+    })
+
+    // Re-opening an article that was already fetched costs the publisher
+    // nothing.
+    it("renders a stored article that came down with the entry", () => {
+      const entry = excerptEntry({
+        full_text: { status: "ready", content: ARTICLE, char_count: 46, fetched_at: "2026-08-31T12:00:00Z" },
+      })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(screen.getByText(/voted 5-2/)).toBeInTheDocument()
+      expect(mockApiEntriesFullText).not.toHaveBeenCalled()
+    })
+
+    it("shows a stored failure without asking again", () => {
+      const entry = excerptEntry({
+        full_text: {
+          status: "unavailable",
+          message: "The full article could not be retrieved.",
+          fetched_at: "2026-08-31T12:00:00Z",
+        },
+      })
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(screen.getByText("The full article could not be retrieved.")).toBeInTheDocument()
+      expect(mockApiEntriesFullText).not.toHaveBeenCalled()
     })
   })
 })
