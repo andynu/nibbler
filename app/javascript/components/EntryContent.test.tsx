@@ -2,6 +2,7 @@ import { render, screen, fireEvent, act, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { EntryContent } from "./EntryContent"
+import { SCORE_VALUES } from "./ScoreButtons"
 import { mockEntryWithContent } from "../../../test/fixtures/data"
 
 // Mock the API boundary. SuggestedTags fetches entry info on mount and
@@ -714,6 +715,284 @@ describe("EntryContent", () => {
 
       expect(blockedPanel()).not.toBeInTheDocument()
       expect(screen.getByText(entry.content!.replace(/<[^>]*>/g, "").trim())).toBeInTheDocument()
+    })
+
+    /**
+     * The panel used to read "Press i to read the feed's copy instead", which
+     * is the one instruction a phone reader cannot follow: no keyboard, and
+     * below the xs breakpoint the header's framing toggle is not on screen
+     * either (ttrb-tyvd).
+     */
+    it("offers a tappable way back rather than a keystroke", async () => {
+      const user = userEvent.setup()
+      const onToggleIframe = vi.fn()
+      mockApiEntriesEmbedPolicy.mockResolvedValue({
+        status: "blocked",
+        reason: "x-frame-options: deny",
+      })
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={iframeEntry()}
+          showIframe={true}
+          onToggleIframe={onToggleIframe}
+        />
+      )
+      const panel = await screen.findByTestId("embed-blocked-fallback")
+
+      await user.click(
+        within(panel).getByRole("button", { name: "Show the feed's copy" })
+      )
+
+      expect(onToggleIframe).toHaveBeenCalledOnce()
+    })
+
+    it("no longer tells a touch reader to press a key", async () => {
+      mockApiEntriesEmbedPolicy.mockResolvedValue({
+        status: "blocked",
+        reason: "x-frame-options: deny",
+      })
+
+      render(
+        <EntryContent {...defaultProps} entry={iframeEntry()} showIframe={true} />
+      )
+      await screen.findByTestId("embed-blocked-fallback")
+
+      expect(screen.queryByText(/press i/i)).not.toBeInTheDocument()
+    })
+
+    // The shortcut is still worth naming for anyone who has a keyboard; it just
+    // cannot be the only route.
+    it("keeps the shortcut as a hint on the button", async () => {
+      mockApiEntriesEmbedPolicy.mockResolvedValue({
+        status: "blocked",
+        reason: "x-frame-options: deny",
+      })
+
+      render(
+        <EntryContent {...defaultProps} entry={iframeEntry()} showIframe={true} />
+      )
+      const panel = await screen.findByTestId("embed-blocked-fallback")
+
+      expect(
+        within(panel).getByRole("button", { name: "Show the feed's copy" })
+      ).toHaveAttribute("title", "Show RSS content (i)")
+    })
+  })
+
+  /**
+   * The header sheds the note button, the framing toggle and "Follow this
+   * story" below the xs breakpoint and the score control below sm, and until
+   * ttrb-tyvd nothing took their place on a phone.
+   *
+   * What these examples can and cannot show: happy-dom applies no stylesheet,
+   * so every one of those buttons is still in this DOM at every width and
+   * nothing here proves the menu is *needed*. Reachability at a real 375px is
+   * proved in e2e/mobile-article-actions.spec.ts, where the CSS is real. What
+   * these cover is the half that browser cannot see cheaply: that the trigger
+   * has an accessible name at all, and that each row runs the same handler its
+   * header twin runs rather than a copy that can drift.
+   */
+  describe("actions the header sheds at narrow widths", () => {
+    const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(
+        screen.getByRole("button", { name: /more article actions/i })
+      )
+    }
+
+    /**
+     * lucide-react puts aria-hidden on its svg when the icon carries no
+     * children and no a11y prop, so an icon-only trigger without an explicit
+     * label computes an EMPTY accessible name: no screen reader reaches it and
+     * neither does this query. Deleting the aria-label in EntryActionsMenu
+     * fails every example in this block, starting with this one.
+     */
+    it("names the overflow trigger", () => {
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      expect(
+        screen.getByRole("button", { name: "More article actions" })
+      ).toBeInTheDocument()
+    })
+
+    it("opens the note editor, the same one the header's note button opens", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ note: "" })}
+          onUpdateNote={vi.fn()}
+        />
+      )
+
+      await openMenu(user)
+      await user.click(screen.getByRole("menuitem", { name: "Add note" }))
+
+      expect(
+        screen.getByPlaceholderText("Add a note about this article...")
+      ).toBeInTheDocument()
+    })
+
+    it("names the note row for what it does to an entry that already has one", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ note: "Existing" })}
+          onUpdateNote={vi.fn()}
+        />
+      )
+
+      await openMenu(user)
+
+      expect(screen.getByRole("menuitem", { name: "Edit note" })).toBeInTheDocument()
+    })
+
+    it("leaves the note row out when the entry cannot take a note", async () => {
+      const user = userEvent.setup()
+
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      await openMenu(user)
+
+      expect(screen.queryByRole("menuitem", { name: /note/i })).not.toBeInTheDocument()
+    })
+
+    it("toggles the framing through the header's own handler", async () => {
+      const user = userEvent.setup()
+      const onToggleIframe = vi.fn()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          onToggleIframe={onToggleIframe}
+        />
+      )
+
+      await openMenu(user)
+      await user.click(screen.getByRole("menuitem", { name: "Show original page" }))
+
+      expect(onToggleIframe).toHaveBeenCalledOnce()
+    })
+
+    it("offers the way back to the feed's copy while the frame is up", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ link: "about:blank" })}
+          showIframe={true}
+        />
+      )
+
+      await openMenu(user)
+
+      expect(
+        screen.getByRole("menuitem", { name: "Show RSS content" })
+      ).toBeInTheDocument()
+    })
+
+    it("opens the follow-story dialog the header's bookmark opens", async () => {
+      const user = userEvent.setup()
+
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      await openMenu(user)
+      await user.click(screen.getByRole("menuitem", { name: "Follow this story" }))
+
+      expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    })
+
+    it("scores the entry through the header's own handler", async () => {
+      const user = userEvent.setup()
+      const onScoreChange = vi.fn()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ score: 0 })}
+          onScoreChange={onScoreChange}
+        />
+      )
+
+      await openMenu(user)
+      await user.click(screen.getByRole("menuitemradio", { name: "Score 3" }))
+
+      expect(onScoreChange).toHaveBeenCalledWith(3)
+    })
+
+    it("clears the score through the same handler", async () => {
+      const user = userEvent.setup()
+      const onScoreChange = vi.fn()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ score: 4 })}
+          onScoreChange={onScoreChange}
+        />
+      )
+
+      await openMenu(user)
+      await user.click(screen.getByRole("menuitemradio", { name: "No score" }))
+
+      expect(onScoreChange).toHaveBeenCalledWith(0)
+    })
+
+    // A row that never reflects the entry would let the reader re-pick the
+    // score it already has and learn nothing from the menu.
+    it("marks the score the entry already carries", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ score: 2 })}
+          onScoreChange={vi.fn()}
+        />
+      )
+
+      await openMenu(user)
+
+      expect(screen.getByRole("menuitemradio", { name: "Score 2" })).toBeChecked()
+      expect(screen.getByRole("menuitemradio", { name: "Score 5" })).not.toBeChecked()
+    })
+
+    // Every value ScoreButtons draws has a row here, so the two cannot end up
+    // offering different scales.
+    it("offers every value the header's score control offers", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent()}
+          onScoreChange={vi.fn()}
+        />
+      )
+
+      await openMenu(user)
+
+      for (const n of SCORE_VALUES) {
+        expect(
+          screen.getByRole("menuitemradio", { name: `Score ${n}` })
+        ).toBeInTheDocument()
+      }
+    })
+
+    it("leaves the score rows out when the entry cannot be scored", async () => {
+      const user = userEvent.setup()
+
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      await openMenu(user)
+
+      expect(screen.queryByRole("menuitemradio")).not.toBeInTheDocument()
     })
   })
 

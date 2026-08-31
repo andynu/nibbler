@@ -8,6 +8,7 @@ import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { useLayout } from "@/contexts/LayoutContext"
 import { EnclosurePlayer } from "@/components/EnclosurePlayer"
 import { ScoreButtons } from "@/components/ScoreButtons"
+import { EntryActionsMenu } from "@/components/EntryActionsMenu"
 import { SuggestedTags } from "@/components/SuggestedTags"
 import { FollowStoryDialog } from "@/components/FollowStoryDialog"
 import { HighlightedContent } from "@/components/HighlightedContent"
@@ -145,6 +146,13 @@ export function EntryContent({
   const handleCancelNote = () => {
     setNoteText(entry?.note || "")
     setIsEditingNote(false)
+  }
+
+  // Named rather than inlined because the header button and the overflow menu
+  // both open this dialog, and a second arrow function would be a copy that can
+  // drift (ttrb-tyvd).
+  const handleFollowStory = () => {
+    setFollowStoryOpen(true)
   }
 
   const handleSaveNote = async () => {
@@ -347,7 +355,7 @@ export function EntryContent({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setFollowStoryOpen(true)}
+            onClick={handleFollowStory}
             aria-label="Follow this story"
             title="Follow this story"
             className="hidden xs:inline-flex"
@@ -365,6 +373,17 @@ export function EntryContent({
               <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
+          {/* Overflow menu - the only way to reach the four actions above that
+              this header sheds as it narrows. Hides itself at the width where
+              nothing is missing any more; see EntryActionsMenu. */}
+          <EntryActionsMenu
+            entry={entry}
+            showIframe={showIframe}
+            onToggleIframe={onToggleIframe}
+            onEditNote={onUpdateNote ? handleStartEditNote : undefined}
+            onScoreChange={onScoreChange}
+            onFollowStory={handleFollowStory}
+          />
           {/* Focus mode - hidden on mobile */}
           {onToggleFocusMode && (
             <Button
@@ -401,16 +420,30 @@ export function EntryContent({
               title={embedPolicy.reason ?? undefined}
             >
               <Globe className="h-12 w-12 opacity-50" />
-              <div className="text-center">
-                <p className="font-medium">This site blocks embedding</p>
-                <p className="text-sm mt-1">Press i to read the feed's copy instead.</p>
+              <p className="font-medium text-center">This site blocks embedding</p>
+              {/* This used to read "Press i to read the feed's copy instead",
+                  which is advice a phone reader cannot take: there is no
+                  keyboard, and below the xs breakpoint the header's framing
+                  toggle is not on screen either (ttrb-tyvd). The way out is a
+                  button now, on the same handler as that toggle; the shortcut
+                  survives as its tooltip, where it costs a touch reader
+                  nothing. */}
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={onToggleIframe}
+                  title="Show RSS content (i)"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Show the feed's copy
+                </Button>
+                <Button variant="outline" asChild>
+                  <a href={entry.link} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open in new tab
+                  </a>
+                </Button>
               </div>
-              <Button variant="outline" asChild>
-                <a href={entry.link} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in new tab
-                </a>
-              </Button>
             </div>
           ) : (
             <iframe
