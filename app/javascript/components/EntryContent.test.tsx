@@ -332,6 +332,37 @@ describe("EntryContent", () => {
     })
   })
 
+  describe("the reading pane's scrolling region", () => {
+    // This sees the mechanism behind ttrb-qgjc but not its consequence. Radix
+    // writes `overflow-x` on the viewport as an inline style, from whether a
+    // horizontal scrollbar is mounted: `scroll` if one is, `hidden` if none is
+    // (@radix-ui/react-scroll-area 1.2.18, dist/index.mjs:121). An inline style
+    // needs no layout to read back, so this does fail against the unfixed pane
+    // ("expected 'hidden' to be 'scroll'") and is a catcher, not just a
+    // deletion guard.
+    //
+    // What it cannot show is what the reader lost: a table or pre block wider
+    // than the pane laying out at full width in a box that refused every
+    // gesture. happy-dom loads no stylesheet and lays nothing out, so every box
+    // measures zero and every element answers every query regardless of width.
+    // e2e/article-wide-content.spec.ts proves that half in real browsers.
+    it("leaves the article viewport scrollable in both axes", () => {
+      const entry = mockEntryWithContent({
+        content: "<p>An article with a body, so the pane renders one.</p>",
+      })
+
+      const { container } = render(<EntryContent {...defaultProps} entry={entry} />)
+
+      const viewport = container.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      )
+
+      expect(viewport).not.toBeNull()
+      expect(viewport?.style.overflowX).toBe("scroll")
+      expect(viewport?.style.overflowY).toBe("scroll")
+    })
+  })
+
   describe("image stripping", () => {
     it("strips images when strip_images preference is true", () => {
       mockPreferences.strip_images = "true"

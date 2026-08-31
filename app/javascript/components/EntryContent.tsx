@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
+import { ScrollBar } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard, Sparkles, Loader2 } from "lucide-react"
@@ -515,7 +516,41 @@ export function EntryContent({
           )}
         </div>
       ) : (
-      <ScrollArea className="flex-1 min-h-0" viewportRef={scrollViewportRef}>
+      /*
+        Built from the Radix primitives instead of <ScrollArea> because this
+        pane needs a horizontal scrollbar and the shared wrapper mounts only a
+        vertical one. Everything else here is that wrapper's own markup; the
+        styled ScrollBar is imported from it so both bars stay one component.
+
+        Mounting the horizontal bar is the whole fix (ttrb-qgjc). Radix sets the
+        viewport's `overflow-x` from whether a horizontal scrollbar exists -
+        `scroll` if one does, `hidden` if none does
+        (@radix-ui/react-scroll-area 1.2.18, dist/index.mjs:121) - while the
+        wrapper it puts around the children is `min-width: 100%; display: table`
+        and so sizes to its content. With only a vertical bar, a table or pre
+        block wider than the pane laid out at full width inside a box that
+        refused every gesture: 632px of columns the reader could not reach by
+        wheel, trackpad or drag. Feeds publish such tables routinely.
+
+        This is the opposite of the sidebar's fix for the same mechanism
+        (ttrb-rdnc, 0b5c261), which forced that wrapper to `display: block` so
+        row titles would truncate. Prose wants the content-width sizing kept: a
+        wide table should stay wide and become scrollable, not be squeezed.
+
+        The bar is Radix's default `type="hover"`, so it is mounted at all times
+        - that is what makes the viewport scrollable - but its thumb only paints
+        while the pointer is over the pane AND the content actually overflows. A
+        bar standing under every article would be its own regression.
+      */
+      <ScrollAreaPrimitive.Root
+        data-slot="scroll-area"
+        className="relative overflow-hidden flex-1 min-h-0"
+      >
+      <ScrollAreaPrimitive.Viewport
+        ref={scrollViewportRef}
+        data-slot="scroll-area-viewport"
+        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
+      >
         {/* Article container - smaller padding on mobile, larger on desktop */}
         <article className="max-w-3xl mx-auto p-4 sm:p-6">
           <header className="mb-4 sm:mb-6">
@@ -776,7 +811,11 @@ export function EntryContent({
             </div>
           )}
         </article>
-      </ScrollArea>
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollBar orientation="horizontal" />
+      <ScrollAreaPrimitive.Corner />
+      </ScrollAreaPrimitive.Root>
       )}
       <FollowStoryDialog
         open={followStoryOpen}
