@@ -76,10 +76,17 @@ export function SidebarDrawer({ children }: SidebarDrawerProps) {
         aria-hidden="true"
       />
 
-      {/* Drawer */}
+      {/* Drawer.
+          It stops at the top of the nav bar rather than running `inset-y-0` to
+          the bottom of the window. Pinned to the window it was 720 tall on a
+          720 viewport, so its scroller's last 28 pixels were behind the bar and
+          the last feed in the tree could not be tapped at any scroll position -
+          the same defect the list and article panes had (ttrb-0apn). The
+          drawer only ever renders on mobile, where the bar is always there. */}
       <div
+        style={{ bottom: "var(--mobile-nav-height)" }}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-[85%] max-w-[320px] bg-background shadow-xl transition-transform duration-200 ease-out",
+          "fixed top-0 left-0 z-50 w-[85%] max-w-[320px] bg-background shadow-xl transition-transform duration-200 ease-out",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         role="dialog"

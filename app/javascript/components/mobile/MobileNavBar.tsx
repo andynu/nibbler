@@ -34,9 +34,18 @@ export function MobileNavBar({ hasSelectedEntry = false }: MobileNavBarProps) {
     },
   ]
 
+  // The height comes from --mobile-nav-height (application.tailwind.css)
+  // rather than from an h-14 here, because the panes have to reserve exactly
+  // this much room and a second literal is a second thing to forget. Box sizing
+  // is border-box, so the declared height covers the border and the safe-area
+  // padding, leaving the nav its 56px row.
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background safe-area-bottom">
-      <nav className="flex h-14 items-center justify-around px-2">
+    <div
+      data-testid="mobile-nav-bar"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background safe-area-bottom"
+      style={{ height: "var(--mobile-nav-height)" }}
+    >
+      <nav className="flex h-full items-center justify-around px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = layout.currentPane === tab.id

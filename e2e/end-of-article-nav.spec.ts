@@ -51,12 +51,14 @@ const LONG_NEXT_TITLE =
  * entry counts and titles, and neither a 40-paragraph body nor a 103-character
  * headline is wanted anywhere else.
  *
- * Two rows rather than the seeded twenty-four for a second reason: the last row
- * of a full list cannot be tapped at 375px at all. The list's scroll viewport
- * runs to 100vh, under the fixed MobileNavBar, so the final row is clipped and
- * painted over with about 2px showing and no scroll left to clear it. That is a
- * separate defect, measured and filed as ttrb-0apn; working around it here
- * keeps this spec about the control it is named for.
+ * Two rows also used to be a workaround: the last row of a full list could not
+ * be tapped at 375px at all, because the list's scroll viewport ran to 100vh
+ * under the fixed MobileNavBar and the final row was painted over with about
+ * 2px showing. That defect is fixed (ttrb-0apn), and the row count no longer
+ * needs to dodge it - e2e/mobile-nav-clearance.spec.ts taps the last row of the
+ * full seeded list. The two rows stay for the reason above: this fixture gives
+ * every article it serves a 40-paragraph body, and twenty-four of those is a
+ * slower spec saying nothing more.
  */
 async function serveLongArticles(page: Page): Promise<void> {
   let longTitleEntryId: number | null = null

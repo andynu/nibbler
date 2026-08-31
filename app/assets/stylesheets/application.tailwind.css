@@ -110,6 +110,20 @@
   * {
     border-color: var(--color-border);
   }
+
+  :root {
+    /* How much of the bottom of the phone viewport MobileNavBar owns: the
+       56px row of tab buttons, its top border, and the home-indicator inset
+       on the devices that have one.
+
+       One definition rather than a literal in each place that needs it.
+       MobileNavBar sizes itself from this and application.tsx deducts it from
+       the main row, so the bar and the space reserved for it cannot disagree.
+       They did: the bar measured 57px against a hardcoded 56px deduction, and
+       an iPhone's safe-area inset would have widened that to 91 against 56.
+       See ttrb-0apn. */
+    --mobile-nav-height: calc(3.5rem + 1px + env(safe-area-inset-bottom, 0px));
+  }
   html, body {
     margin: 0;
     padding: 0;

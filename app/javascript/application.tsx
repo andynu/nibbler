@@ -1115,7 +1115,11 @@ function App() {
       deductions.push("56px") // Audio panel height
     }
     if (layout.isMobile) {
-      deductions.push("56px") // Mobile nav bar height
+      // The bar's own height, border and safe-area inset included, read from
+      // the one place it is defined (application.tailwind.css). A literal here
+      // was 56px against a 57px bar, and would have been 56 against 91 on a
+      // phone with a home indicator (ttrb-0apn).
+      deductions.push("var(--mobile-nav-height)")
     }
 
     if (deductions.length > 0) {
@@ -1126,9 +1130,17 @@ function App() {
 
   return (
     <>
+    {/* position: relative is load-bearing, not decoration. The two panes below
+        are `position: absolute` on mobile, and while this row was static their
+        containing block was the initial one - the viewport - so `height: 100%`
+        resolved against the full 100vh and undid the deduction this row had
+        just made for the nav bar. The list's scroller ran to the bottom of the
+        window, and the last row of a full list could not be tapped: it sat two
+        pixels proud of the bar with no scroll left to clear it (ttrb-0apn). */}
     <div
       style={{
         display: "flex",
+        position: "relative",
         height: getMainHeight(),
         width: "100vw",
         overflow: "hidden",
