@@ -1355,6 +1355,70 @@ export function FeedSidebar({
   )
 }
 
+/** Left offset every row starts from, before any nesting is counted. */
+const INDENT_BASE_PX = 8
+/** What one level of nesting is worth. */
+const INDENT_STEP_PX = 16
+/**
+ * The deepest level indentation is allowed to express.
+ *
+ * Read off the sidebar at 240px, the narrowest width the tree renders at on
+ * any device this is aimed at. `getSidebarWidth` in application.tsx returns
+ * 240 for both desktop and an expanded tablet, and the 48px collapsed sidebar
+ * draws icons only, no tree. The mobile drawer is `min(85vw, 320px)`, which is
+ * wider than 240 on any viewport of 283px or more.
+ *
+ * At 240 the pane's viewport is 239, the tree's `p-2` leaves 223, and a feed
+ * row spends 20 of that on the drag handle and 28 on the hover menu, so its
+ * button gets `175 - indent`. The button's own furniture - 16px padding each
+ * side, a 16px favicon, two 8px gaps and a ~25px badge - is 89, which leaves
+ * the title `86 - indent`.
+ *
+ * That subtraction is the whole problem. Uncapped, `depth * 16 + 8` reaches 86
+ * at a feed under a depth-4 category, and past there the numbers go where
+ * ttrb-rdnc's flex fix cannot follow, because the space is gone rather than
+ * mis-allocated. Measured in Chromium at 240px, per feed row:
+ *
+ *   indent  title  badge right edge   (pane ends at 240)
+ *       24     62               187   fits
+ *       72     14               187   fits
+ *      120      0             220.9   badge has left its button and sits
+ *                                     under the hover menu
+ *      168      0             268.9   badge is 29px outside the pane, in the
+ *                                     hidden overflow ttrb-rdnc just closed
+ *
+ * Category rows are looser (no drag handle, no favicon: title is `122 -
+ * indent`) and fail the same way 3 levels later, so the feed row sets the
+ * ceiling. 72 is the last indent where a feed row still lays out honestly:
+ * the title is positive and the badge is still inside its own button. 88 is
+ * the first where it is not. A feed sits one step in from its folder, so the
+ * folder's ceiling is one step shallower, which is this constant.
+ *
+ * What this costs: past level 3 indentation stops conveying depth, so a
+ * category at depth 4 and one at depth 12 sit at the same offset. The tree
+ * still says which is which by other means - a row only exists while its
+ * parent is expanded, children are contiguous under their parent, and the
+ * folder icon shows open or closed - none of which need pixels. The badge and
+ * the title have no such fallback: clipped is clipped.
+ */
+const MAX_INDENT_DEPTH = 3
+
+/** The left offset of a category row at `depth`, with the ceiling applied. */
+function categoryIndentPx(depth: number): number {
+  return Math.min(depth, MAX_INDENT_DEPTH) * INDENT_STEP_PX + INDENT_BASE_PX
+}
+
+/**
+ * The left offset of the feed rows belonging to a category at `depth`.
+ *
+ * One step in from the category's own offset, including at the ceiling: the
+ * cap is applied to the folder's depth and the feed's step added afterwards,
+ * so feeds never collapse onto the folder heading they hang from.
+ */
+function feedIndentPx(categoryDepth: number): number {
+  return (Math.min(categoryDepth, MAX_INDENT_DEPTH) + 1) * INDENT_STEP_PX + INDENT_BASE_PX
+}
+
 interface CategoryItemProps {
   category: Category
   feeds: Feed[]
@@ -1474,8 +1538,8 @@ function CategoryItem({
     return undefined
   }
 
-  // Indentation based on depth
-  const paddingLeft = depth * 16 + 8 // 8px base + 16px per depth level
+  // Indentation based on depth, up to the ceiling MAX_INDENT_DEPTH explains.
+  const paddingLeft = categoryIndentPx(depth)
 
   // Show drop indicator when dragging over and not already in this category
   const showDropIndicator = isOver && activeDragId !== null
@@ -1609,7 +1673,7 @@ function CategoryItem({
             )
           })}
           {/* Render feeds in this category (after subcategories) */}
-          <div style={{ marginLeft: `${(depth + 1) * 16 + 8}px` }}>
+          <div style={{ marginLeft: `${feedIndentPx(depth)}px` }}>
             {feeds.map((feed) => (
               <FeedItem
                 key={feed.id}

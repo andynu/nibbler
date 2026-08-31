@@ -875,6 +875,83 @@ describe("FeedSidebar", () => {
     })
   })
 
+  describe("row indentation stops at a ceiling", () => {
+    // Inline styles are the one piece of layout this suite can honestly read:
+    // happy-dom keeps the style attribute whether or not a stylesheet exists,
+    // so the number the component computed is observable even though nothing
+    // is laid out. What that number does to the row - a title squeezed to
+    // nothing and a badge pushed into the sidebar's hidden overflow - is only
+    // observable in a real browser, and that is what
+    // e2e/sidebar-indentation-ceiling.spec.ts measures.
+    const CHAIN_DEPTH = 12
+
+    /** A single chain of nested categories, root at index 0. */
+    function chainOfCategories(depth: number) {
+      return Array.from({ length: depth + 1 }, (_, level) =>
+        mockCategory({
+          id: level + 1,
+          title: `Level ${level}`,
+          parent_id: level === 0 ? null : level,
+        })
+      )
+    }
+
+    it("stops widening a category's indent past the ceiling", () => {
+      const categories = chainOfCategories(CHAIN_DEPTH)
+
+      const { container } = render(
+        <FeedSidebar {...defaultProps} categories={categories} />
+      )
+
+      const indentOf = (categoryId: number) => {
+        const row = container.querySelector(`[data-category-id="${categoryId}"]`)
+        expect(row).not.toBeNull()
+        const button = row?.querySelector("button") as HTMLElement
+        return button.style.paddingLeft
+      }
+
+      // The first four levels still say where they are.
+      expect(indentOf(1)).toBe("8px")
+      expect(indentOf(2)).toBe("24px")
+      expect(indentOf(3)).toBe("40px")
+      expect(indentOf(4)).toBe("56px")
+      // Everything below shares that offset rather than marching off the pane.
+      // Uncapped these would be 72px, 136px and 200px.
+      expect(indentOf(5)).toBe("56px")
+      expect(indentOf(9)).toBe("56px")
+      expect(indentOf(13)).toBe("56px")
+    })
+
+    it("keeps a category's feeds one step in from the category at the ceiling", () => {
+      const categories = chainOfCategories(CHAIN_DEPTH)
+      const feeds = [
+        mockFeed({ id: 1, title: "Shallow Feed", category_id: 1 }),
+        mockFeed({ id: 2, title: "Deep Feed", category_id: CHAIN_DEPTH + 1 }),
+      ]
+
+      const { container } = render(
+        <FeedSidebar {...defaultProps} categories={categories} feeds={feeds} />
+      )
+
+      const indentOf = (feedId: number) => {
+        const row = container.querySelector(`[data-feed-id="${feedId}"]`)
+        expect(row).not.toBeNull()
+        return (row?.parentElement as HTMLElement).style.marginLeft
+      }
+
+      expect(indentOf(1)).toBe("24px")
+      // Uncapped this would be 216px, wider than the 223px the whole tree gets.
+      expect(indentOf(2)).toBe("72px")
+      // A feed never collapses onto the folder heading it hangs from.
+      const deepCategory = container.querySelector(
+        `[data-category-id="${CHAIN_DEPTH + 1}"] button`
+      ) as HTMLElement
+      expect(parseFloat(indentOf(2))).toBeGreaterThan(
+        parseFloat(deepCategory.style.paddingLeft)
+      )
+    })
+  })
+
   describe("error indicators", () => {
     it("shows collapsible errors folder when last_error is set", () => {
       const feeds = [
