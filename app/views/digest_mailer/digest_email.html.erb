@@ -35,7 +35,7 @@
           <%= entry.updated&.strftime('%B %d, %Y at %l:%M %p') || entry.date_entered&.strftime('%B %d, %Y at %l:%M %p') %>
         </p>
 
-        <% content_preview = strip_tags(entry.content).truncate(200) %>
+        <% content_preview = ArticleText.from_html(entry.content).truncate(200) %>
         <% if content_preview.present? %>
           <p style="margin: 0; color: #444;">
             <%= content_preview %>

@@ -12,7 +12,7 @@ NIBBLER DAILY DIGEST
 <%= entry.title %>
 <%= entry.updated&.strftime('%B %d, %Y at %l:%M %p') || entry.date_entered&.strftime('%B %d, %Y at %l:%M %p') %>
 
-<% content_preview = strip_tags(entry.content).truncate(200) %>
+<% content_preview = ArticleText.from_html(entry.content).truncate(200) %>
 <% if content_preview.present? %><%= word_wrap(content_preview, line_width: 72) %><% end %>
 
 Read more: <%= root_url %>?entry=<%= user_entry.uuid %>

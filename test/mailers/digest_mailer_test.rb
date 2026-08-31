@@ -63,6 +63,30 @@ class DigestMailerTest < ActionMailer::TestCase
     assert_match(/unsubscribe/, html_body.downcase)
   end
 
+  # strip_tags removes a tag and puts nothing in its place, so the two
+  # paragraphs of a real article body arrived in the digest as
+  # "failed.Members" -- an invented token at every block boundary.
+  test "digest_email preview keeps a separator at a block boundary" do
+    entries(:basic).update!(content: "<p>The vote failed.</p><p>Members left early.</p>")
+
+    email = DigestMailer.digest_email(@user)
+
+    assert_match(/The vote failed\. Members left early\./, email.html_part.body.to_s)
+    assert_match(/The vote failed\. Members left early\./, email.text_part.body.to_s)
+  end
+
+  # strip_tags re-encodes on the way out, so its result still carries "&amp;"
+  # and "&nbsp;" as literal text. The text part is not rendered by a browser,
+  # so the reader saw the entity itself.
+  test "digest_email text preview decodes entities" do
+    entries(:basic).update!(content: "<p>AT&amp;T&nbsp;raised prices.</p>")
+
+    text_body = DigestMailer.digest_email(@user).text_part.body.to_s
+
+    assert_match(/AT&T raised prices\./, text_body)
+    assert_no_match(/&amp;|&nbsp;/, text_body)
+  end
+
   test "digest_email skips delivery when no articles" do
     # Mark all entries as read
     @user.user_entries.update_all(unread: false)
