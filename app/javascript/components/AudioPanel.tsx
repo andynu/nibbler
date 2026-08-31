@@ -135,8 +135,37 @@ export function AudioPanel() {
         {/* Playback controls */}
         {isPlayable && (
           <>
+            {/* Below xs the row carries only what a reader cannot get to
+                anywhere else: play/pause, the seek bar, the queue and the
+                close button. Everything shed here has another home.
+
+                The arithmetic, measured in Chromium at 320x720 with a 60s clip
+                (ttrb-6hxv). 320 less the panel's px-4 leaves 288. The source
+                icon, the two skips, play/pause, queue and close are all
+                shrink-0 and take 16+32+36+32+32+36 = 184; six 8px gaps take
+                48. That leaves 56 for the whole progress group, and the
+                elapsed/total readout wants 48 of it with 8 more for its gap -
+                so the seek bar, the one flex child with nothing left to claim,
+                resolved to 0px wide. Not narrow: absent, with no styling cue
+                that a control was missing. 360 gave it 30px and 375 gave it
+                45, which for a 40-minute podcast is 53 and 35 seconds per
+                pixel.
+
+                Shedding the icon and the two skips returns 104px of row, and
+                the readout takes back the 10px it had been squeezed out of, so
+                the bar measures 94 at 320, 134 at 360 and 149 at 375.
+
+                Why these three. The source indicator speaks only through
+                `title`, which a touch device never shows, and QueuePanel draws
+                the same Bot/Headphones glyph on every row. Skip next is a tap
+                on a later queue row; skip previous is a tap on an earlier one,
+                and its restart sense is a drag of a seek bar that now has
+                width. The queue button that reaches all of that stays on the
+                row. Shrinking the controls instead was not an option: they are
+                32-36px against ~44px of guidance already (ttrb-w0w6). */}
+
             {/* Source indicator */}
-            <div className="shrink-0 text-muted-foreground" title={source === "tts" ? "Text-to-speech" : "Podcast"}>
+            <div className="hidden xs:block shrink-0 text-muted-foreground" title={source === "tts" ? "Text-to-speech" : "Podcast"}>
               {source === "tts" ? (
                 <Bot className="h-4 w-4" />
               ) : (
@@ -150,7 +179,7 @@ export function AudioPanel() {
               size="icon"
               onClick={skipToPrevious}
               disabled={!hasPrevious}
-              className="h-8 w-8 shrink-0"
+              className="hidden xs:inline-flex h-8 w-8 shrink-0"
               aria-label="Previous"
               title="Previous (or restart)"
             >
@@ -186,15 +215,29 @@ export function AudioPanel() {
               size="icon"
               onClick={skipToNext}
               disabled={!hasNext}
-              className="h-8 w-8 shrink-0"
+              className="hidden xs:inline-flex h-8 w-8 shrink-0"
               aria-label="Next"
               title="Next in queue"
             >
               <SkipForward className="h-4 w-4" />
             </Button>
 
-            {/* Entry title and feed title */}
-            <div className="hidden sm:flex flex-col min-w-0 max-w-48 shrink-0">
+            {/* Entry title and feed title.
+
+                md rather than sm, and shrinkable rather than shrink-0, because
+                640 is where the seek bar collapsed a second time. Measured
+                unfixed at 640x720: the four sm controls arrive all at once and
+                the row wants 617px inside 608, so the progress group resolved
+                to 0 wide exactly as it did at 320, and the row spilled 9px
+                past the panel with the close button 649px into a 640px box.
+                scrollWidth read 640 throughout, so nothing caught it.
+
+                Holding the title back to md gives the 640-767 band a 133px bar
+                with no title; dropping shrink-0 gives the min-width below
+                something to take from at 768, where the title returns and the
+                row is 9px over again. The title is what yields because it is
+                the one thing here built to truncate. */}
+            <div className="hidden md:flex flex-col min-w-0 max-w-48">
               {activeEntryTitle && (
                 <div className="truncate text-sm font-medium" title={activeEntryTitle}>
                   {activeEntryTitle}
@@ -207,10 +250,29 @@ export function AudioPanel() {
               )}
             </div>
 
-            {/* Progress bar */}
-            <div className="flex-1 flex items-center gap-2 min-w-0">
+            {/* Progress bar.
+
+                The 128px floor is on this group rather than on the bar inside
+                it. A min-width on the bar alone does not reserve the group any
+                room: at 640 the group still resolved to 0 and the bar drew its
+                64px straight over the speed control. Here it reserves 128,
+                which leaves the bar 62px in the worst case and takes the
+                difference from the title, and it is what makes the next
+                control added to this row overflow the panel where the width
+                example in e2e/audio-panel-narrow.spec.ts reads it rather than
+                quietly finishing off the bar. 128 and not more because at 640
+                with the jump-to-source button present the row has 23px of
+                slack and nothing there can shrink. */}
+            <div className="flex-1 flex items-center gap-2 min-w-32">
+              {/* The padding is the hit area. The visible track is 6px tall
+                  and used to be the whole clickable box as well, against the
+                  ~24px the score buttons are already short of (ttrb-w0w6);
+                  py-2.5 makes it 26px without touching the panel's own height,
+                  which is `items-center` inside a 56px row. Horizontal
+                  geometry is untouched, so the seek arithmetic below still
+                  reads the full track width. */}
               <div
-                className="flex-1 h-1.5 bg-muted rounded-full cursor-pointer"
+                className="flex-1 py-2.5 cursor-pointer"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect()
                   const percent = (e.clientX - rect.left) / rect.width
@@ -223,10 +285,12 @@ export function AudioPanel() {
                 aria-label="Playback progress"
                 tabIndex={0}
               >
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${progress}%` }}
-                />
+                <div className="h-1.5 bg-muted rounded-full">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
               <span className="text-xs text-muted-foreground tabular-nums shrink-0">
                 {formatTime(currentTime)} / {formatTime(duration)}
