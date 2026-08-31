@@ -128,6 +128,9 @@ module Api
           etag: @feed.etag,
           last_modified: @feed.last_modified,
           last_error: @feed.last_error.presence,
+          consecutive_failures: @feed.consecutive_failures,
+          first_failed_at: @feed.first_failed_at,
+          broken: @feed.broken?,
 
           # Polling interval
           update_interval: @feed.update_interval,
@@ -267,6 +270,12 @@ module Api
           last_successful_update: feed.last_successful_update,
           next_poll_at: feed.next_poll_at,
           last_error: feed.last_error.presence,
+          # A count and a start date, not just the error text. One failure and
+          # two hundred read identically otherwise, and that is the difference
+          # between a host that blipped and a domain that is gone.
+          consecutive_failures: feed.consecutive_failures,
+          first_failed_at: feed.first_failed_at,
+          broken: feed.broken?,
           unread_count: feed.user_entries.unread.count,
           entry_count: feed.entry_count,
           oldest_entry_date: feed.oldest_entry_date,

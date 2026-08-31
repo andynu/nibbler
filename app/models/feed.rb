@@ -28,6 +28,16 @@ class Feed < ApplicationRecord
   scope :visible, -> { where(hidden: false) }
   scope :ordered, -> { order(:order_id, :title) }
 
+  # Editing the URL is the reader saying "I fixed it". The failing streak was
+  # about the old address and says nothing about the new one, so carrying it
+  # over would leave a corrected feed still marked broken and still parked hours
+  # out on the backoff curve it earned before the edit. Clearing next_poll_at
+  # drops the feed back onto the legacy due check, which makes it due at once.
+  #
+  # before_update rather than before_save: on create there is no streak to clear
+  # and no next_poll_at worth stomping.
+  before_update :clear_failure_state_on_url_change
+
   # How long after last_update_started a feed still counts as mid-update.
   #
   # Must stay well under the 5-minute scheduler cron period. At exactly 5
@@ -78,6 +88,26 @@ class Feed < ApplicationRecord
   # Exponential backoff delays: 5min, 15min, 1hr, 4hr, 24hr (capped)
   BACKOFF_DELAYS = [ 5.minutes, 15.minutes, 1.hour, 4.hours, 24.hours ].freeze
 
+  # How many consecutive failures before a feed is called broken rather than
+  # merely erroring.
+  #
+  # Five is chosen against BACKOFF_DELAYS, not picked round: reaching it costs
+  # 5min + 15min + 1h + 4h of waiting on top of the five attempts themselves, so
+  # nothing is labelled broken until it has failed continuously for better than
+  # five hours. A deploy, a certificate renewal, a nightly maintenance window
+  # and a brief DNS wobble all clear well inside that. It also lands exactly
+  # where the backoff curve tops out, so "broken" and "backed off as far as we
+  # go" are the same moment rather than two thresholds to keep in step.
+  #
+  # Deliberately a count and not a duration. A duration alone would libel a feed
+  # that is simply polled rarely; the count carries a duration floor through the
+  # curve above, and first_failed_at gives the UI the real elapsed time, which is
+  # the more useful thing to show a person anyway.
+  BROKEN_AFTER_CONSECUTIVE_FAILURES = 5
+
+  # Feeds whose failing streak has run past the threshold above.
+  scope :broken, -> { where(consecutive_failures: BROKEN_AFTER_CONSECUTIVE_FAILURES..) }
+
   # Adaptive polling interval bounds (in seconds)
   MIN_POLL_INTERVAL = 5.minutes.to_i
 
@@ -111,11 +141,54 @@ class Feed < ApplicationRecord
     save!
   end
 
+  # Record a failed fetch and push the next poll out.
+  #
+  # This is the counterpart to apply_backoff! for failures we decided on rather
+  # than ones a server dictated, and the split between the two columns is the
+  # whole point. apply_backoff! writes retry_after, which means "the host told us
+  # to wait" and is honoured everywhere, including the morning force sweep and
+  # the manual refresh button. This writes next_poll_at, which is only ever our
+  # own schedule, so both of those paths still go out and try a broken feed.
+  #
+  # Without this, a fetch error updated last_error and nothing else. next_poll_at
+  # kept its old value in the past, last_updated was never stamped, and so the
+  # scheduler found the feed due again on the very next tick. A feed with a dead
+  # domain was re-requested every five minutes, 288 times a day, indefinitely.
+  # Under the curve above it converges on one attempt a day instead, plus the
+  # 6am sweep.
+  def record_failure!(error_message)
+    self.consecutive_failures += 1
+    self.last_error = error_message.to_s
+    self.first_failed_at ||= Time.current
+    self.next_poll_at = Time.current + failure_backoff_delay
+    save!
+  end
+
+  # How long to wait before the next attempt, given the streak so far. Walks
+  # BACKOFF_DELAYS and stays on the last entry once the streak runs past its end.
+  def failure_backoff_delay
+    BACKOFF_DELAYS[[ consecutive_failures - 1, BACKOFF_DELAYS.length - 1 ].min]
+  end
+
+  # Whether this feed has failed often enough to be worth telling the reader
+  # about as a broken feed rather than a feed that happened to error once.
+  def broken?
+    consecutive_failures >= BROKEN_AFTER_CONSECUTIVE_FAILURES
+  end
+
+  # How long the current failing streak has been running, or nil if the feed is
+  # not currently failing.
+  def failing_for
+    return nil if first_failed_at.nil?
+
+    Time.current - first_failed_at
+  end
+
   # Reset backoff after successful fetch
   def reset_backoff!
-    return if consecutive_failures.zero? && retry_after.nil?
+    return if consecutive_failures.zero? && retry_after.nil? && first_failed_at.nil?
 
-    update!(consecutive_failures: 0, retry_after: nil)
+    update!(consecutive_failures: 0, retry_after: nil, first_failed_at: nil)
   end
 
   # Whether the feed is currently in backoff period
@@ -201,6 +274,16 @@ class Feed < ApplicationRecord
   end
 
   private
+
+  def clear_failure_state_on_url_change
+    return unless feed_url_changed?
+
+    self.consecutive_failures = 0
+    self.retry_after = nil
+    self.first_failed_at = nil
+    self.last_error = ""
+    self.next_poll_at = nil
+  end
 
   # Calculate average posts per day based on recent entries
   def calculate_avg_posts_per_day

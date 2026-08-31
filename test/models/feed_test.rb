@@ -164,7 +164,178 @@ class FeedTest < ActiveSupport::TestCase
     assert @manual_override.next_poll_at <= Time.current + 60.minutes
   end
 
+  # ==========================================
+  # Failure tracking and backoff
+  #
+  # Before record_failure! existed, a fetch error wrote last_error and touched
+  # nothing else: consecutive_failures stayed 0 (only the 429 path ever moved
+  # it) and next_poll_at kept its stale past value, so the scheduler re-enqueued
+  # the feed on the very next tick, forever.
+  # ==========================================
+
+  test "record_failure! counts the streak" do
+    fail_times(@new_feed, 3)
+
+    assert_equal 3, @new_feed.reload.consecutive_failures
+  end
+
+  test "record_failure! keeps the error text" do
+    @new_feed.record_failure!("getaddrinfo: Name or service not known")
+
+    assert_equal "getaddrinfo: Name or service not known", @new_feed.reload.last_error
+  end
+
+  # The whole reported symptom: a broken feed being retried every 5 minutes.
+  # Fails if record_failure! stops moving next_poll_at.
+  test "record_failure! pushes next_poll_at into the future" do
+    @new_feed.update!(next_poll_at: 1.hour.ago)
+
+    @new_feed.record_failure!("boom")
+
+    assert @new_feed.reload.next_poll_at > Time.current,
+      "a failed feed must not still be due; next_poll_at was #{@new_feed.next_poll_at}"
+  end
+
+  test "the retry delay grows with the streak instead of staying flat" do
+    delays = (1..5).map do
+      @new_feed.record_failure!("boom")
+      @new_feed.next_poll_at - Time.current
+    end
+
+    assert_equal delays.sort, delays, "delays must be non-decreasing, got #{delays.inspect}"
+    assert delays.last > delays.first * 10,
+      "the fifth delay (#{delays.last}s) should dwarf the first (#{delays.first}s)"
+  end
+
+  test "the retry delay caps rather than growing without bound" do
+    fail_times(@new_feed, Feed::BACKOFF_DELAYS.length + 4)
+
+    assert_in_delta Feed::BACKOFF_DELAYS.last.to_i,
+      @new_feed.next_poll_at - Time.current, 60
+  end
+
+  test "record_failure! stamps first_failed_at once and then leaves it alone" do
+    @new_feed.record_failure!("boom")
+    started = @new_feed.first_failed_at
+
+    travel 2.hours do
+      @new_feed.record_failure!("boom again")
+    end
+
+    assert_equal started.to_i, @new_feed.reload.first_failed_at.to_i,
+      "first_failed_at marks the start of the streak, not the latest attempt"
+  end
+
+  test "failing_for reports how long the streak has run" do
+    @new_feed.update!(first_failed_at: 3.days.ago)
+
+    assert_in_delta 3.days.to_i, @new_feed.failing_for, 60
+  end
+
+  test "failing_for is nil for a feed that is not failing" do
+    assert_nil @new_feed.failing_for
+  end
+
+  # ==========================================
+  # broken? threshold
+  # ==========================================
+
+  test "a feed below the threshold is not called broken" do
+    fail_times(@new_feed, Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES - 1)
+
+    assert_not @new_feed.broken?
+  end
+
+  test "a feed at the threshold is called broken" do
+    fail_times(@new_feed, Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES)
+
+    assert @new_feed.broken?
+  end
+
+  test "the broken scope finds exactly the feeds past the threshold" do
+    fail_times(@new_feed, Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES)
+    fail_times(@high_frequency, Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES - 1)
+
+    assert_equal [ @new_feed.id ], Feed.broken.pluck(:id)
+  end
+
+  # The threshold has to cost real elapsed time, not just five quick attempts,
+  # or a single bad afternoon brands a feed broken.
+  test "reaching the threshold takes hours of backoff, not minutes" do
+    total = (1...Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES).sum do |n|
+      @new_feed.consecutive_failures = n
+      @new_feed.failure_backoff_delay.to_i
+    end
+
+    assert total > 4.hours.to_i,
+      "a feed reaches broken? after only #{total / 3600.0}h of failing"
+  end
+
+  # ==========================================
+  # Recovery
+  # ==========================================
+
+  test "reset_backoff! clears the whole streak so a recovered feed looks healthy" do
+    fail_times(@new_feed, 4)
+
+    @new_feed.reset_backoff!
+
+    assert_equal 0, @new_feed.reload.consecutive_failures
+    assert_nil @new_feed.first_failed_at
+    assert_nil @new_feed.retry_after
+    assert_not @new_feed.broken?
+  end
+
+  # The early return exists to skip a write on the common healthy path. It must
+  # not skip one when there is still state to clear.
+  test "reset_backoff! still clears when only first_failed_at is set" do
+    @new_feed.update!(consecutive_failures: 0, retry_after: nil, first_failed_at: 2.days.ago)
+
+    @new_feed.reset_backoff!
+
+    assert_nil @new_feed.reload.first_failed_at
+  end
+
+  # ==========================================
+  # Fixing the URL clears the state
+  # ==========================================
+
+  test "editing the feed url clears the failing streak" do
+    fail_times(@new_feed, 6)
+
+    @new_feed.update!(feed_url: "https://example.com/moved.rss")
+
+    assert_equal 0, @new_feed.reload.consecutive_failures
+    assert_equal "", @new_feed.last_error
+    assert_nil @new_feed.first_failed_at
+    assert_not @new_feed.broken?
+  end
+
+  test "editing the feed url makes the feed due again immediately" do
+    fail_times(@new_feed, 6)
+    assert @new_feed.next_poll_at > 1.hour.from_now, "precondition: parked on the backoff cap"
+
+    @new_feed.update!(feed_url: "https://example.com/moved.rss")
+
+    assert_nil @new_feed.reload.next_poll_at,
+      "a corrected feed must not stay parked on the backoff it earned at the old URL"
+  end
+
+  test "editing something other than the url leaves the streak alone" do
+    fail_times(@new_feed, 3)
+
+    @new_feed.update!(title: "Renamed")
+
+    assert_equal 3, @new_feed.reload.consecutive_failures
+  end
+
   private
+
+  # Drive +feed+ through +count+ consecutive failures.
+  def fail_times(feed, count)
+    count.times { |i| feed.record_failure!("boom #{i}") }
+    feed
+  end
 
   # Attach +count+ entries published inside the rolling average window to +feed+
   # so calculate_avg_posts_per_day has something to count.

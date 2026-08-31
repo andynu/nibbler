@@ -44,6 +44,7 @@ import { CategoryDialog } from "@/components/CategoryDialog"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { getVirtualFoldersByMode, SmartFolderIcon } from "@/lib/virtualFolders"
 import { categoryAncestorIds, visibleCategoryIds } from "@/lib/categoryNavigation"
+import { feedHealthSummary } from "@/lib/feedHealth"
 
 type VirtualFeed = string | null
 
@@ -1624,6 +1625,7 @@ interface FeedItemProps {
 function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, onRefresh, onUnsubscribe, isRefreshing, showTotalCount }: FeedItemProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
+  const healthSummary = feedHealthSummary(feed)
 
   // Make feed draggable
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -1694,11 +1696,30 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <AlertCircle className="h-3 w-3 text-destructive-text shrink-0 cursor-help" />
+                    {/* role and aria-label are load-bearing, not decoration.
+                        lucide-react stamps aria-hidden="true" on an icon that
+                        gets no a11y prop, which would leave this indicator with
+                        an empty accessible name and no way to reach it by role.
+                        The label carries the health summary so the state is
+                        legible without hovering for the tooltip. */}
+                    <AlertCircle
+                      role="img"
+                      aria-label={
+                        healthSummary
+                          ? `${feed.title}: ${healthSummary}`
+                          : `${feed.title}: update error`
+                      }
+                      className="h-3 w-3 text-destructive-text shrink-0 cursor-help"
+                    />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
-                    <p className="font-medium">Update Error</p>
+                    <p className="font-medium">
+                      {feed.broken ? "Feed is broken" : "Update Error"}
+                    </p>
                     <p className="text-xs opacity-90">{feed.last_error}</p>
+                    {healthSummary && (
+                      <p className="text-xs opacity-75 mt-1">{healthSummary}</p>
+                    )}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
