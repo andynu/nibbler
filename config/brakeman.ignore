@@ -3,6 +3,52 @@
     {
       "warning_type": "SQL Injection",
       "warning_code": 0,
+      "fingerprint": "29a950e07c6869b9f942240df9a0186704b0b1634de766407d4b05354febd228",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/models/entry.rb",
+      "line": 70,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "Arel.sql(\"#{text_search_rank(query)} DESC\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "Entry",
+        "method": null
+      },
+      "user_input": "text_search_rank(query)",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "The searcher's text is escaped by connection.quote before it is interpolated. Entry.text_search_rank builds ts_rank(entries.tsvector_combined, ...) around the private Entry.tsquery_sql, which is the only way the query reaches SQL and which returns websearch_to_tsquery('english', <quoted literal>). Brakeman cannot follow through a private_class_method, so it flags the interpolation without seeing the quoting. Verified against the running database: Entry.search(%q{climate x'; DROP TABLE entries; --}).to_sql emits ...websearch_to_tsquery('english', 'climate x''; DROP TABLE entries; --')..., the embedded quote doubled and the payload confined to one string literal. A bind parameter is not available here: this expression is used as an ORDER BY term, where Rails does not bind, which is why the literal is quoted by hand. Restructuring was tried and rejected -- the only shape that quiets Brakeman inlines websearch_to_tsquery at each call site, duplicating the text search configuration that tsquery_sql exists to state once. If tsquery_sql ever stops routing the query through connection.quote, this ignore must go."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "5e672b1a87848e0a380c05d4d47c12a87db32a6b7b529da8025823ee38a5acfe",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/models/entry.rb",
+      "line": 124,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "connection.select_value(\"SELECT ''::tsvector @@ #{tsquery_sql(query)}\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "Entry",
+        "method": "Entry.excludes_only?"
+      },
+      "user_input": "tsquery_sql(query)",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "Same single root cause as the Entry.text_search_rank warning above, and the same escaping. Entry.excludes_only? asks PostgreSQL whether the parsed query matches the empty document, to refuse a pure-negative search such as \"-oil\" before it forces a sequential scan of the shared entries table. The interpolated fragment is the private Entry.tsquery_sql, which returns websearch_to_tsquery('english', <connection.quote'd literal>); Brakeman flags the interpolation because it cannot see through that private_class_method. Verified against the running database: Entry.excludes_only?(%q{x'; DROP TABLE entries; --}) returns false and the entries table survives. Unlike the ORDER BY case this statement could take a real $1 bind, and that was implemented and measured -- it does silence Brakeman -- but it was reverted because it forces websearch_to_tsquery('english', ...) to be written a second time, and the guard is only correct while it parses the query with the identical parser and text search configuration the search itself uses. One definition with a documented ignore was preferred over two definitions that can drift apart silently. If tsquery_sql ever stops routing the query through connection.quote, this ignore must go."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
       "fingerprint": "9ee6341df942fbbad9f1fdf9e36a1936823f8114ff94b8a1d6de65f476c6401b",
       "check_name": "SQL",
       "message": "Possible SQL injection",

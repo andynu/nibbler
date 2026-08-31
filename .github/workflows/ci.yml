@@ -21,7 +21,14 @@ jobs:
       - name: Scan for common Rails security vulnerabilities using static analysis
         run: bin/brakeman --no-pager
       
+      # Runs even when Brakeman fails. These two scans answer unrelated
+      # questions -- our own code versus published advisories against our gems
+      # -- so letting the first failure skip the second hides gem CVEs behind an
+      # unrelated Brakeman warning. That happened: Brakeman was red on main from
+      # 2026-08-18, and no gem advisory was checked for the whole of that time.
+      # The job still fails if either step does.
       - name: Scan for known security vulnerabilities in gems used
+        if: ${{ !cancelled() }}
         run: bin/bundler-audit
       
   lint:
