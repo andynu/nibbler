@@ -33,6 +33,8 @@ const babelTypeScript = {
 
 export default [
   {
+    // A config object holding only `ignores` sets global ignores, which prune
+    // the directory walk rather than merely filtering results.
     ignores: [
       "app/assets/builds/**",
       "coverage/**",
@@ -40,6 +42,14 @@ export default [
       "public/**",
       "test-results/**",
       "vendor/**",
+      // Agent git worktrees live under .claude/worktrees/<name>/, each a full
+      // checkout of this repo. Without this, `eslint .` reports every warning
+      // once per live worktree (ttrb-gr0z: 21 warnings became 42 with one
+      // worktree on disk), which makes a baseline count meaningless and hides
+      // real new warnings in the noise. ESLint 10 also resolves the nested
+      // eslint.config.mjs inside each worktree, so the copies are linted with
+      // their own rules. `**/` so a checkout nested any deeper is covered too.
+      "**/.claude/**",
     ],
   },
   {
