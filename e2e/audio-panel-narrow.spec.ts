@@ -215,6 +215,57 @@ test.describe("Seeking on a 320px phone", () => {
   })
 })
 
+/**
+ * The queue is where the audio panel sends a phone reader for skip next and
+ * skip previous, so the row has to offer the control it is credited with.
+ *
+ * Its play button was `opacity-0` until a `group-hover` on the row wrapper
+ * revealed it (ttrb-0sg7). A touch device fires no hover, so on a phone the
+ * button was invisible for the whole life of the panel while still taking a
+ * tap and still appearing to a screen reader.
+ *
+ * `toBeVisible()` does not see this: Playwright calls a fully transparent
+ * element with a box visible, and clicks it happily. The computed opacity is
+ * what says whether a reader can find the control, so that is what this reads,
+ * with the pointer parked in the corner so no hover is in effect.
+ */
+test.describe("The queue panel's rows on a 320px phone", () => {
+  test.use({ viewport: { width: 320, height: 720 } })
+
+  test.beforeEach(async ({ page }) => {
+    await stubTtsAudio(page)
+    await page.goto("/")
+    await expect(page.getByTestId("app-root")).toBeVisible({ timeout: 10000 })
+    await startReadingAloud(page)
+  })
+
+  test("the play button on a queued row is drawn without a hover", async ({ page }) => {
+    // A second item, so that a row exists which is not the one playing: the
+    // playing row draws a static indicator in that slot instead of a button.
+    // The article being read aloud hides its own two TTS controls, so the
+    // presence of "Add to queue" is itself the proof that the next entry has
+    // loaded - no separate wait needed.
+    await page.getByRole("button", { name: "Next entry" }).click()
+    await page.getByRole("button", { name: "Add to queue" }).click()
+
+    await page.getByRole("button", { name: "Open queue" }).click()
+
+    const playRow = page.getByRole("button", { name: "Play this item" })
+    await expect(playRow).toHaveCount(1)
+
+    // Away from the row, so nothing here is answered by a hover the previous
+    // click left behind.
+    await page.mouse.move(0, 0)
+
+    await expect(playRow).toHaveCSS("opacity", "1")
+
+    const box = await playRow.boundingBox()
+    expect(box, "expected the play button to be laid out").not.toBeNull()
+    expect(box!.width, "play button width").toBeGreaterThan(0)
+    expect(box!.height, "play button height").toBeGreaterThan(0)
+  })
+})
+
 test.describe("The audio panel where the sm controls arrive", () => {
   // 640 is the first pixel at which the speed control, the auto-scroll toggle
   // and the jump-to-source button are all on the row.

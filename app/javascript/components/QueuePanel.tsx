@@ -118,7 +118,16 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
         )}
       </div>
 
-      {/* Playing indicator or play button */}
+      {/* Playing indicator or play button.
+
+          The button is drawn unconditionally. It used to be `opacity-0` until
+          a `group-hover` on the row wrapper revealed it, which a touch device
+          never fires: the control stayed invisible on a phone while still
+          answering a tap and still sitting in the accessibility tree
+          (ttrb-0sg7). It is the control ttrb-6hxv points at when it sheds skip
+          next and skip previous from the audio panel below xs, on the argument
+          that a phone skips by tapping a queue row, so it has to be visible
+          there. Its neighbour, the remove button, was never gated this way. */}
       {isPlaying ? (
         <div className="shrink-0">
           <Play className="h-4 w-4 text-primary fill-primary" />
@@ -127,7 +136,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 hover:opacity-100"
+          className="h-6 w-6 shrink-0"
           onClick={(e) => {
             e.stopPropagation()
             onPlay(index)
@@ -285,16 +294,18 @@ export function QueuePanel() {
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-1">
+                  {/* No `group` wrapper around each row: the only rule that
+                      read it was the play button's `group-hover`, and that
+                      button is drawn unconditionally now (ttrb-0sg7). */}
                   {queue.map((item, index) => (
-                    <div key={item.id} className="group">
-                      <SortableQueueItem
-                        item={item}
-                        index={index}
-                        isPlaying={index === currentQueueIndex}
-                        onRemove={removeFromQueue}
-                        onPlay={playQueueItem}
-                      />
-                    </div>
+                    <SortableQueueItem
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      isPlaying={index === currentQueueIndex}
+                      onRemove={removeFromQueue}
+                      onPlay={playQueueItem}
+                    />
                   ))}
                 </div>
               </SortableContext>
