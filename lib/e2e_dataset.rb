@@ -218,6 +218,11 @@ class E2eDataset
     tag_entries
   end
 
+  # content_hash has to be the digest FeedUpdater would have written for this
+  # text, not merely some digest of it: EntrySummary#valid_for_content? compares
+  # a summary's stored hash against Entry#content_hash, so a seeder using its own
+  # algorithm makes every summary of a seeded article read back stale. Pinned by
+  # test/lib/e2e_dataset_test.rb, which runs the same text through both writers.
   def create_entry(feed_attrs, title, index, published)
     content = <<~HTML.strip
       <p>#{title}. Seeded article #{index + 1} from #{feed_attrs[:title]}, used by the
@@ -233,7 +238,7 @@ class E2eDataset
       guid: "e2e:#{feed_attrs[:slug]}:#{index}",
       author: "#{feed_attrs[:title]} Staff",
       content: content,
-      content_hash: Digest::SHA1.hexdigest(content),
+      content_hash: Digest::SHA256.hexdigest(content),
       updated: published,
       date_entered: published,
       date_updated: published,
