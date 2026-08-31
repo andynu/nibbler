@@ -873,6 +873,62 @@ describe("EntryContent", () => {
       ).toBeInTheDocument()
     })
 
+    /**
+     * The publish toggle joined the shed set when the row was measured at
+     * 320px (ttrb-h12t). The width half of that is in
+     * e2e/mobile-article-actions.spec.ts; what matters here is that the row
+     * runs the handler the header's own button runs.
+     */
+    it("publishes through the header's own handler", async () => {
+      const user = userEvent.setup()
+      const onTogglePublished = vi.fn()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ is_published: false })}
+          onTogglePublished={onTogglePublished}
+        />
+      )
+
+      await openMenu(user)
+      await user.click(
+        screen.getByRole("menuitem", { name: "Add to public feed" })
+      )
+
+      expect(onTogglePublished).toHaveBeenCalledOnce()
+    })
+
+    it("names the publish row for what it does to an entry already published", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <EntryContent
+          {...defaultProps}
+          entry={mockEntryWithContent({ is_published: true })}
+          onTogglePublished={vi.fn()}
+        />
+      )
+
+      await openMenu(user)
+
+      expect(
+        screen.getByRole("menuitem", { name: "Remove from public feed" })
+      ).toBeInTheDocument()
+    })
+
+    it("leaves the publish row out when the parent wires no handler", async () => {
+      const user = userEvent.setup()
+
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      await openMenu(user)
+
+      expect(
+        screen.queryByRole("menuitem", { name: /public feed/i })
+      ).not.toBeInTheDocument()
+    })
+
     it("opens the note editor, the same one the header's note button opens", async () => {
       const user = userEvent.setup()
 

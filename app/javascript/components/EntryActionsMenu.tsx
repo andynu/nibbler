@@ -1,4 +1,4 @@
-import { EllipsisVertical, StickyNote, FileText, Globe, Bookmark, Link } from "lucide-react"
+import { EllipsisVertical, StickyNote, FileText, Globe, Bookmark, Link, Rss } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -20,6 +20,11 @@ interface EntryActionsMenuProps {
   onToggleIframe: () => void
   /** The header's own note handler; absent when the entry cannot take a note. */
   onEditNote?: () => void
+  /**
+   * The header's own publish toggle; absent when the parent wires none, in
+   * which case the header shows no publish button either.
+   */
+  onTogglePublished?: () => void
   /** The header's own score handler, the one ScoreButtons calls. */
   onScoreChange?: (score: number) => void
   /** Opens the same FollowStoryDialog the header's bookmark button opens. */
@@ -34,11 +39,16 @@ interface EntryActionsMenuProps {
 /**
  * The article actions the header sheds as the viewport narrows (ttrb-tyvd).
  *
- * The header drops the note button, the framing toggle and "Follow this story"
- * below the custom xs breakpoint (30rem) and the score control below Tailwind's
- * sm (40rem). A phone in portrait is under both, and until this existed there
- * was no second way to reach any of them: MobileNavBar switches panes and
- * carries no article actions, and nothing on screen hinted the four existed.
+ * The header drops the note button, the publish toggle, the framing toggle and
+ * "Follow this story" below the custom xs breakpoint (30rem) and the score
+ * control below Tailwind's sm (40rem). A phone in portrait is under both, and
+ * until this existed there was no second way to reach any of them:
+ * MobileNavBar switches panes and carries no article actions, and nothing on
+ * screen hinted they existed.
+ *
+ * The publish toggle joined that list once the row was measured (ttrb-h12t):
+ * at 320px the header wanted 344px and clipped its own overflow trigger, and
+ * this was the action of the five left that a phone reader needs least.
  *
  * Every item here calls the handler the header's own button calls rather than a
  * copy of it, so a change to what "follow this story" means reaches both. The
@@ -49,7 +59,7 @@ interface EntryActionsMenuProps {
  *
  * Visibility is left to the same breakpoints that hide the buttons, so the
  * trigger appears exactly when something is missing: sm when there is a score
- * control to lose, xs when there is not. Between xs and sm three of these are
+ * control to lose, xs when there is not. Between xs and sm four of these are
  * in the header too; a menu that is a superset of the toolbar is the ordinary
  * shape for an overflow menu, and the alternative (per-item breakpoint classes)
  * would leave display:none rows inside a Radix menu, where they stay in the
@@ -60,6 +70,7 @@ export function EntryActionsMenu({
   showIframe,
   onToggleIframe,
   onEditNote,
+  onTogglePublished,
   onScoreChange,
   onFollowStory,
   onCopyLink,
@@ -83,6 +94,14 @@ export function EntryActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        {/* In the order the header lays them out, so a reader who has seen the
+            toolbar on a wider screen finds them where they expect. */}
+        {onTogglePublished && (
+          <DropdownMenuItem onClick={onTogglePublished}>
+            <Rss className="h-4 w-4 mr-2" />
+            {entry.is_published ? "Remove from public feed" : "Add to public feed"}
+          </DropdownMenuItem>
+        )}
         {onEditNote && (
           <DropdownMenuItem onClick={onEditNote}>
             <StickyNote className="h-4 w-4 mr-2" />

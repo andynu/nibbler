@@ -16,19 +16,27 @@ import { test, expect, type Page } from "./fixtures"
  * trusted touch injection, which Firefox does not support; a viewport override
  * plus ordinary clicks is enough, and the CSS under test is width-driven.
  *
- * 375 is an iPhone SE/12 mini in portrait, 414 a Pro Max. Both are under the
- * custom xs breakpoint (30rem/480px) that hides the note, framing and follow
- * buttons and under Tailwind's sm (40rem/640px) that hides the score control.
+ * 320 is an iPhone SE 1st gen and the narrow end of older Android; 375 an
+ * iPhone SE 2nd gen/12 mini in portrait, 414 a Pro Max. All three are under
+ * the custom xs breakpoint (30rem/480px) that hides the note, publish, framing
+ * and follow buttons and under Tailwind's sm (40rem/640px) that hides the
+ * score control.
+ *
+ * 320 is here because the row did not fit there (ttrb-h12t). With the publish
+ * toggle still in the toolbar the header wanted 344px inside 320 of viewport,
+ * and the control it pushed past the edge was the overflow trigger itself -
+ * the one button that leads to everything the header had already dropped.
  */
-const PHONE_WIDTHS = [375, 414] as const
+const PHONE_WIDTHS = [320, 375, 414] as const
 
 /**
- * Three of the four the header sheds, by the accessible name the header gives
- * them. The score control is the fourth and is checked separately: it is a
+ * Four of the five the header sheds, by the accessible name the header gives
+ * them. The score control is the fifth and is checked separately: it is a
  * group of buttons rather than one, and hidden through its wrapper.
  */
 const SHED_HEADER_BUTTONS = [
   /add note|edit note/i,
+  /add to public feed|remove from public feed/i,
   /show original page|show rss content/i,
   /follow this story/i,
 ]
@@ -101,9 +109,39 @@ for (const width of PHONE_WIDTHS) {
       await openOverflowMenu(page)
 
       await expect(page.getByRole("menuitem", { name: /add note|edit note/i })).toBeVisible()
+      await expect(
+        page.getByRole("menuitem", { name: /add to public feed|remove from public feed/i })
+      ).toBeVisible()
       await expect(page.getByRole("menuitem", { name: "Show original page" })).toBeVisible()
       await expect(page.getByRole("menuitem", { name: "Follow this story" })).toBeVisible()
       await expect(page.getByRole("menuitemradio", { name: "Score 3" })).toBeVisible()
+    })
+
+    /**
+     * What the shedding is for. A toolbar that keeps a button it has no room
+     * for does not scroll here - the pane it sits in clips instead - so the
+     * failure is silent: at 320px the row measured 344px against 320 of
+     * viewport, "More article actions" was laid out at 296..332, and its last
+     * 12px were simply not on screen. Every action this file checks lives
+     * behind that trigger, so the button that ran out of room was the one
+     * holding the door.
+     *
+     * Both halves are asserted because they fail in different ways. The
+     * scrollWidth comparison catches any overflow at all, wherever it comes
+     * from; the bounding box catches a trigger pushed off the edge even if
+     * some future ancestor starts scrolling and hides the first symptom.
+     */
+    test("the header fits the viewport", async ({ page }) => {
+      const overflow = await page
+        .getByTestId("entry-header")
+        .evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }))
+
+      expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+
+      const trigger = await overflowTrigger(page).boundingBox()
+      expect(trigger).not.toBeNull()
+      expect(trigger!.x).toBeGreaterThanOrEqual(0)
+      expect(trigger!.x + trigger!.width).toBeLessThanOrEqual(width)
     })
   })
 }

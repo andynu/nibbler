@@ -437,6 +437,15 @@ export function EntryContent({
               } : undefined}
             />
           </Button>
+          {/* Publish toggle - hidden on small mobile, where it is the button
+              that did not fit. Measured at 320px the row needed 344px against
+              320 of viewport and the overflow trigger was clipped at 296..332;
+              shedding this one (36px plus its 2px gap) brings the row to 306
+              and puts the trigger back on screen. It is the narrowest action
+              of the five that were left: read and star are the triage the
+              whole list runs on, "open in new tab" is how a phone escapes a
+              stub, and the menu is the only way to everything else. See
+              ttrb-h12t. */}
           {onTogglePublished && (
             <Button
               variant="ghost"
@@ -444,6 +453,7 @@ export function EntryContent({
               onClick={onTogglePublished}
               aria-label={entry.is_published ? "Remove from public feed" : "Add to public feed"}
               title={entry.is_published ? "Remove from public feed" : "Add to public feed"}
+              className="hidden xs:inline-flex"
             >
               <Rss
                 className="h-4 w-4"
@@ -527,6 +537,7 @@ export function EntryContent({
             showIframe={showIframe}
             onToggleIframe={onToggleIframe}
             onEditNote={onUpdateNote ? handleStartEditNote : undefined}
+            onTogglePublished={onTogglePublished}
             onScoreChange={onScoreChange}
             onFollowStory={handleFollowStory}
             onCopyLink={onCopyLink}
