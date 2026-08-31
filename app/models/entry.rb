@@ -22,6 +22,9 @@ class Entry < ApplicationRecord
   has_many :tags, through: :entry_tags
   has_many :cached_images, dependent: :destroy
   has_one :cached_audio, dependent: :destroy
+  # On the entry rather than on UserEntry: a summary of the text is the same
+  # summary whoever is reading, so one subscriber's request serves all of them.
+  has_one :entry_summary, dependent: :destroy
 
   validates :guid, presence: true, uniqueness: true
   validates :title, presence: true

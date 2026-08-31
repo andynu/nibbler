@@ -75,8 +75,19 @@ class PurgeArticlesJob < ApplicationJob
     end
   end
 
+  # Deletes entries that no user_entry references any more.
+  #
+  # delete_all issues one SQL DELETE and instantiates no models, so no
+  # ActiveRecord callback fires here: the dependent: :destroy declarations on
+  # Entry's associations have no effect on this path. What actually removes the
+  # children is the database, because every table that references entries
+  # (cached_audios, cached_images, enclosures, entry_tags, entry_summaries,
+  # user_entries) declares its foreign key ON DELETE CASCADE.
+  #
+  # So a new child table of entries must carry that cascade in its migration.
+  # Declare only dependent: :destroy and this purge does not quietly skip the
+  # rows, it raises PG::ForeignKeyViolation and the whole nightly purge stops.
   def cleanup_orphaned_entries
-    # Delete entries that have no user_entries referencing them
     orphaned = Entry.left_joins(:user_entries)
                     .where(user_entries: { id: nil })
 
