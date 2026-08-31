@@ -47,6 +47,7 @@ Rails.application.routes.draw do
           post :toggle_starred
           post :toggle_published
           get :audio
+          post :summarize
           get :info
           get :embed_policy
         end

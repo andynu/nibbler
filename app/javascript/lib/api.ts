@@ -78,6 +78,54 @@ export interface Entry {
     name: string
   }>
   enclosures?: Enclosure[]
+  /** Present on the full-content response only; null when none has been generated. */
+  summary?: EntrySummary | null
+  /**
+   * Whether the article has enough text to be worth summarizing. False for the
+   * excerpt-only feeds, where the affordance should say so rather than be
+   * offered and refused. Full-content response only.
+   */
+  summarizable?: boolean
+}
+
+/**
+ * A generated summary, in the one shape it takes wherever it arrives: with the
+ * article, in the reply to a summarize request, or over EntrySummaryChannel.
+ */
+export interface EntrySummary {
+  summary: string
+  model: string
+  generated_at: string
+  /**
+   * The article's text has changed since this was written. It is still shown,
+   * marked as describing an earlier version, with a regenerate control. The
+   * server decides this; the client never sees a content hash.
+   */
+  stale: boolean
+}
+
+/**
+ * Where generation is, from the reader's point of view.
+ *
+ * "queued" and "running" are distinct because a local model takes tens of
+ * seconds and the two waits mean different things. "too_short" is terminal and
+ * is not a failure: pressing again will not help, and the article is the reason.
+ */
+export type EntrySummaryState =
+  | "idle"
+  | "queued"
+  | "running"
+  | "ready"
+  | "failed"
+  | "unavailable"
+  | "too_short"
+
+/** POST /api/v1/entries/:id/summarize, which never waits on the model. */
+export interface EntrySummaryResponse {
+  status: "ready" | "queued" | "too_short"
+  summary?: EntrySummary
+  message?: string
+  content_length?: number
 }
 
 export interface Category {
@@ -552,6 +600,14 @@ export const api = {
       }),
     audio: (id: number) =>
       request<AudioResponse>(`/entries/${id}/audio`),
+    /**
+     * Ask for a summary of the article. Returns the state immediately; a
+     * "queued" reply means the paragraph arrives over EntrySummaryChannel, not
+     * from this promise. Takes the user_entry id like every other entry call,
+     * while the channel is keyed on `entry_id` because summaries are shared.
+     */
+    summarize: (id: number) =>
+      request<EntrySummaryResponse>(`/entries/${id}/summarize`, { method: "POST" }),
     keywords: (params?: { feed_id?: number; category_id?: number; limit?: number; entry_limit?: number }) => {
       const searchParams = new URLSearchParams()
       if (params?.feed_id) searchParams.set("feed_id", String(params.feed_id))

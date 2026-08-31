@@ -4,7 +4,7 @@ module Api
       include EntryScoping
       include EntrySorting
 
-      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :info, :embed_policy ]
+      before_action :set_user_entry, only: [ :show, :update, :toggle_read, :toggle_starred, :toggle_published, :audio, :summarize, :info, :embed_policy ]
 
       # GET /api/v1/entries
       def index
@@ -126,6 +126,44 @@ module Api
         # Start generation
         GenerateArticleAudioJob.perform_later(entry.id)
         render json: { status: "generating" }
+      end
+
+      # POST /api/v1/entries/:id/summarize
+      #
+      # Asks for a one-paragraph triage summary and answers with the state the
+      # reader is now in. It never waits on the model: generation takes tens of
+      # seconds on a local Ollama, so the result arrives over
+      # EntrySummaryChannel, which the client is already subscribed to.
+      #
+      # POST rather than GET because it spends model throughput. Reaching this
+      # action is always a deliberate press: a summary that already exists is
+      # sent with the article by #show, and a stale one is shown as stale rather
+      # than regenerated on read, so nothing here fires from a render.
+      def summarize
+        entry = @user_entry.entry
+        cached = entry.entry_summary
+
+        if cached && !cached.stale?
+          render json: { status: "ready", summary: EntrySummaryChannel.summary_payload(cached) }
+          return
+        end
+
+        unless EntrySummarizer.summarizable?(entry)
+          render json: {
+            status: "too_short",
+            message: SummarizeEntryJob::TOO_SHORT_MESSAGE,
+            content_length: EntrySummarizer.article_text(entry).length
+          }
+          return
+        end
+
+        # perform_later returns false when GoodJob's concurrency control aborts
+        # the enqueue because a generation for this entry is already queued or
+        # running -- two clicks, or two readers on the same article. That is the
+        # same answer either way: one generation is in flight and its result
+        # reaches every subscriber, including this one.
+        SummarizeEntryJob.perform_later(entry.id)
+        render json: { status: "queued" }
       end
 
       # GET /api/v1/entries/:id/info
@@ -278,6 +316,13 @@ module Api
           json[:note] = user_entry.note
           json[:detected_tags] = detect_tags_in_content(entry, user_entry.user_id)
           json[:enclosures] = entry.enclosures.map { |e| enclosure_json(e) }
+          # A cached summary travels with the article so re-opening one shows it
+          # without a request, and `stale` travels with it because the client
+          # never sees a content_hash and so cannot work the answer out. Only on
+          # the full-content path: the list does not render summaries, and
+          # `summarizable` costs a pass over the whole body.
+          json[:summary] = EntrySummaryChannel.summary_payload(entry.entry_summary)
+          json[:summarizable] = EntrySummarizer.summarizable?(entry)
         end
 
         json

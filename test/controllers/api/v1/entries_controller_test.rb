@@ -1110,4 +1110,166 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert_not_requested :head, link
   end
+
+  # --- summaries ------------------------------------------------------------
+
+  SUMMARY_SENTENCE = "The commission said the brokers misreported client holdings across nine quarters. ".freeze
+
+  # Above EntrySummarizer::MIN_CONTENT_CHARS once the tags are stripped, so the
+  # feature is actually offered for it.
+  def create_summarizable_user_entry(content: nil)
+    body = content || "<p>#{SUMMARY_SENTENCE * 25}</p>"
+    entry = Entry.create!(
+      guid: "summary-entry-#{SecureRandom.uuid}",
+      title: "Regulator settles with three brokers",
+      link: "https://example.com/summary-article",
+      content: body,
+      content_hash: SecureRandom.hex(8),
+      updated: 1.hour.ago,
+      date_entered: 1.hour.ago,
+      date_updated: Time.current
+    )
+
+    @user.user_entries.create!(
+      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+    )
+  end
+
+  def create_entry_summary(entry, content_hash: nil, text: "A paragraph about the settlement.")
+    EntrySummary.create!(
+      entry: entry,
+      summary: text,
+      model: "gemma4:e4b",
+      content_hash: content_hash || entry.content_hash,
+      generated_at: 1.hour.ago
+    )
+  end
+
+  test "summarize enqueues one generation and answers without waiting for it" do
+    user_entry = create_summarizable_user_entry
+
+    assert_enqueued_with job: SummarizeEntryJob, args: [ user_entry.entry.id ] do
+      post summarize_api_v1_entry_url(user_entry), as: :json
+    end
+
+    assert_response :success
+    assert_equal "queued", JSON.parse(response.body)["status"]
+  end
+
+  # Pressing the button on an article that already has a current summary must
+  # not spend model throughput regenerating what is already there.
+  test "summarize returns a current summary and enqueues nothing" do
+    user_entry = create_summarizable_user_entry
+    summary = create_entry_summary(user_entry.entry)
+
+    assert_no_enqueued_jobs only: SummarizeEntryJob do
+      post summarize_api_v1_entry_url(user_entry), as: :json
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "ready", json["status"]
+    assert_equal summary.summary, json.dig("summary", "summary")
+    assert_equal false, json.dig("summary", "stale")
+  end
+
+  # Reaching this action with a stale summary on file is the regenerate control
+  # being pressed; nothing else calls it in that state.
+  test "summarize regenerates over a summary written against superseded text" do
+    user_entry = create_summarizable_user_entry
+    create_entry_summary(user_entry.entry, content_hash: "a-hash-the-entry-no-longer-has")
+
+    assert_enqueued_with job: SummarizeEntryJob, args: [ user_entry.entry.id ] do
+      post summarize_api_v1_entry_url(user_entry), as: :json
+    end
+
+    assert_equal "queued", JSON.parse(response.body)["status"]
+  end
+
+  # Excerpt-only feeds. Summarizing two sentences produces a summary no shorter
+  # than its input and spends throughput other articles are queued behind.
+  test "summarize refuses an article with too little text and enqueues nothing" do
+    user_entry = create_summarizable_user_entry(content: "<p>Two sentences. That is all there is.</p>")
+
+    assert_no_enqueued_jobs only: SummarizeEntryJob do
+      post summarize_api_v1_entry_url(user_entry), as: :json
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "too_short", json["status"]
+    assert_operator json["content_length"], :<, EntrySummarizer::MIN_CONTENT_CHARS
+  end
+
+  test "summarize will not answer for another user's entry" do
+    user_entry = create_summarizable_user_entry
+    sign_in(User.where.not(id: @user.id).first)
+
+    assert_no_enqueued_jobs only: SummarizeEntryJob do
+      post summarize_api_v1_entry_url(user_entry), as: :json
+    end
+
+    assert_response :not_found
+  end
+
+  # Re-opening a summarized article shows the paragraph with no request and no
+  # model time.
+  test "show carries a cached summary with the article" do
+    user_entry = create_summarizable_user_entry
+    summary = create_entry_summary(user_entry.entry)
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal summary.summary, json.dig("summary", "summary")
+    assert_equal "gemma4:e4b", json.dig("summary", "model")
+    assert_equal false, json.dig("summary", "stale")
+  end
+
+  # The client never sees a content hash, so it cannot work this out for itself.
+  # A stale summary is still shown, labelled, with a regenerate control.
+  test "show marks a summary written against superseded text as stale" do
+    user_entry = create_summarizable_user_entry
+    create_entry_summary(user_entry.entry, content_hash: "a-hash-the-entry-no-longer-has")
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    assert_equal true, JSON.parse(response.body).dig("summary", "stale")
+  end
+
+  test "show says nothing about a summary for an article that has none" do
+    user_entry = create_summarizable_user_entry
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    assert_nil JSON.parse(response.body)["summary"]
+  end
+
+  # So the affordance can say why it is absent rather than being offered and
+  # refused.
+  test "show says whether the article has enough text to summarize" do
+    long = create_summarizable_user_entry
+    short = create_summarizable_user_entry(content: "<p>Two sentences. That is all.</p>")
+
+    get api_v1_entry_url(long), as: :json
+    assert_equal true, JSON.parse(response.body)["summarizable"]
+
+    get api_v1_entry_url(short), as: :json
+    assert_equal false, JSON.parse(response.body)["summarizable"]
+  end
+
+  # The list does not render summaries, and answering `summarizable` costs a
+  # pass over each article's whole body.
+  test "the entry list carries neither summaries nor the summarizable flag" do
+    user_entry = create_summarizable_user_entry
+    create_entry_summary(user_entry.entry)
+
+    get api_v1_entries_url, params: { per_page: 100 }, as: :json
+
+    row = JSON.parse(response.body)["entries"].find { |e| e["id"] == user_entry.id }
+    assert_not_nil row
+    assert_not row.key?("summary")
+    assert_not row.key?("summarizable")
+  end
 end
