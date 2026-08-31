@@ -66,8 +66,17 @@ class FeedUpdater
 
   private
 
+  # A failed fetch has to move the schedule, not just leave a note.
+  #
+  # This used to write last_error alone. next_poll_at kept whatever past value
+  # it already had and last_updated was never stamped, so UpdateFeedsJob found
+  # the feed due again on the next tick and every tick after it: a feed whose
+  # domain had stopped resolving was re-requested every five minutes forever,
+  # and consecutive_failures sat at 0 the whole time because only the 429 path
+  # ever incremented it. record_failure! does both, so the streak is countable
+  # and the retries thin out.
   def handle_error(error)
-    @feed.update!(last_error: error)
+    @feed.record_failure!(error)
     UpdateResult.new(feed: @feed, status: :error, error: error)
   end
 

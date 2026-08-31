@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_31_002140) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_31_034500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -124,6 +124,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_31_002140) do
     t.datetime "favicon_last_checked"
     t.string "feed_language", default: "", null: false
     t.text "feed_url", null: false
+    t.datetime "first_failed_at"
     t.boolean "hidden", default: false, null: false
     t.boolean "hide_images", default: false, null: false
     t.string "icon_url", default: "", null: false

@@ -9,6 +9,8 @@ require "minitest/mock"
 # permanently bad item could never ingest anything. These tests pin the
 # opposite: a mixed payload stores what it can and reports what it could not.
 class FeedUpdaterTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   FEED_URL = "https://example.com/feed.xml".freeze
 
   setup do
@@ -131,7 +133,127 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_equal 2, Entry.where(guid: %w[good-1 good-2]).count
   end
 
+  # ==========================================
+  # The failure path
+  #
+  # handle_error used to write last_error and stop there. Nothing incremented
+  # consecutive_failures outside the 429 branch and nothing moved next_poll_at,
+  # so a feed whose domain had stopped resolving stayed permanently due and was
+  # re-requested on every 5-minute cycle indefinitely. Every test below fails
+  # against that version.
+  # ==========================================
+
+  test "a fetch error counts against the feed" do
+    update_with_error("getaddrinfo: Name or service not known")
+
+    assert_equal 1, @feed.reload.consecutive_failures
+  end
+
+  test "a fetch error records what went wrong" do
+    update_with_error("Feed not found")
+
+    assert_equal "Feed not found", @feed.reload.last_error
+  end
+
+  test "a fetch error pushes the next poll out instead of leaving the feed due" do
+    @feed.update!(next_poll_at: 1.hour.ago)
+
+    update_with_error("Connection timed out")
+
+    assert @feed.reload.next_poll_at > Time.current,
+      "the feed is still due after failing, so the scheduler will retry it on the next tick"
+  end
+
+  # The reported symptom, end to end: fail a feed, then ask the real scheduler
+  # whether it is due again. This is the test that would have caught the bug.
+  test "a failed feed is not enqueued again on the next scheduler tick" do
+    Feed.where.not(id: @feed.id).delete_all
+    update_with_error("getaddrinfo: Name or service not known")
+    release_update_guard
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now
+    end
+  end
+
+  test "repeated failures accumulate rather than resetting each cycle" do
+    3.times { update_with_error("Connection failed") }
+
+    assert_equal 3, @feed.reload.consecutive_failures
+  end
+
+  test "a feed that keeps failing eventually reads as broken" do
+    Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES.times { update_with_error("SSL verify failed") }
+
+    assert @feed.reload.broken?
+    assert_not_nil @feed.first_failed_at
+  end
+
+  test "a parse error is treated as a failure too, not just a transport error" do
+    update_with("this is not xml at all")
+
+    assert_equal 1, @feed.reload.consecutive_failures
+    assert_not_equal "", @feed.last_error
+  end
+
+  # Failure backoff is our schedule, so it belongs in next_poll_at.
+  # retry_after means a host told us to wait, and it gates the morning force
+  # sweep and the manual refresh button. Writing failures there would make a
+  # broken feed unreachable by both, and it would never be retried by hand.
+  test "a fetch error does not set retry_after" do
+    update_with_error("Feed not found")
+
+    assert_nil @feed.reload.retry_after,
+      "retry_after is the server's window; a failure of ours must not occupy it"
+  end
+
+  test "the morning force sweep still reaches a feed parked on failure backoff" do
+    Feed.where.not(id: @feed.id).delete_all
+    Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES.times { update_with_error("dead domain") }
+    release_update_guard
+
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed.id ]) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  # ==========================================
+  # Recovery
+  # ==========================================
+
+  test "a feed that starts working again clears its streak without anyone intervening" do
+    3.times { update_with_error("Server error (503)") }
+    assert_equal 3, @feed.reload.consecutive_failures
+
+    update_with(clean_payload)
+
+    assert_equal 0, @feed.reload.consecutive_failures
+    assert_nil @feed.first_failed_at
+    assert_equal "", @feed.last_error
+    assert_not @feed.broken?
+  end
+
+  # A 304 is a successful poll, so it has to clear the streak as much as a 200
+  # does. A feed recovering into "not modified" would otherwise stay broken.
+  test "a not-modified response clears the streak too" do
+    3.times { update_with_error("Server error (503)") }
+
+    update_with_fetch_result(FeedFetcher::FetchResult.new(status: :not_modified))
+
+    assert_equal 0, @feed.reload.consecutive_failures
+    assert_nil @feed.first_failed_at
+  end
+
   private
+
+  # FeedUpdater#update stamps last_update_started, and both the scheduler's
+  # not_updating scope and its force mode skip a feed for the two minutes that
+  # follow. Clearing it stands in for that time passing. Without this the
+  # scheduler assertions above would pass on the mid-update guard alone and say
+  # nothing at all about backoff.
+  def release_update_guard
+    @feed.update_column(:last_update_started, nil)
+  end
 
   def stored_guids
     @feed.user_entries.joins(:entry).order("entries.guid").pluck("entries.guid")
@@ -139,14 +261,22 @@ class FeedUpdaterTest < ActiveSupport::TestCase
 
   # Runs a real FeedUpdater over a canned body, stubbing only the network.
   def update_with(body)
+    update_with_fetch_result(FeedFetcher::FetchResult.new(status: :ok, body: body))
+  end
+
+  # Same, but for a fetch that did not come back with a body. Nothing here
+  # touches the network: the stub replaces FeedFetcher.for outright.
+  def update_with_fetch_result(result)
     fetcher = Object.new
-    fetcher.define_singleton_method(:fetch) do
-      FeedFetcher::FetchResult.new(status: :ok, body: body)
-    end
+    fetcher.define_singleton_method(:fetch) { result }
 
     FeedFetcher.stub(:for, ->(*, **) { fetcher }) do
       FeedUpdater.new(@feed).update
     end
+  end
+
+  def update_with_error(message)
+    update_with_fetch_result(FeedFetcher::FetchResult.new(status: :error, error: message))
   end
 
   def capture_warnings

@@ -466,6 +466,67 @@ describe("FeedSidebar", () => {
       expect(screen.getByText("Errors (1)")).toBeInTheDocument()
     })
 
+    // lucide-react puts aria-hidden="true" on an icon it thinks is decorative,
+    // which is any icon with no children and no a11y prop. The error indicator
+    // is passed role="img" and an aria-label precisely so it does not vanish
+    // from the accessibility tree. If someone drops those props this fails,
+    // which is the only cheap way to notice: happy-dom has no stylesheet, so no
+    // test here can say anything about the icon being visible.
+    it("exposes the error indicator with an accessible name", () => {
+      const feeds = [
+        mockFeed({ id: 1, title: "Broken Feed", last_error: "Feed not found" }),
+      ]
+
+      render(<FeedSidebar {...defaultProps} feeds={feeds} />)
+
+      expect(
+        screen.getByRole("img", { name: "Broken Feed: update error" })
+      ).toBeInTheDocument()
+    })
+
+    // A feed that failed once and a feed that has been dead for a month carry
+    // the same last_error string. The streak is what tells them apart, so it
+    // has to reach the accessible name and not only the hover tooltip.
+    it("names how long a broken feed has been failing", () => {
+      const feeds = [
+        mockFeed({
+          id: 1,
+          title: "Dead Feed",
+          last_error: "getaddrinfo: Name or service not known",
+          consecutive_failures: 47,
+          first_failed_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+          broken: true,
+        }),
+      ]
+
+      render(<FeedSidebar {...defaultProps} feeds={feeds} />)
+
+      expect(
+        screen.getByRole("img", { name: "Dead Feed: Failing for 3 weeks (47 attempts)" })
+      ).toBeInTheDocument()
+    })
+
+    // One miss is noise. The summary must stay out of the name until the streak
+    // means something, or people learn to ignore it.
+    it("does not claim a feed is failing after a single error", () => {
+      const feeds = [
+        mockFeed({
+          id: 1,
+          title: "Blipped Feed",
+          last_error: "Connection timed out",
+          consecutive_failures: 1,
+          first_failed_at: new Date(Date.now() - 60_000).toISOString(),
+          broken: false,
+        }),
+      ]
+
+      render(<FeedSidebar {...defaultProps} feeds={feeds} />)
+
+      expect(
+        screen.getByRole("img", { name: "Blipped Feed: update error" })
+      ).toBeInTheDocument()
+    })
+
     it("shows count for multiple errors", () => {
       const feeds = [
         mockFeed({ id: 1, title: "Broken Feed 1", last_error: "Error 1" }),

@@ -27,6 +27,7 @@ import { CategorySelector } from "@/components/CategorySelector"
 import { api, Feed, FeedInfo, Category, Filter } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { cn } from "@/lib/utils"
+import { feedHealthSummary } from "@/lib/feedHealth"
 import {
   Loader2,
   AlertCircle,
@@ -446,10 +447,21 @@ export function EditFeedDialog({
 
                 {feed.last_error && (
                   <div className="flex items-start gap-2 text-sm text-destructive-text bg-destructive/10 p-3 rounded-md">
-                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
                     <div>
-                      <div className="font-medium">Last Error</div>
+                      <div className="font-medium">
+                        {feed.broken ? "Feed is broken" : "Last Error"}
+                      </div>
                       <div className="text-xs mt-1">{feed.last_error}</div>
+                      {feedHealthSummary(feed) && (
+                        <div className="text-xs mt-1 opacity-80">{feedHealthSummary(feed)}</div>
+                      )}
+                      {feed.broken && (
+                        <div className="text-xs mt-2 opacity-80">
+                          Still being checked about once a day. Correcting the URL above
+                          clears this and retries right away.
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

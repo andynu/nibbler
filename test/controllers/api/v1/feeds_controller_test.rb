@@ -231,6 +231,95 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert json["error"].present?
   end
 
+  # ==========================================
+  # Feed health in the payload
+  #
+  # last_error alone cannot tell a blip from a dead domain, so the streak has to
+  # reach the client too. Without these the sidebar has nothing to render.
+  # ==========================================
+
+  test "index reports the failing streak alongside the error" do
+    @feed.update!(
+      consecutive_failures: 9,
+      last_error: "getaddrinfo: Name or service not known",
+      first_failed_at: 12.days.ago
+    )
+
+    get api_v1_feeds_url, as: :json
+    assert_response :success
+
+    payload = JSON.parse(response.body).find { |f| f["id"] == @feed.id }
+    assert_equal 9, payload["consecutive_failures"]
+    assert_equal true, payload["broken"]
+    assert payload["first_failed_at"].present?
+  end
+
+  test "index reports a healthy feed as unbroken with no streak" do
+    @feed.update!(consecutive_failures: 0, last_error: "", first_failed_at: nil)
+
+    get api_v1_feeds_url, as: :json
+    assert_response :success
+
+    payload = JSON.parse(response.body).find { |f| f["id"] == @feed.id }
+    assert_equal 0, payload["consecutive_failures"]
+    assert_equal false, payload["broken"]
+    assert_nil payload["first_failed_at"]
+  end
+
+  test "a feed just under the threshold is not reported broken" do
+    @feed.update!(
+      consecutive_failures: Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES - 1,
+      last_error: "Server error (503)",
+      first_failed_at: 2.hours.ago
+    )
+
+    get api_v1_feeds_url, as: :json
+
+    payload = JSON.parse(response.body).find { |f| f["id"] == @feed.id }
+    assert_equal false, payload["broken"]
+  end
+
+  test "info reports the failing streak too" do
+    @feed.update!(consecutive_failures: 7, last_error: "Feed not found", first_failed_at: 5.days.ago)
+
+    get info_api_v1_feed_url(@feed), as: :json
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_equal 7, json["consecutive_failures"]
+    assert_equal true, json["broken"]
+  end
+
+  # Failure backoff lives in next_poll_at, never retry_after, so the refresh
+  # button still works on a feed that has been failing for weeks. If that ever
+  # moves to retry_after this returns 429 and the reader loses the one manual
+  # way to retry a broken feed.
+  test "refresh is not blocked by a long failing streak" do
+    stub_request(:get, @feed.feed_url)
+      .to_return(status: 200, body: sample_atom_feed("Recovered"), headers: { "Content-Type" => "application/atom+xml" })
+
+    @feed.update!(consecutive_failures: 20, first_failed_at: 30.days.ago, next_poll_at: 1.day.from_now)
+
+    post refresh_api_v1_feed_url(@feed), as: :json
+
+    assert_response :success
+  end
+
+  test "a successful refresh clears the failing streak" do
+    stub_request(:get, @feed.feed_url)
+      .to_return(status: 200, body: sample_atom_feed("Recovered"), headers: { "Content-Type" => "application/atom+xml" })
+
+    @feed.update!(consecutive_failures: 20, first_failed_at: 30.days.ago, last_error: "dead")
+
+    post refresh_api_v1_feed_url(@feed), as: :json
+    assert_response :success
+
+    @feed.reload
+    assert_equal 0, @feed.consecutive_failures
+    assert_nil @feed.first_failed_at
+    assert_not @feed.broken?
+  end
+
   private
 
   def sample_atom_feed(title)

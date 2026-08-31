@@ -33,6 +33,12 @@ export interface Feed {
   last_successful_update: string | null
   next_poll_at: string | null
   last_error: string | null
+  /** Length of the current failing streak. 0 when the feed last polled cleanly. */
+  consecutive_failures?: number
+  /** When the current failing streak began, or null if the feed is not failing. */
+  first_failed_at?: string | null
+  /** Whether the streak has run past Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES. */
+  broken?: boolean
   unread_count: number
   entry_count: number
   oldest_entry_date: string | null
@@ -253,6 +259,9 @@ export interface FeedInfo {
   etag: string | null
   last_modified: string | null
   last_error: string | null
+  consecutive_failures?: number
+  first_failed_at?: string | null
+  broken?: boolean
 
   // Polling interval
   update_interval: number | null
