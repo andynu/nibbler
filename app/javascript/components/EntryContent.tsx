@@ -165,6 +165,27 @@ export function EntryContent({
   // summarized article costs no request and no model time. Nothing here starts
   // a generation; only handleToggleSummary and the callout's regenerate control
   // do, and both are a press.
+  //
+  // The subscription is unconditional, so walking the list with j/k opens and
+  // closes one per keystroke whether or not a summary is ever asked for. That
+  // was measured before being left alone (ttrb-08ak). A fifty-article walk
+  // opens fifty subscriptions and closes forty-nine. Each one costs 301 bytes
+  // of frames over the socket that is already open, and 1.2ms of server work
+  // in two round trips to two databases: 0.7ms for the access check in
+  // EntrySummaryChannel#subscribed, and 0.5ms for solid_cable's own
+  // SolidCable::Message.maximum(:id), which its listener runs for every stream
+  // name new to the process and every article is its own stream. Almost none
+  // of that is Postgres (0.027ms and 0.008ms respectively, both index
+  // lookups); it is the wire and Active Record.
+  //
+  // Against that, the same keystroke already spends about 4ms of database time
+  // fetching the article and marking it read, and returns an article body next
+  // to which 301 bytes is nothing. So the subscription is roughly a fifth of
+  // what one keystroke costs the database, and gating it would also cost the
+  // reason the stream is keyed on the shared Entry: someone opening an article
+  // another reader is summarizing right now sees that paragraph arrive, and a
+  // subscription that waits for a press would not. Debouncing is the option
+  // that keeps that property, if the fifth ever turns out to matter.
   const entrySummary = useEntrySummary({
     id: entry?.id ?? null,
     entryId: entry?.entry_id ?? null,

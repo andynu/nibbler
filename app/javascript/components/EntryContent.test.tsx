@@ -1230,6 +1230,67 @@ describe("EntryContent", () => {
       expect(mockApiEntriesSummarize).toHaveBeenCalledWith(7)
     })
 
+    /**
+     * Every EntrySummaryChannel subscription this component has ever opened,
+     * in order. `create` is called once per subscribe, so its length is the
+     * churn a walk produced.
+     */
+    function summarySubscribes() {
+      return cableCreate.mock.calls.filter(
+        ([channel]) =>
+          typeof channel === "object" &&
+          channel !== null &&
+          (channel as { channel?: string }).channel === "EntrySummaryChannel"
+      )
+    }
+
+    // Measured for ttrb-08ak: a fifty-article walk opens fifty subscriptions
+    // and closes forty-nine. That is the intended shape -- one per article, the
+    // previous one dropped as the reader moves on -- and it is cheap, but the
+    // two ways it could silently stop being one-per-article are worth pinning.
+    //
+    // This first one guards the ceiling: nothing may open a second subscription
+    // for an article the reader is already on.
+    it("opens one subscription per article and closes the last on the way out", () => {
+      const walk = [4242, 4243, 4244, 4245, 4246]
+      const { rerender } = render(
+        <EntryContent {...defaultProps} entry={mockEntryWithContent({ id: 1, entry_id: walk[0] })} />
+      )
+
+      walk.slice(1).forEach((entryId, index) => {
+        rerender(
+          <EntryContent
+            {...defaultProps}
+            entry={mockEntryWithContent({ id: index + 2, entry_id: entryId })}
+          />
+        )
+      })
+
+      expect(summarySubscribes().map(([channel]) => channel)).toEqual(
+        walk.map((entry_id) => ({ channel: "EntrySummaryChannel", entry_id }))
+      )
+      expect(cableUnsubscribe).toHaveBeenCalledTimes(walk.length - 1)
+    })
+
+    // The other half of the same guard, and the one with a real way to regress:
+    // starring, marking read and saving a note all replace the entry object
+    // while the article stays the same (application.tsx spreads a new object
+    // into setSelectedEntry). The channel is keyed by value, not by identity,
+    // so none of that touches the socket. Passing the channel params in a shape
+    // that compares by reference would turn one subscribe per article into one
+    // per render, which is the cost this ticket was actually worried about.
+    it("does not resubscribe when the same article's row is replaced", () => {
+      const entry = mockEntryWithContent({ id: 7, entry_id: 4242 })
+      const { rerender } = render(<EntryContent {...defaultProps} entry={entry} />)
+
+      rerender(<EntryContent {...defaultProps} entry={{ ...entry, unread: false }} />)
+      rerender(<EntryContent {...defaultProps} entry={{ ...entry, starred: true }} />)
+      rerender(<EntryContent {...defaultProps} entry={{ ...entry, note: "kept" }} />)
+
+      expect(summarySubscribes()).toHaveLength(1)
+      expect(cableUnsubscribe).not.toHaveBeenCalled()
+    })
+
     // The row this lives in used to disappear wholesale while TTS was playing.
     // Summarizing has nothing to do with audio, and being read to is exactly
     // when a reader might want the paragraph.
