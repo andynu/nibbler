@@ -50,4 +50,41 @@ test.describe("Action Cable connection", () => {
     await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
     await expect(page.locator("html")).toHaveAttribute("data-cable", "idle")
   })
+
+  // The app declining to subscribe is not the same as the server declining to
+  // serve. This opens the socket by hand, with no session, and asserts the
+  // server closes it rather than sending a welcome.
+  test("the server refuses a socket carrying no session", async ({ page }) => {
+    await logoutViaApi(page)
+    await page.goto("/")
+    await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
+
+    const outcome = await page.evaluate(
+      () =>
+        new Promise<string>((resolve) => {
+          const url = new URL("/cable", location.href)
+          url.protocol = url.protocol.replace("http", "ws")
+
+          const socket = new WebSocket(url.href, ["actioncable-v1-json"])
+          const giveUp = setTimeout(() => {
+            socket.close()
+            resolve("still open")
+          }, 10000)
+
+          const settle = (result: string) => {
+            clearTimeout(giveUp)
+            socket.close()
+            resolve(result)
+          }
+
+          socket.addEventListener("close", () => settle("closed"))
+          socket.addEventListener("message", (event) => {
+            const message = JSON.parse(event.data as string) as { type?: string }
+            if (message.type === "welcome") settle("welcomed")
+          })
+        })
+    )
+
+    expect(outcome).toBe("closed")
+  })
 })
