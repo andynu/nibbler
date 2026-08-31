@@ -789,6 +789,27 @@ describe("FeedSidebar", () => {
     })
   })
 
+  describe("scrolling region", () => {
+    // Deletion guard, not a catcher. Radix sizes the ScrollArea viewport's
+    // inner wrapper to its content (`display: table`), which let long titles
+    // widen the rows until the unread badges sat outside the sidebar; the
+    // override below bounds it. This suite cannot see that: happy-dom loads no
+    // stylesheet and lays nothing out, so every element here has a zero box and
+    // answers every query regardless of its width. What this does catch is the
+    // override being dropped in a refactor. The behaviour itself is proven in a
+    // real browser by e2e/sidebar-badge-visibility.spec.ts.
+    it("bounds the Radix viewport wrapper the category tree scrolls in", () => {
+      const { container } = render(<FeedSidebar {...defaultProps} />)
+
+      const scrollArea = container.querySelector('[data-slot="scroll-area"]')
+
+      expect(scrollArea).not.toBeNull()
+      expect(scrollArea?.className).toContain(
+        "[&>[data-slot=scroll-area-viewport]>div]:block!"
+      )
+    })
+  })
+
   describe("error indicators", () => {
     it("shows collapsible errors folder when last_error is set", () => {
       const feeds = [
