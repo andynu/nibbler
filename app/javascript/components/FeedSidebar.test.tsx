@@ -16,7 +16,6 @@ vi.mock("@/contexts/ThemeContext", () => ({
 const mockPreferences = {
   hide_read_feeds: "false",
   feeds_sort_by_unread: "false",
-  hide_read_shows_special: "true",
   sync_to_tree: "false",
 }
 
