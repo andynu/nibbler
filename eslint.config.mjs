@@ -1,4 +1,5 @@
 import babelParser from "@babel/eslint-parser"
+import playwright from "eslint-plugin-playwright"
 import reactHooks from "eslint-plugin-react-hooks"
 
 // Deliberately narrow. "Lint" in this repo means RuboCop; this config exists for
@@ -15,7 +16,7 @@ import reactHooks from "eslint-plugin-react-hooks"
 // @typescript/typescript6, which would drag `npm run typecheck` back to the TS 6
 // compiler. Babel parses the syntax without needing a type checker, which is all
 // the react-hooks rules ask for.
-const babelTypeScript = {
+const babelTypeScript = (syntaxPlugins) => ({
   parser: babelParser,
   parserOptions: {
     requireConfigFile: false,
@@ -26,10 +27,10 @@ const babelTypeScript = {
       // Babel 8's eslint parser reads syntax plugins from parserOpts only; a
       // preset listed here is resolved but never reaches @babel/parser, so
       // `interface` fails to parse.
-      parserOpts: { plugins: ["typescript", "jsx"] },
+      parserOpts: { plugins: syntaxPlugins },
     },
   },
-}
+})
 
 // ---------------------------------------------------------------------------
 // local/icon-only-control-needs-label
@@ -246,7 +247,7 @@ export default [
     // callbacks take a parameter named `use`; run the react-hooks rules over it
     // and every fixture reads as a conditional call to React's `use` hook.
     files: ["app/javascript/**/*.{ts,tsx}"],
-    languageOptions: babelTypeScript,
+    languageOptions: babelTypeScript(["typescript", "jsx"]),
     plugins: {
       "react-hooks": reactHooks,
       local: { rules: { "icon-only-control-needs-label": iconOnlyControlNeedsLabel } },
@@ -259,6 +260,28 @@ export default [
       // TabsTrigger, SelectTrigger, PopoverTrigger, TooltipTrigger -- finds
       // nothing extra, so the default is not hiding a backlog.
       "local/icon-only-control-needs-label": "error",
+    },
+  },
+  {
+    // Playwright's rules, and none of React's (see the block above). Only rules
+    // for mistakes this suite has made; the two with a backlog are warnings.
+    files: ["e2e/**/*.ts"],
+    // No jsx: these are .ts files, where `<Page>value` is a cast and the jsx
+    // syntax plugin would read it as an element.
+    languageOptions: babelTypeScript(["typescript"]),
+    plugins: { playwright },
+    rules: {
+      "playwright/no-wait-for-timeout": "error",
+      // A skip conditioned on the engine (Chromium-only permissions, CDP touch)
+      // still runs somewhere. An unconditional one runs nowhere.
+      "playwright/no-skipped-test": ["error", { allowConditional: true }],
+      "playwright/no-conditional-expect": "warn",
+      // Helpers named expect* assert. waitForStable only checks that <body> is
+      // visible, which a crashed app also passes, so it is deliberately absent.
+      "playwright/expect-expect": [
+        "warn",
+        { assertFunctionPatterns: ["^expect[A-Z]"] },
+      ],
     },
   },
 ]

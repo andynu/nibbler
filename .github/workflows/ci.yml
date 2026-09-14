@@ -66,10 +66,10 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
-      # eslint.config.mjs enables react-hooks only. rules-of-hooks is an error,
-      # exhaustive-deps a warning, so this step fails on a conditionally-called
-      # hook and stays green on the pre-existing dependency-array backlog.
-      - name: Lint JavaScript for React hook rules
+      # `eslint .` covers app/javascript (React hook and icon-label rules) and
+      # e2e/ (Playwright rules). Rules with a pre-existing backlog are warnings,
+      # so this step fails on errors only.
+      - name: Lint JavaScript and Playwright specs
         run: npm run lint:js
 
   test:
