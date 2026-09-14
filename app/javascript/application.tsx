@@ -28,6 +28,7 @@ import { useCategoryNavigation } from "@/hooks/useCategoryNavigation"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
 import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
 import { useCableHeartbeat } from "@/hooks/useCableHeartbeat"
+import { useCountersNudge } from "@/hooks/useCountersNudge"
 import { useNewEntries } from "@/hooks/useNewEntries"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
@@ -199,6 +200,13 @@ function App() {
     },
     { enabled: !showSettings }
   )
+
+  // Ingestion also pushes a nudge when it stores entries for this reader, so
+  // the badges move within seconds of a fetch rather than on the next tick.
+  // Only the counters are refetched: new entries move counts, not the feed and
+  // category structure loadFeeds exists to notice. Held while settings are
+  // open, for the same reason as the poll.
+  useCountersNudge(loadCounters, { enabled: !showSettings })
 
   const loadTags = async () => {
     try {
