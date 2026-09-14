@@ -335,6 +335,56 @@ describe("EntryContent", () => {
     })
   })
 
+  describe("per-article state", () => {
+    // The reset is keyed on the article's id alone. Saving a note hands down
+    // the same article with new note text, and the note sits under the body,
+    // so resetting on it would throw the reader back up to the title.
+    it("keeps the scroll position when the open article's note changes", () => {
+      const scrollViewportRef = { current: null as HTMLDivElement | null }
+      const entry = mockEntryWithContent({ id: 1, note: "" })
+
+      const { rerender } = render(
+        <EntryContent {...defaultProps} entry={entry} scrollViewportRef={scrollViewportRef} />
+      )
+
+      scrollViewportRef.current!.scrollTop = 500
+
+      rerender(
+        <EntryContent
+          {...defaultProps}
+          entry={{ ...entry, note: "Saved just now" }}
+          scrollViewportRef={scrollViewportRef}
+        />
+      )
+
+      expect(scrollViewportRef.current!.scrollTop).toBe(500)
+    })
+
+    it("closes an open note editor on the next article and edits that article's note", async () => {
+      const user = userEvent.setup()
+      const first = mockEntryWithContent({ id: 1, note: "First article's note" })
+      const second = mockEntryWithContent({ id: 2, entry_id: 200, note: "Second article's note" })
+      const onUpdateNote = vi.fn()
+
+      const { rerender } = render(
+        <EntryContent {...defaultProps} entry={first} onUpdateNote={onUpdateNote} />
+      )
+
+      await user.click(screen.getByRole("button", { name: "Edit note" }))
+      await user.type(screen.getByPlaceholderText("Add a note about this article..."), " and a draft")
+
+      rerender(<EntryContent {...defaultProps} entry={second} onUpdateNote={onUpdateNote} />)
+
+      expect(screen.queryByPlaceholderText("Add a note about this article...")).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: "Edit note" }))
+
+      expect(screen.getByPlaceholderText("Add a note about this article...")).toHaveValue(
+        "Second article's note"
+      )
+    })
+  })
+
   describe("the reading pane's scrolling region", () => {
     // This sees the mechanism behind ttrb-qgjc but not its consequence. Radix
     // writes `overflow-x` on the viewport as an inline style, from whether a

@@ -202,10 +202,12 @@ export function EntryContent({
     initial: entry?.full_text ?? null,
   })
 
-  // Reset state when entry changes
+  // Reset per-article state when the article changes. Keyed on the id alone: a
+  // saved note arrives as the same article with new note text, and must not
+  // scroll the reader back up to the title. The note draft is not reset here
+  // because opening the editor seeds it from the entry.
   useEffect(() => {
     setIsEditingNote(false)
-    setNoteText(entry?.note || "")
     // A dismissal is about one article. The next one opens with its own cached
     // summary showing, if it has one.
     setSummaryDismissed(false)
@@ -214,7 +216,7 @@ export function EntryContent({
     if (scrollViewportRef?.current) {
       scrollViewportRef.current.scrollTop = 0
     }
-  }, [entry?.id])
+  }, [entry?.id, scrollViewportRef])
 
   const handleStartEditNote = () => {
     setNoteText(entry?.note || "")
