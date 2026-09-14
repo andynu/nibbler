@@ -135,6 +135,30 @@ describe("EditFeedDialog", () => {
     })
   })
 
+  describe("loading feed info", () => {
+    // Keyed on the feed's id. A new object for the same feed must not refetch,
+    // which would put the info column back into its loading state.
+    it("does not refetch when the same feed arrives as a new object", async () => {
+      const { rerender } = render(<EditFeedDialog {...defaultProps} />)
+      await screen.findByRole("button", { name: /test/i })
+
+      rerender(<EditFeedDialog {...defaultProps} feed={{ ...defaultFeed, title: "Renamed" }} />)
+
+      expect(mockApiInfo).toHaveBeenCalledTimes(1)
+      expect(mockApiFiltersList).toHaveBeenCalledTimes(1)
+    })
+
+    it("refetches when a different feed is opened", async () => {
+      const { rerender } = render(<EditFeedDialog {...defaultProps} />)
+      await screen.findByRole("button", { name: /test/i })
+
+      rerender(<EditFeedDialog {...defaultProps} feed={mockFeed({ id: 2, title: "Other Feed" })} />)
+
+      await waitFor(() => expect(mockApiInfo).toHaveBeenCalledTimes(2))
+      expect(mockApiInfo).toHaveBeenLastCalledWith(2)
+    })
+  })
+
   describe("rendering", () => {
     it("shows dialog when open is true", () => {
       render(<EditFeedDialog {...defaultProps} open={true} />)

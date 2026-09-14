@@ -211,11 +211,14 @@ export function EditFeedDialog({
     }
   }, [feed])
 
-  // Load feed info when dialog opens
+  // Load feed info when dialog opens. Keyed on the id rather than the object: a
+  // new Feed object for the same feed is no reason to refetch its stats and
+  // filters.
+  const feedId = feed?.id ?? null
   useEffect(() => {
-    if (open && feed) {
+    if (open && feedId !== null) {
       setIsInfoLoading(true)
-      Promise.all([api.feeds.info(feed.id), api.filters.list()])
+      Promise.all([api.feeds.info(feedId), api.filters.list()])
         .then(([feedInfo, filterList]) => {
           setInfo(feedInfo)
           setFilters(filterList)
@@ -226,7 +229,7 @@ export function EditFeedDialog({
       setInfo(null)
       setFilters([])
     }
-  }, [open, feed?.id])
+  }, [open, feedId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
