@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { api } from "@/lib/api"
 import { getTagColor } from "@/lib/tag-colors"
 import { cn } from "@/lib/utils"
@@ -109,22 +109,22 @@ export function SuggestedTags({ entryId, existingTags, allTags = [], onAddTag, o
     }
   }
 
-  const handleAddTagFromPopover = useCallback(
-    async (tagName: string) => {
-      const normalized = tagName.toLowerCase().trim()
-      if (!normalized || existingTagsLower.has(normalized) || isAdding) return
+  // A plain function: every caller wraps it in a fresh arrow, and the parent
+  // hands down a new existingTags array each render, so memoizing it saved
+  // nothing.
+  const handleAddTagFromPopover = async (tagName: string) => {
+    const normalized = tagName.toLowerCase().trim()
+    if (!normalized || existingTagsLower.has(normalized) || isAdding) return
 
-      setIsAdding(true)
-      try {
-        await onAddTag(normalized)
-        setInputValue("")
-        setOpen(false)
-      } finally {
-        setIsAdding(false)
-      }
-    },
-    [existingTagsLower, onAddTag, isAdding]
-  )
+    setIsAdding(true)
+    try {
+      await onAddTag(normalized)
+      setInputValue("")
+      setOpen(false)
+    } finally {
+      setIsAdding(false)
+    }
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && inputValue.trim()) {
