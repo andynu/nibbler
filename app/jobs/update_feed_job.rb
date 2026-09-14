@@ -40,6 +40,7 @@ class UpdateFeedJob < ApplicationJob
 
     if result.success?
       Rails.logger.info "Updated feed #{feed.id} (#{feed.title}): #{result.new_entries_count} new entries#{skipped_note(result)}"
+      nudge_counters(feed) if result.new_entries_count.positive?
     elsif result.rate_limited?
       Rails.logger.warn "Rate limited on feed #{feed.id} (#{feed.title}): backoff until #{feed.retry_after}"
     else
@@ -75,6 +76,16 @@ class UpdateFeedJob < ApplicationJob
     self.class.set(wait: delay.seconds).perform_later(feed.id, deferrals: deferrals + 1)
     Rails.logger.info "Deferring feed #{feed.id} (#{feed.title}) by #{delay.round(1)}s: domain requested too recently"
     true
+  end
+
+  # Tells the feed owner's open tabs to refetch their counters. Only a fetch that
+  # stored entries can have moved them. A failed broadcast is logged, not
+  # raised: retry_on would otherwise re-fetch the feed for a message the
+  # client's poll already makes up for.
+  def nudge_counters(feed)
+    CountersChannel.broadcast_stale(feed.user)
+  rescue StandardError => e
+    Rails.logger.warn "Could not nudge counters for feed #{feed.id} (#{feed.title}): #{e.message}"
   end
 
   def fetch(feed)

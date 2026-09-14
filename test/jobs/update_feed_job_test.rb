@@ -8,6 +8,8 @@ require "minitest/mock"
 # that holds a thread hostage, so the domain rate limit is enforced by
 # rescheduling and the job must never block on a fixed inter-request delay.
 class UpdateFeedJobTest < ActiveJob::TestCase
+  include ActionCable::TestHelper
+
   FEED_URL = "https://example.com/feed.xml".freeze
   CACHE_KEY = "domain_throttle:example.com".freeze
 
@@ -167,10 +169,68 @@ class UpdateFeedJobTest < ActiveJob::TestCase
     assert_empty updated
   end
 
+  # ==========================
+  # Counter nudges
+  # ==========================
+
+  test "nudges the feed owner's counters when the fetch stored entries" do
+    assert_broadcasts(CountersChannel.stream_name_for(@user), 1) do
+      stub_updater(result: result_with(new_entries_count: 2)) { UpdateFeedJob.perform_now(@feed.id) }
+    end
+  end
+
+  test "does not nudge a user who does not own the feed" do
+    Feed.create!(user: users(:two), title: "Same URL, other reader", feed_url: FEED_URL)
+
+    assert_no_broadcasts(CountersChannel.stream_name_for(users(:two))) do
+      stub_updater(result: result_with(new_entries_count: 2)) { UpdateFeedJob.perform_now(@feed.id) }
+    end
+  end
+
+  test "does not nudge when the fetch stored nothing" do
+    assert_no_broadcasts(CountersChannel.stream_name_for(@user)) do
+      stub_updater(result: result_with(new_entries_count: 0)) { UpdateFeedJob.perform_now(@feed.id) }
+    end
+  end
+
+  test "does not nudge when the feed was not modified" do
+    assert_no_broadcasts(CountersChannel.stream_name_for(@user)) do
+      stub_updater(result: result_with(status: :not_modified)) { UpdateFeedJob.perform_now(@feed.id) }
+    end
+  end
+
+  test "does not nudge when the fetch failed" do
+    assert_no_broadcasts(CountersChannel.stream_name_for(@user)) do
+      stub_updater(result: result_with(status: :error)) { UpdateFeedJob.perform_now(@feed.id) }
+    end
+  end
+
+  test "does not nudge while deferring around a busy domain" do
+    DomainThrottler.record(FEED_URL)
+
+    assert_no_broadcasts(CountersChannel.stream_name_for(@user)) do
+      stub_updater(result: result_with(new_entries_count: 2)) { UpdateFeedJob.perform_now(@feed.id) }
+    end
+  end
+
+  # retry_on StandardError would turn a raised broadcast into a second fetch of
+  # a feed whose entries are already stored.
+  test "a failed nudge does not retry the job" do
+    CountersChannel.stub(:broadcast_stale, ->(_user) { raise ActiveRecord::ConnectionNotEstablished }) do
+      assert_no_enqueued_jobs(only: UpdateFeedJob) do
+        stub_updater(result: result_with(new_entries_count: 2)) { UpdateFeedJob.perform_now(@feed.id) }
+      end
+    end
+  end
+
   private
 
   def ok_result
     FeedUpdater::UpdateResult.new(feed: @feed, new_entries_count: 0, status: :ok)
+  end
+
+  def result_with(new_entries_count: 0, status: :ok)
+    FeedUpdater::UpdateResult.new(feed: @feed, new_entries_count: new_entries_count, status: status)
   end
 
   # Replaces the network boundary. `calls` collects the feeds handed to
