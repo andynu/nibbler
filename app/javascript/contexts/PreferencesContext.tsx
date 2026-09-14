@@ -60,10 +60,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // the login form too, so this reads its context rather than owning the state.
   const { theme: appliedTheme, adoptServerTheme } = useTheme()
 
-  useEffect(() => {
-    loadPreferences()
-  }, [])
-
   // preferences.theme is the stored form of what ThemeContext applies. Mirror
   // it so a reader of the preference cannot be handed a theme the app is not
   // in; the write to the server is ThemeContext's, not another update here.
@@ -140,7 +136,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     const askedAt = writeSeq.current
     try {
       const data = await api.preferences.get()
@@ -176,7 +172,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [adoptServerTheme])
+
+  // Once per provider: adoptServerTheme is stable, so nothing moves the loader.
+  useEffect(() => {
+    loadPreferences()
+  }, [loadPreferences])
 
   const updatePreference = useCallback(async (key: keyof Preferences, value: string) => {
     const update = { [key]: value } as Partial<Preferences>
@@ -188,7 +189,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       console.error("Failed to update preference:", error)
       loadPreferences()
     }
-  }, [])
+  }, [noteLocalWrite, loadPreferences])
 
   const updatePreferences = useCallback(async (updates: Partial<Preferences>) => {
     noteLocalWrite(updates)
@@ -199,7 +200,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       console.error("Failed to update preferences:", error)
       loadPreferences()
     }
-  }, [])
+  }, [noteLocalWrite, loadPreferences])
 
   return (
     <PreferencesContext.Provider value={{ preferences, isLoading, updatePreference, updatePreferences }}>

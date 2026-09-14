@@ -2,7 +2,7 @@ import { render, screen, waitFor, act } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { PreferencesProvider, usePreferences } from "./PreferencesContext"
 import type { Preferences } from "@/lib/api"
-import { ThemeProvider } from "./ThemeContext"
+import { ThemeProvider, useTheme } from "./ThemeContext"
 import { mockPreferences } from "../../../test/fixtures/data"
 
 // Mock the API
@@ -327,6 +327,48 @@ describe("PreferencesContext", () => {
       })
 
       consoleSpy.mockRestore()
+    })
+  })
+
+  describe("the boot load", () => {
+    // setTheme caches the choice, and a cached theme is adopted on the next
+    // provider's boot, which would leak into every example after this one.
+    beforeEach(() => localStorage.clear())
+    afterEach(() => localStorage.clear())
+
+    function ThemeSwitcher() {
+      const { setTheme } = useTheme()
+      return (
+        <button data-testid="switch-theme" onClick={() => setTheme("sepia")}>
+          Switch theme
+        </button>
+      )
+    }
+
+    // The loader depends on adoptServerTheme, and a theme change re-renders
+    // both providers. Neither is a reason to ask the server again.
+    it("is not repeated when the applied theme changes", async () => {
+      render(
+        <ThemeProvider>
+          <PreferencesProvider>
+            <TestConsumer />
+            <ThemeSwitcher />
+          </PreferencesProvider>
+        </ThemeProvider>
+      )
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded")
+      })
+
+      act(() => {
+        screen.getByTestId("switch-theme").click()
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId("theme")).toHaveTextContent("sepia")
+      })
+      expect(mockApiGet).toHaveBeenCalledTimes(1)
     })
   })
 
