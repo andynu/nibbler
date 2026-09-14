@@ -243,6 +243,34 @@ describe('StoryDetail', () => {
     expect(screen.getByRole('button', { name: /regenerate wrapup/i })).toBeInTheDocument();
   });
 
+  it('shows why a wrapup failed and lets the reader try again', async () => {
+    mockedGet.mockResolvedValue({
+      id: 5,
+      name: 'Story',
+      queries: ['q'],
+      summary: null,
+      status: 'concluded',
+      source_entry_id: null,
+      concluded_at: '2026-04-10T00:00:00Z',
+      wrapup: null,
+      wrapup_generated_at: null,
+      created_at: '2026-04-01T00:00:00Z',
+      analyses: [],
+      articles: [],
+    });
+    mockedGenerateWrapup.mockRejectedValue(
+      new Error('LLM unreachable: Ollama unreachable at http://baru:11434'),
+    );
+
+    render(<StoryDetail storyId={5} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /generate wrapup/i }));
+
+    expect(await screen.findByText(/LLM unreachable/)).toBeInTheDocument();
+    expect(screen.queryByText(/generating/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /generate wrapup/i })).toBeEnabled();
+  });
+
   it('shows an existing wrapup when the story has one', async () => {
     mockedGet.mockResolvedValue({
       id: 6,
