@@ -94,6 +94,7 @@ export function SearchResultList({
         <div
           key={result.id}
           data-entry-id={result.id}
+          data-unread={result.unread}
           role="option"
           aria-selected={selectedEntryId === result.id}
           className={cn(

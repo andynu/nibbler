@@ -78,6 +78,19 @@ describe("SearchResultList", () => {
     expect(options[1]).toHaveAttribute("aria-selected", "true")
   })
 
+  it("marks unread and read hits the way the entry list marks its rows", () => {
+    render(
+      <SearchResultList
+        {...defaultProps}
+        results={[mockSearchResult({ id: 1, unread: true }), mockSearchResult({ id: 2, unread: false })]}
+      />
+    )
+
+    const options = screen.getAllByRole("option")
+    expect(options[0]).toHaveAttribute("data-unread", "true")
+    expect(options[1]).toHaveAttribute("data-unread", "false")
+  })
+
   it("shows a searching state while the first response is outstanding", () => {
     render(<SearchResultList {...defaultProps} isSearching={true} />)
 
