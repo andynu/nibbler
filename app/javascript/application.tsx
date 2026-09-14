@@ -498,13 +498,13 @@ function App() {
     }
   }
 
-  const handleToggleRead = async (entryId: number) => {
+  const handleToggleRead = useCallback(async (entryId: number) => {
     try {
       const result = await api.entries.toggleRead(entryId)
       setEntries((prev) =>
         prev.map((e) => (e.id === entryId ? { ...e, unread: result.unread } : e))
       )
-      entrySearch.updateResult(entryId, { unread: result.unread })
+      updateSearchResult(entryId, { unread: result.unread })
       if (selectedEntry?.id === entryId) {
         setSelectedEntry({ ...selectedEntry, unread: result.unread })
       }
@@ -513,15 +513,15 @@ function App() {
     } catch (error) {
       console.error("Failed to toggle read:", error)
     }
-  }
+  }, [selectedEntry, updateSearchResult, loadCounters])
 
-  const handleToggleStarredEntry = async (entryId: number) => {
+  const handleToggleStarredEntry = useCallback(async (entryId: number) => {
     try {
       const result = await api.entries.toggleStarred(entryId)
       setEntries((prev) =>
         prev.map((e) => (e.id === entryId ? { ...e, starred: result.starred } : e))
       )
-      entrySearch.updateResult(entryId, { starred: result.starred })
+      updateSearchResult(entryId, { starred: result.starred })
       if (selectedEntry?.id === entryId) {
         setSelectedEntry({ ...selectedEntry, starred: result.starred })
       }
@@ -529,13 +529,13 @@ function App() {
     } catch (error) {
       console.error("Failed to toggle starred:", error)
     }
-  }
+  }, [selectedEntry, updateSearchResult, loadCounters])
 
-  // No `entrySearch.updateResult` here, or in handleSetScore below, unlike the
+  // No `updateSearchResult` here, or in handleSetScore below, unlike the
   // read and starred handlers: SearchController's projection carries neither
   // `is_published` nor `score`, and SearchResultList draws neither, so a search
   // row has nothing that could go stale (ttrb-zgvy).
-  const handleTogglePublishedEntry = async (entryId: number) => {
+  const handleTogglePublishedEntry = useCallback(async (entryId: number) => {
     try {
       const result = await api.entries.togglePublished(entryId)
       setEntries((prev) =>
@@ -548,7 +548,7 @@ function App() {
     } catch (error) {
       console.error("Failed to toggle published:", error)
     }
-  }
+  }, [selectedEntry, loadCounters])
 
   const handleUpdateNote = async (note: string) => {
     if (!selectedEntry) return
@@ -787,19 +787,19 @@ function App() {
     if (selectedEntry) {
       handleToggleRead(selectedEntry.id)
     }
-  }, [selectedEntry])
+  }, [selectedEntry, handleToggleRead])
 
   const handleKeyboardToggleStarred = useCallback(() => {
     if (selectedEntry) {
       handleToggleStarredEntry(selectedEntry.id)
     }
-  }, [selectedEntry])
+  }, [selectedEntry, handleToggleStarredEntry])
 
   const handleKeyboardTogglePublished = useCallback(() => {
     if (selectedEntry) {
       handleTogglePublishedEntry(selectedEntry.id)
     }
-  }, [selectedEntry])
+  }, [selectedEntry, handleTogglePublishedEntry])
 
   const handleKeyboardOpen = useCallback(() => {
     if (selectedEntry) {
