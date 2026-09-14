@@ -717,7 +717,7 @@ function App() {
       // At end of list, trigger boundary feedback
       triggerBoundaryFeedback("end")
     }
-  }, [entries, currentIndex, triggerBoundaryFeedback])
+  }, [entries, currentIndex, loadEntry, triggerBoundaryFeedback])
 
   const handleKeyboardPrevious = useCallback(() => {
     if (entries.length === 0) return
@@ -730,7 +730,7 @@ function App() {
       // At start of list, trigger boundary feedback
       triggerBoundaryFeedback("start")
     }
-  }, [entries, currentIndex, triggerBoundaryFeedback])
+  }, [entries, currentIndex, loadEntry, triggerBoundaryFeedback])
 
   const handleKeyboardNextUnread = useCallback(() => {
     if (entries.length === 0) return
@@ -743,7 +743,7 @@ function App() {
       }
     }
     // No unread found after current position
-  }, [entries, currentIndex])
+  }, [entries, currentIndex, loadEntry])
 
   // Flash the row of the category the reader is parked on when Shift+J/K has
   // nowhere further to go. The entry-list flash above is the wrong surface for
@@ -808,7 +808,7 @@ function App() {
       // If no entry selected, open first one
       loadEntry(entries[0].id)
     }
-  }, [selectedEntry, entries])
+  }, [selectedEntry, entries, loadEntry])
 
   const handleKeyboardClose = useCallback(() => {
     // If in focus mode, exit it; otherwise close the selected entry
@@ -826,7 +826,7 @@ function App() {
   // what a `() => void` handler slot means.
   const handleKeyboardRefresh = useCallback(() => {
     return loadEntries()
-  }, [selectedFeedId, selectedCategoryId, virtualFeed, selectedTag])
+  }, [loadEntries])
 
   // Handle multi-column sort changes from EntryList
   const handleSortChange = useCallback((newSort: SortConfig[]) => {

@@ -130,4 +130,32 @@ test.describe("Entry list sorting", () => {
     expect((await feedsPage.getEntryTitles())[0]).not.toBe(DATE_DESC_FIRST)
     expect(await activeSortColumn(page)).toEqual(["Title"])
   })
+
+  // `r` and the phone's pull-to-refresh share one handler. It held the loader
+  // from the first render, so a refresh asked for the list as the defaults
+  // described it and put the rows back in date order under a Title header.
+  test("a refresh asks for the sort the list is already in", async ({ page }) => {
+    const feedsPage = new FeedsPage(page)
+    await page.goto("/")
+    await feedsPage.waitForReady()
+
+    await page.getByRole("button", { name: "Title", exact: true }).click()
+    await expect
+      .poll(async () => (await feedsPage.getEntryTitles())[0])
+      .toBe(TITLE_DESC_FIRST)
+
+    // An open article is closed by a completed reload, which is how the
+    // example knows the refreshed rows are the ones on screen.
+    await page.keyboard.press("j")
+    await expect(page.getByTestId("entry-header")).toBeVisible()
+
+    const refresh = page.waitForRequest(/\/api\/v1\/entries\?/)
+    await page.keyboard.press("r")
+    const sort = new URL((await refresh).url()).searchParams.get("sort")
+    expect(sort).toMatch(/^title:/)
+
+    await expect(page.getByText("Select an entry to read")).toBeVisible()
+    expect((await feedsPage.getEntryTitles())[0]).toBe(TITLE_DESC_FIRST)
+    expect(await activeSortColumn(page)).toEqual(["Title"])
+  })
 })
