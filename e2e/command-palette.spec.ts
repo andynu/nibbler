@@ -244,8 +244,15 @@ test.describe("Feed Selection", () => {
 
     await commandPalette.open()
 
+    // The palette's feeds come from App's own load, which waitForBranding does
+    // not wait for, and cmdk never renders an item that mounts under an active
+    // query. So the feed has to be listed before typing.
+    const feedOption = page.getByRole("option", { name: feeds[0].title })
+    await expect(feedOption).toBeVisible()
+
     // Type part of feed name to filter
     await commandPalette.search(feeds[0].title.substring(0, 3))
+    await expect(feedOption).toHaveAttribute("aria-selected", "true")
 
     await commandPalette.selectFirstResult()
     await expect(commandPalette.dialog).not.toBeVisible()
