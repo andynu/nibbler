@@ -140,11 +140,34 @@ function App() {
     loadTags()
   }, [])
 
+  const loadCounters = useCallback(async () => {
+    try {
+      const result = await api.counters.get({
+        fresh_max_age: freshMaxAge,
+        fresh_per_feed: freshPerFeed ?? undefined,
+      })
+      setVirtualFolderCounts({
+        fresh: result.virtual.fresh,
+        starred: result.virtual.starred,
+        published: result.virtual.published,
+      })
+      // The same response carries per-feed and per-category unread counts, so
+      // the sidebar badges come off this request too rather than off a second
+      // and third one (ttrb-81wy). Applied through the updater rather than a
+      // captured array so an edit made while the request was in flight is
+      // still the thing being overlaid.
+      setFeeds((prev) => applyUnreadCounts(prev, result.feeds))
+      setCategories((prev) => applyUnreadCounts(prev, result.categories))
+    } catch (error) {
+      console.error("Failed to load counters:", error)
+    }
+  }, [freshMaxAge, freshPerFeed])
+
   // Counters load on mount and again whenever the Fresh window or per-feed cap
   // changes, since the Fresh badge counts what those two selectors leave.
   useEffect(() => {
     loadCounters()
-  }, [freshMaxAge, freshPerFeed])
+  }, [loadCounters])
 
   // Every other counter refresh hangs off something the reader did, so the
   // entries the feed-refresh job ingests server-side never reach the badges:
@@ -177,16 +200,6 @@ function App() {
     { enabled: !showSettings }
   )
 
-  // Register audio player navigation callback
-  useEffect(() => {
-    audioPlayer.setOnJumpToEntry((entryId: number) => {
-      loadEntry(entryId)
-    })
-    return () => {
-      audioPlayer.setOnJumpToEntry(null)
-    }
-  }, [])
-
   const loadTags = async () => {
     try {
       const tags = await api.tags.list()
@@ -196,29 +209,6 @@ function App() {
       )
     } catch (error) {
       console.error("Failed to load tags:", error)
-    }
-  }
-
-  const loadCounters = async () => {
-    try {
-      const result = await api.counters.get({
-        fresh_max_age: freshMaxAge,
-        fresh_per_feed: freshPerFeed ?? undefined,
-      })
-      setVirtualFolderCounts({
-        fresh: result.virtual.fresh,
-        starred: result.virtual.starred,
-        published: result.virtual.published,
-      })
-      // The same response carries per-feed and per-category unread counts, so
-      // the sidebar badges come off this request too rather than off a second
-      // and third one (ttrb-81wy). Applied through the updater rather than a
-      // captured array so an edit made while the request was in flight is
-      // still the thing being overlaid.
-      setFeeds((prev) => applyUnreadCounts(prev, result.feeds))
-      setCategories((prev) => applyUnreadCounts(prev, result.categories))
-    } catch (error) {
-      console.error("Failed to load counters:", error)
     }
   }
 
@@ -291,11 +281,7 @@ function App() {
   }, [entriesQuery])
 
   const entrySearch = useEntrySearch(searchListScope)
-
-  // Load entries when selection, sort order, filter preferences, or fresh params change
-  useEffect(() => {
-    loadEntries()
-  }, [entriesQuery])
+  const { updateResult: updateSearchResult } = entrySearch
 
   // The list itself is deliberately left out of the tick above: loadEntries
   // clears the selection and replaces every row, so polling it would close the
@@ -311,6 +297,7 @@ function App() {
     scope: entriesQuery,
     enabled: !showSettings && virtualFeed !== "stories",
   })
+  const { reset: resetNewEntries } = newEntries
 
   const loadFeeds = async () => {
     setIsLoadingFeeds(true)
@@ -351,7 +338,7 @@ function App() {
   // Same guard as useEntrySearch's requestSeq and useNewEntries' probeSeq.
   const entriesSeq = useRef(0)
 
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     const seq = ++entriesSeq.current
     // The stories view is not backed by the entries API; skip loading. The
     // bump above still counts: it abandons any request in flight, which would
@@ -371,7 +358,7 @@ function App() {
       // This list came straight from the server, so any stored probe is both
       // redundant and misleading: entries that fell off the end of the
       // per_page window would otherwise read as new.
-      newEntries.reset()
+      resetNewEntries()
     } catch (error) {
       console.error("Failed to load entries:", error)
     } finally {
@@ -379,9 +366,16 @@ function App() {
       // is still running, and the list is still loading.
       if (seq === entriesSeq.current) setIsLoadingEntries(false)
     }
-  }
+  }, [virtualFeed, entriesQuery, resetNewEntries])
 
-  const loadEntry = async (entryId: number) => {
+  // Load entries when selection, sort order, filter preferences, or fresh params
+  // change. virtualFeed is one of entriesQuery's inputs, so loadEntries changes
+  // exactly when the query does.
+  useEffect(() => {
+    loadEntries()
+  }, [loadEntries])
+
+  const loadEntry = useCallback(async (entryId: number) => {
     setIsLoadingEntry(true)
     try {
       const entry = await api.entries.get(entryId)
@@ -397,7 +391,7 @@ function App() {
         // reach them. Opening a hit is the commonest way into that: the reader
         // takes no deliberate action and the row they just clicked would go on
         // claiming to be unread (ttrb-zgvy).
-        entrySearch.updateResult(entryId, { unread: false })
+        updateSearchResult(entryId, { unread: false })
         loadFeeds() // Refresh unread counts
         loadCounters() // Refresh virtual folder counts
       }
@@ -406,7 +400,14 @@ function App() {
     } finally {
       setIsLoadingEntry(false)
     }
-  }
+  }, [updateSearchResult, loadCounters])
+
+  // Register audio player navigation callback
+  const { setOnJumpToEntry } = audioPlayer
+  useEffect(() => {
+    setOnJumpToEntry(loadEntry)
+    return () => setOnJumpToEntry(null)
+  }, [setOnJumpToEntry, loadEntry])
 
   const handleSelectFeed = (feedId: number | null) => {
     setSelectedFeedId(feedId)
