@@ -60,13 +60,12 @@ function searchRow(page: Page, headline: string) {
 /**
  * Hits still showing as unread.
  *
- * A search row says "unread" with a left border and a filled dot, neither of
- * which reaches the accessibility tree, and unlike the entry list's rows it
- * carries no `data-unread` attribute to read instead (ttrb-p7ya). The class is
- * the only signal there is.
+ * A search row draws "unread" as a left border and a filled dot, neither of
+ * which reaches the accessibility tree, and it has no read toggle whose name
+ * could say it. `data-unread` is the same hook the entry list's rows carry.
  */
 function unreadSearchRows(page: Page) {
-  return searchResults(page).locator('[role="option"].border-l-2')
+  return searchRows(page).and(page.locator('[data-unread="true"]'))
 }
 
 function entryList(page: Page) {
@@ -450,19 +449,19 @@ test.describe("A hit the reader changes under the search", () => {
     await expect(searchRows(page)).toHaveCount(6)
 
     const row = searchRow(page, UNREAD_UNSTARRED)
-    await expect(row).toHaveClass(/border-l-2/)
+    await expect(row).toHaveAttribute("data-unread", "true")
 
     await row.click()
     await expect(page.getByRole("article")).toBeVisible()
 
     // The row the reader just clicked stops claiming to be unread, without the
     // search being re-run under them.
-    await expect(row).not.toHaveClass(/border-l-2/)
+    await expect(row).toHaveAttribute("data-unread", "false")
     await expect(searchRows(page)).toHaveCount(6)
 
     // `m` toggles it back, through the other handler that patches search rows.
     await page.keyboard.press("m")
-    await expect(row).toHaveClass(/border-l-2/)
+    await expect(row).toHaveAttribute("data-unread", "true")
   })
 
   test("s stars a hit and the row grows a star", async ({ authenticatedPage: page }) => {
@@ -516,7 +515,7 @@ test.describe("A hit the reader changes under the search", () => {
     // three feeds keep their four unread each.
     await expect(unreadSearchRows(page)).toHaveCount(12)
     for (const headline of RUST_HEADLINES_NEWEST_FIRST) {
-      await expect(searchRow(page, headline)).not.toHaveClass(/border-l-2/)
+      await expect(searchRow(page, headline)).toHaveAttribute("data-unread", "false")
     }
   })
 })
