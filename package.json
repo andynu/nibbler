@@ -7,7 +7,7 @@
   "scripts": {
     "build": "esbuild app/javascript/application.tsx --bundle --sourcemap --format=esm --outdir=app/assets/builds --public-path=/assets --loader:.tsx=tsx --loader:.ts=ts --alias:@=./app/javascript",
     "build:css": "npx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --minify",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "lint:js": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
@@ -54,6 +54,7 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.9.5",
     "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

@@ -1,0 +1,20 @@
+{
+  // The config files that run in Node. They are a separate program so that
+  // "node" in types stays out of tsconfig.json, where Node's globals would
+  // apply to app/javascript as well.
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["playwright.config.ts", "vitest.config.mts"]
+}

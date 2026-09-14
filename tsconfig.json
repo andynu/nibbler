@@ -20,8 +20,8 @@
     },
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
-  // playwright.config.ts and vitest.config.mts are deliberately absent: they run
-  // in Node and reference `process`, which needs @types/node, and adding that
-  // puts Node's globals in front of the browser ones for app/javascript too.
+  // playwright.config.ts and vitest.config.mts run in Node and are checked by
+  // tsconfig.node.json. Adding "node" to types here would put Node's globals in
+  // front of the browser ones for app/javascript too.
   "include": ["app/javascript/**/*", "test/**/*", "e2e/**/*"]
 }
