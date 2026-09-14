@@ -194,7 +194,7 @@ class FeedUpdater
         title: parsed_entry.title,
         link: parsed_entry.link,
         content: parsed_entry.content,
-        content_hash: Digest::SHA256.hexdigest(parsed_entry.content),
+        content_hash: content_digest(parsed_entry.content),
         author: parsed_entry.author || "",
         updated: parsed_entry.updated || Time.current,
         date_entered: Time.current,
@@ -239,7 +239,30 @@ class FeedUpdater
 
       true # New entry for this user
     else
+      apply_edit(entry, parsed_entry) if user_entry.feed_id == @feed.id
       false # Already had this entry
     end
+  end
+
+  # Follows a republished item's edited text, so content_hash moves and the
+  # summary, full-text and audio caches keyed to it see the change.
+  #
+  # Only the feed the reader's row came from may write: entries are shared by
+  # GUID, and two feeds carrying one item with different bodies would otherwise
+  # overwrite each other on every fetch. Read state and entries.updated are left
+  # alone, and an empty republish keeps the stored body rather than erasing it.
+  def apply_edit(entry, parsed_entry)
+    content = parsed_entry.content
+    return if content.blank?
+
+    digest = content_digest(content)
+    return if digest == entry.content_hash
+
+    entry.update!(content: content, content_hash: digest, cached_content: nil, date_updated: Time.current)
+    CacheArticleImagesJob.perform_later(entry.id) if @feed.cache_images?
+  end
+
+  def content_digest(content)
+    Digest::SHA256.hexdigest(content)
   end
 end

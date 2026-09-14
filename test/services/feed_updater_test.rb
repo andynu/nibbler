@@ -244,7 +244,119 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_nil @feed.first_failed_at
   end
 
+  # ==========================================
+  # Republished items
+  #
+  # A feed that republishes an item under the same GUID with different text has
+  # edited it. EntrySummary#stale?, EntryFullText#stale? and CachedAudio all key
+  # off the stored body, so it has to follow the edit for any of them to notice.
+  # ==========================================
+
+  test "an edited republish replaces the stored body and its hash" do
+    update_with(edition("first draft"))
+    update_with(edition("corrected copy"))
+
+    entry = Entry.find_by!(guid: "edited")
+    assert_includes entry.content, "corrected copy"
+    assert_equal Digest::SHA256.hexdigest(entry.content), entry.content_hash
+  end
+
+  test "an edit makes a summary of the earlier text stale" do
+    update_with(edition("first draft"))
+    summary = summarize(Entry.find_by!(guid: "edited"))
+    assert_not summary.stale?, "precondition: the summary starts current"
+
+    update_with(edition("corrected copy"))
+
+    assert summary.reload.stale?
+  end
+
+  test "a republish with identical text is not an edit" do
+    update_with(edition("first draft"))
+    entry = Entry.find_by!(guid: "edited")
+    entry.update!(cached_content: "<p>first draft, images cached</p>")
+    summary = summarize(entry)
+
+    travel 1.hour do
+      update_with(edition("first draft"))
+    end
+
+    assert_not summary.reload.stale?
+    assert_equal "<p>first draft, images cached</p>", entry.reload.cached_content
+  end
+
+  test "an edit is not a new article" do
+    update_with(edition("first draft"))
+    user_entry = @feed.user_entries.joins(:entry).find_by!(entries: { guid: "edited" })
+    user_entry.update!(unread: false, marked: true, score: 5, note: "check the numbers")
+    published = user_entry.entry.updated
+
+    result = travel(1.hour) { update_with(edition("corrected copy")) }
+
+    assert_equal 0, result.new_entries_count
+    user_entry.reload
+    assert_not user_entry.unread
+    assert user_entry.marked
+    assert_equal 5, user_entry.score
+    assert_equal "check the numbers", user_entry.note
+    assert_equal published, user_entry.entry.updated,
+      "entries.updated drives Fresh and the published sort; an edit must not resurface the article"
+  end
+
+  test "an edit drops the image-rewritten copy of the earlier text" do
+    update_with(edition("first draft"))
+    entry = Entry.find_by!(guid: "edited")
+    entry.update!(cached_content: "<p>first draft, images cached</p>")
+
+    update_with(edition("corrected copy"))
+
+    assert_nil entry.reload.cached_content
+  end
+
+  test "an edit on an image-caching feed queues the new body's images" do
+    @feed.update!(cache_images: true)
+    update_with(edition("first draft"))
+    entry = Entry.find_by!(guid: "edited")
+
+    assert_enqueued_with(job: CacheArticleImagesJob, args: [ entry.id ]) do
+      update_with(edition("corrected copy"))
+    end
+  end
+
+  test "a republish with no body keeps the body already stored" do
+    update_with(edition("first draft"))
+    update_with(rss(item(guid: "edited", title: "Edited")))
+
+    assert_includes Entry.find_by!(guid: "edited").content, "first draft"
+  end
+
+  # Entries are shared by GUID, so two feeds can carry one item. If both could
+  # write, a pair with different bodies would overwrite each other on every
+  # fetch and every summary of the item would read stale.
+  test "a second feed carrying the same item does not rewrite the text" do
+    aggregator = Feed.create!(user: @user, title: "Aggregator", feed_url: "https://planet.example.com/feed.xml")
+    update_with(edition("first draft"))
+
+    update_with(edition("aggregator's trimmed copy"), feed: aggregator)
+
+    assert_includes Entry.find_by!(guid: "edited").content, "first draft"
+  end
+
   private
+
+  def edition(text)
+    rss(item(guid: "edited", title: "Edited", body: "&lt;p&gt;#{text}&lt;/p&gt;"))
+  end
+
+  def summarize(entry)
+    EntrySummary.create!(
+      entry: entry,
+      summary: "A paragraph about the article.",
+      content_hash: entry.content_hash,
+      model: "gemma4:e4b",
+      generated_at: Time.current
+    )
+  end
 
   # FeedUpdater#update stamps last_update_started, and both the scheduler's
   # not_updating scope and its force mode skip a feed for the two minutes that
@@ -260,18 +372,18 @@ class FeedUpdaterTest < ActiveSupport::TestCase
   end
 
   # Runs a real FeedUpdater over a canned body, stubbing only the network.
-  def update_with(body)
-    update_with_fetch_result(FeedFetcher::FetchResult.new(status: :ok, body: body))
+  def update_with(body, feed: @feed)
+    update_with_fetch_result(FeedFetcher::FetchResult.new(status: :ok, body: body), feed: feed)
   end
 
   # Same, but for a fetch that did not come back with a body. Nothing here
   # touches the network: the stub replaces FeedFetcher.for outright.
-  def update_with_fetch_result(result)
+  def update_with_fetch_result(result, feed: @feed)
     fetcher = Object.new
     fetcher.define_singleton_method(:fetch) { result }
 
     FeedFetcher.stub(:for, ->(*, **) { fetcher }) do
-      FeedUpdater.new(@feed).update
+      FeedUpdater.new(feed).update
     end
   end
 
