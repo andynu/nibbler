@@ -433,17 +433,18 @@ function App() {
     }
   }
 
-  const handleSelectVirtualFeed = (feed: string | null) => {
+  const { navigateToVirtualFeed, navigateToRoot } = navigationHistory
+  const handleSelectVirtualFeed = useCallback((feed: string | null) => {
     setVirtualFeed(feed)
     setSelectedFeedId(null)
     setSelectedCategoryId(null)
     setSelectedTag(null)
     if (feed !== null && feed !== "") {
-      navigationHistory.navigateToVirtualFeed(feed)
+      navigateToVirtualFeed(feed)
     } else {
-      navigationHistory.navigateToRoot()
+      navigateToRoot()
     }
-  }
+  }, [navigateToVirtualFeed, navigateToRoot])
 
   const handleFollowStoryCreated = (story: { id: number }) => {
     // Navigate to the stories view with the newly created story selected,
@@ -859,15 +860,15 @@ function App() {
 
   const handleKeyboardGoAll = useCallback(() => {
     handleSelectVirtualFeed(null)
-  }, [])
+  }, [handleSelectVirtualFeed])
 
   const handleKeyboardGoFresh = useCallback(() => {
     handleSelectVirtualFeed("fresh")
-  }, [])
+  }, [handleSelectVirtualFeed])
 
   const handleKeyboardGoStarred = useCallback(() => {
     handleSelectVirtualFeed("starred")
-  }, [])
+  }, [handleSelectVirtualFeed])
 
   // Space pages through the article body and only moves to another entry once
   // the reader reaches the end. The iframe view holds cross-origin content whose
@@ -933,7 +934,6 @@ function App() {
     [
       handleKeyboardNext,
       handleKeyboardPrevious,
-      handleKeyboardNextUnread,
       handleKeyboardNextCategory,
       handleKeyboardPreviousCategory,
       handleKeyboardToggleRead,
