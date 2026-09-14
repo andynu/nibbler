@@ -46,12 +46,19 @@ function toEntryView(id: string | null) {
   return ENTRY_VIEWS.find((view) => view === id)
 }
 
-// How many background ticks pass before the feed and category lists themselves
+// Gap between counter polls. Ingestion pushes a nudge (useCountersNudge), so
+// the poll only catches what no broadcast reports: read state changed on
+// another device, entries ageing out of the Fresh window, a broadcast that
+// failed. Matching the feed refresh cron's period bounds a missed nudge to one
+// ingestion cycle.
+const COUNTERS_POLL_INTERVAL_MS = 5 * 60_000
+
+// How many counter polls pass before the feed and category lists themselves
 // are reloaded rather than just recounted. Counts come off the counters
-// response every tick; structure (a feed subscribed or dropped on another
+// response every poll; structure (a feed subscribed or dropped on another
 // device) changes on nobody's schedule and is not worth two extra requests a
-// minute, so it is picked up on the tenth tick and whenever the tab returns.
-const FEED_RELOAD_EVERY_TICKS = 10
+// poll, so it is picked up every ten minutes and whenever the tab returns.
+const FEED_RELOAD_EVERY_TICKS = 2
 
 function App() {
   const { preferences, updatePreference } = usePreferences()
@@ -198,7 +205,7 @@ function App() {
       }
       loadCounters()
     },
-    { enabled: !showSettings }
+    { enabled: !showSettings, intervalMs: COUNTERS_POLL_INTERVAL_MS }
   )
 
   // Ingestion also pushes a nudge when it stores entries for this reader, so
