@@ -106,7 +106,12 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
   const [activeEntryId, setActiveEntryId] = useState<number | null>(null)
   const [activeEntryTitle, setActiveEntryTitle] = useState<string | null>(null)
   const [activeFeedTitle, setActiveFeedTitle] = useState<string | null>(null)
-  const [onJumpToEntry, setOnJumpToEntry] = useState<((entryId: number) => void) | null>(null)
+  const [onJumpToEntry, setOnJumpToEntryState] = useState<((entryId: number) => void) | null>(null)
+  // A function passed straight to a state setter is called as an updater, not
+  // stored, so the callback is wrapped to be stored as given.
+  const setOnJumpToEntry = useCallback((callback: ((entryId: number) => void) | null) => {
+    setOnJumpToEntryState(() => callback)
+  }, [])
 
   // Queue state
   const [queue, setQueue] = useState<QueueItem[]>(() => {

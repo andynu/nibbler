@@ -1,6 +1,7 @@
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { useEffect } from "react"
 import { AudioPlayerProvider, useAudioPlayer } from "./AudioPlayerContext"
 
 const POLL_INTERVAL = 2000
@@ -289,6 +290,57 @@ describe("AudioPlayerContext", () => {
       expect(mockAudioApi).toHaveBeenCalledTimes(1)
 
       warn.mockRestore()
+    })
+  })
+
+  describe("jumping to the playing entry", () => {
+    function JumpConsumer({ onJump }: { onJump: (entryId: number) => void }) {
+      const { onJumpToEntry, setOnJumpToEntry, jumpToSource, requestTtsAudio } = useAudioPlayer()
+
+      // Registered the way application.tsx registers its handler.
+      useEffect(() => {
+        setOnJumpToEntry(onJump)
+        return () => setOnJumpToEntry(null)
+      }, [setOnJumpToEntry, onJump])
+
+      return (
+        <div>
+          <div data-testid="jump-registered">{onJumpToEntry ? "yes" : "no"}</div>
+          <button onClick={() => requestTtsAudio(7, "An entry")}>Request audio</button>
+          <button onClick={jumpToSource}>Go to playing item</button>
+        </div>
+      )
+    }
+
+    it("stores the registered callback rather than calling it", async () => {
+      const onJump = vi.fn()
+
+      render(
+        <AudioPlayerProvider>
+          <JumpConsumer onJump={onJump} />
+        </AudioPlayerProvider>
+      )
+
+      expect(screen.getByTestId("jump-registered")).toHaveTextContent("yes")
+      expect(onJump).not.toHaveBeenCalled()
+    })
+
+    it("hands the registered callback the playing entry's id", async () => {
+      mockAudioApi.mockResolvedValue({ status: "unavailable", error: "piper is not installed" })
+      const onJump = vi.fn()
+      const user = userEvent.setup()
+
+      render(
+        <AudioPlayerProvider>
+          <JumpConsumer onJump={onJump} />
+        </AudioPlayerProvider>
+      )
+
+      await user.click(screen.getByRole("button", { name: "Request audio" }))
+      await user.click(screen.getByRole("button", { name: "Go to playing item" }))
+
+      expect(onJump).toHaveBeenCalledTimes(1)
+      expect(onJump).toHaveBeenCalledWith(7)
     })
   })
 })

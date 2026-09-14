@@ -288,4 +288,20 @@ test.describe("The audio panel where the sm controls arrive", () => {
       0.5
     )
   })
+
+  // The width budget above assumes this button is on the row. It never was:
+  // the provider ran the handler App registered as a state updater instead of
+  // storing it, so the button's condition was always false.
+  test("the jump-to-source button goes back to the article being read", async ({ page }) => {
+    const heading = page.getByRole("heading", { level: 1 })
+    const playing = await heading.textContent()
+    expect(playing, "expected the article being read aloud to have a title").toBeTruthy()
+
+    await entryRows(page).nth(1).click()
+    await expect(heading).not.toHaveText(playing!)
+
+    await page.getByRole("button", { name: "Go to playing item" }).click()
+
+    await expect(heading).toHaveText(playing!)
+  })
 })
