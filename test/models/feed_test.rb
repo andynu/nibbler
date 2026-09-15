@@ -272,6 +272,106 @@ class FeedTest < ActiveSupport::TestCase
   end
 
   # ==========================================
+  # Faults on nibbler's side
+  #
+  # A database fault while storing a fetch is ours, not the feed's. It still
+  # backs the feed off, but the streak, first_failed_at and broken? describe the
+  # feed's own server and must not move.
+  # ==========================================
+
+  test "record_infrastructure_failure! leaves the feed's streak alone" do
+    fail_times(@new_feed, 3)
+    started = @new_feed.reload.first_failed_at
+
+    @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+
+    assert_equal 3, @new_feed.reload.consecutive_failures
+    assert_equal started, @new_feed.first_failed_at
+  end
+
+  test "record_infrastructure_failure! does not start a streak on a healthy feed" do
+    @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+
+    assert_equal 0, @new_feed.reload.consecutive_failures
+    assert_nil @new_feed.first_failed_at
+  end
+
+  test "infrastructure faults never make a feed broken" do
+    (Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES + 1).times do
+      @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+    end
+
+    assert_not @new_feed.reload.broken?
+    assert_not_includes Feed.broken.pluck(:id), @new_feed.id
+  end
+
+  test "record_infrastructure_failure! keeps the error text" do
+    @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+
+    assert_equal "Database error: deadlock detected", @new_feed.reload.last_error
+  end
+
+  test "record_infrastructure_failure! pushes next_poll_at into the future" do
+    @new_feed.update!(next_poll_at: 1.hour.ago)
+
+    @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+
+    assert @new_feed.reload.next_poll_at > Time.current
+  end
+
+  # A fault that persists on our side, a column the running code expects but a
+  # migration removed, say, must not re-fetch every feed on every cycle.
+  test "repeated infrastructure faults walk the backoff curve" do
+    freeze_time
+
+    delays = Feed::BACKOFF_DELAYS.map do
+      @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+      @new_feed.reload.next_poll_at - Time.current
+    end
+
+    assert_equal Feed::BACKOFF_DELAYS.map(&:to_i), delays.map(&:to_i)
+  end
+
+  # Nibbler's faults are counted on their own, so they neither advance the
+  # feed's position on the curve nor reset it.
+  test "a feed failure after infrastructure faults continues the feed's own curve" do
+    freeze_time
+    fail_times(@new_feed, 2)
+    3.times { @new_feed.record_infrastructure_failure!("Database error: deadlock detected") }
+
+    @new_feed.record_failure!("Feed not found")
+
+    assert_equal Feed::BACKOFF_DELAYS[2].to_i, (@new_feed.reload.next_poll_at - Time.current).to_i
+  end
+
+  test "a success clears infrastructure faults so the next one starts the curve again" do
+    freeze_time
+    3.times { @new_feed.record_infrastructure_failure!("Database error: deadlock detected") }
+
+    @new_feed.reset_backoff!
+    @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+
+    assert_equal Feed::BACKOFF_DELAYS.first.to_i, (@new_feed.reload.next_poll_at - Time.current).to_i
+  end
+
+  # FeedUpdater stores a fetch inside a transaction that begins by resetting the
+  # failure counts. When a fault rolls it back, Rails leaves the zeroed counts on
+  # the record without marking them changed, so counting up from them would put
+  # a persistent fault back on the first step of the curve every cycle.
+  test "infrastructure faults keep escalating when the fault rolled back a reset" do
+    freeze_time
+    2.times { @new_feed.record_infrastructure_failure!("Database error: deadlock detected") }
+
+    Feed.transaction do
+      @new_feed.reset_backoff!
+      raise ActiveRecord::Rollback
+    end
+    @new_feed.record_infrastructure_failure!("Database error: deadlock detected")
+
+    assert_equal Feed::BACKOFF_DELAYS[2].to_i, (@new_feed.reload.next_poll_at - Time.current).to_i
+  end
+
+  # ==========================================
   # Recovery
   # ==========================================
 

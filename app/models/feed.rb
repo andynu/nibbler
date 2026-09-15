@@ -164,10 +164,29 @@ class Feed < ApplicationRecord
     save!
   end
 
-  # How long to wait before the next attempt, given the streak so far. Walks
-  # BACKOFF_DELAYS and stays on the last entry once the streak runs past its end.
-  def failure_backoff_delay
-    BACKOFF_DELAYS[[ consecutive_failures - 1, BACKOFF_DELAYS.length - 1 ].min]
+  # Record a failed update that was nibbler's fault rather than the feed's, such
+  # as a database error while storing what the feed served.
+  #
+  # Backs off like record_failure!, on a count of its own. consecutive_failures
+  # and first_failed_at decide broken? and have to describe the feed's own
+  # server, so a fault on our side leaves them where they were.
+  #
+  # Reloads before counting. A fault that rolled back a transaction leaves that
+  # transaction's writes on this record, a reset failure count among them, and
+  # counting up from those would put a persistent fault back on the first step
+  # of the curve every cycle.
+  def record_infrastructure_failure!(error_message)
+    reload
+    self.infrastructure_failures += 1
+    self.last_error = error_message.to_s
+    self.next_poll_at = Time.current + failure_backoff_delay(infrastructure_failures)
+    save!
+  end
+
+  # How long to wait before the next attempt, given the failures so far. Walks
+  # BACKOFF_DELAYS and stays on the last entry once the count runs past its end.
+  def failure_backoff_delay(failures = consecutive_failures)
+    BACKOFF_DELAYS[(failures - 1).clamp(0, BACKOFF_DELAYS.length - 1)]
   end
 
   # Whether this feed has failed often enough to be worth telling the reader
@@ -186,9 +205,9 @@ class Feed < ApplicationRecord
 
   # Reset backoff after successful fetch
   def reset_backoff!
-    return if consecutive_failures.zero? && retry_after.nil? && first_failed_at.nil?
+    return if consecutive_failures.zero? && infrastructure_failures.zero? && retry_after.nil? && first_failed_at.nil?
 
-    update!(consecutive_failures: 0, retry_after: nil, first_failed_at: nil)
+    update!(consecutive_failures: 0, infrastructure_failures: 0, retry_after: nil, first_failed_at: nil)
   end
 
   # Whether the feed is currently in backoff period
