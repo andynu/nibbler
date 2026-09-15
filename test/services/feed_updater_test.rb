@@ -136,7 +136,7 @@ class FeedUpdaterTest < ActiveSupport::TestCase
   # ==========================================
   # The failure path
   #
-  # handle_error used to write last_error and stop there. Nothing incremented
+  # The error path used to write last_error and stop there. Nothing incremented
   # consecutive_failures outside the 429 branch and nothing moved next_poll_at,
   # so a feed whose domain had stopped resolving stayed permanently due and was
   # re-requested on every 5-minute cycle indefinitely. Every test below fails
@@ -215,6 +215,48 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_enqueued_with(job: UpdateFeedJob, args: [ @feed.id ]) do
       UpdateFeedsJob.perform_now(force: true)
     end
+  end
+
+  # ==========================================
+  # Faults on nibbler's side
+  #
+  # The feed's server answered and its body parsed; storing it failed. That is
+  # our fault, so it backs the feed off without counting against the feed.
+  # ==========================================
+
+  test "a database error while storing backs the feed off" do
+    @feed.update!(next_poll_at: 1.hour.ago)
+
+    result = update_with_storage_fault
+
+    assert_equal :error, result.status
+    assert_equal "Database error: deadlock detected", @feed.reload.last_error
+    assert @feed.next_poll_at > Time.current
+  end
+
+  test "a database error while storing does not start a streak on a healthy feed" do
+    update_with_storage_fault
+
+    assert_equal 0, @feed.reload.consecutive_failures
+    assert_nil @feed.first_failed_at
+  end
+
+  test "a database error while storing leaves an existing streak and its start alone" do
+    3.times { update_with_error("Server error (503)") }
+    started = @feed.reload.first_failed_at
+
+    update_with_storage_fault
+
+    assert_equal 3, @feed.reload.consecutive_failures
+    assert_equal started, @feed.first_failed_at
+  end
+
+  test "a database error that keeps happening backs off further each cycle" do
+    freeze_time
+
+    3.times { update_with_storage_fault }
+
+    assert_equal Feed::BACKOFF_DELAYS[2].to_i, (@feed.reload.next_poll_at - Time.current).to_i
   end
 
   # ==========================================
@@ -390,6 +432,22 @@ class FeedUpdaterTest < ActiveSupport::TestCase
 
   def update_with_error(message)
     update_with_fetch_result(FeedFetcher::FetchResult.new(status: :error, error: message))
+  end
+
+  # Runs a real update over a good body whose storage transaction deadlocks
+  # just after resetting the feed's failure counts. The rollback leaves those
+  # zeroed counts on @feed, which is the state a real storage fault hands to
+  # the error path.
+  def update_with_storage_fault
+    reset = @feed.method(:reset_backoff!)
+    deadlock = lambda do
+      reset.call
+      raise ActiveRecord::Deadlocked, "deadlock detected"
+    end
+
+    @feed.stub(:reset_backoff!, deadlock) do
+      update_with(clean_payload)
+    end
   end
 
   def capture_warnings

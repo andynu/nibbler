@@ -48,7 +48,7 @@ class FeedUpdater
     end
 
     if fetch_result.error?
-      return handle_error(fetch_result.error)
+      return handle_feed_error(fetch_result.error)
     end
 
     if fetch_result.not_modified?
@@ -58,7 +58,7 @@ class FeedUpdater
     parse_result = FeedParser.new(fetch_result.body, feed_url: @feed.feed_url).parse
 
     if !parse_result.success?
-      return handle_error(parse_result.error)
+      return handle_feed_error(parse_result.error)
     end
 
     process_entries(parse_result, fetch_result)
@@ -66,17 +66,25 @@ class FeedUpdater
 
   private
 
-  # A failed fetch has to move the schedule, not just leave a note.
+  # Whose fault a failed update was decides whether it counts against the feed.
   #
-  # This used to write last_error alone. next_poll_at kept whatever past value
-  # it already had and last_updated was never stamped, so UpdateFeedsJob found
-  # the feed due again on the next tick and every tick after it: a feed whose
-  # domain had stopped resolving was re-requested every five minutes forever,
-  # and consecutive_failures sat at 0 the whole time because only the 429 path
-  # ever incremented it. record_failure! does both, so the streak is countable
-  # and the retries thin out.
-  def handle_error(error)
+  # A transport error, an error status or a body that does not parse is the
+  # feed's own server failing: handle_feed_error builds the streak that broken?
+  # and first_failed_at are read from. A fault while storing a body that fetched
+  # and parsed is nibbler's: handle_infrastructure_error backs the feed off the
+  # same way but leaves that streak alone, so our own outage never marks a
+  # healthy feed broken.
+  #
+  # Either way a failure has to move the schedule, not just leave a note, or
+  # UpdateFeedsJob finds the feed due again on the next tick and re-requests it
+  # every five minutes forever.
+  def handle_feed_error(error)
     @feed.record_failure!(error)
+    UpdateResult.new(feed: @feed, status: :error, error: error)
+  end
+
+  def handle_infrastructure_error(error)
+    @feed.record_infrastructure_failure!(error)
     UpdateResult.new(feed: @feed, status: :error, error: error)
   end
 
@@ -125,7 +133,7 @@ class FeedUpdater
 
     UpdateResult.new(feed: @feed, new_entries_count: new_count, status: :ok, skipped_entries: skipped)
   rescue StandardError => e
-    handle_error("Database error: #{e.message}")
+    handle_infrastructure_error("Database error: #{e.message}")
   end
 
   # Writes one entry inside its own savepoint so a failure costs only that item.
