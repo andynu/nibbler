@@ -15,6 +15,17 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`
 }
 
+/** For aria-valuetext: aria-valuenow alone is announced as a bare count of seconds. */
+function spokenTime(seconds: number): string {
+  const whole = Math.floor(seconds)
+  const mins = Math.floor(whole / 60)
+  const secs = whole % 60
+  const minutePart = `${mins} ${mins === 1 ? "minute" : "minutes"}`
+  const secondPart = `${secs} ${secs === 1 ? "second" : "seconds"}`
+  if (mins === 0) return secondPart
+  return secs === 0 ? minutePart : `${minutePart} ${secondPart}`
+}
+
 export function AudioPanel() {
   const {
     state,
@@ -48,6 +59,7 @@ export function AudioPanel() {
   }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+  const hasKnownDuration = duration > 0 && Number.isFinite(duration)
   const isLoading = state === "loading" || state === "generating"
   const isPlayable = state === "ready" || state === "playing" || state === "paused"
   const isError = state === "error"
@@ -90,7 +102,7 @@ export function AudioPanel() {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!(duration > 0 && Number.isFinite(duration))) return
+    if (!hasKnownDuration) return
     seek(Math.min(duration, Math.max(0, target)))
   }
 
@@ -325,6 +337,11 @@ export function AudioPanel() {
                 aria-valuemin={0}
                 aria-valuemax={duration}
                 aria-valuenow={currentTime}
+                aria-valuetext={
+                  hasKnownDuration
+                    ? `${spokenTime(currentTime)} of ${spokenTime(duration)}`
+                    : spokenTime(currentTime)
+                }
                 aria-label="Playback progress"
                 tabIndex={0}
               >

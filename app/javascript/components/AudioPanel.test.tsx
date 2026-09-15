@@ -125,6 +125,23 @@ describe("AudioPanel seek bar", () => {
     })
   })
 
+  describe("value text", () => {
+    it.each([
+      [40, 120, "40 seconds of 2 minutes"],
+      [61.7, 125, "1 minute 1 second of 2 minutes 5 seconds"],
+      [0, 0, "0 seconds"],
+    ])("reads %ss of %ss as %s", (currentTime, duration, text) => {
+      mockAudioPlayer.currentTime = currentTime
+      mockAudioPlayer.duration = duration
+      render(<AudioPanel />)
+
+      expect(screen.getByRole("slider", { name: "Playback progress" })).toHaveAttribute(
+        "aria-valuetext",
+        text
+      )
+    })
+  })
+
   describe("keys the seek bar handles", () => {
     it("never reach the global shortcuts, while other keys still do", async () => {
       const onKey = vi.fn()

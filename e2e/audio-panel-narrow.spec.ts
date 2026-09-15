@@ -252,6 +252,13 @@ test.describe("Seeking from the keyboard", () => {
     }
   })
 
+  test("the bar reads its position in words", async ({ page }) => {
+    await page.keyboard.press("Home")
+    await page.keyboard.press("PageUp")
+
+    await expect(seekBar(page)).toHaveAttribute("aria-valuetext", "30 seconds of 1 minute")
+  })
+
   test("a key the bar handles never reaches a document listener", async ({ page }) => {
     // The app's shortcuts are a document keydown listener (useKeyboardCommands),
     // and this one stands in for it. x is bound to nothing; it shows the
