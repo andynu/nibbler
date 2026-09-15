@@ -30,6 +30,7 @@ import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
 import { useCableHeartbeat } from "@/hooks/useCableHeartbeat"
 import { useCountersNudge } from "@/hooks/useCountersNudge"
 import { useNewEntries } from "@/hooks/useNewEntries"
+import { useLatestRequest } from "@/hooks/useLatestRequest"
 import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
 import { useCopyLink } from "@/hooks/useCopyLink"
@@ -330,8 +331,8 @@ function App() {
     }
   }
 
-  // Bumped by every load, so a reply may only write state while its sequence
-  // is still the current one. Four call sites load the list - the entriesQuery
+  // Every load claims the latest request, so a reply may only write state while
+  // its claim is still current. Four call sites load the list - the entriesQuery
   // effect, both refresh handlers and the keyboard refresh - and none of them
   // cancelled the request already in flight, so which reply landed last was
   // the network's to decide rather than the reader's.
@@ -349,15 +350,13 @@ function App() {
   // two were indistinguishable from the outside until it was fixed; holding
   // the first reply until the second lands separates them and reproduces this
   // one on its own, every run (e2e/entry-list-sort.spec.ts).
-  //
-  // Same guard as useEntrySearch's requestSeq and useNewEntries' probeSeq.
-  const entriesSeq = useRef(0)
+  const { claim: claimEntriesLoad } = useLatestRequest()
 
   const loadEntries = useCallback(async () => {
-    const seq = ++entriesSeq.current
+    const load = claimEntriesLoad()
     // The stories view is not backed by the entries API; skip loading. The
-    // bump above still counts: it abandons any request in flight, which would
-    // otherwise repopulate the list this branch just emptied.
+    // claim above still counts: it supersedes any request in flight, which
+    // would otherwise repopulate the list this branch just emptied.
     if (virtualFeed === "stories") {
       setEntries([])
       setSelectedEntry(null)
@@ -367,7 +366,7 @@ function App() {
     setIsLoadingEntries(true)
     try {
       const result = await api.entries.list(entriesQuery)
-      if (seq !== entriesSeq.current) return
+      if (!load.isCurrent()) return
       setEntries(result.entries)
       setSelectedEntry(null)
       // This list came straight from the server, so any stored probe is both
@@ -379,9 +378,9 @@ function App() {
     } finally {
       // A superseded load must not clear the flag: the load that replaced it
       // is still running, and the list is still loading.
-      if (seq === entriesSeq.current) setIsLoadingEntries(false)
+      if (load.isCurrent()) setIsLoadingEntries(false)
     }
-  }, [virtualFeed, entriesQuery, resetNewEntries])
+  }, [virtualFeed, entriesQuery, resetNewEntries, claimEntriesLoad])
 
   // Load entries when selection, sort order, filter preferences, or fresh params
   // change. virtualFeed is one of entriesQuery's inputs, so loadEntries changes
