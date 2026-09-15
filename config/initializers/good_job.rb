@@ -10,9 +10,10 @@ Rails.application.configure do
     },
     # Guaranteed daily sweep so everything is fresh before the app is opened.
     # The */5 entry above only picks feeds due under adaptive polling, which
-    # leaves a feed stale indefinitely if next_poll_at drifts out or repeated
-    # failures push it back. force: true ignores next_poll_at but still honors
-    # retry_after, so rate-limited hosts are not hammered.
+    # leaves a feed stale indefinitely if next_poll_at drifts out. force: true
+    # ignores next_poll_at, except for a feed whose failures have it waiting
+    # more than a day between checks, and still honors retry_after, so
+    # rate-limited hosts are not hammered.
     #
     # The trailing zone field is parsed by fugit (GoodJob calls Fugit.parse),
     # so this is 6am Eastern year-round; the app itself runs in UTC.

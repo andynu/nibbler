@@ -190,4 +190,53 @@ class UpdateFeedsJobTest < ActiveJob::TestCase
       UpdateFeedsJob.perform_now(force: true)
     end
   end
+
+  # A daily sweep that retried every failing feed would check a feed on the
+  # weekly step every morning, and the multi-day steps would never take effect.
+  test "force leaves a feed waiting more than a day after failures to its own schedule" do
+    @feed_ready.update!(
+      consecutive_failures: Feed::MULTI_DAY_BACKOFF_AFTER_CONSECUTIVE_FAILURES,
+      first_failed_at: 10.days.ago,
+      next_poll_at: 2.days.from_now
+    )
+    @feed_not_ready.destroy!
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "force enqueues a feed on multi-day failure backoff once it is due" do
+    @feed_ready.update!(
+      consecutive_failures: Feed::MULTI_DAY_BACKOFF_AFTER_CONSECUTIVE_FAILURES + 3,
+      first_failed_at: 40.days.ago,
+      next_poll_at: 1.minute.ago
+    )
+    @feed_not_ready.destroy!
+
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "force still retries a failing feed whose wait is a day or less" do
+    @feed_ready.update!(
+      consecutive_failures: Feed::MULTI_DAY_BACKOFF_AFTER_CONSECUTIVE_FAILURES - 1,
+      first_failed_at: 6.hours.ago,
+      next_poll_at: 1.day.from_now
+    )
+    @feed_not_ready.destroy!
+
+    assert_enqueued_with(job: UpdateFeedJob, args: [ @feed_ready.id ]) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "the multi-day threshold is the first failure whose wait passes a day" do
+    feed = Feed.new(consecutive_failures: Feed::MULTI_DAY_BACKOFF_AFTER_CONSECUTIVE_FAILURES)
+
+    assert_operator feed.failure_backoff_delay, :>, 1.day
+    feed.consecutive_failures -= 1
+    assert_operator feed.failure_backoff_delay, :<=, 1.day
+  end
 end

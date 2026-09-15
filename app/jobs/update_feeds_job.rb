@@ -4,9 +4,10 @@
 # Also runs once each morning with force: true (the refresh_all_feeds_morning
 # cron entry). In that mode the adaptive polling window is ignored so every
 # feed is refreshed before the day starts, no matter how far next_poll_at has
-# drifted or how many consecutive failures pushed it out. Rate limiting
-# (retry_after) and the concurrent-update guard still apply, matching the
-# manual refresh path in Api::V1::FeedsController#refresh.
+# drifted. The exception is a feed whose failures have it waiting more than a
+# day between checks, which keeps its own schedule. Rate limiting (retry_after)
+# and the concurrent-update guard still apply, matching the manual refresh
+# path in Api::V1::FeedsController#refresh.
 class UpdateFeedsJob < ApplicationJob
   queue_as :default
 
@@ -28,17 +29,25 @@ class UpdateFeedsJob < ApplicationJob
       .not_updating
       .where("retry_after IS NULL OR retry_after <= ?", Time.current)
 
-    # force: sweep everything else. Otherwise restrict to feeds due under
-    # adaptive polling (next_poll_at), falling back to legacy interval logic
-    # for feeds without next_poll_at set.
-    return scope if force
-
     # Look Feed::POLL_DUE_SLACK past the current tick. Poll times are stamped
     # when the previous poll finished, a few seconds after the tick that
     # scheduled it, so an exact comparison makes every interval that is a
     # multiple of the cron period slip a full cycle. Rate limiting above stays
     # on the real clock: retry_after is the server's window, not ours.
-    scope.where(adaptive_polling_condition, due_at: Time.current + Feed::POLL_DUE_SLACK)
+    due_at = Time.current + Feed::POLL_DUE_SLACK
+
+    # force: sweep everything else, except a feed on the multi-day failure
+    # steps that is not yet due. Otherwise restrict to feeds due under
+    # adaptive polling (next_poll_at), falling back to legacy interval logic
+    # for feeds without next_poll_at set.
+    if force
+      return scope.where(
+        "consecutive_failures < :multi_day OR next_poll_at IS NULL OR next_poll_at <= :due_at",
+        multi_day: Feed::MULTI_DAY_BACKOFF_AFTER_CONSECUTIVE_FAILURES, due_at: due_at
+      )
+    end
+
+    scope.where(adaptive_polling_condition, due_at: due_at)
   end
 
   def adaptive_polling_condition

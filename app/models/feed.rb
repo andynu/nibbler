@@ -97,6 +97,11 @@ class Feed < ApplicationRecord
   # the morning sweep, so the multi-day steps would lock a reader out for a week.
   RATE_LIMIT_BACKOFF_CAP = 1.day
 
+  # From this many consecutive failures the next wait is longer than a day. The
+  # morning sweep stops retrying a feed here and leaves it to next_poll_at, or a
+  # daily sweep would check a feed on the weekly step every morning.
+  MULTI_DAY_BACKOFF_AFTER_CONSECUTIVE_FAILURES = BACKOFF_DELAYS.index { |delay| delay > 1.day } + 1
+
   # How many consecutive failures before a feed is called broken rather than
   # merely erroring.
   #
@@ -155,7 +160,8 @@ class Feed < ApplicationRecord
   # whole point. apply_backoff! writes retry_after, which means "the host told us
   # to wait" and is honoured everywhere, including the morning force sweep and
   # the manual refresh button. This writes next_poll_at, which is only ever our
-  # own schedule, so both of those paths still go out and try a broken feed.
+  # own schedule, so the refresh button still tries a broken feed, and so does
+  # the sweep until the wait passes a day.
   #
   # Without this, a fetch error updated last_error and nothing else. next_poll_at
   # kept its old value in the past, last_updated was never stamped, and so the
