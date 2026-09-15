@@ -16,7 +16,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Category } from "@/lib/api"
 import { useCategoryPaths } from "@/hooks/useCategoryPaths"
-import { Folder, FolderOpen, Check, ChevronsUpDown } from "lucide-react"
+import { CategoryPathItem } from "@/components/CategoryPathItem"
+import { FolderOpen, Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /**
@@ -122,31 +123,16 @@ export function CategorySelector({
               <>
                 <CommandSeparator />
                 <CommandGroup>
-                  {filteredCategories.map((item) => {
-                    const isSelected = selectedCategoryId === item.category.id
-                    return (
-                      <CommandItem
-                        key={item.category.id}
-                        value={item.category.id.toString()}
-                        onSelect={() => handleSelect(item.category.id)}
-                        className="flex items-center"
-                      >
-                        <span
-                          style={{ paddingLeft: `${Math.min(item.depth, MAX_INDENT_DEPTH) * 12}px` }}
-                          className="flex items-center"
-                        >
-                          <Folder className="mr-2 h-4 w-4" />
-                          {item.depth > 0 ? (
-                            <span className="text-muted-foreground text-xs mr-1">
-                              {item.path.slice(0, -1).join(" / ")} /
-                            </span>
-                          ) : null}
-                          <span>{item.category.title}</span>
-                        </span>
-                        {isSelected && <Check className="ml-auto h-4 w-4" />}
-                      </CommandItem>
-                    )
-                  })}
+                  {filteredCategories.map((item) => (
+                    <CategoryPathItem
+                      key={item.category.id}
+                      item={item}
+                      maxIndentDepth={MAX_INDENT_DEPTH}
+                      checked={selectedCategoryId === item.category.id}
+                      value={item.category.id.toString()}
+                      onSelect={() => handleSelect(item.category.id)}
+                    />
+                  ))}
                 </CommandGroup>
               </>
             )}

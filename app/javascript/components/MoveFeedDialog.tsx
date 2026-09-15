@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/command"
 import { Feed, Category, api } from "@/lib/api"
 import { useCategoryPaths } from "@/hooks/useCategoryPaths"
+import { CategoryPathItem } from "@/components/CategoryPathItem"
 import { Folder, FolderOpen, FolderPlus, Check } from "lucide-react"
 
 interface MoveFeedDialogProps {
@@ -147,26 +148,14 @@ export function MoveFeedDialog({
               {filteredCategories.map((item) => {
                 const isCurrentCategory = feed.category_id === item.category.id
                 return (
-                  <CommandItem
+                  <CategoryPathItem
                     key={item.category.id}
+                    item={item}
+                    maxIndentDepth={MAX_INDENT_DEPTH}
+                    checked={isCurrentCategory}
                     onSelect={() => handleSelectCategory(item.category.id)}
                     disabled={isCurrentCategory}
-                    className="flex items-center"
-                  >
-                    <span
-                      style={{ paddingLeft: `${Math.min(item.depth, MAX_INDENT_DEPTH) * 12}px` }}
-                      className="flex items-center"
-                    >
-                      <Folder className="mr-2 h-4 w-4" />
-                      {item.depth > 0 ? (
-                        <span className="text-muted-foreground text-xs mr-1">
-                          {item.path.slice(0, -1).join(" / ")} /
-                        </span>
-                      ) : null}
-                      <span>{item.category.title}</span>
-                    </span>
-                    {isCurrentCategory && <Check className="ml-auto h-4 w-4" />}
-                  </CommandItem>
+                  />
                 )
               })}
             </CommandGroup>
