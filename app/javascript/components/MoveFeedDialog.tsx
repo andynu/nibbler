@@ -9,6 +9,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import { Feed, Category, api } from "@/lib/api"
+import { useCategoryPaths } from "@/hooks/useCategoryPaths"
 import { Folder, FolderOpen, FolderPlus, Check } from "lucide-react"
 
 interface MoveFeedDialogProps {
@@ -18,12 +19,6 @@ interface MoveFeedDialogProps {
   categories: Category[]
   onFeedMoved: (feed: Feed) => void
   onCategoryCreated: (category: Category) => void
-}
-
-interface CategoryWithPath {
-  category: Category
-  path: string[]
-  depth: number
 }
 
 /**
@@ -52,61 +47,7 @@ export function MoveFeedDialog({
     }
   }, [open])
 
-  // Build category hierarchy with paths
-  const categoriesWithPaths = useMemo(() => {
-    const result: CategoryWithPath[] = []
-    const categoryMap = new Map(categories.map((c) => [c.id, c]))
-
-    // Build path for each category
-    const getPath = (cat: Category): string[] => {
-      const path: string[] = []
-      let current: Category | undefined = cat
-      while (current) {
-        path.unshift(current.title)
-        current = current.parent_id ? categoryMap.get(current.parent_id) : undefined
-      }
-      return path
-    }
-
-    // Calculate depth for each category
-    const getDepth = (cat: Category): number => {
-      let depth = 0
-      let current: Category | undefined = cat
-      while (current?.parent_id) {
-        depth++
-        current = categoryMap.get(current.parent_id)
-      }
-      return depth
-    }
-
-    // Sort categories by path for hierarchical display
-    const sortedCategories = [...categories].sort((a, b) => {
-      const pathA = getPath(a).join("/")
-      const pathB = getPath(b).join("/")
-      return pathA.localeCompare(pathB)
-    })
-
-    sortedCategories.forEach((cat) => {
-      result.push({
-        category: cat,
-        path: getPath(cat),
-        depth: getDepth(cat),
-      })
-    })
-
-    return result
-  }, [categories])
-
-  // Filter categories based on search
-  const filteredCategories = useMemo(() => {
-    if (!search.trim()) return categoriesWithPaths
-
-    const searchLower = search.toLowerCase()
-    return categoriesWithPaths.filter((item) =>
-      item.category.title.toLowerCase().includes(searchLower) ||
-      item.path.some((p) => p.toLowerCase().includes(searchLower))
-    )
-  }, [categoriesWithPaths, search])
+  const { categoriesWithPaths, filteredCategories } = useCategoryPaths(categories, search)
 
   const handleSelectCategory = useCallback(async (categoryId: number | null) => {
     if (!feed) return
