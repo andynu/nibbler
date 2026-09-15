@@ -261,8 +261,7 @@ class E2eDataset
       content_hash: Digest::SHA256.hexdigest(content),
       updated: published,
       date_entered: published,
-      date_updated: published,
-      lang: "en"
+      date_updated: published
     )
   end
 

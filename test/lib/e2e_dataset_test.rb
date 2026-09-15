@@ -35,6 +35,16 @@ class E2eDatasetTest < ActiveSupport::TestCase
       "EntrySummary#valid_for_content? compares one against the other"
   end
 
+  # The seeder follows ingestion on lang rather than inventing a value for it.
+  # Plain == because both sides are nil, which assert_equal refuses.
+  test "seeded entries carry the lang the ingest path would have written" do
+    seeded = seeded_entry
+    ingested = ingest(seeded.content)
+
+    assert ingested.lang == seeded.lang,
+      "E2eDataset wrote lang #{seeded.lang.inspect} where FeedUpdater wrote #{ingested.lang.inspect}"
+  end
+
   # The browser suite searches for this word and expects exactly this article,
   # found through the fetched copy rather than the excerpt.
   test "the seeded full text is current and is the only place its word appears" do
