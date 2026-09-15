@@ -267,7 +267,7 @@ export default [
   },
   {
     // Playwright's rules, and none of React's (see the block above). Only rules
-    // for mistakes this suite has made; the two with a backlog are warnings.
+    // for mistakes this suite has made.
     files: ["e2e/**/*.ts"],
     // No jsx: these are .ts files, where `<Page>value` is a cast and the jsx
     // syntax plugin would read it as an element.
@@ -278,11 +278,12 @@ export default [
       // A skip conditioned on the engine (Chromium-only permissions, CDP touch)
       // still runs somewhere. An unconditional one runs nowhere.
       "playwright/no-skipped-test": ["error", { allowConditional: true }],
-      "playwright/no-conditional-expect": "warn",
-      // Helpers named expect* assert. waitForStable only checks that <body> is
-      // visible, which a crashed app also passes, so it is deliberately absent.
+      "playwright/no-conditional-expect": "error",
+      // Helpers named expect* assert, so a test that calls only those counts. A
+      // wait helper that just confirms the page is still up must not match: a
+      // crashed app passes that too.
       "playwright/expect-expect": [
-        "warn",
+        "error",
         { assertFunctionPatterns: ["^expect[A-Z]"] },
       ],
     },
