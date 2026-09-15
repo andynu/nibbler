@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useBackgroundRefresh } from "@/hooks/useBackgroundRefresh"
+import { useLatestRequest } from "@/hooks/useLatestRequest"
 import type { Entry } from "@/lib/api"
 
 export interface NewEntriesOptions {
@@ -81,20 +82,20 @@ export function useNewEntries({
     scopeRef.current = scope
   })
 
-  // Bumped by every probe and by reset(); a response may only be stored while
-  // its sequence is still current, so a slow reply cannot land after the
-  // reader has moved on.
-  const probeSeq = useRef(0)
+  // The next probe, reset() and apply() each supersede a probe still in flight,
+  // so a slow reply cannot land after the reader has moved on. The scope is
+  // claimed with the probe rather than read when it lands, so the reply is
+  // filed against the list it was taken from.
+  const { claim: claimProbe, abandon: abandonProbe } = useLatestRequest<unknown>()
 
   useBackgroundRefresh(
     () => {
-      const seq = ++probeSeq.current
-      const probedScope = scopeRef.current
+      const claim = claimProbe(scopeRef.current)
       fetchRef
         .current()
         .then((probed) => {
-          if (seq !== probeSeq.current) return
-          setProbe({ scope: probedScope, entries: probed })
+          if (!claim.isCurrent()) return
+          setProbe({ scope: claim.issuedFor, entries: probed })
         })
         .catch((error: unknown) => {
           console.error("Failed to probe for new entries:", error)
@@ -112,16 +113,16 @@ export function useNewEntries({
   }, [current, entries])
 
   const reset = useCallback(() => {
-    probeSeq.current++
+    abandonProbe()
     setProbe(null)
-  }, [])
+  }, [abandonProbe])
 
   const apply = useCallback(() => {
     if (!current) return
-    probeSeq.current++
+    abandonProbe()
     onApplyRef.current(current.entries)
     setProbe(null)
-  }, [current])
+  }, [current, abandonProbe])
 
   return { count, apply, reset }
 }
