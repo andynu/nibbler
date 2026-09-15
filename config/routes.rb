@@ -32,6 +32,7 @@ Rails.application.routes.draw do
       resources :feeds do
         member do
           post :refresh
+          post :resume
           get :info
         end
         collection do

@@ -1,7 +1,7 @@
 module Api
   module V1
     class FeedsController < BaseController
-      before_action :set_feed, only: [ :show, :update, :destroy, :refresh, :info ]
+      before_action :set_feed, only: [ :show, :update, :destroy, :refresh, :resume, :info ]
 
       # GET /api/v1/feeds
       def index
@@ -88,6 +88,23 @@ module Api
         end
       end
 
+      # POST /api/v1/feeds/:id/resume
+      # The way back for a feed that stopped being checked. Starts its failing
+      # streak over, then tries it once now so the reader sees the outcome.
+      # Answers with the feed even when that attempt fails: the feed is checked
+      # again rather than dead either way, and the client has to learn that.
+      def resume
+        @feed.resume_checking!
+        result = FeedUpdater.new(@feed).update unless @feed.update_in_progress?
+
+        render json: {
+          status: result&.status,
+          new_entries: result&.new_entries_count || 0,
+          error: result&.error,
+          feed: feed_json(@feed.reload)
+        }
+      end
+
       # GET /api/v1/feeds/:id/info
       # Returns detailed feed info and stats
       def info
@@ -131,6 +148,7 @@ module Api
           consecutive_failures: @feed.consecutive_failures,
           first_failed_at: @feed.first_failed_at,
           broken: @feed.broken?,
+          dead_at: @feed.dead_at,
 
           # Polling interval
           update_interval: @feed.update_interval,
@@ -276,6 +294,8 @@ module Api
           consecutive_failures: feed.consecutive_failures,
           first_failed_at: feed.first_failed_at,
           broken: feed.broken?,
+          # Set once the feed has failed for a year and is no longer fetched.
+          dead_at: feed.dead_at,
           unread_count: feed.user_entries.unread.count,
           entry_count: feed.entry_count,
           oldest_entry_date: feed.oldest_entry_date,

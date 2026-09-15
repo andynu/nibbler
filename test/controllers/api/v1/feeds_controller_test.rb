@@ -320,6 +320,73 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert_not @feed.broken?
   end
 
+  # ==========================================
+  # Feeds no longer checked
+  # ==========================================
+
+  test "index says when a dead feed stopped being checked" do
+    kill(@feed)
+
+    get api_v1_feeds_url, as: :json
+    assert_response :success
+
+    payload = JSON.parse(response.body).find { |f| f["id"] == @feed.id }
+    assert payload["dead_at"].present?
+  end
+
+  test "index sends a null dead_at for a feed still being checked" do
+    get api_v1_feeds_url, as: :json
+
+    payload = JSON.parse(response.body).find { |f| f["id"] == @feed.id }
+    assert payload.key?("dead_at")
+    assert_nil payload["dead_at"]
+  end
+
+  test "info says when a dead feed stopped being checked" do
+    kill(@feed)
+
+    get info_api_v1_feed_url(@feed), as: :json
+    assert_response :success
+
+    assert JSON.parse(response.body)["dead_at"].present?
+  end
+
+  test "resume brings a dead feed back and answers with it" do
+    stub_request(:get, @feed.feed_url)
+      .to_return(status: 200, body: sample_atom_feed("Back"), headers: { "Content-Type" => "application/atom+xml" })
+    kill(@feed)
+
+    post resume_api_v1_feed_url(@feed), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "ok", json["status"]
+    assert_nil json["feed"]["dead_at"]
+    assert_not @feed.reload.dead?
+  end
+
+  # Still down when resumed means checked again with a fresh streak, not dead
+  # again. The client only learns that if the failed attempt still returns the
+  # feed.
+  test "resume on a feed that is still down answers with the feed checked again" do
+    stub_request(:get, @feed.feed_url).to_return(status: 404)
+    kill(@feed)
+
+    post resume_api_v1_feed_url(@feed), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert json["error"].present?
+    assert_nil json["feed"]["dead_at"]
+    assert_equal 1, json["feed"]["consecutive_failures"]
+  end
+
+  test "resume returns 404 for a feed that is not the reader's" do
+    post resume_api_v1_feed_url(id: 999999), as: :json
+
+    assert_response :not_found
+  end
+
   # Resuming is the way back for a feed that stopped being checked. If refresh
   # all tried it too, every click of the header button would re-probe every
   # dead feed the reader has.
@@ -334,6 +401,16 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  # Put +feed+ in the state a year of weekly failures leaves behind.
+  def kill(feed)
+    feed.update!(
+      consecutive_failures: 60,
+      last_error: "Feed not found",
+      first_failed_at: Feed::DEAD_AFTER_FAILING_FOR.ago - 1.week,
+      dead_at: 3.days.ago
+    )
+  end
 
   def sample_atom_feed(title)
     <<~XML
