@@ -129,6 +129,9 @@ test.describe("Reordering the queue on a 320px phone", () => {
   test("a row picked up with Space moves down with the arrow key", async ({ page }) => {
     const [playing, second, last] = queued
     const grip = gripOf(queueRows(page).nth(1))
+    const heading = page.getByRole("heading", { level: 1 })
+    const reading = await heading.textContent()
+    expect(reading, "expected the open article to have a title").toBeTruthy()
 
     await grip.focus()
     await page.keyboard.press("Space")
@@ -143,6 +146,9 @@ test.describe("Reordering the queue on a 320px phone", () => {
     await page.keyboard.press("Space")
 
     await expectRowsInOrder(page, [playing, last, second])
+    // Space is also the page's "Page down, then next unread", which must not
+    // see the presses on the grip.
+    await expect(heading).toHaveText(reading!)
     await expectStoredInOrder(page, [playing, last, second])
   })
 })

@@ -1,8 +1,9 @@
-import { useMemo } from "react"
+import { useMemo, type KeyboardEvent } from "react"
 import {
   DndContext,
   DragOverlay,
   closestCenter,
+  KeyboardCode,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -20,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
+import { withholdFromKeyboardCommands } from "@/hooks/useKeyboardCommands"
 import type { QueueItem } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import {
@@ -34,6 +36,19 @@ import {
   Play,
 } from "lucide-react"
 import { useState } from "react"
+
+// What the keyboard sensor answers while a row is lifted: Space, Enter and Tab
+// put it down, Escape puts it back, the arrows move it.
+const LIFTED_ROW_KEY_CODES: ReadonlySet<string> = new Set([
+  KeyboardCode.Space,
+  KeyboardCode.Enter,
+  KeyboardCode.Tab,
+  KeyboardCode.Esc,
+  KeyboardCode.Up,
+  KeyboardCode.Down,
+  KeyboardCode.Left,
+  KeyboardCode.Right,
+])
 
 interface SortableQueueItemProps {
   item: QueueItem
@@ -58,6 +73,17 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
     transition,
   }
 
+  // The grip's keys stay out of the page shortcuts. A pickup is the press
+  // dnd-kit's activator prevents. The presses of a lifted row are read by a
+  // document listener dnd-kit adds after the shortcuts', so they are withheld
+  // rather than stopped, which would starve that listener as well.
+  const handleGripKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    listeners?.onKeyDown?.(event)
+    if (isDragging ? LIFTED_ROW_KEY_CODES.has(event.code) : event.defaultPrevented) {
+      withholdFromKeyboardCommands(event.nativeEvent)
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -75,6 +101,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
       <button
         {...attributes}
         {...listeners}
+        onKeyDown={handleGripKeyDown}
         className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
         aria-label="Drag to reorder"
       >
