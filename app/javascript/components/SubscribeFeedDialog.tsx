@@ -21,11 +21,11 @@ import { api, Feed, Category, FeedPreview } from "@/lib/api"
 import { Loader2, CheckCircle, Rss } from "lucide-react"
 
 /**
- * The deepest level an option's indentation expresses. The list grows to fit
- * its widest option with nothing bounding it by the screen, and the selected
- * option's indent is copied into the trigger, so deeper options share this
- * offset. Options carry no ancestor path: past the ceiling, nesting reads from
- * order alone.
+ * The deepest level an option's indentation expresses. The list is as wide as
+ * the screen allows, so every level of indent is paid for in wrapped title
+ * lines, and the selected option's indent is copied into the trigger, so
+ * deeper options share this offset. Options carry no ancestor path: past the
+ * ceiling, nesting reads from order alone.
  */
 const MAX_INDENT_DEPTH = 3
 
