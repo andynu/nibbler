@@ -15,11 +15,7 @@ class CachedImage < ApplicationRecord
   # URL path prefix for cached images
   URL_PREFIX = "/images/cache"
 
-  # Returns the full filesystem path to the cached image.
-  #
-  # The directory comes from config.x.image_cache.dir on every call rather than
-  # from a constant frozen at load time: the parallel test workers each point at
-  # a directory of their own (see test/test_helper.rb).
+  # Returns the full filesystem path to the cached image
   def cached_path
     Rails.configuration.x.image_cache.dir.join(cached_filename)
   end

@@ -58,9 +58,7 @@ module Ttrb
     # Both live under public/ so the static file server can serve them at
     # /images/cache and /audio/cache, and both are Kamal volumes so they
     # survive a deploy (config/deploy.yml). Settings rather than constants
-    # because the test environment redirects them out of public/ and the
-    # parallel test workers each need a directory of their own, so every reader
-    # has to resolve the path at call time.
+    # because the test environment redirects them out of public/.
     config.x.image_cache.dir = Rails.root.join("public", "images", "cache")
     config.x.audio_cache.dir = Rails.root.join("public", "audio", "cache")
   end

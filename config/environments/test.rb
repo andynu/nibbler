@@ -53,8 +53,7 @@ Rails.application.configure do
 
   # Keep the on-disk caches out of public/. The tests that exercise them write
   # and delete whole directories, and in a development checkout public/images/cache
-  # holds real downloaded images. test_helper.rb appends a per-worker subdirectory
-  # to these so parallel workers never share a directory.
+  # holds real downloaded images.
   config.x.image_cache.dir = Rails.root.join("tmp", "test_caches", "images")
   config.x.audio_cache.dir = Rails.root.join("tmp", "test_caches", "audio")
 

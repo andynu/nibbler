@@ -60,7 +60,7 @@ class E2eDatasetTest < ActiveSupport::TestCase
 
   # Builds the real fixture set and returns one of its entries. build! is the
   # half of reseed! that does not truncate, so this is safe inside the test
-  # transaction; calling reseed! here would wipe the worker's database.
+  # transaction; calling reseed! here would wipe the test database.
   def seeded_entry
     user = E2eDataset.new.build!
 

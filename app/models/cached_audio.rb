@@ -18,11 +18,7 @@ class CachedAudio < ApplicationRecord
   # URL path prefix for cached audio
   URL_PREFIX = "/audio/cache"
 
-  # Returns the full filesystem path to the cached audio file.
-  #
-  # The directory comes from config.x.audio_cache.dir on every call rather than
-  # from a constant frozen at load time: the parallel test workers each point at
-  # a directory of their own (see test/test_helper.rb).
+  # Returns the full filesystem path to the cached audio file
   def cached_path
     Rails.configuration.x.audio_cache.dir.join(audio_filename)
   end
