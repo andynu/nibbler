@@ -12,6 +12,9 @@ class FeedParser
     :enclosures
   )
 
+  # The title given to an item that arrives without one.
+  UNTITLED = "(untitled)".freeze
+
   ParsedEnclosure = Data.define(
     :url,
     :type,
@@ -70,7 +73,7 @@ class FeedParser
   def normalize_entry(entry)
     ParsedEntry.new(
       guid: extract_guid(entry),
-      title: entry.title&.strip || "(untitled)",
+      title: entry.title&.strip || UNTITLED,
       link: extract_link(entry),
       content: extract_content(entry),
       author: entry.respond_to?(:author) ? entry.author : nil,

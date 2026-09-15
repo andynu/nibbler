@@ -421,6 +421,94 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_includes Entry.find_by!(guid: "edited").content, "first draft"
   end
 
+  # A headline or byline corrected under the same GUID is an edit too. Search
+  # reads the title, and the reading pane shows both.
+
+  test "a corrected headline replaces the stored title" do
+    update_with(rss(item(guid: "edited", title: "Quokkas Retrun To Rottnest")))
+    update_with(rss(item(guid: "edited", title: "Quokkas Return To Rottnest")))
+
+    assert_equal "Quokkas Return To Rottnest", Entry.find_by!(guid: "edited").title
+  end
+
+  test "search finds an edited article by its corrected headline, not its first one" do
+    update_with(rss(item(guid: "edited", title: "Wombats Return To Rottnest")))
+    update_with(rss(item(guid: "edited", title: "Quokkas Return To Rottnest")))
+
+    entry = Entry.find_by!(guid: "edited")
+    assert_includes Entry.search("quokkas"), entry
+    assert_not_includes Entry.search("wombats"), entry
+  end
+
+  test "a headline edit is not a new article" do
+    update_with(rss(item(guid: "edited", title: "Quokkas Retrun")))
+    user_entry = @feed.user_entries.joins(:entry).find_by!(entries: { guid: "edited" })
+    user_entry.update!(unread: false)
+    published = user_entry.entry.updated
+
+    result = travel(1.hour) { update_with(rss(item(guid: "edited", title: "Quokkas Return"))) }
+
+    assert_equal 0, result.new_entries_count
+    assert_not user_entry.reload.unread
+    assert_equal published, user_entry.entry.updated
+  end
+
+  test "a headline edit keeps the image-rewritten copy of the body" do
+    @feed.update!(cache_images: true)
+    update_with(rss(item(guid: "edited", title: "Quokkas Retrun", body: "&lt;p&gt;text&lt;/p&gt;")))
+    entry = Entry.find_by!(guid: "edited")
+    entry.update!(cached_content: "<p>text, images cached</p>")
+
+    assert_no_enqueued_jobs(only: CacheArticleImagesJob) do
+      update_with(rss(item(guid: "edited", title: "Quokkas Return", body: "&lt;p&gt;text&lt;/p&gt;")))
+    end
+
+    assert_equal "Quokkas Return", entry.reload.title
+    assert_equal "<p>text, images cached</p>", entry.cached_content
+  end
+
+  test "a republish with no headline keeps the stored title" do
+    update_with(rss(item(guid: "edited", title: "Quokkas Return")))
+
+    update_with(rss(item(guid: "edited", title: nil)))
+
+    assert_equal "Quokkas Return", Entry.find_by!(guid: "edited").title
+  end
+
+  test "a republish with a blank headline keeps the stored title and skips nothing" do
+    update_with(rss(item(guid: "edited", title: "Quokkas Return")))
+
+    result = update_with(rss(item(guid: "edited", title: "   ")))
+
+    assert_equal "Quokkas Return", Entry.find_by!(guid: "edited").title
+    assert_empty result.skipped_entries
+  end
+
+  test "a changed author replaces the stored author" do
+    update_with(rss(item(guid: "edited", title: "Edited", author: "Staff")))
+    update_with(rss(item(guid: "edited", title: "Edited", author: "Jo Quokka")))
+
+    assert_equal "Jo Quokka", Entry.find_by!(guid: "edited").author
+  end
+
+  test "a republish with no author keeps the stored author" do
+    update_with(rss(item(guid: "edited", title: "Edited", author: "Jo Quokka")))
+    update_with(rss(item(guid: "edited", title: "Edited")))
+
+    assert_equal "Jo Quokka", Entry.find_by!(guid: "edited").author
+  end
+
+  test "a second feed carrying the same item does not rewrite the headline or author" do
+    aggregator = Feed.create!(user: @user, title: "Aggregator", feed_url: "https://planet.example.com/feed.xml")
+    update_with(rss(item(guid: "edited", title: "Quokkas Return", author: "Jo Quokka")))
+
+    update_with(rss(item(guid: "edited", title: "Planet: Quokkas Return", author: "Planet Editors")), feed: aggregator)
+
+    entry = Entry.find_by!(guid: "edited")
+    assert_equal "Quokkas Return", entry.title
+    assert_equal "Jo Quokka", entry.author
+  end
+
   private
 
   def edition(text)
@@ -509,15 +597,19 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     XML
   end
 
-  def item(guid:, title:, body: nil)
+  # A nil title leaves the <title> element out altogether.
+  def item(guid:, title:, body: nil, author: nil)
+    headline = title.nil? ? "" : "<title>#{title}</title>"
     description = body ? "<description>#{body}</description>" : ""
+    byline = author ? "<author>#{author}</author>" : ""
 
     <<~XML
       <item>
-        <title>#{title}</title>
+        #{headline}
         <link>https://example.com/#{guid}</link>
         <guid>#{guid}</guid>
         #{description}
+        #{byline}
       </item>
     XML
   end

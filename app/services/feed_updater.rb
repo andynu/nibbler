@@ -252,22 +252,38 @@ class FeedUpdater
     end
   end
 
-  # Follows a republished item's edited text, so content_hash moves and the
-  # summary, full-text and audio caches keyed to it see the change.
+  # Follows a republished item's edits into the shared entry. A new body moves
+  # content_hash, so the summary, full-text and audio caches keyed to it see the
+  # change; a corrected headline reaches search through tsvector_combined.
   #
   # Only the feed the reader's row came from may write: entries are shared by
   # GUID, and two feeds carrying one item with different bodies would otherwise
   # overwrite each other on every fetch. Read state and entries.updated are left
-  # alone, and an empty republish keeps the stored body rather than erasing it.
+  # alone. A field the republish leaves empty keeps its stored value rather than
+  # being erased, and FeedParser::UNTITLED counts as empty.
   def apply_edit(entry, parsed_entry)
-    content = parsed_entry.content
-    return if content.blank?
+    changes = body_edit(entry, parsed_entry.content)
+    title = parsed_entry.title
+    changes[:title] = title if title != FeedParser::UNTITLED && replaces?(entry.title, title)
+    changes[:author] = parsed_entry.author if replaces?(entry.author, parsed_entry.author)
+    return if changes.empty?
+
+    entry.update!(changes.merge(date_updated: Time.current))
+    CacheArticleImagesJob.perform_later(entry.id) if changes.key?(:content) && @feed.cache_images?
+  end
+
+  # cached_content is the old body with its images rewritten, so it goes too.
+  def body_edit(entry, content)
+    return {} if content.blank?
 
     digest = content_digest(content)
-    return if digest == entry.content_hash
+    return {} if digest == entry.content_hash
 
-    entry.update!(content: content, content_hash: digest, cached_content: nil, date_updated: Time.current)
-    CacheArticleImagesJob.perform_later(entry.id) if @feed.cache_images?
+    { content: content, content_hash: digest, cached_content: nil }
+  end
+
+  def replaces?(stored, incoming)
+    incoming.present? && incoming != stored
   end
 
   def content_digest(content)
