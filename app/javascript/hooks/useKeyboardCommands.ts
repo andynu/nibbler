@@ -36,6 +36,20 @@ function matchesModifiers(
   )
 }
 
+const withheldEvents = new WeakSet<Event>()
+
+/**
+ * Keep one key press from the commands without stopping its propagation, for a
+ * control whose own handling of that key also listens on the document.
+ *
+ * Not `defaultPrevented`: Radix's dismissable layers prevent Escape in a
+ * document capture listener, so honoring it would stop Escape reaching these
+ * commands whenever it closes a dialog.
+ */
+export function withholdFromKeyboardCommands(event: Event): void {
+  withheldEvents.add(event)
+}
+
 /**
  * Bind a list of keyboard commands to the document for as long as the calling
  * component is mounted.
@@ -88,6 +102,7 @@ export function useKeyboardCommands(
     const handleKeyDown = (event: KeyboardEvent) => {
       const { commands, enabled } = latest.current
       if (!enabled) return
+      if (withheldEvents.has(event)) return
       if (isInputElement(event.target)) return
 
       for (const command of commands) {

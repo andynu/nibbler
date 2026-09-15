@@ -2,7 +2,11 @@ import { render, renderHook, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useLayoutEffect, useState } from "react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { useKeyboardCommands, KeyboardCommand } from "./useKeyboardCommands"
+import {
+  useKeyboardCommands,
+  withholdFromKeyboardCommands,
+  KeyboardCommand,
+} from "./useKeyboardCommands"
 
 describe("useKeyboardCommands", () => {
   beforeEach(() => {
@@ -488,6 +492,48 @@ describe("useKeyboardCommands", () => {
       // [0] is the failure this ticket is about: the handler running against the
       // empty list of the render before the one on screen.
       expect(seen).toEqual([2])
+    })
+  })
+
+  describe("withheld presses", () => {
+    function WithholdingButton() {
+      return (
+        <button onKeyDown={(event) => withholdFromKeyboardCommands(event.nativeEvent)}>
+          withholds
+        </button>
+      )
+    }
+
+    it("reach no command, and still propagate to the document's other listeners", async () => {
+      const user = userEvent.setup()
+      const handler = vi.fn()
+      const laterListener = vi.fn()
+      renderHook(() => useKeyboardCommands([{ key: " ", handler, description: "Page down" }]))
+      render(<WithholdingButton />)
+
+      document.addEventListener("keydown", laterListener)
+      try {
+        screen.getByRole("button", { name: "withholds" }).focus()
+        await user.keyboard(" ")
+      } finally {
+        document.removeEventListener("keydown", laterListener)
+      }
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(laterListener).toHaveBeenCalledOnce()
+    })
+
+    it("hold back only the press they were withheld from", async () => {
+      const user = userEvent.setup()
+      const handler = vi.fn()
+      renderHook(() => useKeyboardCommands([{ key: " ", handler, description: "Page down" }]))
+      render(<WithholdingButton />)
+
+      screen.getByRole("button", { name: "withholds" }).focus()
+      await user.keyboard(" ")
+      dispatchKeyDown(" ")
+
+      expect(handler).toHaveBeenCalledOnce()
     })
   })
 })
