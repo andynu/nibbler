@@ -19,8 +19,10 @@ export function generateUUID(): string {
   )
 }
 
-// Error category types for grouping feed errors
+// Error category types for grouping feed errors. categorizeError never returns
+// "stopped": it groups feeds no longer checked at all, whatever their last error.
 export type ErrorCategory =
+  | "stopped"
   | "not_found"
   | "forbidden"
   | "gone"
@@ -37,6 +39,7 @@ export interface ErrorCategoryInfo {
 }
 
 export const ERROR_CATEGORIES: Record<ErrorCategory, ErrorCategoryInfo> = {
+  stopped: { key: "stopped", label: "No Longer Checked", priority: 0 },
   gone: { key: "gone", label: "Gone (Removed)", priority: 1 },
   not_found: { key: "not_found", label: "Not Found", priority: 2 },
   forbidden: { key: "forbidden", label: "Access Denied", priority: 3 },

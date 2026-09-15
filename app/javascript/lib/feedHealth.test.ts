@@ -101,4 +101,13 @@ describe("feedHealthSummary", () => {
       feedHealthSummary({ consecutive_failures: 2, first_failed_at: ago(HOUR) }, NOW)
     ).toBe("Failing for 1 hour (2 attempts)")
   })
+
+  it("says checking stopped for a dead feed rather than counting attempts", () => {
+    expect(
+      feedHealthSummary(
+        { consecutive_failures: 60, first_failed_at: ago(400 * DAY), dead_at: ago(3 * DAY) },
+        NOW
+      )
+    ).toBe("Checking stopped after a year of failures")
+  })
 })

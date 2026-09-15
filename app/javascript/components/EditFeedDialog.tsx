@@ -154,6 +154,7 @@ export function EditFeedDialog({
   const [updateInterval, setUpdateInterval] = useState<string>("0")
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isResuming, setIsResuming] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -275,6 +276,25 @@ export function EditFeedDialog({
       setError(err instanceof Error ? err.message : "Failed to refresh feed")
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  // Closes on success: the dialog's feed is a snapshot from when it opened, so
+  // staying open would keep showing the dead state that was just cleared.
+  const handleResume = async () => {
+    if (!feed) return
+
+    setIsResuming(true)
+    setError(null)
+
+    try {
+      const result = await api.feeds.resume(feed.id)
+      onFeedUpdated(result.feed)
+      onOpenChange(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resume checking feed")
+    } finally {
+      setIsResuming(false)
     }
   }
 
@@ -453,16 +473,39 @@ export function EditFeedDialog({
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
                     <div>
                       <div className="font-medium">
-                        {feed.broken ? "Feed is broken" : "Last Error"}
+                        {feed.dead_at ? "No longer checked" : feed.broken ? "Feed is broken" : "Last Error"}
                       </div>
                       <div className="text-xs mt-1">{feed.last_error}</div>
                       {feedHealthSummary(feed) && (
                         <div className="text-xs mt-1 opacity-80">{feedHealthSummary(feed)}</div>
                       )}
-                      {feed.broken && (
+                      {feed.dead_at && (
+                        <>
+                          <div className="text-xs mt-2 opacity-80">
+                            Resuming tries it now. If it still fails, it gets another year
+                            before checking stops again.
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={handleResume}
+                            disabled={isResuming}
+                          >
+                            <RefreshCw
+                              className={cn("h-3 w-3 mr-1", isResuming && "animate-spin")}
+                              aria-hidden="true"
+                            />
+                            Resume checking
+                          </Button>
+                        </>
+                      )}
+                      {feed.broken && !feed.dead_at && (
                         <div className="text-xs mt-2 opacity-80">
-                          Still being checked about once a day. Correcting the URL above
-                          clears this and retries right away.
+                          Checked less often the longer it fails, down to once a week, and
+                          no longer checked after a year. Correcting the URL above clears
+                          this and retries right away.
                         </div>
                       )}
                     </div>

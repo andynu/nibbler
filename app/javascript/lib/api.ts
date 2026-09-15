@@ -39,6 +39,8 @@ export interface Feed {
   first_failed_at?: string | null
   /** Whether the streak has run past Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES. */
   broken?: boolean
+  /** When nibbler stopped fetching the feed after a year of failures, or null while it is still checked. */
+  dead_at?: string | null
   unread_count: number
   entry_count: number
   oldest_entry_date: string | null
@@ -290,6 +292,7 @@ export interface FeedInfo {
   consecutive_failures?: number
   first_failed_at?: string | null
   broken?: boolean
+  dead_at?: string | null
 
   // Polling interval
   update_interval: number | null
@@ -583,6 +586,9 @@ export const api = {
     delete: (id: number) => request<void>(`/feeds/${id}`, { method: "DELETE" }),
     refresh: (id: number) =>
       request<{ status: string; new_entries: number; feed: Feed }>(`/feeds/${id}/refresh`, { method: "POST" }),
+    /** Start checking a dead feed again. Answers with the feed even when the attempt it makes fails. */
+    resume: (id: number) =>
+      request<{ status: string | null; new_entries: number; error: string | null; feed: Feed }>(`/feeds/${id}/resume`, { method: "POST" }),
     refreshAll: () =>
       request<{ updated: number; results: Array<{ feed_id: number; title: string; status: string; new_entries: number; error: string | null }> }>("/feeds/refresh_all", { method: "POST" }),
     preview: (url: string) =>

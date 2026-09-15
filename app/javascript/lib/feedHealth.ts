@@ -14,6 +14,7 @@ export interface FeedHealthFields {
   consecutive_failures?: number
   first_failed_at?: string | null
   broken?: boolean
+  dead_at?: string | null
 }
 
 const MINUTE = 60_000
@@ -64,12 +65,17 @@ export function formatFailingDuration(
  * caption by the time it means something. From the second failure on it reports
  * the duration and the attempt count together, because either alone is
  * ambiguous - a big count over a short window is a flapping host, a small count
- * over a long window is a feed backed off to its daily cap.
+ * over a long window is a feed backed off to its weekly cap.
+ *
+ * A dead feed says checking stopped instead. Nothing is attempted any more, so
+ * a count and duration would read as if it were still being retried.
  */
 export function feedHealthSummary(
   feed: FeedHealthFields,
   now: Date = new Date()
 ): string | null {
+  if (feed.dead_at) return "Checking stopped after a year of failures"
+
   const failures = feed.consecutive_failures ?? 0
   if (failures < 2) return null
 

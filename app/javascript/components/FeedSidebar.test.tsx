@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { FeedSidebar } from "./FeedSidebar"
@@ -37,6 +37,7 @@ vi.mock("@/lib/api", () => ({
     },
     feeds: {
       refresh: vi.fn().mockResolvedValue({}),
+      resume: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
     },
   },
@@ -525,6 +526,74 @@ describe("FeedSidebar", () => {
       expect(
         screen.getByRole("img", { name: "Blipped Feed: update error" })
       ).toBeInTheDocument()
+    })
+
+    const DAY_MS = 24 * 60 * 60 * 1000
+    const deadFeed = (overrides: Parameters<typeof mockFeed>[0] = {}) =>
+      mockFeed({
+        id: 1,
+        title: "Dead Feed",
+        last_error: "getaddrinfo: Name or service not known",
+        consecutive_failures: 60,
+        first_failed_at: new Date(Date.now() - 400 * DAY_MS).toISOString(),
+        broken: true,
+        dead_at: new Date(Date.now() - 3 * DAY_MS).toISOString(),
+        ...overrides,
+      })
+
+    // A feed nobody fetches any more must not read like one still being retried.
+    it("names a dead feed as no longer checked", () => {
+      render(<FeedSidebar {...defaultProps} feeds={[deadFeed()]} />)
+
+      expect(
+        screen.getByRole("img", { name: "Dead Feed: Checking stopped after a year of failures" })
+      ).toBeInTheDocument()
+    })
+
+    it("groups dead feeds apart from feeds still being retried", async () => {
+      const user = userEvent.setup()
+      const feeds = [
+        deadFeed({ id: 1, last_error: "Feed not found" }),
+        mockFeed({ id: 2, title: "Moved Feed", last_error: "Feed not found" }),
+      ]
+
+      render(<FeedSidebar {...defaultProps} feeds={feeds} />)
+      await user.click(screen.getByText("Errors (2)"))
+
+      expect(screen.getByText("No Longer Checked (1)")).toBeInTheDocument()
+      expect(screen.getByText("Not Found (1)")).toBeInTheDocument()
+    })
+
+    it("offers Resume Checking on a dead feed and resumes it", async () => {
+      const user = userEvent.setup()
+      const onFeedUpdated = vi.fn()
+      const resumed = mockFeed({ id: 1, title: "Dead Feed", last_error: null, dead_at: null })
+      vi.mocked(api.feeds.resume).mockResolvedValueOnce({
+        status: "ok",
+        new_entries: 0,
+        error: null,
+        feed: resumed,
+      })
+
+      render(
+        <FeedSidebar {...defaultProps} feeds={[deadFeed()]} onFeedUpdated={onFeedUpdated} />
+      )
+      await user.click(screen.getByRole("button", { name: /dead feed menu/i }))
+      await user.click(screen.getByText("Resume Checking"))
+
+      await waitFor(() => expect(onFeedUpdated).toHaveBeenCalledWith(resumed))
+      expect(api.feeds.resume).toHaveBeenCalledWith(1)
+      expect(api.feeds.refresh).not.toHaveBeenCalled()
+    })
+
+    it("keeps Sync Now for a feed that is failing but still checked", async () => {
+      const user = userEvent.setup()
+
+      render(<FeedSidebar {...defaultProps} feeds={[deadFeed({ dead_at: null })]} />)
+      await user.click(screen.getByRole("button", { name: /dead feed menu/i }))
+
+      expect(screen.getByText("Sync Now")).toBeInTheDocument()
+      expect(screen.queryByText("Resume Checking")).not.toBeInTheDocument()
     })
 
     it("shows count for multiple errors", () => {

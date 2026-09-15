@@ -523,7 +523,7 @@ export function FeedSidebar({
     const groups = new Map<ErrorCategory, Feed[]>()
 
     feedsWithErrors.forEach((feed) => {
-      const category = categorizeError(feed.last_error || "")
+      const category = feed.dead_at ? "stopped" : categorizeError(feed.last_error || "")
       const existing = groups.get(category) || []
       existing.push(feed)
       groups.set(category, existing)
@@ -556,12 +556,14 @@ export function FeedSidebar({
     }
   }
 
-  const handleBulkUnsubscribeError = async (feedsToDelete: Feed[]) => {
+  const handleBulkUnsubscribeError = async (feedsToDelete: Feed[], errorCategory: ErrorCategory) => {
     const count = feedsToDelete.length
-    const categoryLabel = ERROR_CATEGORIES[categorizeError(feedsToDelete[0].last_error || "")].label
+    const subject = errorCategory === "stopped"
+      ? "that are no longer checked"
+      : `with ${ERROR_CATEGORIES[errorCategory].label} errors`
     await handleBulkUnsubscribe(
       feedsToDelete,
-      `Unsubscribe from ${count} feed(s) with ${categoryLabel} errors? This will remove all their entries.`
+      `Unsubscribe from ${count} feed(s) ${subject}? This will remove all their entries.`
     )
   }
 
@@ -632,7 +634,11 @@ export function FeedSidebar({
 
     setRefreshingFeedId(feed.id)
     try {
-      const result = await api.feeds.refresh(feed.id)
+      // Nothing else fetches a dead feed, so the reader's click is the request
+      // to start checking it again, not a one-off retry.
+      const result = feed.dead_at
+        ? await api.feeds.resume(feed.id)
+        : await api.feeds.refresh(feed.id)
       if (result.feed) {
         onFeedUpdated?.(result.feed)
       }
@@ -1237,7 +1243,7 @@ export function FeedSidebar({
                             <Button
                               variant="ghost"
                               className="w-full justify-start gap-2 h-7 text-xs text-destructive-text hover:text-destructive-text"
-                              onClick={() => handleBulkUnsubscribeError(errorFeeds)}
+                              onClick={() => handleBulkUnsubscribeError(errorFeeds, errorCategory)}
                             >
                               <Trash2 className="h-3 w-3" />
                               <span className="flex-1 text-left">Unsubscribe all ({errorFeeds.length})</span>
@@ -1713,6 +1719,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
   const healthSummary = feedHealthSummary(feed)
+  const refreshLabel = feed.dead_at ? "Resume Checking" : "Sync Now"
 
   // Make feed draggable
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -1801,7 +1808,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
                     <p className="font-medium">
-                      {feed.broken ? "Feed is broken" : "Update Error"}
+                      {feed.dead_at ? "No longer checked" : feed.broken ? "Feed is broken" : "Update Error"}
                     </p>
                     <p className="text-xs opacity-90">{feed.last_error}</p>
                     {healthSummary && (
@@ -1831,7 +1838,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onRefresh} disabled={isRefreshing}>
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Sync Now
+                {refreshLabel}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onEdit}>
                 <Settings className="mr-2 h-4 w-4" />
@@ -1849,7 +1856,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
       <ContextMenuContent>
         <ContextMenuItem onClick={onRefresh} disabled={isRefreshing}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Sync Now
+          {refreshLabel}
         </ContextMenuItem>
         <ContextMenuItem onClick={onEdit}>
           <Settings className="mr-2 h-4 w-4" />

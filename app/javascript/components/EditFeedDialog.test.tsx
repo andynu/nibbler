@@ -14,6 +14,7 @@ import {
 // Mock API
 const mockApiUpdate = vi.fn()
 const mockApiRefresh = vi.fn()
+const mockApiResume = vi.fn()
 const mockApiDelete = vi.fn()
 const mockApiInfo = vi.fn()
 const mockApiFiltersList = vi.fn()
@@ -25,6 +26,7 @@ vi.mock("@/lib/api", () => ({
     feeds: {
       update: (...args: unknown[]) => mockApiUpdate(...args),
       refresh: (...args: unknown[]) => mockApiRefresh(...args),
+      resume: (...args: unknown[]) => mockApiResume(...args),
       delete: (...args: unknown[]) => mockApiDelete(...args),
       info: (...args: unknown[]) => mockApiInfo(...args),
     },
@@ -255,6 +257,52 @@ describe("EditFeedDialog", () => {
 
       expect(screen.getByText("Last Error")).toBeInTheDocument()
       expect(screen.getByText("Connection timed out")).toBeInTheDocument()
+    })
+
+    it("says a dead feed is no longer checked and resumes it in one click", async () => {
+      const user = userEvent.setup()
+      const onFeedUpdated = vi.fn()
+      const onOpenChange = vi.fn()
+      const deadFeed = mockFeed({
+        id: 1,
+        last_error: "Feed not found",
+        consecutive_failures: 60,
+        broken: true,
+        first_failed_at: "2025-08-01T00:00:00Z",
+        dead_at: "2026-09-01T00:00:00Z",
+      })
+      const resumed = mockFeed({ id: 1, last_error: null, dead_at: null })
+      mockApiResume.mockResolvedValue({ status: "ok", new_entries: 0, error: null, feed: resumed })
+
+      render(
+        <EditFeedDialog
+          {...defaultProps}
+          feed={deadFeed}
+          onFeedUpdated={onFeedUpdated}
+          onOpenChange={onOpenChange}
+        />
+      )
+
+      expect(screen.getByText("No longer checked")).toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "Resume checking" }))
+
+      await waitFor(() => expect(onFeedUpdated).toHaveBeenCalledWith(resumed))
+      expect(mockApiResume).toHaveBeenCalledWith(1)
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it("does not offer to resume a feed that is failing but still checked", () => {
+      const brokenFeed = mockFeed({
+        last_error: "Feed not found",
+        consecutive_failures: 6,
+        broken: true,
+        dead_at: null,
+      })
+
+      render(<EditFeedDialog {...defaultProps} feed={brokenFeed} />)
+
+      expect(screen.getByText("Feed is broken")).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Resume checking" })).not.toBeInTheDocument()
     })
   })
 
