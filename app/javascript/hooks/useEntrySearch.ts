@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { useLatestRequest } from "@/hooks/useLatestRequest"
 import { api, sortConfigToParam } from "@/lib/api"
 import type { EntryView, FreshMaxAge, SearchParams, SearchResult, SortConfig } from "@/lib/api"
 
@@ -207,11 +208,11 @@ export interface EntrySearch {
  * Debounced server-side article search, scoped to the list it was launched
  * from and widenable from there.
  *
- * Every effect run takes the next sequence number, which invalidates whatever
- * is already in flight. A response may only write state while its sequence is
- * still the current one, so a slow reply for an earlier query cannot land on
- * top of a newer one. Clearing the box takes a sequence number too, which is
- * how an in-flight request is abandoned without an AbortController.
+ * Every search the effect issues claims the latest request, superseding
+ * whatever is already in flight. A response may only write state while its
+ * claim is still current, so a slow reply for an earlier query cannot land on
+ * top of a newer one. Emptying the box abandons the request in flight without
+ * issuing another, which is how it is dropped without an AbortController.
  */
 export function useEntrySearch(
   list: EntryListScope = {},
@@ -226,7 +227,7 @@ export function useEntrySearch(
   const [sort, setSort] = useState<SortConfig[]>(DEFAULT_SEARCH_SORT)
   const [widerMatchCount, setWiderMatchCount] = useState<number | null>(null)
 
-  const requestSeq = useRef(0)
+  const { claim: claimSearch, abandon: abandonSearch } = useLatestRequest()
 
   const trimmed = query.trim()
   // Serialised out here so the effect below depends on the ordering's value
@@ -250,16 +251,17 @@ export function useEntrySearch(
   } = list
 
   useEffect(() => {
-    const seq = ++requestSeq.current
-
     // An empty box is not a search: no request, straight back to the plain list.
     if (!trimmed) {
+      abandonSearch()
       setResults([])
       setIsSearching(false)
       setError(null)
       setWiderMatchCount(null)
       return
     }
+
+    const claim = claimSearch()
 
     const listScope: EntryListScope = {
       unread,
@@ -290,7 +292,7 @@ export function useEntrySearch(
       api
         .search(request)
         .then((response) => {
-          if (seq !== requestSeq.current) return
+          if (!claim.isCurrent()) return
           setResults(response.entries)
           setError(null)
           setIsSearching(false)
@@ -304,7 +306,7 @@ export function useEntrySearch(
           api
             .search({ q: trimmed, per_page: 1 })
             .then((wider) => {
-              if (seq !== requestSeq.current) return
+              if (!claim.isCurrent()) return
               setWiderMatchCount(wider.pagination.total)
             })
             .catch(() => {
@@ -313,7 +315,7 @@ export function useEntrySearch(
             })
         })
         .catch((err: unknown) => {
-          if (seq !== requestSeq.current) return
+          if (!claim.isCurrent()) return
           setResults([])
           setWiderMatchCount(null)
           setError(err instanceof Error ? err.message : "Search failed")
@@ -336,6 +338,8 @@ export function useEntrySearch(
     freshMaxAge,
     freshPerFeed,
     debounceMs,
+    claimSearch,
+    abandonSearch,
   ])
 
   const updateResults = useCallback(
