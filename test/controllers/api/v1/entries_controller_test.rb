@@ -1135,14 +1135,22 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
-  def create_entry_summary(entry, content_hash: nil, text: "A paragraph about the settlement.")
+  def create_entry_summary(entry, content_hash: nil, readable_content_hash: nil, text: "A paragraph about the settlement.")
     EntrySummary.create!(
       entry: entry,
       summary: text,
       model: "gemma4:e4b",
       content_hash: content_hash || entry.content_hash,
+      readable_content_hash: readable_content_hash,
       generated_at: 1.hour.ago
     )
+  end
+
+  # Longer than the excerpt create_summarizable_user_entry writes, and still over
+  # the summarizing floor, so it is what Entry#readable_content returns.
+  def store_longer_full_text(entry)
+    content = "<p>#{SUMMARY_SENTENCE * 60}</p>"
+    store_full_text(entry, content: content, char_count: ArticleText.from_html(content).length)
   end
 
   test "summarize enqueues one generation and answers without waiting for it" do
@@ -1180,6 +1188,22 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     create_entry_summary(user_entry.entry, content_hash: "a-hash-the-entry-no-longer-has")
 
     assert_enqueued_with job: SummarizeEntryJob, args: [ user_entry.entry.id ] do
+      post summarize_api_v1_entry_url(user_entry), as: :json
+    end
+
+    assert_equal "queued", JSON.parse(response.body)["status"]
+  end
+
+  # Fetching never moves the entry's content_hash, so only the digest of the text
+  # summarized shows that the article behind this paragraph grew.
+  test "summarize regenerates a summary of the excerpt once a longer copy has been fetched" do
+    user_entry = create_summarizable_user_entry
+    entry = user_entry.entry
+    summary = create_entry_summary(entry, readable_content_hash: EntrySummary.readable_content_hash_for(entry))
+    assert_not summary.stale?, "precondition: summary starts current"
+    store_longer_full_text(entry)
+
+    assert_enqueued_with job: SummarizeEntryJob, args: [ entry.id ] do
       post summarize_api_v1_entry_url(user_entry), as: :json
     end
 
@@ -1232,6 +1256,17 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
   test "show marks a summary written against superseded text as stale" do
     user_entry = create_summarizable_user_entry
     create_entry_summary(user_entry.entry, content_hash: "a-hash-the-entry-no-longer-has")
+
+    get api_v1_entry_url(user_entry), as: :json
+
+    assert_equal true, JSON.parse(response.body).dig("summary", "stale")
+  end
+
+  test "show marks a summary of the excerpt stale once a longer copy has been fetched" do
+    user_entry = create_summarizable_user_entry
+    entry = user_entry.entry
+    create_entry_summary(entry, readable_content_hash: EntrySummary.readable_content_hash_for(entry))
+    store_longer_full_text(entry)
 
     get api_v1_entry_url(user_entry), as: :json
 

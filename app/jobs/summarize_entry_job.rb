@@ -186,12 +186,16 @@ class SummarizeEntryJob < ApplicationJob
       broadcast_state("ready", summary: EntrySummaryChannel.summary_payload(entry_summary))
     end
 
+    # Digested from the same Entry instance the summarizer read, whose
+    # entry_full_text is already loaded. Reloading it here would stamp a copy
+    # fetched while the model was writing as the text this summary describes.
     def persist(entry, cached, result)
       record = cached || entry.build_entry_summary
       record.update!(
         summary: result[:summary],
         model: result[:model],
         content_hash: entry.content_hash,
+        readable_content_hash: EntrySummary.readable_content_hash_for(entry),
         generated_at: Time.current
       )
       record

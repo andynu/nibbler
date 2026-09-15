@@ -77,9 +77,8 @@ class EntryFullText < ApplicationRecord
 
   # True when the feed has republished the article since this was fetched.
   #
-  # Same comparison EntrySummary#stale? makes, against the same column: the
-  # entry already carries a hash of its body, so there is no reason to compute a
-  # second one here.
+  # The entry already carries a hash of its body, so there is no reason to
+  # compute a second one here.
   def stale?
     content_hash != entry.content_hash
   end

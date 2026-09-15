@@ -17,18 +17,35 @@ class EntrySummary < ApplicationRecord
   validates :model, presence: true
   validates :generated_at, presence: true
 
-  # True when this summary was written against the entry's current text.
+  # The digest a summary written from this entry right now is stamped with.
   #
-  # Compares the stored hash to Entry#content_hash, the hash the ingest path
-  # already maintains for update detection (FeedUpdater writes
-  # Digest::SHA256.hexdigest(content) on every fetch). CachedAudio#valid_for_content?
-  # answers the same question but takes the content and hashes it itself, with
-  # its own tags-stripped normalisation; there is no reason to compute a second
-  # hash of the same text here when the entry already carries one.
+  # CachedAudio.hash_content over Entry#readable_content: the document
+  # EntrySummarizer reads, reduced to the ArticleText the model is given. An edit
+  # that changes only markup therefore leaves a summary current, as it leaves
+  # audio playable.
+  #
+  # @param entry [Entry]
+  # @return [String]
+  def self.readable_content_hash_for(entry)
+    CachedAudio.hash_content(entry.readable_content)
+  end
+
+  # True when this summary was written against the text a reader now gets.
+  #
+  # Compares readable_content_hash rather than Entry#content_hash, because the
+  # text summarized can be a fetched copy of the article and fetching one never
+  # moves the entry's hash. A summary of the excerpt goes stale when a longer
+  # copy arrives; one of the fetched copy goes stale when a republish makes that
+  # copy unusable, and current again if a refetch brings back the same text.
+  #
+  # A row written before readable_content_hash existed has none, and keeps
+  # comparing content_hash with the entry's until it is regenerated.
   #
   # @return [Boolean]
   def valid_for_content?
-    content_hash == entry.content_hash
+    return content_hash == entry.content_hash if readable_content_hash.nil?
+
+    readable_content_hash == self.class.readable_content_hash_for(entry)
   end
 
   # True when the article has changed since this summary was written.

@@ -106,6 +106,63 @@ class SummarizeEntryJobTest < ActiveJob::TestCase
     assert_equal [ "running", "ready" ], states
   end
 
+  FETCHED_COPY = "<p>Hello World, and the four paragraphs the feed left out.</p>".freeze
+
+  test "stamps the summary with a digest of the fetched copy when one is usable" do
+    full_text = store_full_text(FETCHED_COPY)
+    stub_summarizer(result: { summary: PARAGRAPH, model: "gemma4:e4b" })
+
+    SummarizeEntryJob.perform_now(@entry.id)
+
+    summary = @entry.reload.entry_summary
+    assert_equal CachedAudio.hash_content(full_text.content), summary.readable_content_hash
+    assert_not_equal CachedAudio.hash_content(@entry.content), summary.readable_content_hash
+    assert_not summary.stale?
+  end
+
+  test "regenerates over a summary of the excerpt once a longer copy has been fetched" do
+    create_summary(
+      content_hash: @entry.content_hash,
+      readable_content_hash: EntrySummary.readable_content_hash_for(@entry),
+      summary: "About the excerpt."
+    )
+    full_text = store_full_text(FETCHED_COPY)
+    summarizer = stub_summarizer(result: { summary: PARAGRAPH, model: "gemma4:e4b" })
+
+    SummarizeEntryJob.perform_now(@entry.id)
+
+    assert_equal 1, summarizer.calls
+    summary = @entry.reload.entry_summary
+    assert_equal PARAGRAPH, summary.summary
+    assert_equal CachedAudio.hash_content(full_text.content), summary.readable_content_hash
+    assert_equal [ "running", "ready" ], states
+  end
+
+  # The summarizer has already read the excerpt when the copy lands, so the
+  # paragraph describes the excerpt and must not be stamped as the fetched copy.
+  test "a copy fetched while the model is writing leaves the new summary stale" do
+    summarizer = Class.new do
+      define_method(:summarize) do |entry|
+        EntrySummarizer.article_text(entry)
+        Entry.find(entry.id).create_entry_full_text!(
+          status: EntryFullText::OK,
+          content: FETCHED_COPY,
+          char_count: ArticleText.from_html(FETCHED_COPY).length,
+          content_hash: entry.content_hash,
+          fetched_at: Time.current
+        )
+        { summary: PARAGRAPH, model: "gemma4:e4b" }
+      end
+    end.new
+    SummarizeEntryJob.summarizer_factory = -> { summarizer }
+
+    SummarizeEntryJob.perform_now(@entry.id)
+
+    summary = @entry.reload.entry_summary
+    assert_equal CachedAudio.hash_content(@entry.content), summary.readable_content_hash
+    assert summary.stale?
+  end
+
   # --- outcomes that are not a summary --------------------------------------
 
   # TooShort is a refusal, not a failure: nothing was sent to the model and
@@ -246,13 +303,24 @@ class SummarizeEntryJobTest < ActiveJob::TestCase
       summarizer
     end
 
-    def create_summary(content_hash:, summary:)
+    def create_summary(content_hash:, summary:, readable_content_hash: nil)
       EntrySummary.create!(
         entry: @entry,
         summary: summary,
         model: "gemma4:e4b",
         content_hash: content_hash,
+        readable_content_hash: readable_content_hash,
         generated_at: 1.day.ago
+      )
+    end
+
+    def store_full_text(content)
+      @entry.create_entry_full_text!(
+        status: EntryFullText::OK,
+        content: content,
+        char_count: ArticleText.from_html(content).length,
+        content_hash: @entry.content_hash,
+        fetched_at: Time.current
       )
     end
 

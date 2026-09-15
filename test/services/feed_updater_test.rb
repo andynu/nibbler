@@ -353,6 +353,7 @@ class FeedUpdaterTest < ActiveSupport::TestCase
       entry: entry,
       summary: "A paragraph about the article.",
       content_hash: entry.content_hash,
+      readable_content_hash: EntrySummary.readable_content_hash_for(entry),
       model: "gemma4:e4b",
       generated_at: Time.current
     )
