@@ -513,6 +513,10 @@ function App() {
     }
   }
 
+  // The handlers below patch the open article with the updater form, and only
+  // while it is still the one they acted on. Spreading `selectedEntry` would
+  // write back the copy captured before the await and undo whatever landed in
+  // between.
   const handleToggleRead = useCallback(async (entryId: number) => {
     try {
       const result = await api.entries.toggleRead(entryId)
@@ -520,15 +524,15 @@ function App() {
         prev.map((e) => (e.id === entryId ? { ...e, unread: result.unread } : e))
       )
       updateSearchResult(entryId, { unread: result.unread })
-      if (selectedEntry?.id === entryId) {
-        setSelectedEntry({ ...selectedEntry, unread: result.unread })
-      }
+      setSelectedEntry((prev) =>
+        prev?.id === entryId ? { ...prev, unread: result.unread } : prev
+      )
       loadFeeds() // Refresh unread counts
       loadCounters() // Refresh virtual folder counts
     } catch (error) {
       console.error("Failed to toggle read:", error)
     }
-  }, [selectedEntry, updateSearchResult, loadCounters])
+  }, [updateSearchResult, loadCounters])
 
   const handleToggleStarredEntry = useCallback(async (entryId: number) => {
     try {
@@ -537,14 +541,14 @@ function App() {
         prev.map((e) => (e.id === entryId ? { ...e, starred: result.starred } : e))
       )
       updateSearchResult(entryId, { starred: result.starred })
-      if (selectedEntry?.id === entryId) {
-        setSelectedEntry({ ...selectedEntry, starred: result.starred })
-      }
+      setSelectedEntry((prev) =>
+        prev?.id === entryId ? { ...prev, starred: result.starred } : prev
+      )
       loadCounters() // Refresh starred count
     } catch (error) {
       console.error("Failed to toggle starred:", error)
     }
-  }, [selectedEntry, updateSearchResult, loadCounters])
+  }, [updateSearchResult, loadCounters])
 
   // No `updateSearchResult` here, or in handleSetScore below, unlike the
   // read and starred handlers: SearchController's projection carries neither
@@ -556,23 +560,24 @@ function App() {
       setEntries((prev) =>
         prev.map((e) => (e.id === entryId ? { ...e, is_published: result.is_published } : e))
       )
-      if (selectedEntry?.id === entryId) {
-        setSelectedEntry({ ...selectedEntry, is_published: result.is_published })
-      }
+      setSelectedEntry((prev) =>
+        prev?.id === entryId ? { ...prev, is_published: result.is_published } : prev
+      )
       loadCounters() // Refresh published count
     } catch (error) {
       console.error("Failed to toggle published:", error)
     }
-  }, [selectedEntry, loadCounters])
+  }, [loadCounters])
 
   const handleUpdateNote = async (note: string) => {
     if (!selectedEntry) return
+    const entryId = selectedEntry.id
     try {
-      await api.entries.update(selectedEntry.id, { entry: { note } })
+      await api.entries.update(entryId, { entry: { note } })
       setEntries((prev) =>
-        prev.map((e) => (e.id === selectedEntry.id ? { ...e, note } : e))
+        prev.map((e) => (e.id === entryId ? { ...e, note } : e))
       )
-      setSelectedEntry({ ...selectedEntry, note })
+      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, note } : prev))
     } catch (error) {
       console.error("Failed to update note:", error)
       throw error // Re-throw so the UI can handle it
@@ -581,9 +586,10 @@ function App() {
 
   const handleAddTag = async (tagName: string) => {
     if (!selectedEntry) return
+    const entryId = selectedEntry.id
     try {
-      const result = await api.entryTags.add(selectedEntry.id, tagName)
-      setSelectedEntry({ ...selectedEntry, tags: result.tags })
+      const result = await api.entryTags.add(entryId, tagName)
+      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, tags: result.tags } : prev))
       // If this is a new tag, add it to allTags
       const normalizedName = tagName.toLowerCase()
       if (!allTags?.includes(normalizedName)) {
@@ -597,9 +603,10 @@ function App() {
 
   const handleRemoveTag = async (tagName: string) => {
     if (!selectedEntry) return
+    const entryId = selectedEntry.id
     try {
-      const result = await api.entryTags.remove(selectedEntry.id, tagName)
-      setSelectedEntry({ ...selectedEntry, tags: result.tags })
+      const result = await api.entryTags.remove(entryId, tagName)
+      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, tags: result.tags } : prev))
     } catch (error) {
       console.error("Failed to remove tag:", error)
       throw error
@@ -612,9 +619,7 @@ function App() {
       setEntries((prev) =>
         prev.map((e) => (e.id === entryId ? { ...e, score } : e))
       )
-      if (selectedEntry?.id === entryId) {
-        setSelectedEntry({ ...selectedEntry, score })
-      }
+      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, score } : prev))
     } catch (error) {
       console.error("Failed to update score:", error)
     }
