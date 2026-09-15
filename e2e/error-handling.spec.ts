@@ -38,6 +38,75 @@ function entryListTitle(page: Page) {
   return page.getByRole("heading", { level: 2 }).first()
 }
 
+function entryRows(page: Page) {
+  return page.getByRole("listbox", { name: "Entries" }).getByRole("option")
+}
+
+/**
+ * One row of GET /api/v1/entries, with the fields EntriesController#index
+ * serializes. Examples override only the fields they are about, so a failure
+ * points at that field rather than at a row missing everything else.
+ */
+function listedEntry(id: number, fields: Record<string, unknown> = {}) {
+  return {
+    id,
+    entry_id: id,
+    feed_id: 1,
+    feed_title: "Rust Weekly",
+    title: `Entry ${id}`,
+    link: `https://e2e.invalid/rust-weekly/${id}`,
+    author: "Rust Weekly Staff",
+    published: new Date().toISOString(),
+    unread: true,
+    starred: false,
+    is_published: false,
+    score: 0,
+    last_read: null,
+    content_preview: "",
+    tags: [],
+    ...fields,
+  }
+}
+
+/**
+ * Answers the entry list request with `entries`, inside the envelope the app
+ * reads them out of. A bare array has no `entries` key, and the app fails on
+ * it before it renders anything.
+ */
+async function serveEntryList(page: Page, entries: object[]) {
+  await page.route("**/api/v1/entries*", (route) =>
+    route.fulfill({
+      json: {
+        entries,
+        pagination: {
+          page: 1,
+          per_page: Math.max(entries.length, 50),
+          total: entries.length,
+          total_pages: entries.length === 0 ? 0 : 1,
+        },
+      },
+    })
+  )
+}
+
+/**
+ * Answers entry detail requests with the seeded entry's own response, overridden
+ * by `fields`. The article body travels only on this response, so content has
+ * to be served here to be drawn at all. The ids listedEntry rows use are seeded,
+ * so the underlying request succeeds.
+ */
+async function serveEntryDetail(page: Page, fields: Record<string, unknown>) {
+  await page.route(/\/api\/v1\/entries\/\d+$/, async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({ response, json: { ...(await response.json()), ...fields } })
+  })
+}
+
+/** The open article's headline. */
+function articleHeadline(page: Page) {
+  return page.getByRole("article").getByRole("heading", { level: 1 })
+}
+
 // =============================================================================
 // NETWORK ERROR SCENARIOS
 // =============================================================================
@@ -244,18 +313,13 @@ test.describe("Empty States", () => {
   })
 
   test("handles feed with no entries", async ({ page }) => {
-    // Mock an empty entries response
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([]),
-      })
-    )
+    await serveEntryList(page, [])
 
     await page.goto("/")
-    // Wait for page to load - app should render without crashing
-    await page.waitForLoadState("networkidle")
+
+    await expect(entryListTitle(page)).toHaveText("All Feeds")
+    await expect(page.getByText("No entries")).toBeVisible()
+    await expect(page.getByRole("button").first()).toBeEnabled()
   })
 })
 
@@ -263,73 +327,66 @@ test.describe("Empty States", () => {
 // DATA EDGE CASES
 // =============================================================================
 
+// Every row here keeps `published` set. The list formats it without a guard,
+// and entries.updated is NOT NULL, so the endpoint always sends one.
 test.describe("Data Edge Cases", () => {
   test("handles entries with missing optional fields", async ({ page }) => {
-    // Mock entries with missing fields
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: 1,
-            title: "Entry with minimal data",
-            feed_id: 1,
-            // Missing: author, published_at, content, summary, url
-          },
-        ]),
-      })
-    )
+    // Missing: author, link, feed, tags, content preview and last read time.
+    await serveEntryList(page, [
+      {
+        id: 1,
+        entry_id: 1,
+        title: "Entry with minimal data",
+        published: new Date().toISOString(),
+        unread: true,
+        starred: false,
+        is_published: false,
+        score: 0,
+      },
+    ])
 
     await page.goto("/")
-    // Wait for page to load - app should render with minimal data
-    await page.waitForLoadState("networkidle")
+
+    await expect(
+      entryRows(page).getByText("Entry with minimal data", { exact: true })
+    ).toBeVisible()
   })
 
   test("handles entries with null values", async ({ page }) => {
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: 1,
-            title: null,
-            author: null,
-            published_at: null,
-            content: null,
-            summary: null,
-            feed_id: 1,
-          },
-        ]),
-      })
-    )
+    await serveEntryList(page, [
+      listedEntry(1, {
+        title: null,
+        author: null,
+        feed_id: null,
+        feed_title: null,
+        content_preview: null,
+        last_read: null,
+      }),
+    ])
 
     await page.goto("/")
-    // Wait for page to load - app should handle nulls gracefully
-    await page.waitForLoadState("networkidle")
+
+    await expect(entryRows(page)).toHaveCount(1)
+    await expect(entryRows(page).first()).toBeVisible()
   })
 
   test("handles special characters in content", async ({ page }) => {
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: 1,
-            title: "Test with emoji 🎉 and ampersand & quotes",
-            author: "Test Author",
-            content: "<p>Content with &amp; HTML entities and special chars &lt;&gt;</p>",
-            feed_id: 1,
-          },
-        ]),
-      })
-    )
+    const title = "Test with emoji 🎉 and ampersand & quotes"
+    await serveEntryList(page, [listedEntry(1, { title, author: "Test Author" })])
+    await serveEntryDetail(page, {
+      title,
+      author: "Test Author",
+      content: "<p>Content with &amp; HTML entities and special chars &lt;&gt;</p>",
+    })
 
     await page.goto("/")
-    // Wait for page to load - app should render special characters safely
-    await page.waitForLoadState("networkidle")
+    await entryRows(page).getByText(title, { exact: true }).click()
+
+    // Entities decode exactly once: "&" and "<>", neither "&amp;" nor markup.
+    await expect(articleHeadline(page)).toHaveText(title)
+    await expect(page.getByRole("article")).toContainText(
+      "Content with & HTML entities and special chars <>"
+    )
   })
 
   test("handles very long titles", async ({ page }) => {
@@ -338,77 +395,56 @@ test.describe("Data Edge Cases", () => {
         3
       )
 
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: 1,
-            title: longTitle,
-            feed_id: 1,
-          },
-        ]),
-      })
-    )
+    await serveEntryList(page, [listedEntry(1, { title: longTitle })])
 
     await page.goto("/")
-    // Wait for page to load - app should render long titles without breaking layout
-    await page.waitForLoadState("networkidle")
+
+    const row = entryRows(page).first()
+    await expect(row).toBeVisible()
+
+    // The row wraps inside the list's column rather than widening it.
+    const list = await page
+      .locator("[data-slot='scroll-area-viewport']")
+      .filter({ has: page.getByRole("listbox", { name: "Entries" }) })
+      .boundingBox()
+    const rowBox = await row.boundingBox()
+    expect(list, "the entry list should be laid out").not.toBeNull()
+    expect(rowBox, "the row should be laid out").not.toBeNull()
+    expect(rowBox!.x + rowBox!.width).toBeLessThanOrEqual(list!.x + list!.width + 0.5)
   })
 
   test("handles unicode and RTL text", async ({ page }) => {
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: 1,
-            title: "مرحبا بالعالم - Hello World - 你好世界",
-            content: "<p>Arabic: مرحبا</p><p>Chinese: 你好</p><p>Japanese: こんにちは</p>",
-            feed_id: 1,
-          },
-        ]),
-      })
-    )
+    const title = "مرحبا بالعالم - Hello World - 你好世界"
+    await serveEntryList(page, [listedEntry(1, { title })])
+    await serveEntryDetail(page, {
+      title,
+      content: "<p>Arabic: مرحبا</p><p>Chinese: 你好</p><p>Japanese: こんにちは</p>",
+    })
 
     await page.goto("/")
-    // Wait for page to load - app should render unicode correctly
-    await page.waitForLoadState("networkidle")
+    await entryRows(page).getByText(title, { exact: true }).click()
+
+    await expect(articleHeadline(page)).toHaveText(title)
+    await expect(page.getByRole("article")).toContainText("Arabic: مرحبا")
+    await expect(page.getByRole("article")).toContainText("Japanese: こんにちは")
   })
 
   test("handles dates in various formats", async ({ page }) => {
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: 1,
-            title: "Article with date",
-            published_at: "2024-01-15T10:30:00Z",
-            feed_id: 1,
-          },
-          {
-            id: 2,
-            title: "Article with different date format",
-            published_at: "Mon, 15 Jan 2024 10:30:00 GMT",
-            feed_id: 1,
-          },
-          {
-            id: 3,
-            title: "Article with invalid date",
-            published_at: "not-a-date",
-            feed_id: 1,
-          },
-        ]),
-      })
-    )
+    await serveEntryList(page, [
+      listedEntry(1, { title: "Article with date", published: "2024-01-15T10:30:00Z" }),
+      listedEntry(2, {
+        title: "Article with different date format",
+        published: "Mon, 15 Jan 2024 10:30:00 GMT",
+      }),
+      listedEntry(3, { title: "Article with invalid date", published: "not-a-date" }),
+    ])
 
     await page.goto("/")
-    // Wait for page to load - app should handle various date formats
-    await page.waitForLoadState("networkidle")
+
+    await expect(entryRows(page)).toHaveCount(3)
+    await expect(
+      entryRows(page).getByText("Article with invalid date", { exact: true })
+    ).toBeVisible()
   })
 })
 
@@ -631,49 +667,31 @@ test.describe("Timeout Handling", () => {
 test.describe("Resource Limits", () => {
   test("handles large number of entries", async ({ page }) => {
     // Generate 500 mock entries
-    const entries = Array.from({ length: 500 }, (_, i) => ({
-      id: i + 1,
-      title: `Entry ${i + 1}`,
-      content: `<p>Content for entry ${i + 1}</p>`,
-      feed_id: 1,
-      published_at: new Date(Date.now() - i * 3600000).toISOString(),
-    }))
-
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(entries),
+    const entries = Array.from({ length: 500 }, (_, i) =>
+      listedEntry(i + 1, {
+        published: new Date(Date.now() - i * 3600000).toISOString(),
       })
     )
+    await serveEntryList(page, entries)
 
     await page.goto("/")
-    // Wait for page to load - app should handle large lists
-    await page.waitForLoadState("networkidle")
+
+    await expect(entryRows(page)).toHaveCount(500)
+    await expect(entryRows(page).last()).toHaveAttribute("data-entry-title", "Entry 500")
   })
 
   test("handles large entry content", async ({ page }) => {
     // Generate very large content
     const largeContent = "<p>" + "Lorem ipsum dolor sit amet. ".repeat(10000) + "</p>"
-
-    await page.route("**/api/v1/entries*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: 1,
-            title: "Entry with very large content",
-            content: largeContent,
-            feed_id: 1,
-          },
-        ]),
-      })
-    )
+    const title = "Entry with very large content"
+    await serveEntryList(page, [listedEntry(1, { title })])
+    await serveEntryDetail(page, { title, content: largeContent })
 
     await page.goto("/")
-    // Wait for page to load - app should render large content
-    await page.waitForLoadState("networkidle")
+    await entryRows(page).getByText(title, { exact: true }).click()
+
+    await expect(articleHeadline(page)).toHaveText(title)
+    await expect(page.getByRole("article")).toContainText("Lorem ipsum dolor sit amet.")
   })
 })
 
