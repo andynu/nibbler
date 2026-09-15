@@ -491,11 +491,13 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_equal "Jo Quokka", Entry.find_by!(guid: "edited").author
   end
 
-  test "a republish with no author keeps the stored author" do
+  test "a republish with no author keeps the stored author and skips nothing" do
     update_with(rss(item(guid: "edited", title: "Edited", author: "Jo Quokka")))
-    update_with(rss(item(guid: "edited", title: "Edited")))
+
+    result = update_with(rss(item(guid: "edited", title: "Edited")))
 
     assert_equal "Jo Quokka", Entry.find_by!(guid: "edited").author
+    assert_empty result.skipped_entries
   end
 
   test "a second feed carrying the same item does not rewrite the headline or author" do
