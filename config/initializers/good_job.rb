@@ -66,10 +66,13 @@ Rails.application.configure do
     }
   }
 
-  # Preserve finished jobs for 14 days (for debugging/auditing)
-  config.good_job.preserve_job_records = 14.days
+  # Keep finished job rows, failures included, for debugging and auditing.
+  # GoodJob accepts only true, :on_unhandled_error or a callable here; any other
+  # value, a Duration included, destroys each row as its job finishes. How long
+  # rows are kept is set by cleanup_preserved_jobs_before_seconds_ago below.
+  config.good_job.preserve_job_records = true
 
-  # Clean up old job records automatically
+  # Clean up preserved job records after 14 days
   config.good_job.cleanup_preserved_jobs_before_seconds_ago = 14.days.to_i
   config.good_job.cleanup_interval_jobs = 1000
   config.good_job.cleanup_interval_seconds = 10.minutes.to_i
