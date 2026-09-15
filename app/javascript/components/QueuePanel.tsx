@@ -62,6 +62,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
     <div
       ref={setNodeRef}
       style={style}
+      data-testid="queue-item"
       className={cn(
         "flex items-center gap-2 px-3 py-2 rounded-md",
         "border border-transparent",
