@@ -44,13 +44,15 @@ export function FollowStoryDialog({
   const [isExtracting, setIsExtracting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [extracted, setExtracted] = useState(false)
+  const [extractedEntryId, setExtractedEntryId] = useState<number | null>(null)
 
-  // Run extraction when the dialog opens with a fresh entry.
+  // Run extraction once per opening per entry. The guard keys on the UserEntry
+  // id requested, not the response's source_entry_id, which is an Entry id.
   useEffect(() => {
     if (!open || !entryId) return
-    if (extracted && sourceEntryId === entryId) return
+    if (extractedEntryId === entryId) return
 
+    setExtractedEntryId(entryId)
     setIsExtracting(true)
     setError(null)
     api.stories
@@ -59,7 +61,6 @@ export function FollowStoryDialog({
         setName(result.topic)
         setQueries(result.queries.length > 0 ? result.queries : [""])
         setSourceEntryId(result.source_entry_id)
-        setExtracted(true)
       })
       .catch((err: Error) => {
         setError(err.message || "Failed to extract queries")
@@ -68,7 +69,7 @@ export function FollowStoryDialog({
       .finally(() => {
         setIsExtracting(false)
       })
-  }, [open, entryId, extracted, sourceEntryId])
+  }, [open, entryId, extractedEntryId])
 
   // Reset state when dialog closes.
   useEffect(() => {
@@ -76,7 +77,7 @@ export function FollowStoryDialog({
       setName("")
       setQueries([""])
       setSourceEntryId(null)
-      setExtracted(false)
+      setExtractedEntryId(null)
       setError(null)
     }
   }, [open])

@@ -148,6 +148,45 @@ describe('FollowStoryDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it('extracts once per opening, so edits made after the proposal arrives are kept', async () => {
+    const user = userEvent.setup();
+    // source_entry_id is an Entry id, unlike the UserEntry id the dialog opened
+    // with. Any second request stays pending, as a slow LLM call would.
+    mockedExtract
+      .mockResolvedValueOnce({ topic: 'Original', queries: ['q1'], source_entry_id: 99 })
+      .mockReturnValue(new Promise(() => {}));
+    mockedCreate.mockResolvedValue({
+      id: 7,
+      name: 'Edited',
+      queries: ['q1'],
+      summary: null,
+      status: 'active',
+      source_entry_id: 99,
+      concluded_at: null,
+      created_at: '2026-04-13T00:00:00Z',
+    });
+
+    render(
+      <FollowStoryDialog
+        open={true}
+        onOpenChange={() => {}}
+        entryId={42}
+      />
+    );
+
+    const nameInput = await screen.findByLabelText('Story name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Edited');
+    await user.click(screen.getByRole('button', { name: /follow/i }));
+
+    await waitFor(() => {
+      expect(mockedCreate).toHaveBeenCalledWith({
+        story: { name: 'Edited', queries: ['q1'], source_entry_id: 99 },
+      });
+    });
+    expect(mockedExtract).toHaveBeenCalledTimes(1);
+  });
+
   it('validates name and at least one query before saving', async () => {
     const user = userEvent.setup();
     mockedExtract.mockResolvedValue({
