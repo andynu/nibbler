@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Loader2, Plus, X } from "lucide-react"
+import { useLatestRequest } from "@/hooks/useLatestRequest"
 import { api, Story } from "@/lib/api"
 
 interface FollowStoryDialogProps {
@@ -45,43 +46,52 @@ export function FollowStoryDialog({
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [extractedEntryId, setExtractedEntryId] = useState<number | null>(null)
+  const { claim: claimExtraction, abandon: abandonExtraction } = useLatestRequest()
 
   // Run extraction once per opening per entry. The guard keys on the UserEntry
   // id requested, not the response's source_entry_id, which is an Entry id.
+  // Setting the guard re-runs this effect, so a stale reply is dropped by claim
+  // rather than by an ignore flag in cleanup, which would drop the live one too.
   useEffect(() => {
     if (!open || !entryId) return
     if (extractedEntryId === entryId) return
 
+    const extraction = claimExtraction()
     setExtractedEntryId(entryId)
     setIsExtracting(true)
     setError(null)
     api.stories
       .extractFromEntry(entryId)
       .then((result) => {
+        if (!extraction.isCurrent()) return
         setName(result.topic)
         setQueries(result.queries.length > 0 ? result.queries : [""])
         setSourceEntryId(result.source_entry_id)
       })
       .catch((err: Error) => {
+        if (!extraction.isCurrent()) return
         setError(err.message || "Failed to extract queries")
         // entryId is a UserEntry id; only a successful extraction knows the Entry id.
         setSourceEntryId(null)
       })
       .finally(() => {
-        setIsExtracting(false)
+        if (extraction.isCurrent()) setIsExtracting(false)
       })
-  }, [open, entryId, extractedEntryId])
+  }, [open, entryId, extractedEntryId, claimExtraction])
 
-  // Reset state when dialog closes.
+  // Reset state when dialog closes. An extraction still in flight belongs to
+  // the opening that ended, and nothing else will clear its loading flag.
   useEffect(() => {
     if (!open) {
+      abandonExtraction()
+      setIsExtracting(false)
       setName("")
       setQueries([""])
       setSourceEntryId(null)
       setExtractedEntryId(null)
       setError(null)
     }
-  }, [open])
+  }, [open, abandonExtraction])
 
   const updateQuery = (index: number, value: string) => {
     setQueries((qs) => qs.map((q, i) => (i === index ? value : q)))

@@ -1,7 +1,19 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { StoryExtraction } from '@/lib/api';
 import { FollowStoryDialog } from './FollowStoryDialog';
+
+/** A promise whose settlement this test controls, to force response ordering. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 // Mock the api module at the boundary; tests drive behavior through these spies.
 vi.mock('@/lib/api', () => ({
@@ -222,6 +234,124 @@ describe('FollowStoryDialog', () => {
       });
     });
     expect(mockedExtract).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a proposal requested before the dialog was closed and reopened', async () => {
+    const user = userEvent.setup();
+    const beforeClose = deferred<StoryExtraction>();
+    const afterReopen = deferred<StoryExtraction>();
+    mockedExtract
+      .mockReturnValueOnce(beforeClose.promise)
+      .mockReturnValueOnce(afterReopen.promise);
+    mockedCreate.mockReturnValue(new Promise(() => {}));
+
+    const { rerender } = render(
+      <FollowStoryDialog open={true} onOpenChange={() => {}} entryId={42} />
+    );
+    rerender(<FollowStoryDialog open={false} onOpenChange={() => {}} entryId={42} />);
+    rerender(<FollowStoryDialog open={true} onOpenChange={() => {}} entryId={42} />);
+    expect(mockedExtract).toHaveBeenCalledTimes(2);
+
+    afterReopen.resolve({ topic: 'Reopened', queries: ['newer query'], source_entry_id: 100 });
+    const nameInput = await screen.findByLabelText('Story name');
+    expect(nameInput).toHaveValue('Reopened');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Edited');
+
+    await act(async () => {
+      beforeClose.resolve({ topic: 'Stale', queries: ['stale query'], source_entry_id: 99 });
+    });
+
+    expect(screen.getByLabelText('Story name')).toHaveValue('Edited');
+    expect(screen.getByLabelText('Search query 1')).toHaveValue('newer query');
+    await user.click(screen.getByRole('button', { name: /follow/i }));
+    await waitFor(() => {
+      expect(mockedCreate).toHaveBeenCalledWith({
+        story: { name: 'Edited', queries: ['newer query'], source_entry_id: 100 },
+      });
+    });
+  });
+
+  it('does not carry a proposal that lands while closed into the next opening', async () => {
+    const beforeClose = deferred<StoryExtraction>();
+    mockedExtract
+      .mockReturnValueOnce(beforeClose.promise)
+      .mockRejectedValueOnce(new Error('LLM unreachable'));
+
+    const { rerender } = render(
+      <FollowStoryDialog open={true} onOpenChange={() => {}} entryId={42} />
+    );
+    rerender(<FollowStoryDialog open={false} onOpenChange={() => {}} entryId={42} />);
+    await act(async () => {
+      beforeClose.resolve({ topic: 'Stale', queries: ['stale query'], source_entry_id: 99 });
+    });
+    rerender(<FollowStoryDialog open={true} onOpenChange={() => {}} entryId={43} />);
+
+    await screen.findByText('LLM unreachable');
+    expect(screen.getByLabelText('Story name')).toHaveValue('');
+    expect(screen.getByLabelText('Search query 1')).toHaveValue('');
+  });
+
+  it('ignores a proposal for the entry the dialog showed before the current one', async () => {
+    const user = userEvent.setup();
+    const first = deferred<StoryExtraction>();
+    const second = deferred<StoryExtraction>();
+    mockedExtract
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    mockedCreate.mockReturnValue(new Promise(() => {}));
+
+    const { rerender } = render(
+      <FollowStoryDialog open={true} onOpenChange={() => {}} entryId={42} />
+    );
+    rerender(<FollowStoryDialog open={true} onOpenChange={() => {}} entryId={43} />);
+    expect(mockedExtract).toHaveBeenLastCalledWith(43);
+
+    second.resolve({ topic: 'Second entry', queries: ['second query'], source_entry_id: 200 });
+    expect(await screen.findByLabelText('Story name')).toHaveValue('Second entry');
+
+    await act(async () => {
+      first.resolve({ topic: 'First entry', queries: ['first query'], source_entry_id: 99 });
+    });
+
+    expect(screen.getByLabelText('Story name')).toHaveValue('Second entry');
+    expect(screen.getByLabelText('Search query 1')).toHaveValue('second query');
+    await user.click(screen.getByRole('button', { name: /follow/i }));
+    await waitFor(() => {
+      expect(mockedCreate).toHaveBeenCalledWith({
+        story: { name: 'Second entry', queries: ['second query'], source_entry_id: 200 },
+      });
+    });
+  });
+
+  it('keeps waiting on the current entry when an earlier entry fails to extract', async () => {
+    const user = userEvent.setup();
+    const first = deferred<StoryExtraction>();
+    const second = deferred<StoryExtraction>();
+    mockedExtract
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    mockedCreate.mockReturnValue(new Promise(() => {}));
+
+    const { rerender } = render(
+      <FollowStoryDialog open={true} onOpenChange={() => {}} entryId={42} />
+    );
+    rerender(<FollowStoryDialog open={true} onOpenChange={() => {}} entryId={43} />);
+
+    await act(async () => {
+      first.reject(new Error('LLM unreachable'));
+    });
+    expect(screen.getByText('Generating queries...')).toBeInTheDocument();
+
+    second.resolve({ topic: 'Second entry', queries: ['second query'], source_entry_id: 200 });
+    expect(await screen.findByLabelText('Story name')).toHaveValue('Second entry');
+    expect(screen.queryByText('LLM unreachable')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /follow/i }));
+    await waitFor(() => {
+      expect(mockedCreate).toHaveBeenCalledWith({
+        story: { name: 'Second entry', queries: ['second query'], source_entry_id: 200 },
+      });
+    });
   });
 
   it('validates name and at least one query before saving', async () => {
