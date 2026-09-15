@@ -23,8 +23,8 @@ default: &default
 development:
   <<: *default
 
-# The suite never opens a websocket, and a solid_cable adapter here would give
-# every parallel worker a listener thread polling a database it does not own.
+# The suite never opens a websocket, so a solid_cable adapter here would only
+# add a listener thread polling for broadcasts nothing receives.
 test:
   adapter: test
 
