@@ -637,21 +637,29 @@ test.describe("Theme Selection", () => {
   // ghost Button or a menu item resolve to bg-accent, and accent equals muted
   // in every palette. QueuePanel's remove buttons and FeedSidebar's unsubscribe
   // rows are exactly that shape.
+  //
+  // --color-ring is held to 3:1 instead, WCAG 1.4.11's bar for a non-text
+  // indicator, against the background the ring-1 focus styles are drawn on.
+  // The audio panel's seek bar paints no fill of its own, so nothing else
+  // stands between its ring and the page colour.
+  const TEXT = 4.5
+  const NON_TEXT = 3
   const CONTRAST_PAIRS = [
-    ["--color-foreground", "--color-background"],
-    ["--color-muted-foreground", "--color-background"],
-    ["--color-muted-foreground", "--color-muted"],
-    ["--color-success", "--color-background"],
-    ["--color-success", "--color-muted"],
-    ["--color-warning", "--color-background"],
-    ["--color-warning", "--color-muted"],
-    ["--color-destructive-text", "--color-background"],
-    ["--color-destructive-text", "--color-muted"],
-    ["--color-destructive-foreground", "--color-destructive"],
+    ["--color-foreground", "--color-background", TEXT],
+    ["--color-muted-foreground", "--color-background", TEXT],
+    ["--color-muted-foreground", "--color-muted", TEXT],
+    ["--color-success", "--color-background", TEXT],
+    ["--color-success", "--color-muted", TEXT],
+    ["--color-warning", "--color-background", TEXT],
+    ["--color-warning", "--color-muted", TEXT],
+    ["--color-destructive-text", "--color-background", TEXT],
+    ["--color-destructive-text", "--color-muted", TEXT],
+    ["--color-destructive-foreground", "--color-destructive", TEXT],
+    ["--color-ring", "--color-background", NON_TEXT],
   ] as const
 
   for (const theme of THEMES) {
-    test(`${theme.name} keeps body, muted, status and on-fill text above WCAG AA`, async ({
+    test(`${theme.name} keeps body, muted, status and on-fill text and the focus ring above WCAG AA`, async ({
       feedsPage,
       settingsPage,
       page,
@@ -668,7 +676,7 @@ test.describe("Theme Selection", () => {
         .poll(
           () =>
             page.evaluate(
-              ([pairs, bar]) => {
+              (pairs) => {
                 // Tailwind emits its own palette in oklch and the theme tokens
                 // in hsl, and getComputedStyle hands both back in the notation
                 // they were written in. A canvas is what resolves any of them
@@ -703,12 +711,12 @@ test.describe("Theme Selection", () => {
                 const resolve = (token: string) =>
                   srgb(styles.getPropertyValue(token).trim())
 
-                return pairs.map(([fg, bg]) => {
+                return pairs.map(([fg, bg, bar]) => {
                   const value = ratio(resolve(fg), resolve(bg))
                   return `${fg} on ${bg}: ${value >= bar ? "pass" : value.toFixed(2)}`
                 })
               },
-              [CONTRAST_PAIRS.map(([fg, bg]) => [fg, bg] as const), 4.5] as const
+              CONTRAST_PAIRS.map(([fg, bg, bar]) => [fg, bg, bar] as const)
             ),
           { message: theme.id }
         )
