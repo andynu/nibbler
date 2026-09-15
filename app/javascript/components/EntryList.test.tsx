@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { EntryList } from "./EntryList"
 import { PULL_THRESHOLD } from "@/hooks/usePullToRefresh"
-import { mockEntry, mockSearchResult } from "../../../test/fixtures/data"
+import { mockEntry, mockFeed, mockSearchResult } from "../../../test/fixtures/data"
 import type { FreshMaxAge } from "@/lib/api"
 
 // Mock the preferences context
@@ -923,6 +923,18 @@ describe("EntryList", () => {
 
       await user.selectOptions(perFeed, "")
       expect(onFreshPerFeedChange).toHaveBeenCalledWith(null)
+    })
+  })
+
+  describe("single feed toolbar", () => {
+    it("names the icon-only source website link", () => {
+      render(
+        <EntryList {...defaultProps} selectedFeed={mockFeed({ site_url: "https://example.com" })} />
+      )
+
+      const link = screen.getByRole("link", { name: "Open source website" })
+      expect(link).toHaveAttribute("href", "https://example.com")
+      expect(link).toHaveAttribute("target", "_blank")
     })
   })
 })

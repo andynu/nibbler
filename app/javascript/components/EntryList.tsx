@@ -328,6 +328,7 @@ export function EntryList({
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Open source website"
               title="Open source website"
             >
               <ExternalLink className="h-3.5 w-3.5" />
