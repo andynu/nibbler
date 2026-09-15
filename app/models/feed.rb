@@ -85,8 +85,17 @@ class Feed < ApplicationRecord
     update_interval.positive? ? update_interval : default_interval_minutes
   end
 
-  # Exponential backoff delays: 5min, 15min, 1hr, 4hr, 24hr (capped)
-  BACKOFF_DELAYS = [ 5.minutes, 15.minutes, 1.hour, 4.hours, 24.hours ].freeze
+  # How long to wait after each failure in a streak: minutes at first, a day by
+  # the fifth, then a day longer per failure until a feed is checked weekly.
+  BACKOFF_DELAYS = [
+    5.minutes, 15.minutes, 1.hour, 4.hours, 1.day,
+    2.days, 3.days, 4.days, 5.days, 6.days, 7.days
+  ].freeze
+
+  # The longest apply_backoff! holds a rate-limited feed off when the host sent
+  # no usable Retry-After. retry_after also gates the manual refresh button and
+  # the morning sweep, so the multi-day steps would lock a reader out for a week.
+  RATE_LIMIT_BACKOFF_CAP = 1.day
 
   # How many consecutive failures before a feed is called broken rather than
   # merely erroring.
@@ -95,9 +104,8 @@ class Feed < ApplicationRecord
   # 5min + 15min + 1h + 4h of waiting on top of the five attempts themselves, so
   # nothing is labelled broken until it has failed continuously for better than
   # five hours. A deploy, a certificate renewal, a nightly maintenance window
-  # and a brief DNS wobble all clear well inside that. It also lands exactly
-  # where the backoff curve tops out, so "broken" and "backed off as far as we
-  # go" are the same moment rather than two thresholds to keep in step.
+  # and a brief DNS wobble all clear well inside that. It also lands where the
+  # curve reaches a day, so a broken feed is one already being checked daily.
   #
   # Deliberately a count and not a duration. A duration alone would libel a feed
   # that is simply polled rarely; the count carries a duration floor through the
@@ -129,13 +137,12 @@ class Feed < ApplicationRecord
   # Apply exponential backoff, optionally using server's Retry-After
   def apply_backoff!(server_retry_after = nil)
     self.consecutive_failures += 1
-    delay = BACKOFF_DELAYS[[ consecutive_failures - 1, BACKOFF_DELAYS.length - 1 ].min]
 
     # Prefer server's Retry-After if provided and reasonable (under 48 hours)
     if server_retry_after.present? && server_retry_after < 48.hours.from_now
       self.retry_after = server_retry_after
     else
-      self.retry_after = Time.current + delay
+      self.retry_after = Time.current + [ failure_backoff_delay, RATE_LIMIT_BACKOFF_CAP ].min
     end
 
     save!
@@ -154,8 +161,7 @@ class Feed < ApplicationRecord
   # kept its old value in the past, last_updated was never stamped, and so the
   # scheduler found the feed due again on the very next tick. A feed with a dead
   # domain was re-requested every five minutes, 288 times a day, indefinitely.
-  # Under the curve above it converges on one attempt a day instead, plus the
-  # 6am sweep.
+  # Under the curve above it converges on one attempt a week instead.
   def record_failure!(error_message)
     self.consecutive_failures += 1
     self.last_error = error_message.to_s

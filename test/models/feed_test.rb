@@ -214,6 +214,39 @@ class FeedTest < ActiveSupport::TestCase
       @new_feed.next_poll_at - Time.current, 60
   end
 
+  # Past the first day a feed waits a day longer after each failure, every
+  # other day, then every third day, until it is checked once a week.
+  test "past a day the wait grows a day per failure up to a week" do
+    freeze_time
+
+    delays = (1..(Feed::BACKOFF_DELAYS.length + 2)).map do
+      @new_feed.record_failure!("boom")
+      @new_feed.next_poll_at - Time.current
+    end
+
+    assert_equal [ 5.minutes, 15.minutes, 1.hour, 4.hours ].map(&:to_i), delays.first(4).map(&:to_i)
+    assert_equal (1..7).map { |n| n.days.to_i } + [ 7.days.to_i ] * 2, delays.drop(4).map(&:to_i)
+  end
+
+  # retry_after gates the refresh button and the morning sweep as well as the
+  # scheduler, so the multi-day steps would lock a reader out of a rate-limited
+  # feed for a week.
+  test "a rate-limit streak without Retry-After holds the feed off a day at most" do
+    freeze_time
+
+    (Feed::BACKOFF_DELAYS.length + 2).times { @new_feed.apply_backoff! }
+
+    assert_equal Feed::RATE_LIMIT_BACKOFF_CAP.to_i, (@new_feed.reload.retry_after - Time.current).to_i
+  end
+
+  test "a rate-limit streak still walks the curve below the cap" do
+    freeze_time
+
+    3.times { @new_feed.apply_backoff! }
+
+    assert_equal Feed::BACKOFF_DELAYS[2].to_i, (@new_feed.reload.retry_after - Time.current).to_i
+  end
+
   test "record_failure! stamps first_failed_at once and then leaves it alone" do
     @new_feed.record_failure!("boom")
     started = @new_feed.first_failed_at
