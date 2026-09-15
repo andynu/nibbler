@@ -54,6 +54,12 @@ function toEntryView(id: string | null) {
 // ingestion cycle.
 const COUNTERS_POLL_INTERVAL_MS = 5 * 60_000
 
+// Gap between new-entries probes. The same nudge runs the probe, so it is left
+// with the same gaps as the counters poll, and sharing the period keeps the
+// badges and the "N new articles" row moving together for changes no broadcast
+// reports.
+const NEW_ENTRIES_PROBE_INTERVAL_MS = COUNTERS_POLL_INTERVAL_MS
+
 // How many counter polls pass before the feed and category lists themselves
 // are reloaded rather than just recounted. Counts come off the counters
 // response every poll; structure (a feed subscribed or dropped on another
@@ -305,6 +311,7 @@ function App() {
     onApply: setEntries,
     scope: entriesQuery,
     enabled: !showSettings && virtualFeed !== "stories",
+    intervalMs: NEW_ENTRIES_PROBE_INTERVAL_MS,
   })
   const { reset: resetNewEntries, probe: probeNewEntries } = newEntries
 
