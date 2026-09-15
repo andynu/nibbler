@@ -188,17 +188,38 @@ describe("SubscribeFeedDialog", () => {
 
       const indentOf = async (title: string) => {
         const option = await screen.findByRole("option", { name: title })
-        const indented = option.querySelector<HTMLElement>("span[style]")
-        expect(indented).not.toBeNull()
-        return indented!.style.paddingLeft
+        return option.style.paddingLeft
       }
 
-      expect(await indentOf("Level 1")).toBe("16px")
-      expect(await indentOf("Level 2")).toBe("32px")
-      expect(await indentOf("Level 3")).toBe("48px")
-      expect(await indentOf("Level 4")).toBe("48px")
-      expect(await indentOf("Level 8")).toBe("48px")
-      expect(await indentOf("Level 12")).toBe("48px")
+      // The item's own 8px padding plus 16px a level.
+      expect(await indentOf("Level 0")).toBe("8px")
+      expect(await indentOf("Level 1")).toBe("24px")
+      expect(await indentOf("Level 2")).toBe("40px")
+      expect(await indentOf("Level 3")).toBe("56px")
+      expect(await indentOf("Level 4")).toBe("56px")
+      expect(await indentOf("Level 8")).toBe("56px")
+      expect(await indentOf("Level 12")).toBe("56px")
+    })
+
+    // The trigger shows a copy of the chosen option's text children, so an
+    // indent carried inside them would open the closed select with a blank
+    // inset before the title.
+    it("shows a chosen nested category in the trigger without its indent", async () => {
+      const user = userEvent.setup()
+      render(
+        <SubscribeFeedDialog
+          {...defaultProps}
+          categories={chainOfCategories(CHAIN_DEPTH)}
+        />
+      )
+
+      const trigger = screen.getByRole("combobox")
+      trigger.focus()
+      await user.keyboard("{Enter}")
+      await user.click(await screen.findByRole("option", { name: "Level 12" }))
+
+      await waitFor(() => expect(trigger).toHaveTextContent("Level 12"))
+      expect(trigger.querySelector("[style*='padding']")).toBeNull()
     })
   })
 

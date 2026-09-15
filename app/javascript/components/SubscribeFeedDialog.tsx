@@ -23,9 +23,12 @@ import { Loader2, CheckCircle, Rss } from "lucide-react"
 /**
  * The deepest level an option's indentation expresses. The list is as wide as
  * the screen allows, so every level of indent is paid for in wrapped title
- * lines, and the selected option's indent is copied into the trigger, so
- * deeper options share this offset. Options carry no ancestor path: past the
- * ceiling, nesting reads from order alone.
+ * lines, and deeper options share this offset. Options carry no ancestor path:
+ * past the ceiling, nesting reads from order alone.
+ *
+ * The indent is the item's padding rather than the title's, so a wrapped
+ * title keeps it on every line and the trigger, which copies the title, does
+ * not inherit it.
  */
 const MAX_INDENT_DEPTH = 3
 
@@ -249,10 +252,12 @@ export function SubscribeFeedDialog({
                 <SelectContent>
                   <SelectItem value="none">No category</SelectItem>
                   {categoryTree.map(({ category, depth }) => (
-                    <SelectItem key={category.id} value={String(category.id)}>
-                      <span style={{ paddingLeft: Math.min(depth, MAX_INDENT_DEPTH) * 16 }}>
-                        {category.title}
-                      </span>
+                    <SelectItem
+                      key={category.id}
+                      value={String(category.id)}
+                      style={{ paddingLeft: Math.min(depth, MAX_INDENT_DEPTH) * 16 + 8 }}
+                    >
+                      {category.title}
                     </SelectItem>
                   ))}
                 </SelectContent>

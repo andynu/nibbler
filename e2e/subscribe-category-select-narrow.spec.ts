@@ -8,7 +8,13 @@ import { test, expect, type Locator, type Page } from "./fixtures"
  * width. The list sized to its widest option with nothing bounding it by the
  * screen, and the trigger's nowrap text set its min-content width, which the
  * dialog's grid track then grew to, so choosing a long title pushed the whole
- * form off the right edge.
+ * form off the right edge. The chosen title also came into the trigger behind
+ * its option's indent.
+ *
+ * The long options wrap rather than truncate: sibling titles here differ only
+ * in their last word, which is the part an ellipsis would take. A wrapped
+ * option keeps its indent on every line, or its second line would sit at a
+ * shallower depth than its first.
  *
  * Why a browser spec: vitest runs on happy-dom, which loads no stylesheet and
  * lays nothing out, so none of these boxes exist there. `toBeVisible()` passes
@@ -99,6 +105,39 @@ async function boxOf(locator: Locator): Promise<Box> {
   })
 }
 
+/**
+ * The rendered lines of the first text inside `locator`, one box per line.
+ *
+ * Reads the text node rather than its element, so padding in front of the
+ * glyphs is not counted as text.
+ */
+async function textLines(locator: Locator): Promise<Box[]> {
+  return locator.evaluate((element) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    let node = walker.nextNode()
+    while (node && !node.textContent?.trim()) node = walker.nextNode()
+    if (!node) return []
+
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    const byTop = new Map<number, { left: number; right: number }>()
+    for (const rect of Array.from(range.getClientRects())) {
+      if (rect.width === 0) continue
+      const top = Math.round(rect.top)
+      const line = byTop.get(top)
+      byTop.set(
+        top,
+        line
+          ? { left: Math.min(line.left, rect.left), right: Math.max(line.right, rect.right) }
+          : { left: rect.left, right: rect.right }
+      )
+    }
+    return Array.from(byTop.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, line]) => line)
+  })
+}
+
 for (const width of PHONE_WIDTHS) {
   test.describe(`The Subscribe dialog's category select at ${width}px`, () => {
     test.use({ viewport: { width, height: 720 } })
@@ -117,6 +156,33 @@ for (const width of PHONE_WIDTHS) {
       expect(list.right, `list right edge in a ${width}px viewport`).toBeLessThanOrEqual(
         width + SLACK
       )
+    })
+
+    test("a long option shows its whole title inside the list, every line at its indent", async ({
+      page,
+    }) => {
+      const list = await openCategoryList(page, dialog)
+      const listBox = await boxOf(list)
+      const optionBox = await boxOf(deepOption(page))
+      const lines = await textLines(deepOption(page))
+
+      // The title is wider than any of these screens can fit on one line, so
+      // the per-line checks below are not vacuous.
+      expect(lines.length, "lines the depth-10 title renders on").toBeGreaterThan(1)
+
+      const textRight = Math.max(...lines.map((line) => line.right))
+      expect(textRight, "title right edge against the list's").toBeLessThanOrEqual(
+        listBox.right + SLACK
+      )
+      expect(textRight, `title right edge in a ${width}px viewport`).toBeLessThanOrEqual(
+        width + SLACK
+      )
+
+      const indent = lines[0].left - optionBox.left
+      expect(indent, "the depth-10 option is indented").toBeGreaterThan(0)
+      for (const [index, line] of lines.entries()) {
+        expect(line.left - optionBox.left, `indent of line ${index + 1}`).toBeCloseTo(indent, 0)
+      }
     })
 
     test("choosing a long title keeps the trigger and the dialog on the screen", async ({
@@ -147,6 +213,26 @@ for (const width of PHONE_WIDTHS) {
         .toBeLessThanOrEqual(dialogMetrics.contentRight + SLACK)
       expect(dialogMetrics.scrollWidth, "dialog scrollWidth against clientWidth").toBeLessThanOrEqual(
         dialogMetrics.clientWidth
+      )
+    })
+
+    test("a chosen nested title starts at the trigger's padding, not behind its indent", async ({
+      page,
+    }) => {
+      const list = await openCategoryList(page, dialog)
+      await deepOption(page).click()
+      await expect(list).toBeHidden()
+
+      const trigger = categoryTrigger(dialog)
+      const paddingLeft = await trigger.evaluate((element) =>
+        parseFloat(getComputedStyle(element).paddingLeft)
+      )
+      const triggerBox = await boxOf(trigger)
+      const lines = await textLines(trigger)
+      expect(lines.length, "the trigger renders the chosen title").toBeGreaterThan(0)
+
+      expect(lines[0].left - triggerBox.left, "inset of the chosen title").toBeLessThanOrEqual(
+        paddingLeft + SLACK
       )
     })
   })
