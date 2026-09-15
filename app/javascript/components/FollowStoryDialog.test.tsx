@@ -95,6 +95,43 @@ describe('FollowStoryDialog', () => {
     expect(await screen.findByText('LLM unreachable')).toBeInTheDocument();
   });
 
+  it('saves without a source entry when extraction failed', async () => {
+    const user = userEvent.setup();
+    // entryId is a UserEntry id, and stories.source_entry_id references entries.
+    // Only a successful extraction reports the matching Entry id.
+    mockedExtract.mockRejectedValue(new Error('LLM unreachable'));
+    mockedCreate.mockResolvedValue({
+      id: 7,
+      name: 'Manual',
+      queries: ['manual query'],
+      summary: null,
+      status: 'active',
+      source_entry_id: null,
+      concluded_at: null,
+      created_at: '2026-04-13T00:00:00Z',
+    });
+
+    render(
+      <FollowStoryDialog
+        open={true}
+        onOpenChange={() => {}}
+        entryId={42}
+      />
+    );
+
+    await screen.findByText('LLM unreachable');
+    await user.type(screen.getByLabelText('Story name'), 'Manual');
+    await user.type(screen.getByLabelText('Search query 1'), 'manual query');
+    await user.click(screen.getByRole('button', { name: /follow/i }));
+
+    await waitFor(() => {
+      expect(mockedCreate).toHaveBeenCalledTimes(1);
+    });
+    const { story } = mockedCreate.mock.calls[0][0];
+    expect(story).toMatchObject({ name: 'Manual', queries: ['manual query'] });
+    expect(story.source_entry_id).toBeUndefined();
+  });
+
   it('creates story with edited values on save', async () => {
     const user = userEvent.setup();
     mockedExtract.mockResolvedValue({

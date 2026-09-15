@@ -64,7 +64,8 @@ export function FollowStoryDialog({
       })
       .catch((err: Error) => {
         setError(err.message || "Failed to extract queries")
-        setSourceEntryId(entryId)
+        // entryId is a UserEntry id; only a successful extraction knows the Entry id.
+        setSourceEntryId(null)
       })
       .finally(() => {
         setIsExtracting(false)
