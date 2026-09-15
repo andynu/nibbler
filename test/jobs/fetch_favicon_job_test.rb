@@ -81,12 +81,9 @@ class FetchFaviconJobTest < ActiveJob::TestCase
 
   private
 
-  # SVG keeps FaviconColorCalculator from shelling out to MiniMagick, and the
-  # random tag makes each worker's digests unique so parallel tests never share
-  # a path under public/icons.
+  # SVG keeps FaviconColorCalculator from shelling out to MiniMagick.
   def svg_bytes(variant)
-    @svg_salt ||= SecureRandom.hex(8)
-    %(<svg xmlns="http://www.w3.org/2000/svg" id="#{@svg_salt}-#{variant}"/>)
+    %(<svg xmlns="http://www.w3.org/2000/svg" id="#{variant}"/>)
   end
 
   def perform_with_icon(image_data)

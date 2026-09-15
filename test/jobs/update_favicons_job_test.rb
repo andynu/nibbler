@@ -83,9 +83,8 @@ class UpdateFaviconsJobTest < ActiveJob::TestCase
 
   private
 
-  # Unique per call so parallel test workers never contend for the same path.
   def icon_url_for(suffix)
-    "/icons/test-#{SecureRandom.hex(8)}-#{suffix}.png"
+    "/icons/test-#{suffix}.png"
   end
 
   # Creates an icon file on disk and returns the icon_url pointing at it.
