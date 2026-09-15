@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_31_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_14_205500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -89,6 +89,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_31_120000) do
     t.string "failure_detail"
     t.datetime "fetched_at", null: false
     t.string "status", null: false
+    t.virtual "tsvector_content", type: :tsvector, as: "to_tsvector('english'::regconfig, regexp_replace(\"left\"(COALESCE(content, ''::text), 100000), '<[^>]*>'::text, ' '::text, 'g'::text))", stored: true
     t.index ["entry_id"], name: "index_entry_full_texts_on_entry_id", unique: true
   end
 

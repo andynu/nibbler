@@ -74,6 +74,7 @@ module Api
       def search_user_entries
         scope = current_user.user_entries
           .joins(:entry)
+          .joins(Entry.text_search_join)
           .includes(:entry, :feed)
           .where(Arel.sql(Entry.text_search_condition(params[:q])))
         scope = scope.joins(:feed) if sort_specs.any? { |spec| spec[:column] == "feed" }
@@ -146,7 +147,8 @@ module Api
         entry_ids = user_entries.map(&:entry_id).uniq
         return {} if entry_ids.empty?
 
-        Entry.where(id: entry_ids)
+        Entry.joins(Entry.text_search_join)
+             .where(id: entry_ids)
              .pluck(:id, Arel.sql(Entry.text_search_headline(params[:q])))
              .to_h
       end

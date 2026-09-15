@@ -234,7 +234,148 @@ class EntryTest < ActiveSupport::TestCase
     assert_equal [ dense, sparse ], Entry.search("quokka").to_a
   end
 
+  # Fetched full text. These write a real EntryFullText row and query through
+  # the real join and helpers, for the reason the tests above never assign
+  # tsvector_combined. "Stale" is the feed republishing after the fetch, when
+  # Entry#readable_content goes back to showing the excerpt.
+
+  test "text_search_condition matches a word only in the fetched full text" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>The council met.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_includes matching("rezoning"), entry
+    assert_includes Entry.search("rezoning"), entry
+  end
+
+  test "text_search_condition still matches a word only in the excerpt" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>Wombat sightings near the hall.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_includes matching("wombat"), entry
+    assert_includes Entry.search("wombat"), entry
+  end
+
+  test "text_search_condition does not match a word only in a stale fetched full text" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>The council met.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+    republish(entry)
+
+    assert_empty matching("rezoning")
+    assert_empty Entry.search("rezoning")
+    assert_includes Entry.search("council"), entry
+  end
+
+  test "the words of a query can be found one in the excerpt and one in the fetched full text" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>Wombat sightings near the hall.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_includes matching("wombat rezoning"), entry
+  end
+
+  test "an excluded word found only in the fetched full text excludes the entry" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>Wombat sightings near the hall.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_includes matching("wombat"), entry
+    assert_empty matching("wombat -rezoning")
+  end
+
+  test "text_search_rank scores a word only in the fetched full text" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>The council met.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_operator rank_of(entry, "rezoning"), :>, 0
+  end
+
+  test "text_search_rank still scores a word only in the excerpt" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>Wombat sightings near the hall.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_operator rank_of(entry, "wombat"), :>, 0
+  end
+
+  test "text_search_rank counts the fetched full text toward relevance" do
+    excerpt_only = saved_entry(title: "Field Notes", content: "<p>A quokka appeared once.</p>")
+    fetched = saved_entry(title: "Field Notes", content: "<p>A quokka appeared once.</p>")
+    fetch_full_text(fetched, "<p>#{"The quokka colony grew again. " * 4}</p>")
+
+    assert_operator rank_of(fetched, "quokka"), :>, rank_of(excerpt_only, "quokka")
+    assert_equal [ fetched, excerpt_only ], Entry.search("quokka").to_a
+  end
+
+  # Twin entries, so equal ranks mean the stale copy contributed nothing. The
+  # test above shows the same copy does contribute while it is current.
+  test "text_search_rank ignores a stale fetched full text" do
+    excerpt_only = saved_entry(title: "Field Notes", content: "<p>A quokka appeared once.</p>")
+    stale = saved_entry(title: "Field Notes", content: "<p>A quokka appeared once.</p>")
+    fetch_full_text(stale, "<p>#{"The quokka colony grew again. " * 4}</p>")
+    republish(stale)
+
+    assert_equal rank_of(excerpt_only, "quokka"), rank_of(stale, "quokka")
+  end
+
+  test "text_search_headline marks a word only in the fetched full text" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>The council met.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_includes headline_of(entry, "rezoning"), marked("rezoning")
+  end
+
+  test "text_search_headline marks a word only in the excerpt" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>Wombat sightings near the hall.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    assert_includes headline_of(entry, "wombat"), marked("Wombat")
+  end
+
+  test "text_search_headline does not cut from a stale fetched full text" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>The council met.</p>")
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+    republish(entry)
+
+    assert_not_includes headline_of(entry, "rezoning"), "rezoning"
+  end
+
+  # With no match in either body, ts_headline returns the opening of the
+  # document, which should be the opening the reading pane shows.
+  test "text_search_headline opens a title-only hit on the fetched full text" do
+    entry = saved_entry(title: "Council Meeting", content: "<p>Teaser from the feed.</p>")
+    fetch_full_text(entry, "<p>The vote went five to two.</p>")
+
+    headline = headline_of(entry, "meeting")
+
+    assert_operator headline.index("vote"), :<, headline.index("Teaser")
+  end
+
   private
+
+  def saved_entry(**overrides)
+    build_entry(**overrides).tap(&:save!)
+  end
+
+  def fetch_full_text(entry, content)
+    entry.create_entry_full_text!(
+      status: EntryFullText::OK,
+      content: content,
+      char_count: ArticleText.from_html(content).length,
+      content_hash: entry.content_hash,
+      fetched_at: Time.current
+    )
+  end
+
+  def republish(entry)
+    entry.update!(content_hash: "republished-#{SecureRandom.hex(4)}")
+  end
+
+  def searchable = Entry.joins(Entry.text_search_join)
+
+  def matching(query) = searchable.where(Arel.sql(Entry.text_search_condition(query)))
+
+  def rank_of(entry, query) = searchable.where(id: entry.id).pick(Arel.sql(Entry.text_search_rank(query)))
+
+  def headline_of(entry, query) = searchable.where(id: entry.id).pick(Arel.sql(Entry.text_search_headline(query)))
+
+  def marked(text) = "#{Entry::HEADLINE_START}#{text}#{Entry::HEADLINE_STOP}"
 
   def build_entry(**overrides)
     Entry.new({

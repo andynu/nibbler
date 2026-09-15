@@ -371,6 +371,65 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Quokkas Return To Rottnest", json["entries"].first["title"]
   end
 
+  # Fetched full text. The endpoint reaches entries from user_entries and cuts
+  # its snippets in a second query, so each of those has to carry the join the
+  # search helpers read.
+
+  test "finds an entry by a word only in its fetched full text and excerpts it from there" do
+    entry = create_entry(title: "Council Meeting", content: "<p>The council met.</p>")
+    subscribe(entry)
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    get api_v1_search_url, params: { q: "rezoning" }
+
+    assert_response :success
+    assert_equal [ "Council Meeting" ], titles
+    assert_equal 1, json["pagination"]["total"]
+    assert_includes json["entries"].first["snippet"], marked("rezoning")
+  end
+
+  test "still finds an entry with fetched full text by a word only in its excerpt" do
+    entry = create_entry(title: "Council Meeting", content: "<p>Wombat sightings near the hall.</p>")
+    subscribe(entry)
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+
+    get api_v1_search_url, params: { q: "wombat" }
+
+    assert_response :success
+    assert_equal [ "Council Meeting" ], titles
+    assert_includes json["entries"].first["snippet"], marked("Wombat")
+  end
+
+  # Once the feed republishes, the reading pane shows the excerpt again, so a
+  # hit on the stale copy would open onto an article without the word in it.
+  test "does not find an entry by a word only in a stale fetched full text" do
+    entry = create_entry(title: "Council Meeting", content: "<p>The council met.</p>")
+    subscribe(entry)
+    fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+    entry.update!(content_hash: "republished")
+
+    get api_v1_search_url, params: { q: "rezoning" }
+
+    assert_response :success
+    assert_empty json["entries"]
+  end
+
+  # The per-feed cap plucks its ids from the filtered relation, so the join has
+  # to survive into that query too.
+  test "caps Fresh results per feed over matches found in fetched full text" do
+    newer = create_entry(title: "Council Meeting Newer", updated: 1.hour.ago)
+    older = create_entry(title: "Council Meeting Older", updated: 5.hours.ago)
+    [ newer, older ].each do |entry|
+      subscribe(entry)
+      fetch_full_text(entry, "<p>The council voted to reject the rezoning.</p>")
+    end
+
+    get api_v1_search_url, params: { q: "rezoning", view: "fresh", fresh_per_feed: 1 }
+
+    assert_response :success
+    assert_equal [ "Council Meeting Newer" ], titles
+  end
+
   # Every scoping test below seeds a match on BOTH sides of the filter, so an
   # assertion that still held with the filter deleted would fail here.
 
@@ -597,6 +656,16 @@ class Api::V1::SearchControllerTest < ActionDispatch::IntegrationTest
       unread: unread,
       marked: marked,
       published: published
+    )
+  end
+
+  def fetch_full_text(entry, content)
+    entry.create_entry_full_text!(
+      status: EntryFullText::OK,
+      content: content,
+      char_count: ArticleText.from_html(content).length,
+      content_hash: entry.content_hash,
+      fetched_at: Time.current
     )
   end
 

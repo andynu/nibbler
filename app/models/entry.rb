@@ -9,7 +9,8 @@
 # tsvector_combined, a GENERATED ALWAYS ... STORED column that PostgreSQL
 # computes from title and content (see the migration for the expression and for
 # why it is not a Rails callback). Nothing in Ruby writes it, and no write path
-# can skip it.
+# can skip it. Search also reads entry_full_texts.tsvector_content, generated
+# the same way over a fetched article; see TEXT_SEARCH_JOIN_SQL.
 #
 # @see UserEntry for per-user read state and interaction
 # @see Enclosure for attached media (audio, video, images)
@@ -79,39 +80,98 @@ class Entry < ApplicationRecord
   HEADLINE_START = 2.chr.freeze
   HEADLINE_STOP = 3.chr.freeze
 
-  # The text the search index is built from: the body with tags flattened to
-  # spaces and cut at 100k characters. It repeats the expression of the
-  # tsvector_combined generated column (see
+  # EntryFullText#usable? in SQL, for a fetched row and its entry under the
+  # given aliases: "ok", and fetched against the entry's current content_hash.
+  # Search reads a fetched copy only when this holds. Entry#readable_content
+  # shows the excerpt once the copy is stale, so matching on a stale copy would
+  # open the reader onto an article without the words they searched for.
+  USABLE_FULL_TEXT_SQL =
+    "%<full_text>s.status = '#{EntryFullText::OK}' AND %<full_text>s.content_hash = %<entry>s.content_hash".freeze
+
+  # The fetched article the rank and the excerpt read beside the entry. LEFT, so
+  # an entry with no usable fetch still ranks on its title and excerpt alone.
+  # Aliased so a caller's own join to entry_full_texts cannot collide with it.
+  TEXT_SEARCH_JOIN_SQL =
+    "LEFT JOIN entry_full_texts readable_full_texts ON readable_full_texts.entry_id = entries.id " \
+    "AND #{format(USABLE_FULL_TEXT_SQL, full_text: 'readable_full_texts', entry: 'entries')}".freeze
+
+  # What a matched entry is ranked against: its own vector plus the fetched
+  # article's when the join found one.
+  SEARCH_VECTOR_SQL = "(entries.tsvector_combined || coalesce(readable_full_texts.tsvector_content, ''::tsvector))".freeze
+
+  # The ids a query matches, in two disjoint halves. An entry with no usable
+  # fetched copy matches on its own vector, which entries_tsvector_combined_idx
+  # serves. An entry with one matches on both vectors concatenated, and those
+  # are the minority fetched on demand. One vector rather than two predicates
+  # ORed, so the words of "quokka wombat" can be found one in each text and
+  # "quokka -wombat" excludes a match on either.
+  #
+  # Not SEARCH_VECTOR_SQL @@ query over the joined row: no index can serve that
+  # expression, so PostgreSQL detoasts and tests every entry's vector.
+  TEXT_SEARCH_MATCHES_SQL = <<~SQL.squish.freeze
+    SELECT indexed.id FROM entries indexed
+    WHERE indexed.tsvector_combined @@ %<tsquery>s
+      AND NOT EXISTS (
+        SELECT 1 FROM entry_full_texts fetched
+        WHERE fetched.entry_id = indexed.id
+          AND #{format(USABLE_FULL_TEXT_SQL, full_text: 'fetched', entry: 'indexed')}
+      )
+    UNION ALL
+    SELECT fetched.entry_id FROM entry_full_texts fetched
+    JOIN entries indexed ON indexed.id = fetched.entry_id
+      AND #{format(USABLE_FULL_TEXT_SQL, full_text: 'fetched', entry: 'indexed')}
+    WHERE (indexed.tsvector_combined || fetched.tsvector_content) @@ %<tsquery>s
+  SQL
+
+  # The text an excerpt is cut from: each body with tags flattened to spaces and
+  # cut at 100k characters. It repeats the generated columns' expression (see
   # db/migrate/20260830003752_make_entry_tsvector_combined_generated.rb) because
   # an excerpt has to be cut from the same document the tsvector was built from.
   # Point ts_headline at the raw column instead and it hunts for the match in
   # markup the index never saw, then returns the tags as visible text.
-  SEARCH_DOCUMENT_SQL = "regexp_replace(left(coalesce(entries.content, ''), 100000), '<[^>]*>', ' ', 'g')".freeze
+  #
+  # The fetched article comes first because it is what the reading pane shows.
+  # Without a usable fetch that half is NULL, and concat_ws skips it.
+  SEARCH_DOCUMENT_SQL = <<~SQL.squish.freeze
+    concat_ws(' ',
+      regexp_replace(left(readable_full_texts.content, 100000), '<[^>]*>', ' ', 'g'),
+      regexp_replace(left(coalesce(entries.content, ''), 100000), '<[^>]*>', ' ', 'g'))
+  SQL
 
   # Full-text search using PostgreSQL tsvector, most relevant first.
   scope :search, ->(query) {
     return none if query.blank? || excludes_only?(query)
 
-    where(Arel.sql(text_search_condition(query)))
+    joins(text_search_join)
+      .where(Arel.sql(text_search_condition(query)))
       .order(Arel.sql("#{text_search_rank(query)} DESC"))
   }
 
-  # The three parts of a search, exposed so a query that reaches entries from
-  # the other side of the join (UserEntry, say) can apply the same predicate,
-  # the same ranking and the same excerpt. Without these, the only way to
-  # combine a user's rows with full-text search is to run Entry.search, pluck
-  # its ids, and re-query — which materialises every match in the shared entries
-  # table and throws the ranking away.
+  # The parts of a search, exposed so a query that reaches entries from the
+  # other side of the join (UserEntry, say) can apply the same predicate, the
+  # same ranking and the same excerpt. Without these, the only way to combine a
+  # user's rows with full-text search is to run Entry.search, pluck its ids, and
+  # re-query — which materialises every match in the shared entries table and
+  # throws the ranking away.
   #
-  # All three interpolate a quoted literal rather than a bind parameter because
-  # a rank expression has to appear in ORDER BY, where Rails will not bind for
-  # us. connection.quote handles the escaping.
+  # The rank and the excerpt read the fetched article, so a relation using
+  # either has to add text_search_join first. Leave it out and PostgreSQL
+  # raises on the missing readable_full_texts table, rather than quietly
+  # ranking the excerpt alone. The predicate carries its own subqueries.
+  #
+  # The three that take a query interpolate a quoted literal rather than a bind
+  # parameter because a rank expression has to appear in ORDER BY, where Rails
+  # will not bind for us. connection.quote handles the escaping.
+  def self.text_search_join
+    TEXT_SEARCH_JOIN_SQL
+  end
+
   def self.text_search_condition(query)
-    "entries.tsvector_combined @@ #{tsquery_sql(query)}"
+    "entries.id IN (#{format(TEXT_SEARCH_MATCHES_SQL, tsquery: tsquery_sql(query))})"
   end
 
   def self.text_search_rank(query)
-    "ts_rank(entries.tsvector_combined, #{tsquery_sql(query)})"
+    "ts_rank(#{SEARCH_VECTOR_SQL}, #{tsquery_sql(query)})"
   end
 
   # An excerpt of the body cut around the lexemes the query actually matched,
