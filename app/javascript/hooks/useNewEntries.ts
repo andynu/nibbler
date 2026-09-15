@@ -30,6 +30,12 @@ export interface NewEntries {
   apply: () => void
   /** Forget the stored probe and abandon any in flight. */
   reset: () => void
+  /**
+   * Probe now rather than on the next tick. Supersedes a probe in flight the
+   * way a tick does, and does nothing while disabled. Reads the options from
+   * the latest committed render.
+   */
+  probe: () => void
 }
 
 interface Probe {
@@ -51,7 +57,9 @@ interface Probe {
  * So the probe writes nowhere the reader can see. It fetches the same query
  * the visible list came from, keeps the response to one side, and publishes a
  * count. Nothing reaches `entries` until `apply()` - a click on the "N new
- * articles" affordance - hands the stored response over.
+ * articles" affordance - hands the stored response over. `probe()` runs one
+ * out of schedule, for a caller told the list has moved; since it writes to
+ * the same place, it is as safe as a tick.
  *
  * The count is derived, not stored, which is what keeps it honest across the
  * things that happen between probes: marking an entry read rewrites `entries`
@@ -75,34 +83,37 @@ export function useNewEntries({
   const fetchRef = useRef(fetchEntries)
   const onApplyRef = useRef(onApply)
   const scopeRef = useRef(scope)
+  const enabledRef = useRef(enabled)
 
   useEffect(() => {
     fetchRef.current = fetchEntries
     onApplyRef.current = onApply
     scopeRef.current = scope
+    enabledRef.current = enabled
   })
 
-  // The next probe, reset() and apply() each supersede a probe still in flight,
-  // so a slow reply cannot land after the reader has moved on. The scope is
-  // claimed with the probe rather than read when it lands, so the reply is
-  // filed against the list it was taken from.
+  // The next probe, scheduled or on demand, reset() and apply() each supersede
+  // a probe still in flight, so a slow reply cannot land after the reader has
+  // moved on or overwrite a probe issued after it. The scope is claimed with
+  // the probe rather than read when it lands, so the reply is filed against
+  // the list it was taken from.
   const { claim: claimProbe, abandon: abandonProbe } = useLatestRequest<unknown>()
 
-  useBackgroundRefresh(
-    () => {
-      const claim = claimProbe(scopeRef.current)
-      fetchRef
-        .current()
-        .then((probed) => {
-          if (!claim.isCurrent()) return
-          setProbe({ scope: claim.issuedFor, entries: probed })
-        })
-        .catch((error: unknown) => {
-          console.error("Failed to probe for new entries:", error)
-        })
-    },
-    { enabled, intervalMs }
-  )
+  const runProbe = useCallback(() => {
+    if (!enabledRef.current) return
+    const claim = claimProbe(scopeRef.current)
+    fetchRef
+      .current()
+      .then((probed) => {
+        if (!claim.isCurrent()) return
+        setProbe({ scope: claim.issuedFor, entries: probed })
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to probe for new entries:", error)
+      })
+  }, [claimProbe])
+
+  useBackgroundRefresh(runProbe, { enabled, intervalMs })
 
   const current = probe && Object.is(probe.scope, scope) ? probe : null
 
@@ -124,5 +135,5 @@ export function useNewEntries({
     setProbe(null)
   }, [current, abandonProbe])
 
-  return { count, apply, reset }
+  return { count, apply, reset, probe: runProbe }
 }

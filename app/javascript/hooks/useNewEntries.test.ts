@@ -248,4 +248,58 @@ describe("useNewEntries", () => {
 
     expect(result.current.count).toBe(1)
   })
+
+  it("probes on demand without waiting for the next tick", async () => {
+    const { result, props } = setup({
+      entries: entries(1, 2),
+      fetchEntries: vi.fn().mockResolvedValue(entries(9, 1, 2)),
+    })
+
+    await act(async () => {
+      result.current.probe()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(props.fetchEntries).toHaveBeenCalledTimes(1)
+    expect(result.current.count).toBe(1)
+  })
+
+  // A nudge can arrive while the scheduled probe is still waiting on the
+  // network. The probe issued last decides the count, not the one answered last.
+  it("keeps an on-demand probe when the scheduled one it superseded lands later", async () => {
+    let settleScheduled: (value: Entry[]) => void = () => {}
+    let settleOnDemand: (value: Entry[]) => void = () => {}
+    const fetchEntries = vi
+      .fn<() => Promise<Entry[]>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { settleScheduled = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { settleOnDemand = resolve }))
+    const { result } = setup({ entries: entries(1, 2), fetchEntries })
+
+    await tick()
+    act(() => result.current.probe())
+    await act(async () => {
+      settleOnDemand(entries(9, 8, 1, 2))
+      await Promise.resolve()
+    })
+    expect(result.current.count).toBe(2)
+
+    await act(async () => {
+      settleScheduled(entries(9, 1, 2))
+      await Promise.resolve()
+    })
+
+    expect(fetchEntries).toHaveBeenCalledTimes(2)
+    expect(result.current.count).toBe(2)
+  })
+
+  it("probes nothing on demand while disabled", async () => {
+    const { result, props } = setup({ enabled: false })
+
+    await act(async () => {
+      result.current.probe()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(props.fetchEntries).not.toHaveBeenCalled()
+  })
 })

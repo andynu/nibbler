@@ -209,13 +209,6 @@ function App() {
     { enabled: !showSettings, intervalMs: COUNTERS_POLL_INTERVAL_MS }
   )
 
-  // Ingestion also pushes a nudge when it stores entries for this reader, so
-  // the badges move within seconds of a fetch rather than on the next tick.
-  // Only the counters are refetched: new entries move counts, not the feed and
-  // category structure loadFeeds exists to notice. Held while settings are
-  // open, for the same reason as the poll.
-  useCountersNudge(loadCounters, { enabled: !showSettings })
-
   const loadTags = async () => {
     try {
       const tags = await api.tags.list()
@@ -313,7 +306,24 @@ function App() {
     scope: entriesQuery,
     enabled: !showSettings && virtualFeed !== "stories",
   })
-  const { reset: resetNewEntries } = newEntries
+  const { reset: resetNewEntries, probe: probeNewEntries } = newEntries
+
+  // Ingestion also pushes a nudge when it stores entries for this reader, so
+  // the badges and the new-articles probe move within seconds of a fetch
+  // rather than on the next tick. The feed and category lists are not
+  // reloaded: new entries move counts, not the structure loadFeeds exists to
+  // notice. Held while settings are open, for the same reason as the poll.
+  //
+  // Declared after useNewEntries on purpose. A nudge held while settings were
+  // open is replayed from an effect, and useNewEntries syncs its options in an
+  // effect too; declared first, the replay would find the probe still disabled.
+  useCountersNudge(
+    () => {
+      loadCounters()
+      probeNewEntries()
+    },
+    { enabled: !showSettings }
+  )
 
   const loadFeeds = async () => {
     setIsLoadingFeeds(true)
