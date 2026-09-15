@@ -84,7 +84,8 @@ class E2eDataset
   #
   # Seeded articles are a few hundred characters, well under
   # EntrySummarizer::MIN_CONTENT_CHARS, so every one of them is unsummarizable
-  # and the reading pane says the feed publishes an excerpt only. That is half
+  # and, FULL_TEXT_HEADLINE aside, the reading pane says the feed publishes an
+  # excerpt only. That is half
   # of what the summary spec checks; this row is what lets it also check the
   # paragraph, the provenance line and the control that puts them away, with no
   # model involved.
@@ -98,6 +99,24 @@ class E2eDataset
   ).freeze
 
   SUMMARY_MODEL = "gemma4:e4b".freeze
+
+  # The one article whose publisher's copy has already been fetched, so search
+  # can be seen matching a word the feed never sent.
+  #
+  # FULL_TEXT_ONLY_WORD appears in FULL_TEXT_CONTENT and nowhere else in the
+  # fixture set. The text stays well under EntrySummarizer::MIN_CONTENT_CHARS,
+  # so the article is as unsummarizable as its neighbours.
+  FULL_TEXT_HEADLINE = "Lichen coverage after the burn".freeze
+
+  FULL_TEXT_ONLY_WORD = "cyanobacteria".freeze
+
+  FULL_TEXT_CONTENT = (
+    "<p>Survey plots on the north slope were revisited eight months after the " \
+    "fire. Crustose lichens had recolonised most of the exposed granite, while " \
+    "foliose species stayed confined to sheltered crevices.</p>" \
+    "<p>Soil crusts sampled at each plot were dominated by cyanobacteria, which " \
+    "fix nitrogen and hold the surface together until mosses return.</p>"
+  ).freeze
 
   class << self
     def enabled?
@@ -138,6 +157,7 @@ class E2eDataset
     @tags = create_tags
     create_entries
     create_summary
+    create_full_text
     create_filter
     @user
   end
@@ -260,6 +280,21 @@ class E2eDataset
       model: SUMMARY_MODEL,
       content_hash: entry.content_hash,
       generated_at: @now - 20.minutes
+    )
+  end
+
+  # content_hash matches the entry's for the reason it does on the summary: a
+  # stale copy is neither shown nor searched.
+  def create_full_text
+    entry = Entry.find_by!(title: FULL_TEXT_HEADLINE)
+
+    EntryFullText.create!(
+      entry: entry,
+      status: EntryFullText::OK,
+      content: FULL_TEXT_CONTENT,
+      char_count: ArticleText.from_html(FULL_TEXT_CONTENT).length,
+      content_hash: entry.content_hash,
+      fetched_at: @now - 25.minutes
     )
   end
 

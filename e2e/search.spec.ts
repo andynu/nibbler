@@ -4,8 +4,9 @@ import { test, expect, type Page } from "./fixtures"
  * Article search, end to end.
  *
  * Every example here runs a real query through `/api/v1/search`, which means
- * `websearch_to_tsquery`, the `entries.tsvector_combined` generated column, its
- * GIN index and `ts_headline`, and then asserts on the rows that came back. The
+ * `websearch_to_tsquery`, the `entries.tsvector_combined` and
+ * `entry_full_texts.tsvector_content` generated columns and `ts_headline`, and
+ * then asserts on the rows that came back. The
  * component suite mocks `api.search`, so it cannot tell a working index from an
  * empty one: `Entry.search` returned nothing at all for every query in
  * production for months while every one of those tests stayed green. An example
@@ -18,7 +19,8 @@ import { test, expect, type Page } from "./fixtures"
  * hours. Each article's body repeats its own headline and names its feed
  * ("... from Rust Weekly, used by the end-to-end suite"), so a term like
  * "keyword" that appears only in that shared prose matches all 24 articles and
- * can only be found through the body, never the headline.
+ * can only be found through the body, never the headline. One article, "Lichen
+ * coverage after the burn", also carries a fetched copy of the publisher's page.
  */
 
 /** Rust Weekly's six headlines, newest first, which is also seeding order. */
@@ -436,6 +438,26 @@ test.describe("Query syntax", () => {
     await expect(page.getByText(/Add a word to search for/)).toBeVisible()
     await expect(page.getByText(/only says what to leave out/)).toBeVisible()
     await expect(searchResults(page)).toHaveCount(0)
+  })
+})
+
+test.describe("The fetched copy of an article", () => {
+  // Seeded by E2eDataset#create_full_text. The word is in the publisher's copy
+  // and in no feed excerpt, so the index over entries alone cannot find it.
+  const FETCHED_HEADLINE = "Lichen coverage after the burn"
+  const ONLY_IN_FETCHED_COPY = "cyanobacteria"
+
+  test("a word only in the fetched copy finds the article, and the article shows it", async ({
+    authenticatedPage: page,
+  }) => {
+    await runSearch(page, ONLY_IN_FETCHED_COPY)
+
+    await expect(searchRows(page)).toHaveCount(1)
+    expect(await resultHeadlines(page)).toEqual([FETCHED_HEADLINE])
+    await expect(searchRows(page).first().locator("mark").first()).toHaveText(/cyanobacteria/i)
+
+    await searchRow(page, FETCHED_HEADLINE).click()
+    await expect(page.getByRole("article")).toContainText(ONLY_IN_FETCHED_COPY)
   })
 })
 

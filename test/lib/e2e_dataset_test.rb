@@ -35,6 +35,17 @@ class E2eDatasetTest < ActiveSupport::TestCase
       "EntrySummary#valid_for_content? compares one against the other"
   end
 
+  # The browser suite searches for this word and expects exactly this article,
+  # found through the fetched copy rather than the excerpt.
+  test "the seeded full text is current and is the only place its word appears" do
+    E2eDataset.new.build!
+    entry = Entry.find_by!(title: E2eDataset::FULL_TEXT_HEADLINE)
+
+    assert_predicate entry.entry_full_text, :usable?
+    assert_not_includes entry.content, E2eDataset::FULL_TEXT_ONLY_WORD
+    assert_equal [ entry ], Entry.search(E2eDataset::FULL_TEXT_ONLY_WORD).to_a
+  end
+
   private
 
   # Builds the real fixture set and returns one of its entries. build! is the
