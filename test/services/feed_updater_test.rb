@@ -549,6 +549,34 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_equal [ "https://example.com/ep12.mp3" ], Entry.find_by!(guid: "edited").enclosures.pluck(:content_url)
   end
 
+  # An edited headline or body is matched against the feed's own tags again,
+  # which only ever add a tag. The reader's filters are not run again: their
+  # actions mark read, star, score and delete, and an edit leaves all of that
+  # alone.
+
+  test "an edit that now mentions a feed tag gets the tag" do
+    tag = @user.tags.create!(name: "quokka", bg_color: "#64748b", fg_color: "#ffffff")
+    @feed.tags << tag
+    update_with(rss(item(guid: "edited", title: "Wombat Returns")))
+
+    update_with(rss(item(guid: "edited", title: "Quokka Returns")))
+
+    assert_includes Entry.find_by!(guid: "edited").tags, tag
+  end
+
+  test "an edit does not run the reader's filters again" do
+    update_with(rss(item(guid: "edited", title: "Wombat Returns")))
+    user_entry = @feed.user_entries.joins(:entry).find_by!(entries: { guid: "edited" })
+    assert user_entry.unread, "precondition: no filter matched the first headline"
+    filter = Filter.create!(user: @user, title: "Retractions", match_any_rule: false, inverse: false, order_id: 0, enabled: true)
+    FilterRule.create!(filter: filter, filter_type: "title", reg_exp: "Retracted")
+    FilterAction.create!(filter: filter, action_type: "mark_read", action_param: "")
+
+    update_with(rss(item(guid: "edited", title: "Retracted: Wombat Returns")))
+
+    assert user_entry.reload.unread
+  end
+
   private
 
   def edition(text)

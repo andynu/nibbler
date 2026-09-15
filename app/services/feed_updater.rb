@@ -238,7 +238,7 @@ class FeedUpdater
 
       true # New entry for this user
     else
-      apply_edit(entry, parsed_entry) if user_entry.feed_id == @feed.id
+      apply_edit(entry, user_entry, parsed_entry) if user_entry.feed_id == @feed.id
       false # Already had this entry
     end
   end
@@ -252,7 +252,12 @@ class FeedUpdater
   # overwrite each other on every fetch. Read state and entries.updated are left
   # alone. A field the republish leaves empty keeps its stored value rather than
   # being erased, and FeedParser::UNTITLED counts as empty.
-  def apply_edit(entry, parsed_entry)
+  #
+  # An edited headline or body is matched against the feed's tags again, which
+  # only add a tag. FilterExecutor is not re-run: its actions write read state,
+  # stars and score, which an edit leaves alone, and a score action would add up
+  # again on every edit.
+  def apply_edit(entry, user_entry, parsed_entry)
     changes = body_edit(entry, parsed_entry.content)
     title = parsed_entry.title
     changes[:title] = title if title != FeedParser::UNTITLED && replaces?(entry.title, title)
@@ -262,6 +267,7 @@ class FeedUpdater
 
     entry.update!(changes.merge(date_updated: Time.current))
     CacheArticleImagesJob.perform_later(entry.id) if changes.key?(:content) && @feed.cache_images?
+    FeedTagsForEntryApplier.apply(user_entry: user_entry) if changes.key?(:content) || changes.key?(:title)
   end
 
   # A feed gives an enclosure no identity beyond its URL, so the set is compared
