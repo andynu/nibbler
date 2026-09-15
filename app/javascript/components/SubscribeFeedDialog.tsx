@@ -20,6 +20,15 @@ import {
 import { api, Feed, Category, FeedPreview } from "@/lib/api"
 import { Loader2, CheckCircle, Rss } from "lucide-react"
 
+/**
+ * The deepest level an option's indentation expresses. The list grows to fit
+ * its widest option with nothing bounding it by the screen, and the selected
+ * option's indent is copied into the trigger, so deeper options share this
+ * offset. Options carry no ancestor path: past the ceiling, nesting reads from
+ * order alone.
+ */
+const MAX_INDENT_DEPTH = 3
+
 // Build a flattened list of categories with depth for indentation
 function buildCategoryTree(categories: Category[]): Array<{ category: Category; depth: number }> {
   const result: Array<{ category: Category; depth: number }> = []
@@ -241,7 +250,9 @@ export function SubscribeFeedDialog({
                   <SelectItem value="none">No category</SelectItem>
                   {categoryTree.map(({ category, depth }) => (
                     <SelectItem key={category.id} value={String(category.id)}>
-                      <span style={{ paddingLeft: depth * 16 }}>{category.title}</span>
+                      <span style={{ paddingLeft: Math.min(depth, MAX_INDENT_DEPTH) * 16 }}>
+                        {category.title}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

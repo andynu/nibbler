@@ -26,6 +26,13 @@ interface CategoryWithPath {
   depth: number
 }
 
+/**
+ * The deepest level a row's indentation expresses. Deeper rows share this
+ * offset instead of spending the row's width on it; the ancestor path in front
+ * of each title still says where the row sits.
+ */
+const MAX_INDENT_DEPTH = 3
+
 export function MoveFeedDialog({
   open,
   onOpenChange,
@@ -205,7 +212,10 @@ export function MoveFeedDialog({
                     disabled={isCurrentCategory}
                     className="flex items-center"
                   >
-                    <span style={{ paddingLeft: `${item.depth * 12}px` }} className="flex items-center">
+                    <span
+                      style={{ paddingLeft: `${Math.min(item.depth, MAX_INDENT_DEPTH) * 12}px` }}
+                      className="flex items-center"
+                    >
                       <Folder className="mr-2 h-4 w-4" />
                       {item.depth > 0 ? (
                         <span className="text-muted-foreground text-xs mr-1">

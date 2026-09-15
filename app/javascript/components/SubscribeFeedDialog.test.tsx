@@ -157,6 +157,51 @@ describe("SubscribeFeedDialog", () => {
     })
   })
 
+  describe("category indentation stops at a ceiling", () => {
+    // happy-dom keeps the style attribute, so the indent the component
+    // computed is observable here even though nothing is laid out.
+    const CHAIN_DEPTH = 12
+
+    function chainOfCategories(depth: number) {
+      return Array.from({ length: depth + 1 }, (_, level) =>
+        mockCategory({
+          id: level + 1,
+          title: `Level ${level}`,
+          parent_id: level === 0 ? null : level,
+        })
+      )
+    }
+
+    it("stops widening a deep option's indent past the ceiling", async () => {
+      const user = userEvent.setup()
+      render(
+        <SubscribeFeedDialog
+          {...defaultProps}
+          categories={chainOfCategories(CHAIN_DEPTH)}
+        />
+      )
+
+      // The keyboard path opens the select without the pointer capture
+      // happy-dom does not implement.
+      screen.getByRole("combobox").focus()
+      await user.keyboard("{Enter}")
+
+      const indentOf = async (title: string) => {
+        const option = await screen.findByRole("option", { name: title })
+        const indented = option.querySelector<HTMLElement>("span[style]")
+        expect(indented).not.toBeNull()
+        return indented!.style.paddingLeft
+      }
+
+      expect(await indentOf("Level 1")).toBe("16px")
+      expect(await indentOf("Level 2")).toBe("32px")
+      expect(await indentOf("Level 3")).toBe("48px")
+      expect(await indentOf("Level 4")).toBe("48px")
+      expect(await indentOf("Level 8")).toBe("48px")
+      expect(await indentOf("Level 12")).toBe("48px")
+    })
+  })
+
   describe("submission", () => {
     it("calls api.feeds.create with URL", async () => {
       const user = userEvent.setup()

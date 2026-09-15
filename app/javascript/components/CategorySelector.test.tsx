@@ -169,4 +169,46 @@ describe("CategorySelector", () => {
       expect(within(childItem!).getByText(/Parent/)).toBeInTheDocument()
     })
   })
+
+  describe("category indentation stops at a ceiling", () => {
+    // happy-dom keeps the style attribute, so the indent the component
+    // computed is observable here even though nothing is laid out.
+    const CHAIN_DEPTH = 12
+
+    function chainOfCategories(depth: number) {
+      return Array.from({ length: depth + 1 }, (_, level) =>
+        mockCategory({
+          id: level + 1,
+          title: `Level ${level}`,
+          parent_id: level === 0 ? null : level,
+        })
+      )
+    }
+
+    /** The inline inset on the element wrapping a row's icon, path and title. */
+    function indentOf(title: string) {
+      const titleElement = screen.getByText(title, { exact: true })
+      return (titleElement.parentElement as HTMLElement).style.paddingLeft
+    }
+
+    it("stops widening a deep row's indent past the ceiling", async () => {
+      const user = userEvent.setup()
+      render(
+        <CategorySelector
+          {...defaultProps}
+          categories={chainOfCategories(CHAIN_DEPTH)}
+        />
+      )
+
+      await user.click(screen.getByRole("combobox"))
+
+      expect(indentOf("Level 0")).toBe("0px")
+      expect(indentOf("Level 1")).toBe("12px")
+      expect(indentOf("Level 2")).toBe("24px")
+      expect(indentOf("Level 3")).toBe("36px")
+      expect(indentOf("Level 4")).toBe("36px")
+      expect(indentOf("Level 8")).toBe("36px")
+      expect(indentOf("Level 12")).toBe("36px")
+    })
+  })
 })

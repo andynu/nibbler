@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { MoveFeedDialog } from "./MoveFeedDialog"
 import { Feed, Category } from "@/lib/api"
+import { mockCategory } from "../../../test/fixtures/data"
 
 // Mock the API
 vi.mock("@/lib/api", async () => {
@@ -157,5 +158,44 @@ describe("MoveFeedDialog", () => {
     await user.type(screen.getByPlaceholderText(/search categories/i), "NewCategory")
 
     expect(screen.getByText(/create "newcategory"/i)).toBeInTheDocument()
+  })
+
+  describe("category indentation stops at a ceiling", () => {
+    // happy-dom keeps the style attribute, so the indent the component
+    // computed is observable here even though nothing is laid out.
+    const CHAIN_DEPTH = 12
+
+    function chainOfCategories(depth: number) {
+      return Array.from({ length: depth + 1 }, (_, level) =>
+        mockCategory({
+          id: level + 1,
+          title: `Level ${level}`,
+          parent_id: level === 0 ? null : level,
+        })
+      )
+    }
+
+    /** The inline inset on the element wrapping a row's icon, path and title. */
+    function indentOf(title: string) {
+      const titleElement = screen.getByText(title, { exact: true })
+      return (titleElement.parentElement as HTMLElement).style.paddingLeft
+    }
+
+    it("stops widening a deep row's indent past the ceiling", () => {
+      render(
+        <MoveFeedDialog
+          {...defaultProps}
+          categories={chainOfCategories(CHAIN_DEPTH)}
+        />
+      )
+
+      expect(indentOf("Level 0")).toBe("0px")
+      expect(indentOf("Level 1")).toBe("12px")
+      expect(indentOf("Level 2")).toBe("24px")
+      expect(indentOf("Level 3")).toBe("36px")
+      expect(indentOf("Level 4")).toBe("36px")
+      expect(indentOf("Level 8")).toBe("36px")
+      expect(indentOf("Level 12")).toBe("36px")
+    })
   })
 })
