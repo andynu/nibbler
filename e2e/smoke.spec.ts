@@ -153,25 +153,23 @@ test.describe("Smoke Tests", () => {
   test("starring an entry makes it appear in starred view", async ({
     page,
   }) => {
-    // Get an entry to star
-    const listResponse = await page.request.get("/api/v1/entries?per_page=1")
+    // Get an unstarred entry to star. The seed stars one article per feed and
+    // leaves the rest unstarred.
+    const listResponse = await page.request.get("/api/v1/entries?per_page=50")
     expect(listResponse.ok()).toBe(true)
 
     const data = await listResponse.json()
-    expect(data.entries.length).toBeGreaterThan(0)
+    const unstarred = data.entries.find((e: { starred: boolean }) => !e.starred)
+    expect(unstarred, "the seeded list should hold an unstarred entry").toBeDefined()
 
-    const entryId = data.entries[0].id
-    const wasStarred = data.entries[0].starred
+    const entryId = unstarred.id
 
-    // If not starred, star it
-    if (!wasStarred) {
-      const toggleResponse = await page.request.post(
-        `/api/v1/entries/${entryId}/toggle_starred`
-      )
-      expect(toggleResponse.ok()).toBe(true)
-      const result = await toggleResponse.json()
-      expect(result.starred).toBe(true)
-    }
+    const toggleResponse = await page.request.post(
+      `/api/v1/entries/${entryId}/toggle_starred`
+    )
+    expect(toggleResponse.ok()).toBe(true)
+    const result = await toggleResponse.json()
+    expect(result.starred).toBe(true)
 
     // Verify entry appears in starred view via API
     const starredResponse = await page.request.get(
@@ -192,10 +190,8 @@ test.describe("Smoke Tests", () => {
       page.getByRole("button", { name: /starred/i }).first()
     ).toBeVisible()
 
-    // Restore original state if we changed it
-    if (!wasStarred) {
-      await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
-    }
+    // Restore original state
+    await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
   })
 
   test("adding a tag to an entry", async ({ page }) => {

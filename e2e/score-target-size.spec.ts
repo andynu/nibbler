@@ -162,13 +162,17 @@ test.describe("Score target size", () => {
         `inside score ${n}'s right edge, above the square`
       ).toBe(`Set score to ${n}`)
 
-      // And nothing of score n reaches past its own column into the next.
-      if (n < 5) {
-        expect(
-          await controlAtPoint(page, box.x + box.width + 1, y),
-          `past score ${n}'s right edge, above the squares`
-        ).toBe(`Set score to ${n + 1}`)
-      }
+    }
+
+    // And nothing of score n reaches past its own column into the next. Score
+    // 5 has no next column, so this runs over the first four.
+    for (let n = 1; n < 5; n++) {
+      const box = await squareBox(page, n)
+
+      expect(
+        await controlAtPoint(page, box.x + box.width + 1, box.y - PROBE),
+        `past score ${n}'s right edge, above the squares`
+      ).toBe(`Set score to ${n + 1}`)
     }
   })
 

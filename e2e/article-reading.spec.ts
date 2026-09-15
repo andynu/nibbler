@@ -5,6 +5,9 @@ import { test, expect, type Page } from "./fixtures"
  *
  * Tests the core article reading experience: browsing, selecting,
  * reading, and managing articles.
+ *
+ * E2eDataset seeds the feeds and entries these read before every test, so the
+ * examples assert the data is there rather than skipping when it is not.
  */
 
 // Helper to wait for app to be ready
@@ -83,13 +86,12 @@ test.describe("Article API operations", () => {
     // Get a feed first
     const feedsResponse = await page.request.get("/api/v1/feeds")
     const feeds = await feedsResponse.json()
+    expect(feeds.length).toBeGreaterThan(0)
 
-    if (feeds.length > 0) {
-      const response = await page.request.get(
-        `/api/v1/entries?feed_id=${feeds[0].id}`
-      )
-      expect(response.ok()).toBe(true)
-    }
+    const response = await page.request.get(
+      `/api/v1/entries?feed_id=${feeds[0].id}`
+    )
+    expect(response.ok()).toBe(true)
   })
 
   test("can filter entries by view (starred)", async ({ page }) => {
@@ -106,16 +108,15 @@ test.describe("Article API operations", () => {
     // Get entries first
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")
     const data = await listResponse.json()
+    expect(data.entries.length).toBeGreaterThan(0)
 
-    if (data.entries.length > 0) {
-      const entryId = data.entries[0].id
-      const response = await page.request.get(`/api/v1/entries/${entryId}`)
-      expect(response.ok()).toBe(true)
+    const entryId = data.entries[0].id
+    const response = await page.request.get(`/api/v1/entries/${entryId}`)
+    expect(response.ok()).toBe(true)
 
-      const entry = await response.json()
-      expect(entry.id).toBe(entryId)
-      expect(entry.title).toBeDefined()
-    }
+    const entry = await response.json()
+    expect(entry.id).toBe(entryId)
+    expect(entry.title).toBeDefined()
   })
 })
 
@@ -124,23 +125,22 @@ test.describe("Mark Read/Unread", () => {
     // Get an entry
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")
     const data = await listResponse.json()
+    expect(data.entries.length).toBeGreaterThan(0)
 
-    if (data.entries.length > 0) {
-      const entryId = data.entries[0].id
+    const entryId = data.entries[0].id
 
-      // Toggle read status - just verify it returns the expected shape
-      const toggleResponse = await page.request.post(
-        `/api/v1/entries/${entryId}/toggle_read`
-      )
-      expect(toggleResponse.ok()).toBe(true)
+    // Toggle read status - just verify it returns the expected shape
+    const toggleResponse = await page.request.post(
+      `/api/v1/entries/${entryId}/toggle_read`
+    )
+    expect(toggleResponse.ok()).toBe(true)
 
-      const result = await toggleResponse.json()
-      // Verify result has unread property (boolean)
-      expect(typeof result.unread).toBe("boolean")
+    const result = await toggleResponse.json()
+    // Verify result has unread property (boolean)
+    expect(typeof result.unread).toBe("boolean")
 
-      // Toggle back to restore original state
-      await page.request.post(`/api/v1/entries/${entryId}/toggle_read`)
-    }
+    // Toggle back to restore original state
+    await page.request.post(`/api/v1/entries/${entryId}/toggle_read`)
   })
 
   test("can mark all as read via API", async ({ page }) => {
@@ -151,13 +151,12 @@ test.describe("Mark Read/Unread", () => {
   test("can mark all as read for specific feed", async ({ page }) => {
     const feedsResponse = await page.request.get("/api/v1/feeds")
     const feeds = await feedsResponse.json()
+    expect(feeds.length).toBeGreaterThan(0)
 
-    if (feeds.length > 0) {
-      const response = await page.request.post("/api/v1/entries/mark_all_read", {
-        data: { feed_id: feeds[0].id },
-      })
-      expect(response.ok()).toBe(true)
-    }
+    const response = await page.request.post("/api/v1/entries/mark_all_read", {
+      data: { feed_id: feeds[0].id },
+    })
+    expect(response.ok()).toBe(true)
   })
 })
 
@@ -166,54 +165,52 @@ test.describe("Star/Unstar Articles", () => {
     // Get an entry
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")
     const data = await listResponse.json()
+    expect(data.entries.length).toBeGreaterThan(0)
 
-    if (data.entries.length > 0) {
-      const entryId = data.entries[0].id
-      const originalStarred = data.entries[0].starred
+    const entryId = data.entries[0].id
+    const originalStarred = data.entries[0].starred
 
-      // Toggle starred status
-      const toggleResponse = await page.request.post(
-        `/api/v1/entries/${entryId}/toggle_starred`
-      )
-      expect(toggleResponse.ok()).toBe(true)
+    // Toggle starred status
+    const toggleResponse = await page.request.post(
+      `/api/v1/entries/${entryId}/toggle_starred`
+    )
+    expect(toggleResponse.ok()).toBe(true)
 
-      const result = await toggleResponse.json()
-      expect(result.starred).toBe(!originalStarred)
+    const result = await toggleResponse.json()
+    expect(result.starred).toBe(!originalStarred)
 
-      // Toggle back
-      await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
-    }
+    // Toggle back
+    await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
   })
 
   test("starred entries appear in starred view", async ({ page }) => {
     // Get an entry and star it
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")
     const data = await listResponse.json()
+    expect(data.entries.length).toBeGreaterThan(0)
 
-    if (data.entries.length > 0) {
-      const entryId = data.entries[0].id
-      // The endpoint toggles, so the entry belongs in the starred view exactly
-      // when it started out unstarred.
-      const shouldBeStarred = !data.entries[0].starred
+    const entryId = data.entries[0].id
+    // The endpoint toggles, so the entry belongs in the starred view exactly
+    // when it started out unstarred.
+    const shouldBeStarred = !data.entries[0].starred
 
-      // Star the entry
-      await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
+    // Star the entry
+    await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
 
-      // Check starred view
-      const starredResponse = await page.request.get(
-        "/api/v1/entries?view=starred"
-      )
-      expect(starredResponse.ok()).toBe(true)
+    // Check starred view
+    const starredResponse = await page.request.get(
+      "/api/v1/entries?view=starred"
+    )
+    expect(starredResponse.ok()).toBe(true)
 
-      const starredData = await starredResponse.json()
-      const starredIds = starredData.entries.map(
-        (entry: { id: number }) => entry.id
-      )
-      expect(starredIds.includes(entryId)).toBe(shouldBeStarred)
+    const starredData = await starredResponse.json()
+    const starredIds = starredData.entries.map(
+      (entry: { id: number }) => entry.id
+    )
+    expect(starredIds.includes(entryId)).toBe(shouldBeStarred)
 
-      // Toggle back to original state
-      await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
-    }
+    // Toggle back to original state
+    await page.request.post(`/api/v1/entries/${entryId}/toggle_starred`)
   })
 })
 
@@ -244,12 +241,11 @@ test.describe("Navigation UI", () => {
     // Get entries to ensure there's content
     const response = await page.request.get("/api/v1/entries?per_page=5")
     const data = await response.json()
+    expect(data.entries.length).toBeGreaterThan(1)
 
-    if (data.entries.length > 1) {
-      // Find navigation buttons (Previous/Next or arrow buttons)
-      const buttons = page.locator("button")
-      await expect(buttons.first()).toBeVisible()
-    }
+    // Find navigation buttons (Previous/Next or arrow buttons)
+    const buttons = page.locator("button")
+    await expect(buttons.first()).toBeVisible()
   })
 })
 
@@ -307,15 +303,11 @@ test.describe("Search", () => {
 test.describe("Headlines", () => {
   test("headlines endpoint returns response", async ({ page }) => {
     const response = await page.request.get("/api/v1/entries/headlines")
-    // Headlines endpoint may return 500 if database has issues
-    // Just verify it returns a response (no network error)
-    expect(response.status()).toBeLessThan(600)
+    expect(response.ok()).toBe(true)
 
-    if (response.ok()) {
-      const data = await response.json()
-      expect(data.headlines).toBeDefined()
-      expect(Array.isArray(data.headlines)).toBe(true)
-    }
+    const data = await response.json()
+    expect(data.headlines).toBeDefined()
+    expect(Array.isArray(data.headlines)).toBe(true)
   })
 })
 

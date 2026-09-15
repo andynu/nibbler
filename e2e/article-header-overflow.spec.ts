@@ -48,8 +48,22 @@ import { test, expect, type Page } from "./fixtures"
  * example is a band where the menu could go missing unnoticed. 1280 is the
  * width that fit before this fix, so a change that trades the wide case for
  * the narrow one fails here rather than shipping.
+ *
+ * Each width carries the tier its pane lands in. The examples check the
+ * measured pane against it before relying on it, because the tier decides
+ * which controls the header sheds and so whether the overflow menu has a job.
  */
-const VIEWPORTS = [640, 700, 768, 800, 1024, 1100, 1280] as const
+const VIEWPORTS = [
+  { width: 640, tier: "narrow" },
+  { width: 700, tier: "narrow" },
+  { width: 768, tier: "narrow" },
+  { width: 800, tier: "middle" },
+  { width: 1024, tier: "narrow" },
+  { width: 1100, tier: "middle" },
+  { width: 1280, tier: "wide" },
+] as const
+
+type Tier = (typeof VIEWPORTS)[number]["tier"]
 
 /**
  * The two pane widths the header sheds on, in CSS pixels. They are the
@@ -59,6 +73,13 @@ const VIEWPORTS = [640, 700, 768, 800, 1024, 1100, 1280] as const
  */
 const MID_PANE = 480
 const WIDE_PANE = 640
+
+/** Each tier's pane widths: at least the first bound, below the second. */
+const TIER_PANES: Record<Tier, readonly [number, number]> = {
+  narrow: [0, MID_PANE],
+  middle: [MID_PANE, WIDE_PANE],
+  wide: [WIDE_PANE, Number.POSITIVE_INFINITY],
+}
 
 interface Action {
   /** How this control is named in a failure message. */
@@ -143,6 +164,18 @@ const ACTIONS: Action[] = [
   },
 ]
 
+/**
+ * 5, not 1: the five squares are laid out left to right by one wrapper, so a
+ * wrapper that runs past the edge loses the high scores first. At 640 they sat
+ * at 589..709 against a pane ending at 640.
+ */
+const SCORE_5: Action = {
+  what: "score 5",
+  header: /^Set score to 5$/,
+  menu: { role: "menuitemradio", name: /^Score 5$/ },
+  headerFrom: WIDE_PANE,
+}
+
 async function openFirstEntry(page: Page) {
   const rows = page.getByRole("listbox", { name: "Entries" }).getByRole("option")
   await expect(rows.first()).toBeVisible()
@@ -170,6 +203,19 @@ async function paneBox(page: Page) {
   const box = await page.getByTestId("entry-header").boundingBox()
   expect(box, "the article header should be laid out").not.toBeNull()
   return box!
+}
+
+/**
+ * The pane's box, once its width is confirmed to fall in `tier`. A layout
+ * change that moves a viewport into another tier fails here by name, rather
+ * than as a confusing shed-or-kept mismatch further down.
+ */
+async function paneInTier(page: Page, tier: Tier) {
+  const pane = await paneBox(page)
+  const [from, below] = TIER_PANES[tier]
+  expect(pane.width, `a ${tier} pane is at least ${from}px`).toBeGreaterThanOrEqual(from)
+  expect(pane.width, `a ${tier} pane is narrower than ${below}px`).toBeLessThan(below)
+  return pane
 }
 
 const headerControl = (page: Page, action: Action) =>
@@ -205,7 +251,47 @@ async function offeredInHeader(page: Page, action: Action, pane: BoundingBox) {
   return box.x >= pane.x - 0.5 && box.x + box.width <= pane.x + pane.width + 0.5
 }
 
-for (const width of VIEWPORTS) {
+/**
+ * Every action, each one on screen in the header exactly from its own tier up,
+ * and each one the header does not offer backed by a menu row. Returns the
+ * actions the header shed.
+ *
+ * The tier boundaries are asserted, not merely described: a control the header
+ * claims to keep at this width has to be there and on screen, and one it claims
+ * to shed has to be gone, so shedding too eagerly fails here as loudly as
+ * shedding too late.
+ */
+async function expectActionsPlacedByTier(page: Page, pane: BoundingBox) {
+  const shed: Action[] = []
+  for (const action of ACTIONS) {
+    const present = await offeredInHeader(page, action, pane)
+
+    expect(
+      present,
+      `${action.what} is in the header, on screen, from a ${action.headerFrom}px pane up; this pane is ${pane.width}px`
+    ).toBe(pane.width >= action.headerFrom)
+    if (present) continue
+
+    expect(
+      action.menu,
+      `${action.what} is not reachable in the header at a ${pane.width}px pane and has no menu row`
+    ).not.toBeNull()
+    shed.push(action)
+  }
+  return shed
+}
+
+/** "Open in new tab" has no menu twin, so its right edge has to be inside the pane. */
+async function expectOpenInNewTabOnScreen(page: Page, pane: BoundingBox) {
+  const openInNewTab = (await page
+    .getByTestId("entry-header")
+    .getByRole("link", { name: "Open in new tab" })
+    .boundingBox())!
+  expect(openInNewTab).not.toBeNull()
+  expect(openInNewTab.x + openInNewTab.width).toBeLessThanOrEqual(pane.x + pane.width + 0.5)
+}
+
+for (const { width, tier } of VIEWPORTS) {
   test.describe(`Article header at a ${width}px viewport`, () => {
     test.use({ viewport: { width, height: 800 } })
 
@@ -265,93 +351,75 @@ for (const width of VIEWPORTS) {
      * screen. Nothing is allowed to be neither, which is the state six of them
      * were in at every viewport from 640 to 1024.
      */
-    test("every article action is reachable", async ({ page }) => {
-      const pane = await paneBox(page)
+    if (tier === "wide") {
+      test("every article action is reachable", async ({ page }) => {
+        const pane = await paneInTier(page, tier)
+        const shed = await expectActionsPlacedByTier(page, pane)
+        expect(shed.map((action) => action.what)).toEqual([])
 
-      const shed: Action[] = []
-      for (const action of ACTIONS) {
-        const present = await offeredInHeader(page, action, pane)
-
-        // The tier boundaries are asserted, not merely described: a control
-        // the header claims to keep at this width has to be there and has to
-        // be on screen, so shedding too eagerly fails here as loudly as
-        // shedding too late.
-        if (pane.width >= action.headerFrom) {
-          expect(
-            present,
-            `${action.what} should be in the header, on screen, at a ${pane.width}px pane`
-          ).toBe(true)
-        }
-        if (present) continue
-
-        expect(
-          action.menu,
-          `${action.what} is not reachable in the header at a ${pane.width}px pane and has no menu row`
-        ).not.toBeNull()
-        shed.push(action)
-      }
-
-      if (shed.length === 0) {
         // Nothing is missing, so the trigger has no job. Asserting this is what
         // keeps the menu honest at the wide end rather than leaving a stray
         // control in a toolbar that has room for everything.
         await expect(overflowTrigger(page)).toBeHidden()
-        return
-      }
+      })
+    } else {
+      test("every article action is reachable", async ({ page }) => {
+        const pane = await paneInTier(page, tier)
+        const shed = await expectActionsPlacedByTier(page, pane)
+        expect(shed.map((action) => action.what)).not.toEqual([])
 
-      // The trigger has to be reachable too, by the same standard. At 320px it
-      // was the control the row pushed off its own edge (ttrb-h12t), which took
-      // everything behind it with it; from 640 up it was hidden outright while
-      // five of its rows were still needed.
-      await expect(
-        overflowTrigger(page),
-        `${shed.map((a) => a.what).join(", ")} shed at a ${pane.width}px pane, so the menu must be offered`
-      ).toBeVisible()
-      const trigger = (await overflowTrigger(page).boundingBox())!
-      expect(trigger, "the overflow trigger should be laid out").not.toBeNull()
-      expect(trigger.x).toBeGreaterThanOrEqual(pane.x - 0.5)
-      expect(trigger.x + trigger.width).toBeLessThanOrEqual(pane.x + pane.width + 0.5)
-
-      await openOverflowMenu(page)
-      for (const action of shed) {
+        // The trigger has to be reachable too, by the same standard. At 320px it
+        // was the control the row pushed off its own edge (ttrb-h12t), which took
+        // everything behind it with it; from 640 up it was hidden outright while
+        // five of its rows were still needed.
         await expect(
-          page.getByRole(action.menu!.role, { name: action.menu!.name }),
-          `${action.what} is shed at a ${pane.width}px pane, so the menu must carry it`
+          overflowTrigger(page),
+          `${shed.map((a) => a.what).join(", ")} shed at a ${pane.width}px pane, so the menu must be offered`
         ).toBeVisible()
-      }
-    })
+        const trigger = (await overflowTrigger(page).boundingBox())!
+        expect(trigger, "the overflow trigger should be laid out").not.toBeNull()
+        expect(trigger.x).toBeGreaterThanOrEqual(pane.x - 0.5)
+        expect(trigger.x + trigger.width).toBeLessThanOrEqual(pane.x + pane.width + 0.5)
+
+        await openOverflowMenu(page)
+        for (const action of shed) {
+          await expect(
+            page.getByRole(action.menu!.role, { name: action.menu!.name }),
+            `${action.what} is shed at a ${pane.width}px pane, so the menu must carry it`
+          ).toBeVisible()
+        }
+      })
+    }
 
     /**
      * The two controls the ticket named, asserted by themselves so a failure
      * reads as the reported symptom rather than as a loop index. At 640 the
      * five score squares laid out at x=589..709 against a pane ending at 640,
-     * so 3, 4 and 5 were off screen; "Open in new tab" sat beyond them.
+     * so 3, 4 and 5 were off screen; "Open in new tab" sat beyond them. The
+     * header keeps the score from a wide pane up and sheds it to the menu below.
      */
-    test("the score control and Open in new tab are on screen or in the menu", async ({
-      page,
-    }) => {
-      const pane = await paneBox(page)
-      const header = page.getByTestId("entry-header")
+    if (tier === "wide") {
+      test("the score control and Open in new tab are on screen or in the menu", async ({
+        page,
+      }) => {
+        const pane = await paneInTier(page, tier)
+        await expectOpenInNewTabOnScreen(page, pane)
 
-      const openInNewTab = (await header
-        .getByRole("link", { name: "Open in new tab" })
-        .boundingBox())!
-      expect(openInNewTab).not.toBeNull()
-      expect(openInNewTab.x + openInNewTab.width).toBeLessThanOrEqual(pane.x + pane.width + 0.5)
+        expect(
+          await offeredInHeader(page, SCORE_5, pane),
+          "score 5 should be on screen in the header"
+        ).toBe(true)
+      })
+    } else {
+      test("the score control and Open in new tab are on screen or in the menu", async ({
+        page,
+      }) => {
+        const pane = await paneInTier(page, tier)
+        await expectOpenInNewTabOnScreen(page, pane)
 
-      // 5, not 1: the five squares are laid out left to right by one wrapper,
-      // so a wrapper that runs past the edge loses the high scores first. At
-      // 640 they sat at 589..709 against a pane ending at 640.
-      const square: Action = {
-        what: "score 5",
-        header: /^Set score to 5$/,
-        menu: { role: "menuitemradio", name: /^Score 5$/ },
-        headerFrom: WIDE_PANE,
-      }
-      if (!(await offeredInHeader(page, square, pane))) {
         await openOverflowMenu(page)
         await expect(page.getByRole("menuitemradio", { name: "Score 5" })).toBeVisible()
-      }
-    })
+      })
+    }
   })
 }
