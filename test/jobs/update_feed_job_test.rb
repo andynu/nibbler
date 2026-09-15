@@ -169,6 +169,17 @@ class UpdateFeedJobTest < ActiveJob::TestCase
     assert_empty updated
   end
 
+  # A job enqueued just before the feed was marked dead, or a retry_on retry of
+  # one, must not fetch it anyway.
+  test "skips a dead feed" do
+    @feed.update!(consecutive_failures: 60, first_failed_at: 400.days.ago, dead_at: 1.day.ago)
+    updated = []
+
+    stub_updater(calls: updated) { UpdateFeedJob.perform_now(@feed.id) }
+
+    assert_empty updated
+  end
+
   # ==========================
   # Counter nudges
   # ==========================

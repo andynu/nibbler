@@ -287,6 +287,43 @@ class FeedUpdaterTest < ActiveSupport::TestCase
   end
 
   # ==========================================
+  # A year of failing stops the checks
+  # ==========================================
+
+  test "a feed failing for a year is marked dead and no longer scheduled, even by the sweep" do
+    Feed.where.not(id: @feed.id).delete_all
+    update_with_error("getaddrinfo: Name or service not known")
+    @feed.update!(first_failed_at: Feed::DEAD_AFTER_FAILING_FOR.ago - 1.day)
+
+    update_with_error("getaddrinfo: Name or service not known")
+    release_update_guard
+    @feed.update!(next_poll_at: 1.minute.ago)
+
+    assert @feed.reload.dead?
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
+  test "a storage fault never marks a feed dead" do
+    3.times { update_with_error("Server error (503)") }
+    @feed.update!(first_failed_at: 2.years.ago)
+
+    update_with_storage_fault
+
+    assert_not @feed.reload.dead?
+  end
+
+  test "a dead feed that answers again comes back without anyone intervening" do
+    @feed.update!(consecutive_failures: 60, last_error: "Feed not found", first_failed_at: 400.days.ago, dead_at: 3.days.ago)
+
+    update_with(clean_payload)
+
+    assert_not @feed.reload.dead?
+  end
+
+  # ==========================================
   # Republished items
   #
   # A feed that republishes an item under the same GUID with different text has

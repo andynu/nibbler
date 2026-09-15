@@ -320,6 +320,19 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert_not @feed.broken?
   end
 
+  # Resuming is the way back for a feed that stopped being checked. If refresh
+  # all tried it too, every click of the header button would re-probe every
+  # dead feed the reader has.
+  test "refresh_all skips a dead feed" do
+    @user.feeds.update_all(last_updated: Time.current)
+    @feed.update!(last_updated: 1.day.ago, consecutive_failures: 60, first_failed_at: 400.days.ago, dead_at: 3.days.ago)
+
+    post refresh_all_api_v1_feeds_url, as: :json
+
+    assert_response :success
+    assert_equal 0, JSON.parse(response.body)["updated"]
+  end
+
   private
 
   def sample_atom_feed(title)

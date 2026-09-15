@@ -200,7 +200,7 @@ module Api
 
       # POST /api/v1/feeds/refresh_all
       def refresh_all
-        feeds = current_user.feeds.where("last_updated IS NULL OR last_updated < ?", 5.minutes.ago)
+        feeds = current_user.feeds.not_dead.where("last_updated IS NULL OR last_updated < ?", 5.minutes.ago)
         results = []
 
         feeds.find_each do |feed|

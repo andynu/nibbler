@@ -23,6 +23,9 @@ class UpdateFeedJob < ApplicationJob
     feed = Feed.find_by(id: feed_id)
     return unless feed
 
+    # Marked dead after this job was enqueued, or between retry_on attempts.
+    return if feed.dead?
+
     # Skip if already being updated (prevent concurrent updates). Same window
     # as the scheduler's not_updating scope, so a feed the scheduler considered
     # free is never dropped here.

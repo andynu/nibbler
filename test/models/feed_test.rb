@@ -462,11 +462,127 @@ class FeedTest < ActiveSupport::TestCase
     assert_equal 3, @new_feed.reload.consecutive_failures
   end
 
+  test "editing the feed url brings a dead feed back" do
+    kill(@new_feed)
+
+    @new_feed.update!(feed_url: "https://example.com/moved.rss")
+
+    assert_not @new_feed.reload.dead?
+  end
+
+  # ==========================================
+  # A year of failing stops the checks
+  # ==========================================
+
+  test "a feed failing for a year is marked dead on its next failure" do
+    fail_times(@new_feed, 3)
+    @new_feed.update!(first_failed_at: Feed::DEAD_AFTER_FAILING_FOR.ago - 1.minute)
+
+    @new_feed.record_failure!("getaddrinfo: Name or service not known")
+
+    assert @new_feed.reload.dead?
+    assert_in_delta Time.current.to_i, @new_feed.dead_at.to_i, 5
+  end
+
+  test "a feed failing for just under a year is still checked" do
+    fail_times(@new_feed, 3)
+    @new_feed.update!(first_failed_at: Feed::DEAD_AFTER_FAILING_FOR.ago + 1.hour)
+
+    @new_feed.record_failure!("boom")
+
+    assert_not @new_feed.reload.dead?
+  end
+
+  # A 429 streak counts toward consecutive_failures without stamping
+  # first_failed_at. With no start date there is no year to measure, so the
+  # clock starts at the first failure that does date itself.
+  test "a streak with no start date never marks a feed dead" do
+    (Feed::BACKOFF_DELAYS.length + 2).times { @new_feed.apply_backoff! }
+    assert_nil @new_feed.reload.first_failed_at, "precondition: a rate-limit streak has no start date"
+
+    travel Feed::DEAD_AFTER_FAILING_FOR + 1.day do
+      @new_feed.record_failure!("Feed not found")
+
+      assert_not @new_feed.reload.dead?
+      assert_in_delta Time.current.to_i, @new_feed.first_failed_at.to_i, 5
+    end
+  end
+
+  test "a dead feed that fails a manual retry keeps the date checking stopped" do
+    stopped = kill(@new_feed).dead_at
+
+    @new_feed.record_failure!("still gone")
+
+    assert_equal stopped.to_i, @new_feed.reload.dead_at.to_i
+  end
+
+  test "the dead and not_dead scopes split on dead_at" do
+    kill(@new_feed)
+
+    assert_equal [ @new_feed.id ], Feed.dead.pluck(:id)
+    assert_not_includes Feed.not_dead.pluck(:id), @new_feed.id
+    assert_includes Feed.not_dead.pluck(:id), @high_frequency.id
+  end
+
+  test "a success brings a dead feed back" do
+    kill(@new_feed)
+
+    @new_feed.reset_backoff!
+
+    assert_not @new_feed.reload.dead?
+  end
+
+  # The early return skips a write on the healthy path; dead_at alone is still
+  # state to clear.
+  test "reset_backoff! still clears when only dead_at is set" do
+    @new_feed.update!(consecutive_failures: 0, retry_after: nil, first_failed_at: nil, dead_at: 2.days.ago)
+
+    @new_feed.reset_backoff!
+
+    assert_nil @new_feed.reload.dead_at
+  end
+
+  test "resume_checking! brings a dead feed back and makes it due at once" do
+    kill(@new_feed)
+
+    @new_feed.resume_checking!
+
+    @new_feed.reload
+    assert_not @new_feed.dead?
+    assert_nil @new_feed.next_poll_at
+  end
+
+  # Resuming without restarting the clock would mark the feed dead again on the
+  # very next failure.
+  test "a resumed feed that still fails starts a new streak and a new year" do
+    kill(@new_feed)
+    @new_feed.resume_checking!
+
+    @new_feed.record_failure!("still gone")
+
+    @new_feed.reload
+    assert_not @new_feed.dead?
+    assert_equal 1, @new_feed.consecutive_failures
+    assert_in_delta Time.current.to_i, @new_feed.first_failed_at.to_i, 5
+  end
+
   private
 
   # Drive +feed+ through +count+ consecutive failures.
   def fail_times(feed, count)
     count.times { |i| feed.record_failure!("boom #{i}") }
+    feed
+  end
+
+  # Put +feed+ in the state a year of weekly failures leaves behind.
+  def kill(feed)
+    feed.update!(
+      consecutive_failures: 60,
+      last_error: "getaddrinfo: Name or service not known",
+      first_failed_at: Feed::DEAD_AFTER_FAILING_FOR.ago - 1.week,
+      next_poll_at: 7.days.from_now,
+      dead_at: 3.days.ago
+    )
     feed
   end
 

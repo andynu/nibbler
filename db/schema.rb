@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_154002) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_160300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -130,6 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_154002) do
     t.integer "calculated_interval_seconds"
     t.bigint "category_id"
     t.integer "consecutive_failures", default: 0, null: false
+    t.datetime "dead_at"
     t.integer "entry_count", default: 0, null: false
     t.string "etag", default: "", null: false
     t.string "favicon_avg_color"

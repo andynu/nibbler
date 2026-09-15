@@ -232,6 +232,24 @@ class UpdateFeedsJobTest < ActiveJob::TestCase
     end
   end
 
+  test "never enqueues a dead feed, even one whose next poll is due" do
+    @feed_ready.update!(next_poll_at: 1.minute.ago, consecutive_failures: 60, first_failed_at: 400.days.ago, dead_at: 1.day.ago)
+    @feed_not_ready.destroy!
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now
+    end
+  end
+
+  test "force never enqueues a dead feed" do
+    @feed_ready.update!(next_poll_at: 1.minute.ago, consecutive_failures: 60, first_failed_at: 400.days.ago, dead_at: 1.day.ago)
+    @feed_not_ready.destroy!
+
+    assert_no_enqueued_jobs(only: UpdateFeedJob) do
+      UpdateFeedsJob.perform_now(force: true)
+    end
+  end
+
   test "the multi-day threshold is the first failure whose wait passes a day" do
     feed = Feed.new(consecutive_failures: Feed::MULTI_DAY_BACKOFF_AFTER_CONSECUTIVE_FAILURES)
 

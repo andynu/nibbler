@@ -30,8 +30,8 @@ class Feed < ApplicationRecord
 
   # Editing the URL is the reader saying "I fixed it". The failing streak was
   # about the old address and says nothing about the new one, so carrying it
-  # over would leave a corrected feed still marked broken and still parked hours
-  # out on the backoff curve it earned before the edit. Clearing next_poll_at
+  # over would leave a corrected feed still marked broken or dead and still
+  # parked out on the backoff curve it earned before the edit. Clearing next_poll_at
   # drops the feed back onto the legacy due check, which makes it due at once.
   #
   # before_update rather than before_save: on create there is no streak to clear
@@ -121,6 +121,15 @@ class Feed < ApplicationRecord
   # Feeds whose failing streak has run past the threshold above.
   scope :broken, -> { where(consecutive_failures: BROKEN_AFTER_CONSECUTIVE_FAILURES..) }
 
+  # How long a feed's own server has to keep failing, with no success between,
+  # before the feed is marked dead and no longer fetched. Measured from
+  # first_failed_at, which a fault on nibbler's side never stamps. A success, a
+  # URL edit or resume_checking! brings a dead feed back.
+  DEAD_AFTER_FAILING_FOR = 1.year
+
+  scope :dead, -> { where.not(dead_at: nil) }
+  scope :not_dead, -> { where(dead_at: nil) }
+
   # Adaptive polling interval bounds (in seconds)
   MIN_POLL_INTERVAL = 5.minutes.to_i
 
@@ -168,11 +177,16 @@ class Feed < ApplicationRecord
   # scheduler found the feed due again on the very next tick. A feed with a dead
   # domain was re-requested every five minutes, 288 times a day, indefinitely.
   # Under the curve above it converges on one attempt a week instead.
+  #
+  # The year before a feed is marked dead is read from first_failed_at alone. A
+  # 429 streak leaves that unset, so its clock starts at the first failure that
+  # stamps it: later than the streak really began, never earlier.
   def record_failure!(error_message)
     self.consecutive_failures += 1
     self.last_error = error_message.to_s
     self.first_failed_at ||= Time.current
     self.next_poll_at = Time.current + failure_backoff_delay
+    self.dead_at ||= Time.current if first_failed_at <= DEAD_AFTER_FAILING_FOR.ago
     save!
   end
 
@@ -207,6 +221,20 @@ class Feed < ApplicationRecord
     consecutive_failures >= BROKEN_AFTER_CONSECUTIVE_FAILURES
   end
 
+  # Whether nibbler has stopped fetching this feed. See DEAD_AFTER_FAILING_FOR.
+  def dead?
+    dead_at.present?
+  end
+
+  # The reader asking for a dead feed back. Clears the failure state the way
+  # correcting the URL does, so a feed that is still down starts the curve and
+  # the year over instead of going straight back to dead on its next failure,
+  # and makes it due at once.
+  def resume_checking!
+    clear_failure_state
+    save!
+  end
+
   # How long the current failing streak has been running, or nil if the feed is
   # not currently failing.
   def failing_for
@@ -217,9 +245,9 @@ class Feed < ApplicationRecord
 
   # Reset backoff after successful fetch
   def reset_backoff!
-    return if consecutive_failures.zero? && infrastructure_failures.zero? && retry_after.nil? && first_failed_at.nil?
+    return if consecutive_failures.zero? && infrastructure_failures.zero? && retry_after.nil? && first_failed_at.nil? && dead_at.nil?
 
-    update!(consecutive_failures: 0, infrastructure_failures: 0, retry_after: nil, first_failed_at: nil)
+    update!(consecutive_failures: 0, infrastructure_failures: 0, retry_after: nil, first_failed_at: nil, dead_at: nil)
   end
 
   # Whether the feed is currently in backoff period
@@ -307,11 +335,14 @@ class Feed < ApplicationRecord
   private
 
   def clear_failure_state_on_url_change
-    return unless feed_url_changed?
+    clear_failure_state if feed_url_changed?
+  end
 
+  def clear_failure_state
     self.consecutive_failures = 0
     self.retry_after = nil
     self.first_failed_at = nil
+    self.dead_at = nil
     self.last_error = ""
     self.next_poll_at = nil
   end
