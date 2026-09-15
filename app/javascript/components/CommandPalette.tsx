@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { defaultFilter } from "cmdk"
 import {
   CommandDialog,
   CommandEmpty,
@@ -34,6 +35,16 @@ interface CommandPaletteProps {
   mode?: "commands" | "navigation" | "move"
 }
 
+// Views, categories and feeds carry an explicit value because cmdk otherwise
+// reads it from the rendered text, and an item that mounts under an active
+// query never renders to be read. The value is also cmdk's selection identity,
+// so it names the kind and id; feeds and categories keep the title in it too,
+// because cmdk re-scores an item only when its value string changes. Matching
+// reads the title from keywords, so neither the id nor the unread count does.
+function matchKeywords(value: string, search: string, keywords?: string[]) {
+  return defaultFilter(keywords?.length ? keywords.join(" ") : value, search)
+}
+
 export function CommandPalette({
   open,
   onOpenChange,
@@ -62,7 +73,7 @@ export function CommandPalette({
   }, {} as Record<string, CommandPaletteItem[]>)
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} filter={matchKeywords}>
       <CommandInput placeholder={placeholder} />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
@@ -71,12 +82,16 @@ export function CommandPalette({
         {mode === "navigation" && onSelectVirtualFeed && (
           <CommandGroup heading="Views">
             <CommandItem
+              value="view:fresh"
+              keywords={["Fresh"]}
               onSelect={() => handleSelect(() => onSelectVirtualFeed("fresh"))}
             >
               <Clock className="mr-2 h-4 w-4" />
               Fresh
             </CommandItem>
             <CommandItem
+              value="view:starred"
+              keywords={["Starred"]}
               onSelect={() => handleSelect(() => onSelectVirtualFeed("starred"))}
             >
               <Star className="mr-2 h-4 w-4" />
@@ -93,6 +108,8 @@ export function CommandPalette({
               {categories.map((category) => (
                 <CommandItem
                   key={`category-${category.id}`}
+                  value={`category:${category.id}:${category.title}`}
+                  keywords={[category.title]}
                   onSelect={() =>
                     handleSelect(() => onSelectCategory?.(category.id))
                   }
@@ -118,6 +135,8 @@ export function CommandPalette({
               {feeds.map((feed) => (
                 <CommandItem
                   key={`feed-${feed.id}`}
+                  value={`feed:${feed.id}:${feed.title}`}
+                  keywords={[feed.title]}
                   onSelect={() => handleSelect(() => onSelectFeed?.(feed.id))}
                 >
                   {feed.icon_url ? (

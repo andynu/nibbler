@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures"
+import { FeedsPage } from "./pages"
 
 /**
  * Command palette E2E tests.
@@ -244,18 +245,48 @@ test.describe("Feed Selection", () => {
 
     await commandPalette.open()
 
-    // The palette's feeds come from App's own load, which waitForBranding does
-    // not wait for, and cmdk never renders an item that mounts under an active
-    // query. So the feed has to be listed before typing.
-    const feedOption = page.getByRole("option", { name: feeds[0].title })
-    await expect(feedOption).toBeVisible()
-
     // Type part of feed name to filter
     await commandPalette.search(feeds[0].title.substring(0, 3))
+    const feedOption = page.getByRole("option", { name: feeds[0].title })
     await expect(feedOption).toHaveAttribute("aria-selected", "true")
 
     await commandPalette.selectFirstResult()
     await expect(commandPalette.dialog).not.toBeVisible()
+  })
+})
+
+test.describe("Lists that load during a search", () => {
+  test("a feed that loads after the query is typed is listed", async ({ page, commandPalette }) => {
+    // Hold App's feed list until the query is in, so the palette's feed items
+    // mount under an active search instead of before it.
+    let releaseFeeds: () => void = () => {}
+    const feedsHeld = new Promise<void>((resolve) => {
+      releaseFeeds = resolve
+    })
+    await page.route(/\/api\/v1\/feeds(\?|$)/, async (route) => {
+      if (route.request().method() !== "GET") return route.continue()
+      const response = await route.fetch()
+      await feedsHeld
+      await route.fulfill({ response })
+    })
+
+    const feedsPage = new FeedsPage(page)
+    await feedsPage.goto()
+    await feedsPage.waitForBranding()
+
+    await commandPalette.open()
+    await commandPalette.search("Rus")
+
+    // Proves the query landed before the feeds did.
+    await expect(
+      commandPalette.dialog.getByText("No results found.", { exact: true })
+    ).toBeVisible()
+
+    releaseFeeds()
+
+    await expect(
+      commandPalette.dialog.getByRole("option", { name: "Rust Weekly" })
+    ).toBeVisible()
   })
 })
 

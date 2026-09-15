@@ -191,6 +191,104 @@ describe("CommandPalette", () => {
         expect(screen.queryByText("Sports")).not.toBeInTheDocument()
       })
     })
+
+    it("matches on the title, not the unread count or id", async () => {
+      const user = userEvent.setup()
+      const feeds = [mockFeed({ id: 42, title: "Tech Blog", unread_count: 42 })]
+      render(<CommandPalette {...defaultProps} feeds={feeds} mode="navigation" />)
+
+      await user.type(screen.getByRole("combobox"), "42")
+
+      expect(await screen.findByText("No results found.")).toBeInTheDocument()
+    })
+
+    // App opens the palette before its feed and category lists have loaded, so
+    // a reader can type before the items exist.
+    it("lists a feed that loads after the query is typed", async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <CommandPalette {...defaultProps} mode="navigation" />
+      )
+
+      await user.type(screen.getByRole("combobox"), "Rus")
+      expect(await screen.findByText("No results found.")).toBeInTheDocument()
+
+      rerender(
+        <CommandPalette
+          {...defaultProps}
+          mode="navigation"
+          feeds={[
+            mockFeed({ id: 1, title: "Rust Weekly" }),
+            mockFeed({ id: 2, title: "Deep Space" }),
+          ]}
+        />
+      )
+
+      expect(
+        await screen.findByRole("option", { name: /Rust Weekly/ })
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole("option", { name: /Deep Space/ })
+      ).not.toBeInTheDocument()
+    })
+
+    it("lists a category that loads after the query is typed", async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <CommandPalette {...defaultProps} mode="navigation" />
+      )
+
+      await user.type(screen.getByRole("combobox"), "Prog")
+      expect(await screen.findByText("No results found.")).toBeInTheDocument()
+
+      rerender(
+        <CommandPalette
+          {...defaultProps}
+          mode="navigation"
+          categories={[
+            mockCategory({ id: 1, title: "Programming" }),
+            mockCategory({ id: 2, title: "Science" }),
+          ]}
+        />
+      )
+
+      expect(
+        await screen.findByRole("option", { name: /Programming/ })
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole("option", { name: /Science/ })
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  describe("selection identity", () => {
+    it("moves the selection between a feed and a category that share a title", async () => {
+      const user = userEvent.setup()
+      render(
+        <CommandPalette
+          {...defaultProps}
+          mode="navigation"
+          feeds={[mockFeed({ id: 1, title: "Rust", unread_count: 0 })]}
+          categories={[mockCategory({ id: 1, title: "Rust", unread_count: 0 })]}
+        />
+      )
+
+      await user.type(screen.getByRole("combobox"), "Rust")
+
+      const options = await screen.findAllByRole("option", { name: "Rust" })
+      expect(options).toHaveLength(2)
+      await waitFor(() => {
+        expect(options[0]).toHaveAttribute("aria-selected", "true")
+      })
+      expect(options[1]).toHaveAttribute("aria-selected", "false")
+
+      await user.keyboard("{ArrowDown}")
+
+      await waitFor(() => {
+        expect(options[1]).toHaveAttribute("aria-selected", "true")
+      })
+      expect(options[0]).toHaveAttribute("aria-selected", "false")
+    })
   })
 
   describe("selection actions", () => {
