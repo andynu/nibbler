@@ -854,6 +854,7 @@ export function EntryContent({
                       feedTitle: entry.feed_title || undefined,
                       source: "tts",
                     })}
+                    aria-label="Add to queue"
                     title="Add to queue"
                   >
                     <ListPlus className="h-4 w-4" />

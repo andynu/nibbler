@@ -64,7 +64,10 @@ const babelTypeScript = (syntaxPlugins) => ({
 // control's content is icons and nothing else, and it assumes any expression
 // container, spread attribute, or unknown component renders a name. False
 // negatives are the intended failure direction.
-const LABELLING_PROPS = new Set(["aria-label", "aria-labelledby", "title"])
+// title is deliberately absent. It is the accname algorithm's last fallback and
+// never surfaces on touch, so it belongs beside an aria-label as a tooltip, not
+// in place of one.
+const LABELLING_PROPS = new Set(["aria-label", "aria-labelledby"])
 
 const jsxName = (node) => (node?.type === "JSXIdentifier" ? node.name : null)
 const attrName = (attribute) =>
