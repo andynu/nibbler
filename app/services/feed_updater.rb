@@ -209,16 +209,7 @@ class FeedUpdater
         date_updated: Time.current
       )
 
-      # Create enclosures
-      parsed_entry.enclosures.each do |enc|
-        Enclosure.create!(
-          entry: entry,
-          content_url: enc.url,
-          content_type: enc.type,
-          title: enc.title || "",
-          duration: ""
-        )
-      end
+      create_enclosures(entry, parsed_entry.enclosures)
     end
 
     # Check if user already has this entry
@@ -266,10 +257,38 @@ class FeedUpdater
     title = parsed_entry.title
     changes[:title] = title if title != FeedParser::UNTITLED && replaces?(entry.title, title)
     changes[:author] = parsed_entry.author if replaces?(entry.author, parsed_entry.author)
-    return if changes.empty?
+    enclosures_replaced = replace_enclosures(entry, parsed_entry.enclosures)
+    return if changes.empty? && !enclosures_replaced
 
     entry.update!(changes.merge(date_updated: Time.current))
     CacheArticleImagesJob.perform_later(entry.id) if changes.key?(:content) && @feed.cache_images?
+  end
+
+  # A feed gives an enclosure no identity beyond its URL, so the set is compared
+  # in feed order and replaced whole. Nothing else is keyed to these rows: the
+  # audio queue keeps its own copy of the URL, and CachedAudio is spoken from
+  # the article text.
+  def replace_enclosures(entry, parsed_enclosures)
+    return false if parsed_enclosures.empty?
+
+    incoming = parsed_enclosures.map { |enc| [ enc.url, enc.type, enc.title || "" ] }
+    return false if incoming == entry.enclosures.order(:id).pluck(:content_url, :content_type, :title)
+
+    entry.enclosures.destroy_all
+    create_enclosures(entry, parsed_enclosures)
+    true
+  end
+
+  def create_enclosures(entry, parsed_enclosures)
+    parsed_enclosures.each do |enc|
+      Enclosure.create!(
+        entry: entry,
+        content_url: enc.url,
+        content_type: enc.type,
+        title: enc.title || "",
+        duration: ""
+      )
+    end
   end
 
   # cached_content is the old body with its images rewritten, so it goes too.

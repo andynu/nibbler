@@ -511,6 +511,44 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_equal "Jo Quokka", entry.author
   end
 
+  # A replaced attachment is an edit as well. A feed gives an enclosure no
+  # identity beyond its URL, so the stored set is compared and replaced whole.
+
+  test "a replaced enclosure replaces the stored one" do
+    update_with(podcast(item(guid: "edited", title: "Episode 12", enclosure: "https://example.com/ep12.mp3")))
+    update_with(podcast(item(guid: "edited", title: "Episode 12", enclosure: "https://example.com/ep12-fixed.mp3")))
+
+    assert_equal [ "https://example.com/ep12-fixed.mp3" ], Entry.find_by!(guid: "edited").enclosures.pluck(:content_url)
+  end
+
+  test "a republish with the same enclosure does not rewrite it" do
+    update_with(podcast(item(guid: "edited", title: "Episode 12", enclosure: "https://example.com/ep12.mp3")))
+    stored = Entry.find_by!(guid: "edited").enclosures.pluck(:id)
+
+    update_with(podcast(item(guid: "edited", title: "Episode 12", enclosure: "https://example.com/ep12.mp3")))
+
+    assert_equal stored, Entry.find_by!(guid: "edited").enclosures.pluck(:id)
+  end
+
+  test "a republish with no enclosure keeps the stored one" do
+    update_with(podcast(item(guid: "edited", title: "Episode 12", enclosure: "https://example.com/ep12.mp3")))
+    update_with(podcast(item(guid: "edited", title: "Episode 12")))
+
+    assert_equal [ "https://example.com/ep12.mp3" ], Entry.find_by!(guid: "edited").enclosures.pluck(:content_url)
+  end
+
+  test "a second feed carrying the same item does not replace the enclosure" do
+    aggregator = Feed.create!(user: @user, title: "Aggregator", feed_url: "https://planet.example.com/feed.xml")
+    update_with(podcast(item(guid: "edited", title: "Episode 12", enclosure: "https://example.com/ep12.mp3")))
+
+    update_with(
+      podcast(item(guid: "edited", title: "Episode 12", enclosure: "https://planet.example.com/mirror/ep12.mp3")),
+      feed: aggregator
+    )
+
+    assert_equal [ "https://example.com/ep12.mp3" ], Entry.find_by!(guid: "edited").enclosures.pluck(:content_url)
+  end
+
   private
 
   def edition(text)
@@ -586,10 +624,16 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     logged
   end
 
-  def rss(items)
+  # Feedjira reads <enclosure> with its iTunes parser, which it picks for a
+  # channel that declares the iTunes namespace.
+  def podcast(items)
+    rss(items, namespaces: %( xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"))
+  end
+
+  def rss(items, namespaces: "")
     <<~XML
       <?xml version="1.0" encoding="UTF-8"?>
-      <rss version="2.0">
+      <rss version="2.0"#{namespaces}>
         <channel>
           <title>Example Feed</title>
           <link>https://example.com</link>
@@ -599,11 +643,13 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     XML
   end
 
-  # A nil title leaves the <title> element out altogether.
-  def item(guid:, title:, body: nil, author: nil)
+  # A nil title leaves the <title> element out altogether. An enclosure is read
+  # only inside #podcast.
+  def item(guid:, title:, body: nil, author: nil, enclosure: nil)
     headline = title.nil? ? "" : "<title>#{title}</title>"
     description = body ? "<description>#{body}</description>" : ""
     byline = author ? "<author>#{author}</author>" : ""
+    attachment = enclosure ? %(<enclosure url="#{enclosure}" type="audio/mpeg" length="1000"/>) : ""
 
     <<~XML
       <item>
@@ -612,6 +658,7 @@ class FeedUpdaterTest < ActiveSupport::TestCase
         <guid>#{guid}</guid>
         #{description}
         #{byline}
+        #{attachment}
       </item>
     XML
   end
