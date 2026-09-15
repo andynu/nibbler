@@ -6,4 +6,4 @@ export type { Page, Locator } from "./test"
 export { stubTtsAudio } from "./audio"
 
 // Auth helpers (for API-level auth)
-export { loginViaApi, logoutViaApi, getCurrentUser, waitForAppLoad } from "./auth"
+export { loginViaApi, logoutViaApi } from "./auth"

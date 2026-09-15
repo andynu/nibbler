@@ -1,4 +1,4 @@
-import { type APIResponse, type Page, expect } from "@playwright/test"
+import { type APIResponse, type Page } from "@playwright/test"
 
 /**
  * Auth helpers for E2E tests.
@@ -31,26 +31,4 @@ export async function loginViaApi(
 export async function logoutViaApi(page: Page): Promise<APIResponse> {
   const response = await page.request.delete("/api/v1/auth/logout")
   return response
-}
-
-/**
- * Get current user from API
- */
-export async function getCurrentUser(page: Page) {
-  const response = await page.request.get("/api/v1/auth/me")
-  if (response.ok()) {
-    return await response.json()
-  }
-  return null
-}
-
-/**
- * Wait for app to fully load (the signedIn fixture supplies the session)
- */
-export async function waitForAppLoad(page: Page) {
-  await page.goto("/")
-  // The app should load and show the main UI
-  await expect(page.getByTestId("app-root")).toBeVisible()
-  // Wait for React to mount - app should show buttons when loaded
-  await expect(page.getByRole("button").first()).toBeVisible({ timeout: 10000 })
 }
