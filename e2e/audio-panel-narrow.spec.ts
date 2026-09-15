@@ -91,6 +91,56 @@ async function seekBarBox(page: Page) {
   return box
 }
 
+/**
+ * WCAG 1.4.11: an indicator of state needs 3:1 against what it sits next to.
+ * The bar paints no fill of its own, so its ring sits on the panel.
+ */
+const NON_TEXT_CONTRAST = 3
+
+/**
+ * The contrast of the seek bar's focus ring against the panel behind it, or 0
+ * when no ring is drawn.
+ *
+ * A ring utility is a box-shadow with a spread and no blur, so this reads the
+ * computed shadow list rather than the outline. A canvas resolves each colour
+ * to the sRGB the screen shows, whatever notation the engine reports.
+ */
+async function focusRingContrast(page: Page): Promise<number> {
+  return seekBar(page).evaluate((bar, panelTestId) => {
+    const canvas = document.createElement("canvas")
+    canvas.width = canvas.height = 1
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!
+    const paint = (color: string) => {
+      ctx.clearRect(0, 0, 1, 1)
+      ctx.fillStyle = color
+      ctx.fillRect(0, 0, 1, 1)
+      const [r, g, b, alpha] = ctx.getImageData(0, 0, 1, 1).data
+      return { rgb: [r, g, b] as const, alpha }
+    }
+    const channel = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+    const luminance = ([r, g, b]: readonly [number, number, number]) =>
+      0.2126 * channel(r / 255) + 0.7152 * channel(g / 255) + 0.0722 * channel(b / 255)
+
+    const panel = document.querySelector(`[data-testid="${panelTestId}"]`) as HTMLElement
+    const behind = luminance(paint(getComputedStyle(panel).backgroundColor).rgb)
+
+    // Commas inside rgb() are not shadow separators.
+    const shadows = getComputedStyle(bar).boxShadow.split(/,(?![^(]*\))/)
+    const ratios = shadows.map((shadow) => {
+      const color = shadow.match(/[a-z]+\([^)]*\)|#[0-9a-f]{3,8}\b|\btransparent\b/i)?.[0]
+      const spread = shadow.match(/-?[\d.]+px/g)?.map(parseFloat)[3] ?? 0
+      if (!color || /\binset\b/.test(shadow) || spread < 1) return 0
+
+      const { rgb, alpha } = paint(color)
+      if (alpha === 0) return 0
+      const [hi, lo] = [luminance(rgb), behind].sort((x, y) => y - x)
+      return (hi + 0.05) / (lo + 0.05)
+    })
+
+    return Math.max(0, ...ratios)
+  }, AUDIO_PANEL)
+}
+
 const PHONE_WIDTHS = [320, 360, 375] as const
 
 for (const width of PHONE_WIDTHS) {
@@ -216,6 +266,51 @@ test.describe("Seeking from the keyboard", () => {
     expect(await seen.jsonValue()).toEqual(["x"])
   })
 })
+
+/**
+ * The seek bar is a div, so the only focus style it had was the browser's own
+ * outline: a black and white double ring in Chromium, the system accent blue in
+ * Firefox. Every other control on the row draws the palette's --color-ring.
+ *
+ * `toBeFocused()` passes with no indicator at all, so the ring is read from
+ * computed style. Light and Dark cover both bases; the token pair itself is
+ * held above the bar in every palette by the contrast examples in
+ * e2e/settings.spec.ts.
+ */
+for (const theme of ["light", "dark"] as const) {
+  test.describe(`The seek bar's keyboard focus on the ${theme} palette`, () => {
+    test.beforeEach(async ({ page }) => {
+      const response = await page.request.patch("/api/v1/preferences", { data: { theme } })
+      expect(response.ok()).toBe(true)
+
+      await stubTtsAudio(page)
+      await page.goto("/")
+      await expect(page.getByTestId("app-root")).toBeVisible({ timeout: 10000 })
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
+      await startReadingAloud(page)
+    })
+
+    test("tabbing to the bar draws the focus ring without moving the bar", async ({ page }) => {
+      const unfocused = await seekBarBox(page)
+
+      // A keyboard move rather than locator.focus(): :focus-visible follows
+      // keyboard navigation, and script focus after the clicks above is not
+      // guaranteed to match it. The speed control is the bar's next tab stop.
+      await page.getByRole("combobox", { name: "Playback speed" }).focus()
+      await page.keyboard.press("Shift+Tab")
+      await expect(seekBar(page)).toBeFocused()
+
+      await expect(seekBar(page), "the browser's outline gives way to the ring").toHaveCSS(
+        "outline-style",
+        "none"
+      )
+      await expect
+        .poll(() => focusRingContrast(page), { message: "focus ring against the panel" })
+        .toBeGreaterThanOrEqual(NON_TEXT_CONTRAST)
+      expect(await seekBarBox(page), "the ring must not shift the bar").toEqual(unfocused)
+    })
+  })
+}
 
 /**
  * The queue is where the audio panel sends a phone reader for skip next and

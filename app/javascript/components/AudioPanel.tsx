@@ -324,9 +324,10 @@ export function AudioPanel() {
                   py-2.5 makes it 26px without touching the panel's own height,
                   which is `items-center` inside a 56px row. Horizontal
                   geometry is untouched, so the seek arithmetic below still
-                  reads the full track width. */}
+                  reads the full track width. Focus draws Button's ring, which
+                  is a box-shadow, so it leaves that geometry alone as well. */}
               <div
-                className="flex-1 py-2.5 cursor-pointer"
+                className="flex-1 py-2.5 cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect()
                   const percent = (e.clientX - rect.left) / rect.width
