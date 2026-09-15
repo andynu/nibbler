@@ -21,7 +21,8 @@ type StoredQueueItem = { id: string; entryTitle: string }
 
 const queueRows = (page: Page) => page.getByTestId("queue-item")
 
-const gripOf = (row: Locator) => row.getByRole("button", { name: "Drag to reorder" })
+const gripOf = (page: Page, item: StoredQueueItem) =>
+  page.getByRole("button", { name: `Move ${item.entryTitle}`, exact: true })
 
 async function storedQueue(page: Page): Promise<StoredQueueItem[]> {
   return page.evaluate(
@@ -32,9 +33,9 @@ async function storedQueue(page: Page): Promise<StoredQueueItem[]> {
 
 const titlesOf = (items: StoredQueueItem[]) => items.map((item) => item.entryTitle)
 
-/** dnd-kit's default announcement, which names the droppable by item id. */
-const announcedOver = (page: Page, item: StoredQueueItem) =>
-  page.getByText(`was moved over droppable area ${item.id}.`)
+/** The live region while a row of the three-article queue is over a position. */
+const announcedOver = (page: Page, item: StoredQueueItem, position: number) =>
+  page.getByText(`${item.entryTitle} moved to position ${position} of 3.`, { exact: true })
 
 async function centreOf(locator: Locator) {
   const box = await locator.boundingBox()
@@ -107,9 +108,9 @@ test.describe("Reordering the queue on a 320px phone", () => {
 
   test("dragging the last row's grip over the row above swaps the two", async ({ page }) => {
     const [playing, second, last] = queued
-    const grip = gripOf(queueRows(page).nth(2))
+    const grip = gripOf(page, last)
     const from = await centreOf(grip)
-    const to = await centreOf(gripOf(queueRows(page).nth(1)))
+    const to = await centreOf(gripOf(page, second))
 
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
@@ -119,7 +120,7 @@ test.describe("Reordering the queue on a 320px phone", () => {
     await page.mouse.move(from.x, from.y - 12, { steps: 4 })
     await expect(grip).toHaveAttribute("aria-pressed", "true")
     await page.mouse.move(to.x, to.y, { steps: 8 })
-    await expect(announcedOver(page, second)).toBeAttached()
+    await expect(announcedOver(page, last, 2)).toBeAttached()
     await page.mouse.up()
 
     await expectRowsInOrder(page, [playing, last, second])
@@ -128,7 +129,7 @@ test.describe("Reordering the queue on a 320px phone", () => {
 
   test("a row picked up with Space moves down with the arrow key", async ({ page }) => {
     const [playing, second, last] = queued
-    const grip = gripOf(queueRows(page).nth(1))
+    const grip = gripOf(page, second)
     const heading = page.getByRole("heading", { level: 1 })
     const reading = await heading.textContent()
     expect(reading, "expected the open article to have a title").toBeTruthy()
@@ -141,9 +142,12 @@ test.describe("Reordering the queue on a 320px phone", () => {
     // nowhere to go and does nothing, which is what makes pressing again safe.
     await expect(async () => {
       await page.keyboard.press("ArrowDown")
-      await expect(announcedOver(page, last)).toBeAttached({ timeout: 1000 })
+      await expect(announcedOver(page, second, 3)).toBeAttached({ timeout: 1000 })
     }).toPass({ timeout: 5000 })
     await page.keyboard.press("Space")
+    await expect(
+      page.getByText(`Dropped ${second.entryTitle} at position 3 of 3.`, { exact: true })
+    ).toBeAttached()
 
     await expectRowsInOrder(page, [playing, last, second])
     // Space is also the page's "Page down, then next unread", which must not

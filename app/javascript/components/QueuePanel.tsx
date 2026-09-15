@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
 import { withholdFromKeyboardCommands } from "@/hooks/useKeyboardCommands"
+import { useQueueReorderAccessibility } from "@/hooks/useQueueReorderAccessibility"
 import type { QueueItem } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import {
@@ -103,7 +104,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
         {...listeners}
         onKeyDown={handleGripKeyDown}
         className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-        aria-label="Drag to reorder"
+        aria-label={`Move ${item.entryTitle}`}
       >
         <GripVertical className="h-4 w-4" />
       </button>
@@ -236,6 +237,8 @@ export function QueuePanel() {
     [queue, activeId]
   )
 
+  const reorderAccessibility = useQueueReorderAccessibility(queue)
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
   }
@@ -314,6 +317,7 @@ export function QueuePanel() {
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              accessibility={reorderAccessibility}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
