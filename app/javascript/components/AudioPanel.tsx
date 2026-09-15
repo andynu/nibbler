@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils"
 
 const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2]
 
+const SEEK_STEP_SECONDS = 5
+const SEEK_PAGE_SECONDS = 30
+
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
@@ -51,6 +54,45 @@ export function AudioPanel() {
   const isIdleWithQueue = state === "idle" && queue.length > 0
   const hasNext = currentQueueIndex < queue.length - 1
   const hasPrevious = currentQueueIndex > 0 || currentTime > 3
+
+  // The WAI-ARIA slider keys. A handled key stops here so the document-level
+  // shortcuts never see it; modified presses pass through, since Alt+ArrowLeft
+  // is the browser's back.
+  const handleSeekKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return
+
+    let target: number
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowUp":
+        target = currentTime + SEEK_STEP_SECONDS
+        break
+      case "ArrowLeft":
+      case "ArrowDown":
+        target = currentTime - SEEK_STEP_SECONDS
+        break
+      case "PageUp":
+        target = currentTime + SEEK_PAGE_SECONDS
+        break
+      case "PageDown":
+        target = currentTime - SEEK_PAGE_SECONDS
+        break
+      case "Home":
+        target = 0
+        break
+      case "End":
+        target = duration
+        break
+      default:
+        return
+    }
+
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!(duration > 0 && Number.isFinite(duration))) return
+    seek(Math.min(duration, Math.max(0, target)))
+  }
 
   return (
     <>
@@ -278,6 +320,7 @@ export function AudioPanel() {
                   const percent = (e.clientX - rect.left) / rect.width
                   seek(percent * duration)
                 }}
+                onKeyDown={handleSeekKeyDown}
                 role="slider"
                 aria-valuemin={0}
                 aria-valuemax={duration}

@@ -216,6 +216,62 @@ test.describe("Seeking on a 320px phone", () => {
 })
 
 /**
+ * The seek bar is a focusable role=slider, which promises the WAI-ARIA slider
+ * keys. The clip is paused so the readout holds still under each assertion.
+ * End is covered by the component test only: a clip seeked to its end advances
+ * the queue and takes the panel away.
+ */
+test.describe("Seeking from the keyboard", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubTtsAudio(page)
+    await page.goto("/")
+    await expect(page.getByTestId("app-root")).toBeVisible({ timeout: 10000 })
+    await startReadingAloud(page)
+
+    // Exact: at this width "Go to playing item" is on the row and contains "Play".
+    await page.getByRole("button", { name: "Pause", exact: true }).click()
+    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible()
+    await seekBar(page).focus()
+  })
+
+  test("the arrow, Page and Home keys move the clip by their steps", async ({ page }) => {
+    const panel = page.getByTestId(AUDIO_PANEL)
+    const steps: Array<[key: string, readout: string]> = [
+      ["Home", "0:00"],
+      ["ArrowRight", "0:05"],
+      ["ArrowUp", "0:10"],
+      ["PageUp", "0:40"],
+      ["ArrowLeft", "0:35"],
+      ["ArrowDown", "0:30"],
+      ["PageDown", "0:00"],
+    ]
+
+    for (const [key, readout] of steps) {
+      await page.keyboard.press(key)
+      await expect(panel, `readout after ${key}`).toContainText(`${readout} / 1:00`)
+    }
+  })
+
+  test("a key the bar handles never reaches a document listener", async ({ page }) => {
+    // The app's shortcuts are a document keydown listener (useKeyboardCommands),
+    // and this one stands in for it. x is bound to nothing; it shows the
+    // stand-in is live and that the bar lets unhandled keys through.
+    const seen = await page.evaluateHandle(() => {
+      const keys: string[] = []
+      document.addEventListener("keydown", (event) => keys.push(event.key))
+      return keys
+    })
+
+    for (const key of ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "PageDown", "PageUp", "Home"]) {
+      await page.keyboard.press(key)
+    }
+    await page.keyboard.press("x")
+
+    expect(await seen.jsonValue()).toEqual(["x"])
+  })
+})
+
+/**
  * The queue is where the audio panel sends a phone reader for skip next and
  * skip previous, so the row has to offer the control it is credited with.
  *
