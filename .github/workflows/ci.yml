@@ -204,6 +204,19 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps ${{ matrix.project }}
 
+      # Firefox on Linux plays audio through PulseAudio, and the runner has no
+      # sound server, so every spec that plays a clip fails in Firefox with
+      # "Failed to load audio". Chromium plays without one. A null sink gives
+      # Firefox somewhere to play to. Stubbing HTMLMediaElement in the specs
+      # instead would stop exercising the real seeking they measure.
+      - name: Start a PulseAudio null sink
+        if: matrix.project == 'firefox'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=ci_null
+
       # playwright.config.ts starts bin/e2e-server, which builds assets,
       # creates and seeds ttrb_e2e, and boots the server with feed fetching
       # stubbed out. Nothing here reaches the public internet.
