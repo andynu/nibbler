@@ -945,10 +945,8 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, json["headlines"].length
   end
 
-  # The audio endpoint resolves entries through current_user, so tests need an
-  # entry owned by the user setup signed in as.
-  def create_audio_user_entry
-    entry = Entry.create!(
+  def create_audio_entry(**attributes)
+    Entry.create!(
       guid: "audio-entry-#{SecureRandom.uuid}",
       title: "Audio Article",
       link: "https://example.com/audio-article",
@@ -956,12 +954,40 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
       content_hash: SecureRandom.hex(8),
       updated: 1.hour.ago,
       date_entered: 1.hour.ago,
-      date_updated: Time.current
+      date_updated: Time.current,
+      **attributes
     )
+  end
 
+  # The audio endpoint resolves entries through current_user, so tests need an
+  # entry owned by the user setup signed in as.
+  def create_audio_user_entry
     @user.user_entries.create!(
-      entry: entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
+      entry: create_audio_entry, feed: @feed, uuid: SecureRandom.uuid, unread: true
     )
+  end
+
+  # The suite's :test adapter writes no good_jobs rows, and the endpoint reads
+  # those rows, so the setup enqueue goes through GoodJob itself. :external
+  # leaves the row unfinished, as a queued job's is.
+  def enqueue_audio_job_in_good_job(entry_id, execution_mode: :external)
+    GenerateArticleAudioJob.enable_test_adapter(GoodJob::Adapter.new(execution_mode: execution_mode))
+    GenerateArticleAudioJob.perform_later(entry_id)
+  ensure
+    GenerateArticleAudioJob.disable_test_adapter
+  end
+
+  # Performs the job with generation failing, so the job's own discard_on
+  # leaves the finished row, error and all, that preserve_job_records keeps.
+  def fail_audio_generation_for(entry_id)
+    failing_generator = Object.new
+    def failing_generator.generate
+      TtsGenerator::GenerationResult.new(success: false, cached_audio: nil, error: "piper exited 1")
+    end
+
+    TtsGenerator.stub(:new, failing_generator) do
+      enqueue_audio_job_in_good_job(entry_id, execution_mode: :inline)
+    end
   end
 
   test "audio reports unavailable and enqueues nothing without a TTS toolchain" do
@@ -1016,6 +1042,52 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     TtsGenerator.stub(:available?, true) do
       assert_enqueued_with job: GenerateArticleAudioJob, args: [ user_entry.entry.id ] do
         get audio_api_v1_entry_url(user_entry), as: :json
+      end
+    end
+
+    assert_response :success
+    assert_equal "generating", JSON.parse(response.body)["status"]
+  end
+
+  test "audio reports its own queued job as generating without enqueueing another" do
+    user_entry = create_audio_user_entry
+    enqueue_audio_job_in_good_job(user_entry.entry.id)
+
+    TtsGenerator.stub(:available?, true) do
+      assert_no_enqueued_jobs only: GenerateArticleAudioJob do
+        get audio_api_v1_entry_url(user_entry), as: :json
+      end
+    end
+
+    assert_response :success
+    assert_equal "generating", JSON.parse(response.body)["status"]
+  end
+
+  test "audio reports its own failed generation and does not start another" do
+    user_entry = create_audio_user_entry
+    fail_audio_generation_for(user_entry.entry.id)
+
+    TtsGenerator.stub(:available?, true) do
+      assert_no_enqueued_jobs only: GenerateArticleAudioJob do
+        get audio_api_v1_entry_url(user_entry), as: :json
+      end
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "error", json["status"]
+    assert_match "piper exited 1", json["error"]
+  end
+
+  test "audio starts a new generation once its failed one is more than an hour old" do
+    user_entry = create_audio_user_entry
+    fail_audio_generation_for(user_entry.entry.id)
+
+    travel 61.minutes do
+      TtsGenerator.stub(:available?, true) do
+        assert_enqueued_with job: GenerateArticleAudioJob, args: [ user_entry.entry.id ] do
+          get audio_api_v1_entry_url(user_entry), as: :json
+        end
       end
     end
 
