@@ -2,8 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { QueuePanel } from "./QueuePanel"
-import { useKeyboardCommands } from "@/hooks/useKeyboardCommands"
 import type { QueueItem } from "@/lib/api"
+import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
 
 const queue: QueueItem[] = [
   { id: "q1", entryId: 1, entryTitle: "Playing article", source: "tts", status: "ready" },
@@ -25,20 +25,6 @@ const mockAudioPlayer = {
 vi.mock("@/contexts/AudioPlayerContext", () => ({
   useAudioPlayer: () => mockAudioPlayer,
 }))
-
-/**
- * The page's shortcuts on the keys a keyboard drag uses, plus one it does not.
- * Mounted before the panel, so its document listener is registered ahead of
- * the one dnd-kit adds on pickup, the same order the app has.
- */
-const SHORTCUT_KEYS = [" ", "Enter", "Escape", "ArrowDown", "x"]
-
-function PageShortcuts({ onKey }: { onKey: (key: string) => void }) {
-  useKeyboardCommands(
-    SHORTCUT_KEYS.map((key) => ({ key, description: key, handler: () => onKey(key) }))
-  )
-  return null
-}
 
 function renderWithShortcuts() {
   const onKey = vi.fn()
