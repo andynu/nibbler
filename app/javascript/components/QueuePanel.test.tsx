@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { QueuePanel } from "./QueuePanel"
 import type { QueueItem } from "@/lib/api"
 import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
+import { stackRows } from "../../../test/helpers/dndRowLayout"
 
 const queue: QueueItem[] = [
   { id: "q1", entryId: 1, entryTitle: "Playing article", source: "tts", status: "ready" },
@@ -56,51 +57,6 @@ async function expectPutDown(grip: HTMLElement) {
 async function endDrag(user: UserEvent, grip: HTMLElement) {
   await user.keyboard("{Escape}")
   await expectPutDown(grip)
-}
-
-const px = (value: string) => parseFloat(value) || 0
-
-/** The box of the nearest element, this one or an ancestor, placed by an inline top. */
-function inlineBoxOf(element: HTMLElement) {
-  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
-    if (node.style.top) {
-      return {
-        top: px(node.style.top),
-        left: px(node.style.left),
-        width: px(node.style.width),
-        height: px(node.style.height),
-      }
-    }
-  }
-  return { top: 0, left: 0, width: 0, height: 0 }
-}
-
-/**
- * happy-dom lays nothing out, so every row measures zero and an arrow key has
- * no row to move to. This stacks the rows 40px apart in document order.
- * DragOverlay places a wrapper over the lifted row with an inline box, and
- * dnd-kit collides the rows against the overlay measured inside it, so
- * anything else reports the inline box it sits in.
- */
-function stackQueueRows() {
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
-    this: HTMLElement
-  ) {
-    const index = screen.queryAllByTestId("queue-item").indexOf(this)
-    const { top, left, width, height } =
-      index === -1 ? inlineBoxOf(this) : { top: index * 40, left: 0, width: 320, height: 36 }
-    return {
-      x: left,
-      y: top,
-      top,
-      left,
-      right: left + width,
-      bottom: top + height,
-      width,
-      height,
-      toJSON: () => ({}),
-    }
-  })
 }
 
 async function expectAnnounced(text: string) {
@@ -216,7 +172,7 @@ describe("QueuePanel drag handles for screen readers", () => {
 
   describe("announcements", () => {
     beforeEach(() => {
-      stackQueueRows()
+      stackRows('[data-testid="queue-item"]')
     })
 
     afterEach(() => {
