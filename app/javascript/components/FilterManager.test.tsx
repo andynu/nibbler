@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { FilterManager } from "./FilterManager"
 import { mockFilter } from "../../../test/fixtures/data"
+import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
 
 // Mock API
 const mockApiFiltersList = vi.fn()
@@ -384,6 +385,86 @@ describe("FilterManager", () => {
       )
       expect(values).toContain("golang")
       expect(values).toContain("rust")
+    })
+  })
+
+  describe("the drag handle's keys and the page shortcuts", () => {
+    async function renderWithShortcuts() {
+      mockApiFiltersList.mockResolvedValue([
+        mockFilter({ id: 1, title: "First filter", order_id: 0 }),
+        mockFilter({ id: 2, title: "Second filter", order_id: 1 }),
+      ])
+
+      const onKey = vi.fn()
+      render(
+        <>
+          <PageShortcuts onKey={onKey} />
+          <FilterManager {...defaultProps} />
+        </>
+      )
+
+      const rows = await screen.findAllByTestId("filter-row")
+      const grip = rows[1].querySelector<HTMLElement>('[aria-roledescription="sortable"]')
+      expect(grip).not.toBeNull()
+      grip!.focus()
+      expect(grip).toHaveFocus()
+      return { onKey, grip: grip! }
+    }
+
+    const expectLifted = (grip: HTMLElement) =>
+      waitFor(() => expect(grip).toHaveAttribute("aria-pressed", "true"))
+
+    const expectPutDown = (grip: HTMLElement) =>
+      waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
+
+    it.each([
+      ["Space", " "],
+      ["Enter", "{Enter}"],
+    ])("%s picks a filter up and puts it down without reaching the page shortcuts", async (_name, key) => {
+      const user = userEvent.setup()
+      const { onKey, grip } = await renderWithShortcuts()
+
+      await user.keyboard(key)
+      await expectLifted(grip)
+      await user.keyboard("{ArrowDown}")
+      await user.keyboard(key)
+      await expectPutDown(grip)
+
+      expect(onKey).not.toHaveBeenCalled()
+    })
+
+    it("Escape puts a lifted filter back without reaching the page shortcuts", async () => {
+      const user = userEvent.setup()
+      const { onKey, grip } = await renderWithShortcuts()
+
+      await user.keyboard(" ")
+      await expectLifted(grip)
+      await user.keyboard("{Escape}")
+      await expectPutDown(grip)
+
+      expect(onKey).not.toHaveBeenCalled()
+    })
+
+    it("leaves the keys it does not use to the page shortcuts", async () => {
+      const user = userEvent.setup()
+      const { onKey, grip } = await renderWithShortcuts()
+
+      await user.keyboard(" ")
+      await expectLifted(grip)
+      await user.keyboard("x")
+
+      expect(onKey).toHaveBeenCalledTimes(1)
+      expect(onKey).toHaveBeenCalledWith("x")
+    })
+
+    it("leaves Escape on a filter that is not lifted to the page shortcuts", async () => {
+      const user = userEvent.setup()
+      const { onKey } = await renderWithShortcuts()
+
+      await user.keyboard("{Escape}")
+
+      expect(onKey).toHaveBeenCalledTimes(1)
+      expect(onKey).toHaveBeenCalledWith("Escape")
     })
   })
 })

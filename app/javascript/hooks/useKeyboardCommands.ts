@@ -51,6 +51,15 @@ export function withholdFromKeyboardCommands(event: Event): void {
 }
 
 /**
+ * Whether a press has been withheld, for a document listener that is a page
+ * shortcut in its own right rather than an entry in the command list.
+ * FeedOrganizer's tree navigation is one.
+ */
+export function isWithheldFromKeyboardCommands(event: Event): boolean {
+  return withheldEvents.has(event)
+}
+
+/**
  * Bind a list of keyboard commands to the document for as long as the calling
  * component is mounted.
  *

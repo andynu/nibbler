@@ -50,6 +50,7 @@ import {
   FilterActionType,
   FilterRuleType,
 } from "@/lib/api"
+import { sortableGripKeyDown } from "@/lib/sortableGrip"
 import { Plus, Pencil, Trash2, GripVertical, Play, X, RotateCcw } from "lucide-react"
 
 const FILTER_TYPES = [
@@ -973,6 +974,7 @@ function SortableFilterItem({
         className="pt-1 text-muted-foreground cursor-grab active:cursor-grabbing"
         {...attributes}
         {...listeners}
+        onKeyDown={sortableGripKeyDown(listeners, isDragging)}
       >
         <GripVertical className="w-4 h-4" />
       </div>

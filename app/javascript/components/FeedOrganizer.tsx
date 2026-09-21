@@ -31,7 +31,9 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { isWithheldFromKeyboardCommands } from "@/hooks/useKeyboardCommands"
 import { api, Feed, Category } from "@/lib/api"
+import { sortableGripKeyDown } from "@/lib/sortableGrip"
 import {
   Rss,
   Folder,
@@ -271,6 +273,10 @@ export function FeedOrganizer({
 
     // Ignore if focus is in an input
     if (document.activeElement?.tagName === "INPUT") return
+
+    // A keyboard drag answers Space, Enter, Escape and the arrows on a grip,
+    // which are this list's toggle, edit, deselect and navigate keys too.
+    if (isWithheldFromKeyboardCommands(e)) return
 
     switch (e.key) {
       case "j":
@@ -874,6 +880,7 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
           className="touch-none opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
           {...attributes}
           {...listeners}
+          onKeyDown={sortableGripKeyDown(listeners, isDragging)}
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </button>

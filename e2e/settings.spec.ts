@@ -322,6 +322,76 @@ test.describe("Feeds Tab", () => {
     // Feeds tab should be active by default
     await expect(settingsPage.feedsTab).toHaveAttribute("data-state", "active")
   })
+
+  // The organizer's grips sit behind the page's shortcuts, which stay bound
+  // while the settings dialog is open, and in front of the tree's own document
+  // listener. Space is "page down, then next unread" for the page and "expand
+  // or collapse" for the tree, and the arrows are the tree's row navigation.
+  //
+  // Nothing moves until dnd-kit's live region says so: the sensor's document
+  // listener is attached a task after pickup, so a press issued any sooner is
+  // dropped and reads as the grip having ignored it.
+  test("a keyboard drag's keys reach neither the page nor the tree", async ({
+    page,
+    feedsPage,
+    settingsPage,
+  }) => {
+    const entryRows = page.getByRole("listbox", { name: "Entries" }).getByRole("option")
+    await expect(entryRows.first()).toBeVisible()
+    await entryRows.first().click()
+
+    // Where a leaked Space shows up: the page's binding is "page down, then
+    // next unread", and paging down scrolls the article's viewport. By CSS
+    // rather than by role, because the modal dialog opened below marks the rest
+    // of the page aria-hidden and takes the article out of the role tree.
+    const viewport = page.locator('[data-slot="scroll-area-viewport"]:has(article)')
+    await expect(viewport).toHaveCount(1)
+    const scrollTop = () => viewport.evaluate((el) => el.scrollTop)
+    const scrollable = await viewport.evaluate((el) => el.scrollHeight - el.clientHeight)
+    expect(scrollable, "expected the open article to have room to page down").toBeGreaterThan(0)
+    expect(await scrollTop()).toBe(0)
+
+    // dnd-kit's announcements, which are the only report of where a lifted row
+    // has got to. Read as text content: the region is clipped, not rendered.
+    const announced = () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll('[role="status"]'))
+          .map((node) => node.textContent ?? "")
+          .join(" ")
+          .trim()
+      )
+
+    await feedsPage.openSettings()
+    await settingsPage.goToFeedsTab()
+
+    // A category with feeds under it, so a collapse is visible in the row list.
+    const lifted = settingsPage.dialog.getByRole("option", { name: /^Programming/ })
+    const nested = settingsPage.dialog.getByRole("option", { name: "Rust Weekly" })
+    await expect(lifted).toBeVisible()
+    await expect(nested).toBeVisible()
+
+    // Selecting the row is what arms the tree's own Space and arrow handling.
+    await lifted.click()
+    await expect(lifted).toHaveAttribute("aria-selected", "true")
+
+    const grip = lifted.locator('[aria-roledescription="sortable"]')
+    await grip.focus()
+
+    await page.keyboard.press("Space")
+    await expect(grip).toHaveAttribute("aria-pressed", "true")
+    await expect.poll(announced).toMatch(/moved over/i)
+
+    await page.keyboard.press("ArrowDown")
+    await page.keyboard.press("Space")
+    await expect(grip).not.toHaveAttribute("aria-pressed", "true")
+    await expect.poll(announced).toMatch(/dropped over/i)
+
+    // The tree neither collapsed the row nor navigated off it.
+    await expect(nested).toBeVisible()
+    await expect(lifted).toHaveAttribute("aria-selected", "true")
+    // The page's Space never paged the article behind the dialog.
+    expect(await scrollTop()).toBe(0)
+  })
 })
 
 test.describe("Filters Tab", () => {

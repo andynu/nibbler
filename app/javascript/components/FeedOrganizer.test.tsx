@@ -1,8 +1,9 @@
-import { act, render, screen } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FeedOrganizer } from "./FeedOrganizer"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
+import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
 
 // Mock API
 vi.mock("@/lib/api", () => ({
@@ -273,6 +274,127 @@ describe("FeedOrganizer", () => {
         "aria-selected",
         "true"
       )
+    })
+  })
+
+  // A keyboard drag answers Space, Enter, Escape and the arrows on a grip.
+  // Those are also the page's shortcuts behind the settings dialog, and this
+  // list's own toggle, edit, deselect and navigate keys.
+  describe("the drag handle's keys, the page shortcuts and the tree's own keys", () => {
+    const categories = [mockCategory({ id: 1, title: "Tech" })]
+    const feeds = [
+      mockFeed({ id: 1, title: "First Feed", category_id: 1 }),
+      mockFeed({ id: 2, title: "Second Feed", category_id: 1 }),
+    ]
+
+    function renderWithShortcuts() {
+      const onKey = vi.fn()
+      render(
+        <>
+          <PageShortcuts onKey={onKey} />
+          <FeedOrganizer {...defaultProps} feeds={feeds} categories={categories} />
+        </>
+      )
+      return { onKey }
+    }
+
+    function gripOf(name: RegExp): HTMLElement {
+      const row = screen.getByRole("option", { name })
+      const grip = row.querySelector<HTMLElement>('[aria-roledescription="sortable"]')
+      expect(grip).not.toBeNull()
+      grip!.focus()
+      expect(grip).toHaveFocus()
+      return grip!
+    }
+
+    const expectLifted = (grip: HTMLElement) =>
+      waitFor(() => expect(grip).toHaveAttribute("aria-pressed", "true"))
+
+    const expectPutDown = (grip: HTMLElement) =>
+      waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
+
+    it.each([
+      ["Space", " "],
+      ["Enter", "{Enter}"],
+    ])("%s picks a feed up and puts it down without reaching the page shortcuts", async (_name, key) => {
+      const user = userEvent.setup()
+      const { onKey } = renderWithShortcuts()
+      const grip = gripOf(/first feed/i)
+
+      await user.keyboard(key)
+      await expectLifted(grip)
+      await user.keyboard("{ArrowDown}")
+      await user.keyboard(key)
+      await expectPutDown(grip)
+
+      expect(onKey).not.toHaveBeenCalled()
+    })
+
+    it("Escape puts a lifted feed back without reaching the page shortcuts", async () => {
+      const user = userEvent.setup()
+      const { onKey } = renderWithShortcuts()
+      const grip = gripOf(/first feed/i)
+
+      await user.keyboard(" ")
+      await expectLifted(grip)
+      await user.keyboard("{Escape}")
+      await expectPutDown(grip)
+
+      expect(onKey).not.toHaveBeenCalled()
+    })
+
+    it("Space on a selected category's grip lifts it instead of collapsing it", async () => {
+      const user = userEvent.setup()
+      renderWithShortcuts()
+
+      await user.click(screen.getByRole("option", { name: /tech/i }))
+      const grip = gripOf(/tech/i)
+
+      await user.keyboard(" ")
+      await expectLifted(grip)
+
+      expect(screen.getByText("First Feed")).toBeInTheDocument()
+    })
+
+    it("an arrow key that moves a lifted row leaves the tree's selection alone", async () => {
+      const user = userEvent.setup()
+      renderWithShortcuts()
+
+      await user.click(screen.getByRole("option", { name: /first feed/i }))
+      const grip = gripOf(/first feed/i)
+
+      await user.keyboard(" ")
+      await expectLifted(grip)
+      await user.keyboard("{ArrowDown}")
+
+      expect(screen.getByRole("option", { name: /first feed/i })).toHaveAttribute(
+        "aria-selected",
+        "true"
+      )
+    })
+
+    it("leaves the keys it does not use to the page shortcuts", async () => {
+      const user = userEvent.setup()
+      const { onKey } = renderWithShortcuts()
+      const grip = gripOf(/first feed/i)
+
+      await user.keyboard(" ")
+      await expectLifted(grip)
+      await user.keyboard("x")
+
+      expect(onKey).toHaveBeenCalledTimes(1)
+      expect(onKey).toHaveBeenCalledWith("x")
+    })
+
+    it("leaves Escape on a feed that is not lifted to the page shortcuts", async () => {
+      const user = userEvent.setup()
+      const { onKey } = renderWithShortcuts()
+      gripOf(/first feed/i)
+
+      await user.keyboard("{Escape}")
+
+      expect(onKey).toHaveBeenCalledTimes(1)
+      expect(onKey).toHaveBeenCalledWith("Escape")
     })
   })
 })
