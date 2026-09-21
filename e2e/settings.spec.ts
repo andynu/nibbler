@@ -369,8 +369,11 @@ test.describe("Feeds Tab", () => {
     expect(scrollable, "expected the open article to have room to page down").toBeGreaterThan(0)
     expect(await scrollTop()).toBe(0)
 
-    // dnd-kit's announcements, which are the only report of where a lifted row
+    // The drag announcements, which are the only report of where a lifted row
     // has got to. Read as text content: the region is clipped, not rendered.
+    // The wording is the organizer's own, not dnd-kit's defaults, so that an
+    // announcement and the drop it describes cannot disagree; a dragged
+    // category drops nowhere, since the tree persists no category order.
     const announced = () =>
       page.evaluate(() =>
         Array.from(document.querySelectorAll('[role="status"]'))
@@ -397,12 +400,23 @@ test.describe("Feeds Tab", () => {
 
     await page.keyboard.press("Space")
     await expect(grip).toHaveAttribute("aria-pressed", "true")
-    await expect.poll(announced).toMatch(/moved over/i)
+    await expect.poll(announced).toMatch(/Programming is over /i)
 
+    // The listener the lifted row's presses go to is added in a timer taken at
+    // pickup, and the announcements are rendered before that timer runs, so
+    // waiting on one is not a barrier: chromium loses the arrow about four
+    // times in five. A zero-delay timer queued now is a barrier, because
+    // timers run in the order they were queued.
+    await page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve)))
+
+    // Which row the lift is over is what separates an arrow reaching the
+    // sensor from one reaching the tree, which would navigate off the row.
     await page.keyboard.press("ArrowDown")
+    await expect.poll(announced).toMatch(/Programming is over Deep Space\./i)
+
     await page.keyboard.press("Space")
     await expect(grip).not.toHaveAttribute("aria-pressed", "true")
-    await expect.poll(announced).toMatch(/dropped over/i)
+    await expect.poll(announced).toMatch(/Dropped Programming\. Nothing moved\./i)
 
     // The tree neither collapsed the row nor navigated off it.
     await expect(nested).toBeVisible()
