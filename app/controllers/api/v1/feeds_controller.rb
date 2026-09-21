@@ -27,6 +27,9 @@ module Api
           end
           @feed.title = result[:title]
           @feed.site_url ||= result[:site_url]
+          # What gets subscribed is the feed, which is not the URL that was
+          # pasted when that URL was a page linking one.
+          @feed.feed_url = result[:feed_url]
         end
 
         if @feed.save
@@ -180,20 +183,13 @@ module Api
         url = "https://#{url}" unless url.match?(%r{\Ahttps?://}i)
 
         begin
-          # Create a temporary feed object to use with FeedFetcher
-          temp_feed = Feed.new(feed_url: url)
-          fetcher = FeedFetcher.for(temp_feed)
-          fetch_result = fetcher.fetch
+          result = FeedResolver.new(url).resolve
 
-          if fetch_result.error?
-            return render json: { error: fetch_result.error }, status: :unprocessable_entity
+          if !result.success?
+            return render json: { error: result.error }, status: :unprocessable_entity
           end
 
-          parse_result = FeedParser.new(fetch_result.body, feed_url: url).parse
-
-          if !parse_result.success?
-            return render json: { error: parse_result.error }, status: :unprocessable_entity
-          end
+          parse_result = result.parse_result
 
           # Calculate last updated from entries
           last_entry_date = parse_result.entries
@@ -204,7 +200,9 @@ module Api
           render json: {
             title: parse_result.title,
             site_url: parse_result.site_url,
-            feed_url: url,
+            # The feed that was found, which differs from the URL that was
+            # asked about when that URL was a page advertising a feed.
+            feed_url: result.feed_url,
             entry_count: parse_result.entries.count,
             last_updated: last_entry_date,
             sample_entries: parse_result.entries.first(3).map do |entry|
@@ -253,23 +251,14 @@ module Api
       def auto_detect_feed_metadata(url)
         url = "https://#{url}" unless url.match?(%r{\Ahttps?://}i)
 
-        temp_feed = Feed.new(feed_url: url)
-        fetcher = FeedFetcher.for(temp_feed)
-        fetch_result = fetcher.fetch
+        result = FeedResolver.new(url).resolve
 
-        if fetch_result.error?
-          return { error: "Could not fetch feed: #{fetch_result.error}" }
-        end
-
-        parse_result = FeedParser.new(fetch_result.body, feed_url: url).parse
-
-        if !parse_result.success?
-          return { error: "Could not parse feed: #{parse_result.error}" }
-        end
+        return { error: result.error } if !result.success?
 
         {
-          title: parse_result.title.presence || "Untitled Feed",
-          site_url: parse_result.site_url
+          feed_url: result.feed_url,
+          title: result.parse_result.title.presence || "Untitled Feed",
+          site_url: result.parse_result.site_url
         }
       rescue StandardError => e
         { error: "Failed to detect feed title: #{e.message}" }

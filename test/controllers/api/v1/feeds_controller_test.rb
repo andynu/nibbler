@@ -124,6 +124,58 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert json["title_required"]
   end
 
+  test "create without title subscribes to the feed an HTML page links" do
+    page_url = "https://discovery.example.com/blog"
+    feed_url = "https://discovery.example.com/blog/rss.xml"
+
+    stub_request(:get, page_url)
+      .to_return(
+        status: 200,
+        body: sample_html_page(%(<link rel="alternate" type="application/rss+xml" href="/blog/rss.xml">)),
+        headers: { "Content-Type" => "text/html" }
+      )
+    stub_request(:get, feed_url)
+      .to_return(
+        status: 200,
+        body: sample_rss_feed("Linked Feed"),
+        headers: { "Content-Type" => "application/rss+xml" }
+      )
+
+    assert_difference "Feed.count", 1 do
+      post api_v1_feeds_url, params: {
+        feed: { feed_url: page_url }
+      }, as: :json
+    end
+
+    assert_response :created
+    json = JSON.parse(response.body)
+    assert_equal "Linked Feed", json["title"]
+    assert_equal feed_url, json["feed_url"]
+    assert_equal feed_url, Feed.find(json["id"]).feed_url
+  end
+
+  test "create without title reports a page that links no feed" do
+    page_url = "https://no-feed.example.com/blog"
+
+    stub_request(:get, page_url)
+      .to_return(
+        status: 200,
+        body: sample_html_page(%(<link rel="alternate" hreflang="ja" href="https://no-feed.example.com/ja/blog">)),
+        headers: { "Content-Type" => "text/html" }
+      )
+
+    assert_no_difference "Feed.count" do
+      post api_v1_feeds_url, params: {
+        feed: { feed_url: page_url }
+      }, as: :json
+    end
+
+    assert_response :unprocessable_entity
+    json = JSON.parse(response.body)
+    assert_equal FeedResolver::NOT_A_FEED, json["error"]
+    assert json["title_required"]
+  end
+
   test "create rejects duplicate feed_url for same user" do
     assert_no_difference "Feed.count" do
       post api_v1_feeds_url, params: {
@@ -217,6 +269,51 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
     json = JSON.parse(response.body)
     assert json["error"].include?("URL is required")
+  end
+
+  test "preview follows an HTML page to the feed it links" do
+    page_url = "https://preview-discovery.example.com/blog/"
+    feed_url = "https://preview-discovery.example.com/blog/atom.xml"
+
+    stub_request(:get, page_url)
+      .to_return(
+        status: 200,
+        body: sample_html_page(%(<link rel="alternate" type="application/atom+xml" href="atom.xml">)),
+        headers: { "Content-Type" => "text/html" }
+      )
+    stub_request(:get, feed_url)
+      .to_return(
+        status: 200,
+        body: sample_atom_feed("Discovered Feed"),
+        headers: { "Content-Type" => "application/atom+xml" }
+      )
+
+    assert_no_difference "Feed.count" do
+      post preview_api_v1_feeds_url, params: { url: page_url }, as: :json
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "Discovered Feed", json["title"]
+    assert_equal feed_url, json["feed_url"]
+    assert_equal 1, json["entry_count"]
+  end
+
+  test "preview reports a page that links no feed" do
+    page_url = "https://preview-no-feed.example.com/blog"
+
+    stub_request(:get, page_url)
+      .to_return(
+        status: 200,
+        body: sample_html_page(""),
+        headers: { "Content-Type" => "text/html" }
+      )
+
+    post preview_api_v1_feeds_url, params: { url: page_url }, as: :json
+
+    assert_response :unprocessable_entity
+    json = JSON.parse(response.body)
+    assert_equal FeedResolver::NOT_A_FEED, json["error"]
   end
 
   test "preview returns error for unreachable feed" do
@@ -410,6 +507,16 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
       first_failed_at: Feed::DEAD_AFTER_FAILING_FOR.ago - 1.week,
       dead_at: 3.days.ago
     )
+  end
+
+  def sample_html_page(head)
+    <<~HTML
+      <!DOCTYPE html>
+      <html>
+        <head><title>A Blog</title>#{head}</head>
+        <body><p>Words, not a feed.</p></body>
+      </html>
+    HTML
   end
 
   def sample_atom_feed(title)
