@@ -138,8 +138,8 @@ class SummarizeEntryJobConcurrencyTest < ActiveSupport::TestCase
   end
 
   # The key is written to a column with its own partial index on unfinished
-  # rows, which is why this is preferred to Api::V1::EntriesController#audio's
-  # LIKE against the serialized_params JSON.
+  # rows, which is why this is preferred to reading the job's arguments back out
+  # of serialized_params the way Api::V1::EntriesController#audio does.
   test "the key is stored on the job row, not buried in its arguments" do
     SummarizeEntryJob.perform_later(@entry.id)
 

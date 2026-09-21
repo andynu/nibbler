@@ -108,9 +108,11 @@ module Api
         # Clean up stale cache
         cached&.destroy
 
-        # Check for recent jobs (pending or failed) for this entry
+        # Recent jobs (pending or failed) for this entry. The entry id is the
+        # job's first argument, compared as JSON: a text match on the arguments
+        # finds entry 12 inside a job for entry 123.
         recent_jobs = GoodJob::Job.where(job_class: "GenerateArticleAudioJob")
-          .where("serialized_params->>'arguments' LIKE ?", "%#{entry.id}%")
+          .where("serialized_params -> 'arguments' -> 0 = ?::jsonb", entry.id.to_json)
           .where("created_at > ?", 1.hour.ago)
           .order(created_at: :desc)
 
@@ -120,7 +122,10 @@ module Api
           return
         end
 
-        # Check for recently failed job (has error within last hour)
+        # A failure blocks another attempt for the rest of the hour. A client
+        # polling the job stops only on "error", and by the time a row is
+        # finished with one, the job has already retried transient errors and
+        # discarded TtsGenerationError as not worth retrying.
         failed_job = recent_jobs.find { |j| j.error.present? }
         if failed_job
           render json: { status: "error", error: failed_job.error.to_s.truncate(200) }

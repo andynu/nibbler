@@ -990,6 +990,11 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # An id with the given one inside it, e.g. 1231 for 123.
+  def id_containing(entry_id)
+    "#{entry_id}1".to_i
+  end
+
   test "audio reports unavailable and enqueues nothing without a TTS toolchain" do
     user_entry = create_audio_user_entry
 
@@ -1063,6 +1068,20 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "generating", JSON.parse(response.body)["status"]
   end
 
+  test "audio ignores a queued job for an entry whose id contains this one's" do
+    user_entry = create_audio_user_entry
+    enqueue_audio_job_in_good_job(id_containing(user_entry.entry.id))
+
+    TtsGenerator.stub(:available?, true) do
+      assert_enqueued_with job: GenerateArticleAudioJob, args: [ user_entry.entry.id ] do
+        get audio_api_v1_entry_url(user_entry), as: :json
+      end
+    end
+
+    assert_response :success
+    assert_equal "generating", JSON.parse(response.body)["status"]
+  end
+
   test "audio reports its own failed generation and does not start another" do
     user_entry = create_audio_user_entry
     fail_audio_generation_for(user_entry.entry.id)
@@ -1088,6 +1107,21 @@ class Api::V1::EntriesControllerTest < ActionDispatch::IntegrationTest
         assert_enqueued_with job: GenerateArticleAudioJob, args: [ user_entry.entry.id ] do
           get audio_api_v1_entry_url(user_entry), as: :json
         end
+      end
+    end
+
+    assert_response :success
+    assert_equal "generating", JSON.parse(response.body)["status"]
+  end
+
+  test "audio ignores a failed generation for an entry whose id contains this one's" do
+    user_entry = create_audio_user_entry
+    neighbour = create_audio_entry(id: id_containing(user_entry.entry.id))
+    fail_audio_generation_for(neighbour.id)
+
+    TtsGenerator.stub(:available?, true) do
+      assert_enqueued_with job: GenerateArticleAudioJob, args: [ user_entry.entry.id ] do
+        get audio_api_v1_entry_url(user_entry), as: :json
       end
     end
 

@@ -33,12 +33,12 @@
 #
 # Chosen over the two alternatives:
 #
-# - Api::V1::EntriesController#audio's approach, a LIKE against the JSON
-#   +serialized_params+ column looking for the entry id. It works, but it is an
-#   unindexable substring match on JSON that also matches a job whose *other*
-#   argument happens to contain those digits, and there is no reason to spread
-#   it. GoodJob writes the key to a real +concurrency_key+ column with a partial
-#   index on unfinished rows, which is the same question asked properly.
+# - Api::V1::EntriesController#audio's approach, matching the entry id against
+#   the job's own +serialized_params+ arguments. It answers "is a job already
+#   out there" but not "only one of them may run", it needs an unindexed scan of
+#   the JSON column, and it has to encode an argument position. GoodJob writes
+#   the key to a real +concurrency_key+ column with a partial index on
+#   unfinished rows, which is the same question asked properly.
 # - A state column on entry_summaries. It would need the migration relaxing
 #   three NOT NULLs so a row could exist before there is a summary in it, and it
 #   would still be a hand-rolled check-then-insert: measured, that pattern lost
