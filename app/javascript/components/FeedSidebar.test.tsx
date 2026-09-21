@@ -1033,4 +1033,28 @@ describe("FeedSidebar", () => {
       expect(screen.getByText("Errors (1)")).toBeInTheDocument()
     })
   })
+
+  describe("drag handles for screen readers", () => {
+    const categories = [mockCategory({ id: 1, title: "Tech" })]
+    const feeds = [
+      mockFeed({ id: 1, title: "First Feed", category_id: 1 }),
+      mockFeed({ id: 2, title: "Loose Feed", category_id: null }),
+    ]
+
+    it("names each grip after the feed it moves", () => {
+      render(<FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />)
+
+      for (const feed of feeds) {
+        expect(screen.getByRole("button", { name: `Move ${feed.title}` })).toBeInTheDocument()
+      }
+    })
+
+    it("says the drag is pointer only, because the sidebar has no keyboard sensor", () => {
+      render(<FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />)
+
+      expect(screen.getByRole("button", { name: "Move First Feed" })).toHaveAccessibleDescription(
+        "Drag a feed onto a category to move it there. This list has no keyboard drag."
+      )
+    })
+  })
 })

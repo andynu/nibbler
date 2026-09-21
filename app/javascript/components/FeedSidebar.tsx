@@ -45,6 +45,7 @@ import { usePreferences } from "@/contexts/PreferencesContext"
 import { getVirtualFoldersByMode, SmartFolderIcon } from "@/lib/virtualFolders"
 import { categoryAncestorIds, visibleCategoryIds } from "@/lib/categoryNavigation"
 import { feedHealthSummary } from "@/lib/feedHealth"
+import { useFeedSidebarDragAccessibility } from "@/hooks/useFeedSidebarDragAccessibility"
 
 type VirtualFeed = string | null
 
@@ -209,6 +210,8 @@ export function FeedSidebar({
       activationConstraint: { distance: 8 },
     })
   )
+
+  const dragAccessibility = useFeedSidebarDragAccessibility(feeds, categories)
 
   const handleDragStart = (event: DragStartEvent) => {
     const feedId = event.active.id as number
@@ -1034,6 +1037,7 @@ export function FeedSidebar({
       >
         <DndContext
           sensors={sensors}
+          accessibility={dragAccessibility}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
@@ -1765,6 +1769,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
             {...attributes}
             {...listeners}
             className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-100 touch-none"
+            aria-label={`Move ${feed.title}`}
           >
             <GripVertical className="h-3 w-3 text-muted-foreground" />
           </div>
