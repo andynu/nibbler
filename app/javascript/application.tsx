@@ -385,6 +385,18 @@ function App() {
     abandonEntryLoad()
   }, [abandonEntryLoad])
 
+  // `entries` and `selectedEntry` are two views of one record, so a field
+  // written to either has to land on both. The updater form is what keeps them
+  // honest: spreading a captured `selectedEntry` writes back the copy from
+  // before the await and undoes whatever landed in between.
+  //
+  // Search rows are deliberately not included. They are a third view with its
+  // own projection, and which fields it carries differs per handler.
+  const patchEntry = useCallback((entryId: number, patch: Partial<Entry>) => {
+    setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, ...patch } : e)))
+    setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, ...patch } : prev))
+  }, [])
+
   const loadEntries = useCallback(async () => {
     const load = claimEntriesLoad()
     // The stories view is not backed by the entries API; skip loading. The
@@ -439,16 +451,12 @@ function App() {
       // Mark as read when opening
       if (entry.unread) {
         const result = await api.entries.toggleRead(entryId)
-        setEntries((prev) =>
-          prev.map((e) => (e.id === entryId ? { ...e, unread: result.unread } : e))
-        )
-        // `entry` above was fetched before the toggle, so the copy in the pane
-        // still reads unread. Patch it too, or the header offers "Mark as read"
-        // for an article the server already has as read - and the endpoint is a
-        // toggle, so pressing it does the opposite of its label.
-        setSelectedEntry((prev) =>
-          prev?.id === entryId ? { ...prev, unread: result.unread } : prev
-        )
+        // `entry` above was fetched before the toggle, so the copy just put in
+        // the pane still reads unread. It needs the patch as much as the list
+        // row does, or the header offers "Mark as read" for an article the
+        // server already has as read - and the endpoint is a toggle, so
+        // pressing it does the opposite of its label.
+        patchEntry(entryId, { unread: result.unread })
         // The search owns its own rows, so the entry list update above does not
         // reach them. Opening a hit is the commonest way into that: the reader
         // takes no deliberate action and the row they just clicked would go on
@@ -467,7 +475,7 @@ function App() {
         setIsLoadingEntry(false)
       }
     }
-  }, [updateSearchResult, loadCounters, claimEntryLoad])
+  }, [updateSearchResult, loadCounters, claimEntryLoad, patchEntry])
 
   // Register audio player navigation callback
   const { setOnJumpToEntry } = audioPlayer
@@ -566,42 +574,28 @@ function App() {
     }
   }
 
-  // The handlers below patch the open article with the updater form, and only
-  // while it is still the one they acted on. Spreading `selectedEntry` would
-  // write back the copy captured before the await and undo whatever landed in
-  // between.
   const handleToggleRead = useCallback(async (entryId: number) => {
     try {
       const result = await api.entries.toggleRead(entryId)
-      setEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, unread: result.unread } : e))
-      )
+      patchEntry(entryId, { unread: result.unread })
       updateSearchResult(entryId, { unread: result.unread })
-      setSelectedEntry((prev) =>
-        prev?.id === entryId ? { ...prev, unread: result.unread } : prev
-      )
       loadFeeds() // Refresh unread counts
       loadCounters() // Refresh virtual folder counts
     } catch (error) {
       console.error("Failed to toggle read:", error)
     }
-  }, [updateSearchResult, loadCounters])
+  }, [updateSearchResult, loadCounters, patchEntry])
 
   const handleToggleStarredEntry = useCallback(async (entryId: number) => {
     try {
       const result = await api.entries.toggleStarred(entryId)
-      setEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, starred: result.starred } : e))
-      )
+      patchEntry(entryId, { starred: result.starred })
       updateSearchResult(entryId, { starred: result.starred })
-      setSelectedEntry((prev) =>
-        prev?.id === entryId ? { ...prev, starred: result.starred } : prev
-      )
       loadCounters() // Refresh starred count
     } catch (error) {
       console.error("Failed to toggle starred:", error)
     }
-  }, [updateSearchResult, loadCounters])
+  }, [updateSearchResult, loadCounters, patchEntry])
 
   // No `updateSearchResult` here, or in handleSetScore below, unlike the
   // read and starred handlers: SearchController's projection carries neither
@@ -610,27 +604,19 @@ function App() {
   const handleTogglePublishedEntry = useCallback(async (entryId: number) => {
     try {
       const result = await api.entries.togglePublished(entryId)
-      setEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, is_published: result.is_published } : e))
-      )
-      setSelectedEntry((prev) =>
-        prev?.id === entryId ? { ...prev, is_published: result.is_published } : prev
-      )
+      patchEntry(entryId, { is_published: result.is_published })
       loadCounters() // Refresh published count
     } catch (error) {
       console.error("Failed to toggle published:", error)
     }
-  }, [loadCounters])
+  }, [loadCounters, patchEntry])
 
   const handleUpdateNote = async (note: string) => {
     if (!selectedEntry) return
     const entryId = selectedEntry.id
     try {
       await api.entries.update(entryId, { entry: { note } })
-      setEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, note } : e))
-      )
-      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, note } : prev))
+      patchEntry(entryId, { note })
     } catch (error) {
       console.error("Failed to update note:", error)
       throw error // Re-throw so the UI can handle it
@@ -669,10 +655,7 @@ function App() {
   const handleSetScore = async (entryId: number, score: number) => {
     try {
       await api.entries.update(entryId, { entry: { score } })
-      setEntries((prev) =>
-        prev.map((e) => (e.id === entryId ? { ...e, score } : e))
-      )
-      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, score } : prev))
+      patchEntry(entryId, { score })
     } catch (error) {
       console.error("Failed to update score:", error)
     }
