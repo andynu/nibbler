@@ -43,6 +43,27 @@ describe("buildCategoryPaths", () => {
 
     expect(paths).toEqual(["News", "News / Local", "Tech", "Tech / Programming"])
   })
+
+  it("returns instead of hanging when two categories are each other's parent", () => {
+    const tech = mockCategory({ id: 1, title: "Tech", parent_id: 2 })
+    const ruby = mockCategory({ id: 2, title: "Ruby", parent_id: 1 })
+
+    const paths = buildCategoryPaths([tech, ruby])
+
+    expect(paths).toHaveLength(2)
+    for (const item of paths) {
+      expect(item.path).toHaveLength(2)
+      expect(item.depth).toBe(2)
+    }
+  })
+
+  it("returns instead of hanging when a category is its own parent", () => {
+    const tech = mockCategory({ id: 1, title: "Tech", parent_id: 1 })
+
+    expect(buildCategoryPaths([tech])).toEqual([
+      { category: tech, path: ["Tech"], depth: 1 },
+    ])
+  })
 })
 
 describe("filterCategoryPaths", () => {

@@ -13,14 +13,22 @@ export interface CategoryWithPath {
  * so each category follows its parent and siblings read alphabetically. This
  * is the order the Move Feed and Edit Feed pickers list categories in, not the
  * sidebar's.
+ *
+ * Both walks stop on a category they have already passed. A parent cycle is
+ * rejected server-side, but rows written before that guard can still hold one,
+ * and without the visited set the path grows without bound and the picker
+ * never opens. The path such a category gets is arbitrary in its starting
+ * point, which is the honest rendering of data that has no root.
  */
 export function buildCategoryPaths(categories: Category[]): CategoryWithPath[] {
   const categoryMap = new Map(categories.map((c) => [c.id, c]))
 
   const getPath = (cat: Category): string[] => {
     const path: string[] = []
+    const seen = new Set<number>()
     let current: Category | undefined = cat
-    while (current) {
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id)
       path.unshift(current.title)
       current = current.parent_id ? categoryMap.get(current.parent_id) : undefined
     }
@@ -29,10 +37,14 @@ export function buildCategoryPaths(categories: Category[]): CategoryWithPath[] {
 
   const getDepth = (cat: Category): number => {
     let depth = 0
+    const seen = new Set<number>([cat.id])
     let current: Category | undefined = cat
     while (current?.parent_id) {
       depth++
-      current = categoryMap.get(current.parent_id)
+      const parent = categoryMap.get(current.parent_id)
+      if (!parent || seen.has(parent.id)) break
+      seen.add(parent.id)
+      current = parent
     }
     return depth
   }
