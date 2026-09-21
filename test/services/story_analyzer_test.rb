@@ -46,10 +46,30 @@ class StoryAnalyzerTest < ActiveSupport::TestCase
     assert_equal true,  result[:concluded]
   end
 
-  test "requests JSON format from LLM" do
+  test "constrains the response to the five analysis keys" do
     fake = FakeLlmClient.new(response: valid_response)
     StoryAnalyzer.new(llm_client: fake).analyze(@story, new_articles: [ @article ])
-    assert_equal :json, fake.last_format
+
+    schema = fake.last_format
+    assert_equal "object", schema[:type]
+    assert_equal %w[new_development concluded timeline_label updated_summary rationale],
+                 schema[:required]
+    assert_equal %i[new_development concluded timeline_label updated_summary rationale],
+                 schema[:properties].keys
+  end
+
+  test "constrains the stale-check response the same way" do
+    fake = FakeLlmClient.new(response: valid_response)
+    StoryAnalyzer.new(llm_client: fake).analyze(@story, new_articles: [])
+
+    assert_equal StoryAnalyzer::RESPONSE_SCHEMA, fake.last_format
+  end
+
+  test "schema requires the two fields normalize rejects when empty to be non-empty" do
+    properties = StoryAnalyzer::RESPONSE_SCHEMA[:properties]
+
+    assert_equal 1, properties[:timeline_label][:minLength]
+    assert_equal 1, properties[:updated_summary][:minLength]
   end
 
   test "prompt with new articles includes story name, summary and article details" do

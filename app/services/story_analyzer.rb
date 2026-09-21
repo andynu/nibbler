@@ -5,7 +5,8 @@
 # whether the story has concluded, and to produce a fresh summary and
 # timeline label.
 #
-# The LLM is expected to return strict JSON with these keys:
+# The request carries RESPONSE_SCHEMA as Ollama's structured-output format, so
+# the response is constrained to these keys:
 #   {
 #     "new_development":   boolean,
 #     "concluded":         boolean,
@@ -34,6 +35,24 @@ class StoryAnalyzer
   # still recorded in the analysis.article_ids audit trail by the caller.
   MAX_ARTICLES_IN_PROMPT = 30
 
+  # Ollama structured-output schema for the response. The prompt describes the
+  # same shape, but description alone lets a small model answer with keys of its
+  # own invention ({"summary" => ...}), which #normalize can only reject. The
+  # schema is a sampling grammar, so the keys cannot come back wrong.
+  # minLength is what keeps the two fields #normalize requires from arriving
+  # empty.
+  RESPONSE_SCHEMA = {
+    type: "object",
+    properties: {
+      new_development: { type: "boolean" },
+      concluded: { type: "boolean" },
+      timeline_label: { type: "string", minLength: 1 },
+      updated_summary: { type: "string", minLength: 1 },
+      rationale: { type: "string" }
+    },
+    required: %w[new_development concluded timeline_label updated_summary rationale]
+  }.freeze
+
   def initialize(llm_client: LlmClient.new)
     @llm_client = llm_client
   end
@@ -54,7 +73,7 @@ class StoryAnalyzer
         build_prompt(story, new_articles)
       end
 
-    response = @llm_client.generate(prompt: prompt, format: :json)
+    response = @llm_client.generate(prompt: prompt, format: RESPONSE_SCHEMA)
     normalize(response, has_new_articles: new_articles.any?)
   rescue LlmClient::BadJson => e
     raise AnalysisFailed, "LLM did not return valid JSON: #{e.message}"
