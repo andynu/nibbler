@@ -202,6 +202,124 @@ describe("useKeyboardCommands", () => {
     })
   })
 
+  describe("activation keys on a focused control", () => {
+    const pageDown: KeyboardCommand = {
+      key: " ",
+      handler: vi.fn(),
+      description: "Page down / next unread",
+    }
+    const openEntry: KeyboardCommand = {
+      key: "Enter",
+      handler: vi.fn(),
+      description: "Open entry",
+    }
+
+    it("leaves Space to a focused button and does not prevent the press", () => {
+      const handler = vi.fn()
+      const button = document.createElement("button")
+
+      renderHook(() =>
+        useKeyboardCommands([{ ...pageDown, handler }])
+      )
+      const event = dispatchKeyDown(" ", { target: button })
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(event.defaultPrevented).toBe(false)
+    })
+
+    it("leaves Shift+Space to a focused button too", () => {
+      const handler = vi.fn()
+      const button = document.createElement("button")
+
+      renderHook(() =>
+        useKeyboardCommands([
+          { key: " ", handler, description: "Page up", modifiers: { shift: true } },
+        ])
+      )
+      dispatchKeyDown(" ", { target: button, shiftKey: true })
+
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it("leaves Enter to a focused button", () => {
+      const handler = vi.fn()
+      const button = document.createElement("button")
+
+      renderHook(() => useKeyboardCommands([{ ...openEntry, handler }]))
+      const event = dispatchKeyDown("Enter", { target: button })
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(event.defaultPrevented).toBe(false)
+    })
+
+    it("leaves Enter to a focused link", () => {
+      const handler = vi.fn()
+      const link = document.createElement("a")
+      link.href = "https://example.com/article"
+
+      renderHook(() => useKeyboardCommands([{ ...openEntry, handler }]))
+      dispatchKeyDown("Enter", { target: link })
+
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it("leaves Enter and Space to a focused role=button", () => {
+      const handler = vi.fn()
+      const div = document.createElement("div")
+      div.setAttribute("role", "button")
+      div.tabIndex = 0
+
+      renderHook(() =>
+        useKeyboardCommands([
+          { ...openEntry, handler },
+          { ...pageDown, handler },
+        ])
+      )
+      dispatchKeyDown("Enter", { target: div })
+      dispatchKeyDown(" ", { target: div })
+
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it("pages on Space with a link focused, where the browser would scroll", () => {
+      const handler = vi.fn()
+      const link = document.createElement("a")
+      link.href = "https://example.com/article"
+
+      renderHook(() => useKeyboardCommands([{ ...pageDown, handler }]))
+      dispatchKeyDown(" ", { target: link })
+
+      expect(handler).toHaveBeenCalledOnce()
+    })
+
+    it("runs a non-activation key with a button focused", () => {
+      const handler = vi.fn()
+      const button = document.createElement("button")
+
+      renderHook(() =>
+        useKeyboardCommands([{ key: "j", handler, description: "Next" }])
+      )
+      dispatchKeyDown("j", { target: button })
+
+      expect(handler).toHaveBeenCalledOnce()
+    })
+
+    it("runs Enter and Space when nothing activatable has focus", () => {
+      const handler = vi.fn()
+
+      renderHook(() =>
+        useKeyboardCommands([
+          { ...openEntry, handler },
+          { ...pageDown, handler },
+        ])
+      )
+      dispatchKeyDown("Enter", { target: document.body })
+      dispatchKeyDown(" ", { target: document.body })
+
+      expect(handler).toHaveBeenCalledTimes(2)
+    })
+  })
+
   describe("presses another layer has already answered", () => {
     it("ignores one a capture-phase listener prevented, the way Radix dismisses", () => {
       const handler = vi.fn()

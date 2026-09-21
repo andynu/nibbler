@@ -413,6 +413,59 @@ test.describe("Keys a Radix layer has already answered", () => {
   })
 })
 
+/**
+ * The residue the describe above does not cover: a plain button with an onClick
+ * and no key handling of its own. Nothing prevents the default, so the page's
+ * Space and Enter bindings match, prevent it themselves and the control never
+ * activates. Each example asserts both halves - the control did its job, and
+ * the page command did not run - because a press that reached neither looks
+ * from the outside like one that reached the right half.
+ */
+test.describe("Activation keys on a focused button", () => {
+  test.beforeEach(async ({ page }) => {
+    await waitForAppReady(page)
+  })
+
+  test("Space switches the view rather than paging", async ({ page }) => {
+    await listedTitles(page)
+    await expect(listTitle(page)).toHaveText("All Feeds")
+    await expect(selectedRows(page)).toHaveCount(0)
+
+    await page.getByRole("button", { name: /^Starred/ }).focus()
+    await page.keyboard.press(" ")
+
+    await expect(listTitle(page)).toHaveText("Starred")
+    await expect(selectedRows(page)).toHaveCount(0)
+  })
+
+  test("Enter opens settings and no entry", async ({ page }) => {
+    await listedTitles(page)
+    await expect(selectedRows(page)).toHaveCount(0)
+
+    await page.getByRole("button", { name: "Settings" }).focus()
+    await page.keyboard.press("Enter")
+    await expect(page.getByRole("dialog")).toBeVisible()
+
+    // The dialog is modal and aria-hides the page behind it, so a role query
+    // outside it would pass whatever happened. Dismiss it before asking.
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("dialog")).not.toBeVisible()
+    await expect(selectedRows(page)).toHaveCount(0)
+  })
+
+  test("a page key with a button focused still walks the list", async ({ page }) => {
+    const titles = await listedTitles(page)
+
+    await page.getByRole("button", { name: /^Starred/ }).focus()
+    await page.keyboard.press("j")
+
+    // j is nobody's activation key, so the filter must let it through: the
+    // fix is per key, not per focused element.
+    await expectEntryOpen(page, titles[0])
+    await expect(listTitle(page)).toHaveText("All Feeds")
+  })
+})
+
 test.describe("Command Palette", () => {
   test.beforeEach(async ({ page }) => {
     await waitForAppReady(page)

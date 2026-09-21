@@ -23,6 +23,33 @@ function isInputElement(element: EventTarget | null): boolean {
   )
 }
 
+/**
+ * The controls a key activates by default, by key. A focused one answers the
+ * key itself, so the commands must leave that key alone - but only that key,
+ * which is why this is a per-key table rather than another clause in
+ * `isInputElement`: j, k and the rest still have to work with a button focused.
+ *
+ * A control that prevents the default is already covered by the
+ * `defaultPrevented` check, which is everything Radix manages. This is the
+ * residue: the plain `<button onClick>` that handles no keys of its own. The
+ * commands prevent the default when they match, so without this they do not
+ * merely fire alongside the button, they stop it activating at all.
+ *
+ * Space is missing `a[href]` deliberately. On a link it scrolls rather than
+ * following the link, and scrolling the article is what the Space command does.
+ */
+const ACTIVATION_TARGETS = new Map<string, string>([
+  ["Enter", 'button, a[href], [role="button"]'],
+  [" ", 'button, [role="button"]'],
+])
+
+function activatesTarget(event: KeyboardEvent): boolean {
+  const selector = ACTIVATION_TARGETS.get(event.key)
+  if (!selector) return false
+  const target = event.target
+  return target instanceof HTMLElement && target.matches(selector)
+}
+
 function matchesModifiers(
   event: KeyboardEvent,
   modifiers?: KeyboardCommand["modifiers"]
@@ -121,6 +148,7 @@ export function useKeyboardCommands(
       if (event.defaultPrevented) return
       if (withheldEvents.has(event)) return
       if (isInputElement(event.target)) return
+      if (activatesTarget(event)) return
 
       for (const command of commands) {
         if (event.key === command.key && matchesModifiers(event, command.modifiers)) {
