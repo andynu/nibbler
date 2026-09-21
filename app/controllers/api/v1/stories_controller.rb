@@ -70,12 +70,24 @@ module Api
       #   name [String] required
       #   queries [Array<String>] required, at least one
       #   source_entry_id [Integer] optional, the Entry.id this story came from
+      #     (as returned by extract_from_entry), which must be an entry the
+      #     current user receives.
       def create
         attrs = story_create_params
+        source_entry_id = attrs[:source_entry_id].presence
+
+        # source_entry_id arrives from the client and reaches a foreign key, so
+        # an id naming no entry raises out of the action rather than failing a
+        # validation. Scoping the check to the user's own entries also keeps one
+        # user from linking a story to an article they never received.
+        if source_entry_id && !current_user.user_entries.exists?(entry_id: source_entry_id)
+          return render json: { errors: [ "Source entry not found" ] }, status: :unprocessable_entity
+        end
+
         story = current_user.stories.build(
           name: attrs[:name],
           queries: Array(attrs[:queries]).map(&:to_s).map(&:strip).reject(&:empty?),
-          source_entry_id: attrs[:source_entry_id],
+          source_entry_id: source_entry_id,
           status: "active"
         )
 

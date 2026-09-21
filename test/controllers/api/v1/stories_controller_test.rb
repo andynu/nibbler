@@ -225,6 +225,50 @@ class Api::V1::StoriesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  test "create rejects a source_entry_id that matches no entry" do
+    missing_id = Entry.maximum(:id).to_i + 1000
+
+    assert_no_difference -> { @user.stories.count } do
+      post api_v1_stories_url,
+        params: { story: { name: "Ghost", queries: [ "q" ], source_entry_id: missing_id } },
+        as: :json
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes JSON.parse(response.body)["errors"], "Source entry not found"
+  end
+
+  test "create rejects an entry the current user has no user_entry for" do
+    unrelated = Entry.create!(
+      guid: "entry-not-subscribed",
+      title: "Someone Else's Article",
+      link: "https://example.com/not-mine",
+      content: "",
+      content_hash: "nomatch789",
+      updated: Time.current,
+      date_entered: Time.current,
+      date_updated: Time.current
+    )
+
+    assert_no_difference -> { @user.stories.count } do
+      post api_v1_stories_url,
+        params: { story: { name: "Not Mine", queries: [ "q" ], source_entry_id: unrelated.id } },
+        as: :json
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes JSON.parse(response.body)["errors"], "Source entry not found"
+  end
+
+  test "create accepts a blank source_entry_id" do
+    post api_v1_stories_url,
+      params: { story: { name: "No Source", queries: [ "q" ], source_entry_id: "" } },
+      as: :json
+
+    assert_response :created
+    assert_nil JSON.parse(response.body)["source_entry_id"]
+  end
+
   # =====================
   # PATCH /api/v1/stories/:id
   # =====================
