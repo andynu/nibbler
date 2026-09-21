@@ -112,6 +112,12 @@
   }
 
   :root {
+    /* Every env(safe-area-inset-bottom) below resolves to 0 until the layout's
+       viewport meta opts in with viewport-fit=cover. Until then the browser
+       insets the layout viewport around the cutout itself and hands the page a
+       zero safe area, on WebKit and Blink alike. Correct arithmetic, not live
+       values: a phone with a home indicator reports 0 here too. */
+
     /* How much of the bottom of the phone viewport MobileNavBar owns: the
        56px row of tab buttons, its top border, and the home-indicator inset
        on the devices that have one.
