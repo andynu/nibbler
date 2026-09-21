@@ -169,6 +169,30 @@ describe("QueuePanel keyboard reordering", () => {
   })
 })
 
+describe("QueuePanel row controls for screen readers", () => {
+  it("names each row's play button after the article it plays", () => {
+    render(<QueuePanel />)
+
+    // The playing row draws a static indicator where the others draw a play
+    // button, so it is the one row without one.
+    const [playing, ...rest] = queue
+    for (const item of rest) {
+      expect(screen.getByRole("button", { name: `Play ${item.entryTitle}` })).toBeInTheDocument()
+    }
+    expect(screen.queryByRole("button", { name: `Play ${playing.entryTitle}` })).toBeNull()
+  })
+
+  it("names each row's remove button after the article it drops", () => {
+    render(<QueuePanel />)
+
+    for (const item of queue) {
+      expect(
+        screen.getByRole("button", { name: `Remove ${item.entryTitle} from queue` })
+      ).toBeInTheDocument()
+    }
+  })
+})
+
 describe("QueuePanel drag handles for screen readers", () => {
   beforeEach(() => {
     vi.clearAllMocks()

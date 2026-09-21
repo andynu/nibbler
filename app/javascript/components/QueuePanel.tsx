@@ -145,7 +145,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
             e.stopPropagation()
             onPlay(index)
           }}
-          aria-label="Play this item"
+          aria-label={`Play ${item.entryTitle}`}
         >
           <Play className="h-3 w-3" />
         </Button>
@@ -160,7 +160,7 @@ function SortableQueueItem({ item, index, isPlaying, onRemove, onPlay }: Sortabl
           e.stopPropagation()
           onRemove(item.id)
         }}
-        aria-label="Remove from queue"
+        aria-label={`Remove ${item.entryTitle} from queue`}
       >
         <X className="h-3 w-3" />
       </Button>

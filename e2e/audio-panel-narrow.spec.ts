@@ -344,10 +344,15 @@ test.describe("The queue panel's rows on a 320px phone", () => {
     // loaded - no separate wait needed.
     await page.getByRole("button", { name: "Next entry" }).click()
     await page.getByRole("button", { name: "Add to queue" }).click()
+    // Read after the click, which waited for the next entry: the heading is
+    // then the article just queued, and each row names its play button after
+    // its own article.
+    const queued = await page.getByRole("heading", { level: 1 }).textContent()
+    expect(queued, "expected the queued article to have a title").toBeTruthy()
 
     await page.getByRole("button", { name: "Open queue" }).click()
 
-    const playRow = page.getByRole("button", { name: "Play this item" })
+    const playRow = page.getByRole("button", { name: `Play ${queued}`, exact: true })
     await expect(playRow).toHaveCount(1)
 
     // Away from the row, so nothing here is answered by a hover the previous
