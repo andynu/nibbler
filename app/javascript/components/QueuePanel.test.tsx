@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { QueuePanel } from "./QueuePanel"
 import type { QueueItem } from "@/lib/api"
@@ -46,6 +46,16 @@ async function expectLifted(grip: HTMLElement) {
 
 async function expectPutDown(grip: HTMLElement) {
   await waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
+}
+
+/**
+ * Cancels a drag a test leaves lifted. dnd-kit attaches the sensor's document
+ * keydown listener on pickup and detaches it on drop, so a row still lifted at
+ * unmount leaves it attached, preventing the default on the next test's keys.
+ */
+async function endDrag(user: UserEvent, grip: HTMLElement) {
+  await user.keyboard("{Escape}")
+  await expectPutDown(grip)
 }
 
 const px = (value: string) => parseFloat(value) || 0
@@ -143,6 +153,8 @@ describe("QueuePanel keyboard reordering", () => {
 
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("x")
+
+      await endDrag(user, grip)
     })
 
     it("include Escape on a grip whose row is not lifted", async () => {

@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { FilterManager } from "./FilterManager"
 import { mockFilter } from "../../../test/fixtures/data"
@@ -417,6 +417,17 @@ describe("FilterManager", () => {
     const expectPutDown = (grip: HTMLElement) =>
       waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
 
+    /**
+     * Cancels a drag a test leaves lifted. dnd-kit attaches the sensor's
+     * document keydown listener on pickup and detaches it on drop, so a row
+     * still lifted at unmount leaves it attached, preventing the default on
+     * the next test's keys.
+     */
+    async function endDrag(user: UserEvent, grip: HTMLElement) {
+      await user.keyboard("{Escape}")
+      await expectPutDown(grip)
+    }
+
     it.each([
       ["Space", " "],
       ["Enter", "{Enter}"],
@@ -455,6 +466,8 @@ describe("FilterManager", () => {
 
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("x")
+
+      await endDrag(user, grip)
     })
 
     it("leaves Escape on a filter that is not lifted to the page shortcuts", async () => {

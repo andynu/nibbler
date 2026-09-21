@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FeedOrganizer } from "./FeedOrganizer"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
@@ -313,6 +313,17 @@ describe("FeedOrganizer", () => {
     const expectPutDown = (grip: HTMLElement) =>
       waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
 
+    /**
+     * Cancels a drag a test leaves lifted. dnd-kit attaches the sensor's
+     * document keydown listener on pickup and detaches it on drop, so a row
+     * still lifted at unmount leaves it attached, preventing the default on
+     * the next test's keys.
+     */
+    async function endDrag(user: UserEvent, grip: HTMLElement) {
+      await user.keyboard("{Escape}")
+      await expectPutDown(grip)
+    }
+
     it.each([
       ["Space", " "],
       ["Enter", "{Enter}"],
@@ -354,6 +365,8 @@ describe("FeedOrganizer", () => {
       await expectLifted(grip)
 
       expect(screen.getByText("First Feed")).toBeInTheDocument()
+
+      await endDrag(user, grip)
     })
 
     it("an arrow key that moves a lifted row leaves the tree's selection alone", async () => {
@@ -371,6 +384,8 @@ describe("FeedOrganizer", () => {
         "aria-selected",
         "true"
       )
+
+      await endDrag(user, grip)
     })
 
     it("leaves the keys it does not use to the page shortcuts", async () => {
@@ -384,6 +399,8 @@ describe("FeedOrganizer", () => {
 
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("x")
+
+      await endDrag(user, grip)
     })
 
     it("leaves Escape on a feed that is not lifted to the page shortcuts", async () => {
