@@ -627,7 +627,14 @@ export const api = {
       const query = searchParams.toString()
       return request<PaginatedEntries>(`/entries${query ? `?${query}` : ""}`)
     },
-    get: (id: number) => request<Entry>(`/entries/${id}`),
+    // `${null}` is a valid path segment, so an id that went missing upstream
+    // asks the server for the entry named "null" and comes back a 404 with
+    // nothing in it naming the caller. Refusing here keeps the failure on the
+    // client, where the stack says who asked.
+    get: (id: number) => {
+      if (id == null) throw new Error(`api.entries.get: no entry id (got ${id})`)
+      return request<Entry>(`/entries/${id}`)
+    },
     update: (id: number, data: { entry: Partial<Entry> }) =>
       request<Entry>(`/entries/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     toggleRead: (id: number) =>

@@ -136,6 +136,12 @@ describe("api.entries", () => {
 
       expect(result.content).toBe("<p>Full article content</p>")
     })
+
+    it("refuses a nullish id rather than requesting /entries/null", () => {
+      expect(() => api.entries.get(null as unknown as number)).toThrow(/no entry id/)
+      expect(() => api.entries.get(undefined as unknown as number)).toThrow(/no entry id/)
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
   })
 
   describe("toggleRead", () => {
