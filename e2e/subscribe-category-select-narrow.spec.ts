@@ -82,8 +82,7 @@ const categoryList = (page: Page) =>
 
 const deepOption = (page: Page) => page.getByRole("option", { name: DEEP_TITLE, exact: true })
 
-/** The dialog holds one select, and its trigger carries no accessible name. */
-const categoryTrigger = (dialog: Locator) => dialog.getByRole("combobox")
+const categoryTrigger = (dialog: Locator) => dialog.getByRole("combobox", { name: "Category" })
 
 async function openCategoryList(page: Page, dialog: Locator): Promise<Locator> {
   await categoryTrigger(dialog).click()

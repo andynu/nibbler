@@ -252,7 +252,7 @@ export function SubscribeFeedDialog({
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
+                <SelectTrigger id="category">
                   <SelectValue placeholder="No category" />
                 </SelectTrigger>
                 <SelectContent>

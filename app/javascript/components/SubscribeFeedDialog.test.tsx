@@ -69,6 +69,14 @@ describe("SubscribeFeedDialog", () => {
       expect(screen.getByText("Category")).toBeInTheDocument()
     })
 
+    // The trigger is a button, which <label for> can name; without an id on it
+    // the label names nothing and the combobox is announced unlabelled.
+    it("names the Category combobox from its label", () => {
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      expect(screen.getByRole("combobox", { name: "Category" })).toBeInTheDocument()
+    })
+
     it("shows Subscribe button", () => {
       render(<SubscribeFeedDialog {...defaultProps} />)
 
@@ -153,7 +161,7 @@ describe("SubscribeFeedDialog", () => {
 
       render(<SubscribeFeedDialog {...defaultProps} categories={categories} />)
 
-      expect(screen.getByRole("combobox")).toBeInTheDocument()
+      expect(screen.getByRole("combobox", { name: "Category" })).toBeInTheDocument()
     })
   })
 
