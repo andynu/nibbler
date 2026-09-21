@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { api, Category } from "@/lib/api"
+import { categoryDescendantIds } from "@/lib/categoryNavigation"
 
 interface CategoryDialogProps {
   open: boolean
@@ -81,13 +82,14 @@ export function CategoryDialog({
     }
   }
 
-  // Filter out the current category and its children from parent options
-  const availableParents = categories.filter((c) => {
-    if (!category) return true
-    if (c.id === category.id) return false
-    // In a proper implementation, we'd also filter out descendants
-    return true
-  })
+  // A category cannot be parented to itself or to anything below it: that
+  // closes a loop with no root, which the server refuses and the Move Feed and
+  // Edit Feed pickers can only render as an arbitrary path.
+  const availableParents = useMemo(() => {
+    if (!category) return categories
+    const belowThisOne = categoryDescendantIds(categories, category.id)
+    return categories.filter((c) => c.id !== category.id && !belowThisOne.has(c.id))
+  }, [categories, category])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

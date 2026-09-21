@@ -3,6 +3,7 @@ import { Category, Feed } from "@/lib/api"
 import {
   categoriesInSidebarOrder,
   categoryAncestorIds,
+  categoryDescendantIds,
   stepCategory,
   visibleCategoryIds,
 } from "./categoryNavigation"
@@ -308,5 +309,39 @@ describe("categoryAncestorIds", () => {
     const tree = [category(1, "Loop A", 2, 0), category(2, "Loop B", 1, 0)]
 
     expect(categoryAncestorIds(tree, 1)).toEqual([1, 2])
+  })
+})
+
+describe("categoryDescendantIds", () => {
+  it("returns nothing for a leaf or an id that is not in the tree", () => {
+    const tree = [category(1, "Technology", null, 0), category(2, "Rust", 1, 0)]
+
+    expect(categoryDescendantIds(tree, 2)).toEqual(new Set())
+    expect(categoryDescendantIds(tree, 404)).toEqual(new Set())
+  })
+
+  it("collects every level below the category, not just its children", () => {
+    const tree = [
+      category(1, "Technology", null, 0),
+      category(2, "Programming", 1, 0),
+      category(3, "Rust", 2, 0),
+      category(4, "Async", 3, 0),
+      category(5, "News", null, 0),
+    ]
+
+    expect(categoryDescendantIds(tree, 1)).toEqual(new Set([2, 3, 4]))
+    expect(categoryDescendantIds(tree, 2)).toEqual(new Set([3, 4]))
+  })
+
+  it("stops on a parent cycle instead of hanging", () => {
+    const tree = [category(1, "Loop A", 2, 0), category(2, "Loop B", 1, 0)]
+
+    expect(categoryDescendantIds(tree, 1)).toEqual(new Set([2]))
+  })
+
+  it("stops on a category that is its own parent", () => {
+    const tree = [category(1, "Loop", 1, 0)]
+
+    expect(categoryDescendantIds(tree, 1)).toEqual(new Set())
   })
 })

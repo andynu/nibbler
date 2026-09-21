@@ -218,3 +218,41 @@ export function categoryAncestorIds(
 
   return chain
 }
+
+/**
+ * Every category below `categoryId`, at any depth, excluding `categoryId`
+ * itself. Empty for an unknown id or a leaf.
+ *
+ * This is the set a parent picker has to withhold: parenting a category to
+ * something below it closes a loop with no root, which the server now refuses
+ * and the path builder can only render as arbitrary. A category already inside
+ * a cycle is walked once, so the caller cannot hang here either.
+ */
+export function categoryDescendantIds(
+  categories: Category[],
+  categoryId: number
+): Set<number> {
+  const childrenByParent = new Map<number, Category[]>()
+  for (const category of categories) {
+    const parentId = category.parent_id ?? null
+    if (parentId === null) continue
+    const siblings = childrenByParent.get(parentId)
+    if (siblings) {
+      siblings.push(category)
+    } else {
+      childrenByParent.set(parentId, [category])
+    }
+  }
+
+  const descendants = new Set<number>()
+  const queue = [...(childrenByParent.get(categoryId) ?? [])]
+
+  while (queue.length > 0) {
+    const child = queue.pop()!
+    if (child.id === categoryId || descendants.has(child.id)) continue
+    descendants.add(child.id)
+    queue.push(...(childrenByParent.get(child.id) ?? []))
+  }
+
+  return descendants
+}
