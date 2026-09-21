@@ -37,6 +37,7 @@ import {
 } from "@/hooks/useFeedOrganizerDragAccessibility"
 import { isWithheldFromKeyboardCommands } from "@/hooks/useKeyboardCommands"
 import { api, Feed, Category } from "@/lib/api"
+import { feedHealthSummary } from "@/lib/feedHealth"
 import { sortableGripKeyDown } from "@/lib/sortableGrip"
 import {
   Rss,
@@ -46,6 +47,7 @@ import {
   GripVertical,
   Plus,
   AlertCircle,
+  CircleOff,
   Clock,
   CheckCircle2,
   RefreshCw,
@@ -89,8 +91,12 @@ function formatNextSync(nextPollAt: string | null): { label: string; ready: bool
   return { label: `${diffMins}m`, ready: false }
 }
 
+// A dead feed is out of the scheduler, and the next_poll_at left over from the
+// failure that stopped it sits in the past, so without the stopped branch the
+// row goes green on "Ready to sync" for a feed nothing will ever fetch.
 function NextSyncIndicator({ feed }: { feed: Feed }) {
   const { label, ready } = formatNextSync(feed.next_poll_at)
+  const stopped = Boolean(feed.dead_at)
 
   return (
     <TooltipProvider>
@@ -99,10 +105,15 @@ function NextSyncIndicator({ feed }: { feed: Feed }) {
           <span
             className={cn(
               "flex items-center gap-0.5 text-xs shrink-0",
-              ready ? "text-success" : "text-muted-foreground"
+              ready && !stopped ? "text-success" : "text-muted-foreground"
             )}
           >
-            {ready ? (
+            {stopped ? (
+              <>
+                <CircleOff className="h-3 w-3" />
+                <span>stopped</span>
+              </>
+            ) : ready ? (
               <CheckCircle2 className="h-3 w-3" />
             ) : (
               <>
@@ -113,9 +124,46 @@ function NextSyncIndicator({ feed }: { feed: Feed }) {
           </span>
         </TooltipTrigger>
         <TooltipContent side="left">
-          {ready
-            ? "Ready to sync"
-            : `Next sync in ${label}`}
+          {stopped
+            ? "No longer checked"
+            : ready
+              ? "Ready to sync"
+              : `Next sync in ${label}`}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// The row's only marker of a failing feed, so it carries the state in its
+// accessible name as well as the tooltip. role and aria-label are load-bearing:
+// lucide-react stamps aria-hidden="true" on an icon given no a11y prop, which
+// would leave the indicator nameless and unreachable by role.
+function FeedErrorIndicator({ feed }: { feed: Feed }) {
+  const healthSummary = feedHealthSummary(feed)
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AlertCircle
+            role="img"
+            aria-label={
+              healthSummary
+                ? `${feed.title}: ${healthSummary}`
+                : `${feed.title}: update error`
+            }
+            className="h-3 w-3 text-destructive-text shrink-0 cursor-help"
+          />
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-xs">
+          <p className="font-medium">
+            {feed.dead_at ? "No longer checked" : feed.broken ? "Feed is broken" : "Update Error"}
+          </p>
+          <p className="text-xs opacity-90">{feed.last_error}</p>
+          {healthSummary && (
+            <p className="text-xs opacity-75 mt-1">{healthSummary}</p>
+          )}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -470,11 +518,19 @@ export function FeedOrganizer({
     }
   }
 
+  // Nothing else fetches a dead feed, so the reader's click asks for checking to
+  // start again rather than for one retry. A plain refresh that fails leaves the
+  // feed dead with its year still running from the streak that killed it;
+  // resuming clears the streak first, so a feed still down gets a fresh year.
   const handleRefreshFeed = async (feed: Feed) => {
     if (refreshingFeedId) return
     setRefreshingFeedId(feed.id)
     try {
-      await api.feeds.refresh(feed.id)
+      if (feed.dead_at) {
+        await api.feeds.resume(feed.id)
+      } else {
+        await api.feeds.refresh(feed.id)
+      }
       // Optionally reload feeds to get updated data
       const updatedFeeds = await api.feeds.list()
       onFeedsChange(updatedFeeds)
@@ -592,9 +648,7 @@ export function FeedOrganizer({
                                   )}
                                   <span className="flex-1 truncate">{feed.title}</span>
                                   <NextSyncIndicator feed={feed} />
-                                  {feed.last_error && (
-                                    <AlertCircle className="h-3 w-3 text-destructive-text shrink-0" />
-                                  )}
+                                  {feed.last_error && <FeedErrorIndicator feed={feed} />}
                                 </SortableItem>
                               </ContextMenuTrigger>
                               <ContextMenuContent>
@@ -603,7 +657,7 @@ export function FeedOrganizer({
                                   disabled={refreshingFeedId === feed.id}
                                 >
                                   <RefreshCw className="mr-2 h-4 w-4" />
-                                  Sync Now
+                                  {feed.dead_at ? "Resume Checking" : "Sync Now"}
                                 </ContextMenuItem>
                                 <ContextMenuItem onClick={() => setEditFeed(feed)}>
                                   <Settings className="mr-2 h-4 w-4" />
@@ -678,9 +732,7 @@ export function FeedOrganizer({
                           )}
                           <span className="flex-1 truncate">{feed.title}</span>
                           <NextSyncIndicator feed={feed} />
-                          {feed.last_error && (
-                            <AlertCircle className="h-3 w-3 text-destructive-text shrink-0" />
-                          )}
+                          {feed.last_error && <FeedErrorIndicator feed={feed} />}
                         </SortableItem>
                       </ContextMenuTrigger>
                       <ContextMenuContent>
@@ -689,7 +741,7 @@ export function FeedOrganizer({
                           disabled={refreshingFeedId === feed.id}
                         >
                           <RefreshCw className="mr-2 h-4 w-4" />
-                          Sync Now
+                          {feed.dead_at ? "Resume Checking" : "Sync Now"}
                         </ContextMenuItem>
                         <ContextMenuItem onClick={() => setEditFeed(feed)}>
                           <Settings className="mr-2 h-4 w-4" />

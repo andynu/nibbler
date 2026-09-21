@@ -13,6 +13,9 @@ vi.mock("@/lib/api", () => ({
     feeds: {
       update: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
+      list: vi.fn().mockResolvedValue([]),
+      refresh: vi.fn().mockResolvedValue({}),
+      resume: vi.fn().mockResolvedValue({}),
     },
     categories: {
       create: vi.fn().mockResolvedValue({ id: 100, title: "New Category" }),
@@ -37,6 +40,8 @@ vi.mock("@/contexts/PreferencesContext", () => ({
 }))
 
 describe("FeedOrganizer", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000
+
   const defaultProps = {
     feeds: [],
     categories: [],
@@ -140,6 +145,88 @@ describe("FeedOrganizer", () => {
 
       // The feed should still be visible
       expect(screen.getByText("Error Feed")).toBeInTheDocument()
+    })
+
+    it("names the error indicator after the feed and how long it has failed", () => {
+      const feeds = [
+        mockFeed({
+          id: 1,
+          title: "Error Feed",
+          last_error: "Connection error",
+          consecutive_failures: 4,
+          first_failed_at: new Date(Date.now() - 3 * DAY_MS).toISOString(),
+        }),
+      ]
+
+      render(<FeedOrganizer {...defaultProps} feeds={feeds} />)
+
+      expect(
+        screen.getByRole("img", { name: "Error Feed: Failing for 3 days (4 attempts)" })
+      ).toBeInTheDocument()
+    })
+  })
+
+  // Nothing fetches a dead feed, so a row that reads like any other failing feed
+  // offers a retry that cannot bring it back for good.
+  describe("a feed no longer checked", () => {
+    const deadFeed = (overrides: Parameters<typeof mockFeed>[0] = {}) =>
+      mockFeed({
+        id: 1,
+        title: "Dead Feed",
+        last_error: "getaddrinfo: Name or service not known",
+        consecutive_failures: 60,
+        first_failed_at: new Date(Date.now() - 400 * DAY_MS).toISOString(),
+        broken: true,
+        dead_at: new Date(Date.now() - 30 * DAY_MS).toISOString(),
+        // The poll time left over from the failure that stopped it, long past.
+        next_poll_at: new Date(Date.now() - 23 * DAY_MS).toISOString(),
+        ...overrides,
+      })
+
+    it("says checking stopped instead of showing the feed as ready to sync", () => {
+      render(<FeedOrganizer {...defaultProps} feeds={[deadFeed()]} />)
+
+      expect(screen.getByText("stopped")).toBeInTheDocument()
+      expect(
+        screen.getByRole("img", {
+          name: "Dead Feed: Checking stopped after a year of failures",
+        })
+      ).toBeInTheDocument()
+    })
+
+    it("leaves the sync countdown alone for a feed that is failing but checked", () => {
+      const stillChecked = deadFeed({
+        dead_at: null,
+        consecutive_failures: 6,
+        next_poll_at: new Date(Date.now() + 2.5 * DAY_MS).toISOString(),
+      })
+
+      render(<FeedOrganizer {...defaultProps} feeds={[stillChecked]} />)
+
+      expect(screen.queryByText("stopped")).not.toBeInTheDocument()
+      expect(screen.getByText("2d")).toBeInTheDocument()
+    })
+
+    it("resumes checking a dead feed instead of probing it once", async () => {
+      const user = userEvent.setup()
+
+      render(<FeedOrganizer {...defaultProps} feeds={[deadFeed()]} />)
+      await user.pointer({ keys: "[MouseRight]", target: screen.getByText("Dead Feed") })
+      await user.click(await screen.findByText("Resume Checking"))
+
+      await waitFor(() => expect(api.feeds.resume).toHaveBeenCalledWith(1))
+      expect(api.feeds.refresh).not.toHaveBeenCalled()
+    })
+
+    it("keeps Sync Now for a feed that is failing but still checked", async () => {
+      const user = userEvent.setup()
+
+      render(<FeedOrganizer {...defaultProps} feeds={[deadFeed({ dead_at: null })]} />)
+      await user.pointer({ keys: "[MouseRight]", target: screen.getByText("Dead Feed") })
+      await user.click(await screen.findByText("Sync Now"))
+
+      await waitFor(() => expect(api.feeds.refresh).toHaveBeenCalledWith(1))
+      expect(api.feeds.resume).not.toHaveBeenCalled()
     })
   })
 
