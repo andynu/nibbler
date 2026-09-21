@@ -453,6 +453,53 @@ describe("SubscribeFeedDialog", () => {
       })
     })
 
+    it("replaces a page URL with the feed the preview discovered", async () => {
+      const user = userEvent.setup()
+      mockApiPreview.mockResolvedValue({
+        title: "Linked Feed",
+        feed_url: "https://example.com/blog/rss.xml",
+        entry_count: 5,
+        last_updated: null,
+        sample_entries: [],
+      })
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/blog")
+      await user.click(screen.getByRole("button", { name: /test/i }))
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Feed URL")).toHaveValue("https://example.com/blog/rss.xml")
+      })
+      expect(screen.getByText("Feed found")).toBeInTheDocument()
+    })
+
+    it("subscribes to the discovered feed URL", async () => {
+      const user = userEvent.setup()
+      mockApiPreview.mockResolvedValue({
+        title: "Linked Feed",
+        feed_url: "https://example.com/blog/rss.xml",
+        entry_count: 5,
+        last_updated: null,
+        sample_entries: [],
+      })
+
+      render(<SubscribeFeedDialog {...defaultProps} />)
+
+      await user.type(screen.getByLabelText("Feed URL"), "https://example.com/blog")
+      await user.click(screen.getByRole("button", { name: /test/i }))
+      await waitFor(() => {
+        expect(screen.getByLabelText("Feed URL")).toHaveValue("https://example.com/blog/rss.xml")
+      })
+      await user.click(screen.getByRole("button", { name: /subscribe/i }))
+
+      await waitFor(() => {
+        expect(mockApiCreate).toHaveBeenCalledWith({
+          feed: expect.objectContaining({ feed_url: "https://example.com/blog/rss.xml" }),
+        })
+      })
+    })
+
     it("shows error when test fails", async () => {
       const user = userEvent.setup()
       mockApiPreview.mockRejectedValue(new Error("Unable to fetch feed"))

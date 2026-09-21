@@ -99,6 +99,12 @@ export function SubscribeFeedDialog({
     try {
       const result = await api.feeds.preview(feedUrl)
       setPreview(result)
+      // A page URL previews as the feed it advertises, so show that feed in
+      // the field: it is what subscribing will store, and the reader should
+      // see which URL they are about to add.
+      if (result.feed_url && result.feed_url !== feedUrl) {
+        setFeedUrl(result.feed_url)
+      }
       // Auto-fill title if empty
       if (!title && result.title) {
         setTitle(result.title)
