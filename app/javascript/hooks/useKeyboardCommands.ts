@@ -42,9 +42,11 @@ const withheldEvents = new WeakSet<Event>()
  * Keep one key press from the commands without stopping its propagation, for a
  * control whose own handling of that key also listens on the document.
  *
- * Not `defaultPrevented`: Radix's dismissable layers prevent Escape in a
- * document capture listener, so honoring it would stop Escape reaching these
- * commands whenever it closes a dialog.
+ * A control that answers the key itself needs none of this: the commands skip
+ * a press whose default has been prevented. This is for the one that has not
+ * prevented it yet. dnd-kit's keyboard sensor reads a lifted row's keys from a
+ * document listener it attaches on pickup, so it is still behind this one when
+ * this one runs, and stopping propagation instead would starve it.
  */
 export function withholdFromKeyboardCommands(event: Event): void {
   withheldEvents.add(event)
@@ -111,6 +113,12 @@ export function useKeyboardCommands(
     const handleKeyDown = (event: KeyboardEvent) => {
       const { commands, enabled } = latest.current
       if (!enabled) return
+      // A prevented default means the press has already been answered above
+      // this listener. Radix's dismissable layers prevent Escape in a document
+      // capture listener before they dismiss, and its menu items and triggers
+      // prevent Enter and Space on the way up; without this the Escape that
+      // closes a dialog or a menu also closed the open entry behind it.
+      if (event.defaultPrevented) return
       if (withheldEvents.has(event)) return
       if (isInputElement(event.target)) return
 

@@ -202,6 +202,47 @@ describe("useKeyboardCommands", () => {
     })
   })
 
+  describe("presses another layer has already answered", () => {
+    it("ignores one a capture-phase listener prevented, the way Radix dismisses", () => {
+      const handler = vi.fn()
+      const dismiss = (event: Event) => event.preventDefault()
+      document.addEventListener("keydown", dismiss, { capture: true })
+      try {
+        renderHook(() =>
+          useKeyboardCommands([{ key: "Escape", handler, description: "Close entry" }])
+        )
+        dispatchKeyDown("Escape")
+      } finally {
+        document.removeEventListener("keydown", dismiss, { capture: true })
+      }
+
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it("ignores one the focused control prevented on the way up", async () => {
+      const user = userEvent.setup()
+      const handler = vi.fn()
+      renderHook(() => useKeyboardCommands([{ key: "Enter", handler, description: "Open entry" }]))
+      render(<button onKeyDown={(event) => event.preventDefault()}>selects</button>)
+
+      screen.getByRole("button", { name: "selects" }).focus()
+      await user.keyboard("{Enter}")
+
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it("runs the command when nothing prevented the press", () => {
+      const handler = vi.fn()
+
+      renderHook(() =>
+        useKeyboardCommands([{ key: "Escape", handler, description: "Close entry" }])
+      )
+      dispatchKeyDown("Escape")
+
+      expect(handler).toHaveBeenCalledOnce()
+    })
+  })
+
   describe("modifier key matching", () => {
     it("matches ctrl modifier correctly", () => {
       const handler = vi.fn()

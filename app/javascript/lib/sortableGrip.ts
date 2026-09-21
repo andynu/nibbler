@@ -27,6 +27,10 @@ const LIFTED_ROW_KEY_CODES: ReadonlySet<string> = new Set([
  * the shortcut listeners, so they are withheld rather than stopped; stopping
  * propagation would starve that listener as well.
  *
+ * Withholding a pickup looks redundant now that the page commands skip a
+ * prevented press: it is not, because FeedOrganizer's tree listener reads the
+ * withhold and not the prevented default.
+ *
  * Every other press still reaches the shortcuts, including Escape on a handle
  * whose row is not lifted.
  *

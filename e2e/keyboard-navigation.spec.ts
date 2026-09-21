@@ -352,6 +352,67 @@ test.describe("Help Dialog", () => {
   })
 })
 
+/**
+ * Several of the page's keys are bound twice over: Radix dismisses the topmost
+ * layer on Escape and opens a menu on Enter, and the page closes the open entry
+ * and opens one. A press must reach whichever of the two is on top, and only
+ * that one. Each example asserts both halves, because a press that reaches
+ * neither looks the same as one that reached the right half.
+ */
+test.describe("Keys a Radix layer has already answered", () => {
+  test.beforeEach(async ({ page }) => {
+    await waitForAppReady(page)
+  })
+
+  test("closing the help dialog leaves the entry open, the next press closes it", async ({
+    page,
+  }) => {
+    const titles = await listedTitles(page)
+    await page.keyboard.press("j")
+    await expectEntryOpen(page, titles[0])
+
+    await page.keyboard.press("Shift+?")
+    await expect(page.getByRole("dialog")).toBeVisible()
+
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("dialog")).not.toBeVisible()
+    await expectEntryOpen(page, titles[0])
+
+    await page.keyboard.press("Escape")
+    await expect(page.getByText("Select an entry to read")).toBeVisible()
+    await expect(selectedRows(page)).toHaveCount(0)
+  })
+
+  test("closing a sidebar menu leaves the entry open", async ({ page }) => {
+    const titles = await listedTitles(page)
+    await page.keyboard.press("j")
+    await expectEntryOpen(page, titles[0])
+
+    await page.getByRole("button", { name: "Technology menu" }).click()
+    await expect(page.getByRole("menu")).toBeVisible()
+
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("menu")).not.toBeVisible()
+    await expectEntryOpen(page, titles[0])
+  })
+
+  test("Enter on a menu trigger opens the menu and no entry", async ({ page }) => {
+    await listedTitles(page)
+    await expect(selectedRows(page)).toHaveCount(0)
+
+    await page.getByRole("button", { name: "Technology menu" }).focus()
+    await page.keyboard.press("Enter")
+    await expect(page.getByRole("menu")).toBeVisible()
+
+    // The menu is modal, so it aria-hides the rest of the page and a role query
+    // outside it would pass whatever happened. Dismiss it before asking.
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("menu")).not.toBeVisible()
+    await expect(page.getByText("Select an entry to read")).toBeVisible()
+    await expect(selectedRows(page)).toHaveCount(0)
+  })
+})
+
 test.describe("Command Palette", () => {
   test.beforeEach(async ({ page }) => {
     await waitForAppReady(page)
