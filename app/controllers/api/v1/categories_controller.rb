@@ -52,8 +52,11 @@ module Api
         new_order = params[:order_id].to_i
         new_parent_id = params[:parent_id]
 
-        @category.update!(order_id: new_order, parent_id: new_parent_id)
-        render json: category_json(@category)
+        if @category.update(order_id: new_order, parent_id: new_parent_id)
+          render json: category_json(@category)
+        else
+          render json: { errors: @category.errors.full_messages }, status: :unprocessable_entity
+        end
       end
 
       # GET /api/v1/categories/tree
