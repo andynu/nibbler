@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "./fixtures"
+import { FeedsPage } from "./pages"
 
 /**
  * Article reading flow E2E tests.
@@ -14,6 +15,14 @@ import { test, expect, type Page } from "./fixtures"
 async function waitForAppReady(page: Page) {
   await page.goto("/")
   await page.waitForSelector("button", { timeout: 10000 })
+}
+
+// Seeded unread and not starred, and neither the summarized nor the full-text
+// article, so opening it does nothing but mark it read.
+const UNREAD_HEADLINE = "Writing a parser with nom"
+
+function headerButton(page: Page, name: string) {
+  return page.getByTestId("entry-header").getByRole("button", { name, exact: true })
 }
 
 test.describe("Browse Articles", () => {
@@ -121,6 +130,29 @@ test.describe("Article API operations", () => {
 })
 
 test.describe("Mark Read/Unread", () => {
+  // Opening an unread article marks it read on the server, so the header has to
+  // offer the undo. The article the reader opened is fetched before that write
+  // and carries the pre-toggle read state.
+  test("the header offers Mark as unread once an unread article is open", async ({ page }) => {
+    const feedsPage = new FeedsPage(page)
+    await feedsPage.goto()
+    await feedsPage.selectEntryByTitle(UNREAD_HEADLINE)
+
+    await expect(headerButton(page, "Mark as unread")).toBeVisible()
+    await expect(headerButton(page, "Mark as read")).toHaveCount(0)
+  })
+
+  // The endpoint is a toggle, so a header that offers the wrong label does not
+  // merely read wrong: pressing it performs the opposite action.
+  test("the header read toggle returns a just-opened article to unread", async ({ page }) => {
+    const feedsPage = new FeedsPage(page)
+    await feedsPage.goto()
+    await feedsPage.selectEntryByTitle(UNREAD_HEADLINE)
+
+    await headerButton(page, "Mark as unread").click()
+    await expect(headerButton(page, "Mark as read")).toBeVisible()
+  })
+
   test("can toggle read status via API", async ({ page }) => {
     // Get an entry
     const listResponse = await page.request.get("/api/v1/entries?per_page=1")

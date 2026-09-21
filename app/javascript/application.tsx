@@ -438,15 +438,22 @@ function App() {
 
       // Mark as read when opening
       if (entry.unread) {
-        await api.entries.toggleRead(entryId)
+        const result = await api.entries.toggleRead(entryId)
         setEntries((prev) =>
-          prev.map((e) => (e.id === entryId ? { ...e, unread: false } : e))
+          prev.map((e) => (e.id === entryId ? { ...e, unread: result.unread } : e))
+        )
+        // `entry` above was fetched before the toggle, so the copy in the pane
+        // still reads unread. Patch it too, or the header offers "Mark as read"
+        // for an article the server already has as read - and the endpoint is a
+        // toggle, so pressing it does the opposite of its label.
+        setSelectedEntry((prev) =>
+          prev?.id === entryId ? { ...prev, unread: result.unread } : prev
         )
         // The search owns its own rows, so the entry list update above does not
         // reach them. Opening a hit is the commonest way into that: the reader
         // takes no deliberate action and the row they just clicked would go on
         // claiming to be unread (ttrb-zgvy).
-        updateSearchResult(entryId, { unread: false })
+        updateSearchResult(entryId, { unread: result.unread })
         loadFeeds() // Refresh unread counts
         loadCounters() // Refresh virtual folder counts
       }
