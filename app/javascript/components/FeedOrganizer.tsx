@@ -31,6 +31,10 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import {
+  feedDrop,
+  useFeedOrganizerDragAccessibility,
+} from "@/hooks/useFeedOrganizerDragAccessibility"
 import { isWithheldFromKeyboardCommands } from "@/hooks/useKeyboardCommands"
 import { api, Feed, Category } from "@/lib/api"
 import { sortableGripKeyDown } from "@/lib/sortableGrip"
@@ -196,6 +200,8 @@ export function FeedOrganizer({
     })
   )
 
+  const dragAccessibility = useFeedOrganizerDragAccessibility(feeds, categories)
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
   }
@@ -206,34 +212,19 @@ export function FeedOrganizer({
 
     if (!over || active.id === over.id) return
 
-    const activeId = active.id as string
-    const overId = over.id as string
+    // Null for a dragged category: the tree persists no category order.
+    const drop = feedDrop(active.id, over.id, feeds)
+    if (!drop) return
 
-    // Handle feed movement
-    if (activeId.startsWith("feed-")) {
-      const feedId = parseInt(activeId.replace("feed-", ""), 10)
-      let newCategoryId: number | null = null
-
-      if (overId.startsWith("category-")) {
-        newCategoryId = parseInt(overId.replace("category-", ""), 10)
-      } else if (overId.startsWith("feed-")) {
-        // Find which category the target feed is in
-        const targetFeedId = parseInt(overId.replace("feed-", ""), 10)
-        const targetFeed = feeds.find((f) => f.id === targetFeedId)
-        newCategoryId = targetFeed?.category_id || null
-      }
-
-      // Update feed category
-      try {
-        const updatedFeed = await api.feeds.update(feedId, {
-          feed: { category_id: newCategoryId },
-        })
-        onFeedsChange(
-          feeds.map((f) => (f.id === feedId ? updatedFeed : f))
-        )
-      } catch (error) {
-        console.error("Failed to move feed:", error)
-      }
+    try {
+      const updatedFeed = await api.feeds.update(drop.feedId, {
+        feed: { category_id: drop.categoryId },
+      })
+      onFeedsChange(
+        feeds.map((f) => (f.id === drop.feedId ? updatedFeed : f))
+      )
+    } catch (error) {
+      console.error("Failed to move feed:", error)
     }
   }
 
@@ -536,6 +527,7 @@ export function FeedOrganizer({
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          accessibility={dragAccessibility}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
@@ -551,6 +543,7 @@ export function FeedOrganizer({
                     <div key={`category-${item.data.id}`}>
                       <SortableItem
                         id={`category-${item.data.id}`}
+                        label={item.data.title}
                         isSelected={selectedId === `category-${item.data.id}`}
                         isEditing={editingId === `category-${item.data.id}`}
                         editValue={editValue}
@@ -578,6 +571,7 @@ export function FeedOrganizer({
                               <ContextMenuTrigger asChild>
                                 <SortableItem
                                   id={`feed-${feed.id}`}
+                                  label={feed.title}
                                   isSelected={selectedId === `feed-${feed.id}`}
                                   isEditing={editingId === `feed-${feed.id}`}
                                   editValue={editValue}
@@ -663,6 +657,7 @@ export function FeedOrganizer({
                       <ContextMenuTrigger asChild>
                         <SortableItem
                           id={`feed-${feed.id}`}
+                          label={feed.title}
                           isSelected={selectedId === `feed-${feed.id}`}
                           isEditing={editingId === `feed-${feed.id}`}
                           editValue={editValue}
@@ -799,6 +794,8 @@ export function FeedOrganizer({
 
 interface SortableItemProps extends React.HTMLAttributes<HTMLDivElement> {
   id: string
+  /** What the grip is named after: the feed or category this row stands for. */
+  label: string
   isSelected: boolean
   isEditing: boolean
   editValue: string
@@ -813,6 +810,7 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
   function SortableItem(
     {
       id,
+      label,
       isSelected,
       isEditing,
       editValue,
@@ -881,6 +879,7 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
           {...attributes}
           {...listeners}
           onKeyDown={sortableGripKeyDown(listeners, isDragging)}
+          aria-label={`Move ${label}`}
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </button>

@@ -2,8 +2,10 @@ import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FeedOrganizer } from "./FeedOrganizer"
+import { api } from "@/lib/api"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
 import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
+import { stackRows } from "../../../test/helpers/dndRowLayout"
 
 // Mock API
 vi.mock("@/lib/api", () => ({
@@ -412,6 +414,106 @@ describe("FeedOrganizer", () => {
 
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("Escape")
+    })
+  })
+
+  describe("drag handles for screen readers", () => {
+    // One feed per category, so an arrow key off a feed lands on the next
+    // category: the drop the tree actually acts on.
+    const categories = [mockCategory({ id: 1, title: "Tech" }), mockCategory({ id: 2, title: "News" })]
+    const feeds = [
+      mockFeed({ id: 1, title: "First Feed", category_id: 1 }),
+      mockFeed({ id: 2, title: "Second Feed", category_id: 2 }),
+    ]
+    const treeProps = { ...defaultProps, feeds, categories }
+
+    it("names each grip after the feed or category it moves", () => {
+      render(<FeedOrganizer {...treeProps} />)
+
+      for (const name of ["Tech", "News", "First Feed", "Second Feed"]) {
+        expect(screen.getByRole("button", { name: `Move ${name}` })).toBeInTheDocument()
+      }
+    })
+
+    it("describes how to move a row with the keyboard", () => {
+      render(<FeedOrganizer {...treeProps} />)
+
+      expect(screen.getByRole("button", { name: "Move First Feed" })).toHaveAccessibleDescription(
+        "To move a feed, press Space or Enter to pick it up. Use the up and down arrow keys to move it over a category, then press Space or Enter to drop it in. Press Escape to cancel."
+      )
+    })
+
+    describe("announcements", () => {
+      beforeEach(() => {
+        stackRows('[role="option"]')
+      })
+
+      afterEach(() => {
+        vi.restoreAllMocks()
+      })
+
+      async function pickUp(name: string) {
+        const user = userEvent.setup()
+        render(<FeedOrganizer {...treeProps} />)
+        const grip = screen.getByRole("button", { name: `Move ${name}` })
+        grip.focus()
+        await user.keyboard(" ")
+        await waitFor(() => expect(grip).toHaveAttribute("aria-pressed", "true"))
+        return user
+      }
+
+      async function expectAnnounced(text: string) {
+        await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text))
+      }
+
+      it("name the feed when one is picked up", async () => {
+        await pickUp("First Feed")
+
+        await expectAnnounced("Picked up First Feed.")
+      })
+
+      it("name what a lifted feed is over", async () => {
+        const user = await pickUp("First Feed")
+
+        await user.keyboard("{ArrowDown}")
+
+        await expectAnnounced("First Feed is over News.")
+      })
+
+      it("name the category a dropped feed lands in", async () => {
+        const user = await pickUp("First Feed")
+        await user.keyboard("{ArrowDown}")
+        await expectAnnounced("First Feed is over News.")
+
+        await user.keyboard(" ")
+
+        await expectAnnounced("Moved First Feed to News.")
+        await waitFor(() =>
+          expect(api.feeds.update).toHaveBeenCalledWith(1, { feed: { category_id: 2 } })
+        )
+      })
+
+      it("say nothing moved when a category is dropped, because the tree keeps no category order", async () => {
+        const user = await pickUp("Tech")
+        await user.keyboard("{ArrowDown}")
+        await expectAnnounced("Tech is over First Feed.")
+
+        await user.keyboard(" ")
+
+        await expectAnnounced("Dropped Tech. Nothing moved.")
+        expect(api.feeds.update).not.toHaveBeenCalled()
+      })
+
+      it("name the feed a canceled move leaves where it was", async () => {
+        const user = await pickUp("First Feed")
+        await user.keyboard("{ArrowDown}")
+        await expectAnnounced("First Feed is over News.")
+
+        await user.keyboard("{Escape}")
+
+        await expectAnnounced("Move canceled. First Feed is back where it was.")
+        expect(api.feeds.update).not.toHaveBeenCalled()
+      })
     })
   })
 })
