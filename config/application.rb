@@ -39,6 +39,13 @@ module Ttrb
     # Don't generate system test files.
     config.generators.system_tests = nil
 
+    # app/assets/stylesheets holds only the Tailwind source, which `npm run
+    # build:css` compiles into app/assets/builds/application.css. On the asset
+    # load path `stylesheet_link_tag :app` links the source as a second
+    # stylesheet, and the browser resolves its `@import "tailwindcss"` against
+    # /assets/tailwindcss, which 404s on every page load.
+    config.assets.excluded_paths << Rails.root.join("app/assets/stylesheets")
+
     # Action Cable runs connection and channel callbacks on its own thread pool,
     # not on the Puma thread that served the upgrade, and each of those threads
     # can hold an Active Record connection while it works. config/database.yml
