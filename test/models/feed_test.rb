@@ -247,6 +247,40 @@ class FeedTest < ActiveSupport::TestCase
     assert_equal Feed::BACKOFF_DELAYS[2].to_i, (@new_feed.reload.retry_after - Time.current).to_i
   end
 
+  # A 429 is the feed's own server answering, so it dates the streak exactly as
+  # a fetch error does. Without this the UI could say "Failing (5 attempts)" and
+  # not for how long.
+  test "apply_backoff! stamps first_failed_at on the first rate limit" do
+    freeze_time
+
+    @new_feed.apply_backoff!
+
+    assert_in_delta Time.current.to_i, @new_feed.reload.first_failed_at.to_i, 5
+  end
+
+  test "apply_backoff! stamps first_failed_at once and then leaves it alone" do
+    @new_feed.apply_backoff!
+    started = @new_feed.first_failed_at
+
+    travel 2.hours do
+      @new_feed.apply_backoff!
+    end
+
+    assert_equal started.to_i, @new_feed.reload.first_failed_at.to_i,
+      "first_failed_at marks the start of the streak, not the latest attempt"
+  end
+
+  test "a rate limit after a fetch error keeps the streak's original start" do
+    @new_feed.record_failure!("Server error (503)")
+    started = @new_feed.reload.first_failed_at
+
+    travel 2.hours do
+      @new_feed.apply_backoff!
+    end
+
+    assert_equal started.to_i, @new_feed.reload.first_failed_at.to_i
+  end
+
   test "record_failure! stamps first_failed_at once and then leaves it alone" do
     @new_feed.record_failure!("boom")
     started = @new_feed.first_failed_at
@@ -493,18 +527,28 @@ class FeedTest < ActiveSupport::TestCase
     assert_not @new_feed.reload.dead?
   end
 
-  # A 429 streak counts toward consecutive_failures without stamping
-  # first_failed_at. With no start date there is no year to measure, so the
-  # clock starts at the first failure that does date itself.
-  test "a streak with no start date never marks a feed dead" do
-    (Feed::BACKOFF_DELAYS.length + 2).times { @new_feed.apply_backoff! }
-    assert_nil @new_feed.reload.first_failed_at, "precondition: a rate-limit streak has no start date"
+  # A host that is rate-limiting us is up and answering, so a feed that has only
+  # ever been throttled is not a candidate for dead however long it runs. The
+  # check lives in record_failure! and apply_backoff! does not call it.
+  test "a rate limit never marks a feed dead on its own" do
+    @new_feed.apply_backoff!
+
+    travel Feed::DEAD_AFTER_FAILING_FOR + 1.day do
+      @new_feed.apply_backoff!
+
+      assert_not @new_feed.reload.dead?
+    end
+  end
+
+  # Mixed streaks measure the year from when the feed stopped delivering, not
+  # from the first fault that happened to be a fetch error.
+  test "a rate limit dates the year that a later fetch error acts on" do
+    @new_feed.apply_backoff!
 
     travel Feed::DEAD_AFTER_FAILING_FOR + 1.day do
       @new_feed.record_failure!("Feed not found")
 
-      assert_not @new_feed.reload.dead?
-      assert_in_delta Time.current.to_i, @new_feed.first_failed_at.to_i, 5
+      assert @new_feed.reload.dead?
     end
   end
 

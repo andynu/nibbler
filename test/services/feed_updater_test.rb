@@ -207,6 +207,20 @@ class FeedUpdaterTest < ActiveSupport::TestCase
       "retry_after is the server's window; a failure of ours must not occupy it"
   end
 
+  # A 429 is the feed's own server answering, so it builds the same dated streak
+  # a fetch error does, and retry_after on top of it.
+  test "a rate-limited fetch dates the streak like any other feed fault" do
+    result = update_with_fetch_result(
+      FeedFetcher::FetchResult.new(status: :rate_limited, error: "Rate limited (429)")
+    )
+
+    assert_equal :rate_limited, result.status
+    @feed.reload
+    assert_equal 1, @feed.consecutive_failures
+    assert_not_nil @feed.first_failed_at
+    assert_not_nil @feed.retry_after
+  end
+
   test "the morning force sweep still reaches a feed parked on failure backoff" do
     Feed.where.not(id: @feed.id).delete_all
     Feed::BROKEN_AFTER_CONSECUTIVE_FAILURES.times { update_with_error("dead domain") }

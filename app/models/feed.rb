@@ -149,8 +149,19 @@ class Feed < ApplicationRecord
   ROLLING_AVERAGE_DAYS = 30
 
   # Apply exponential backoff, optionally using server's Retry-After
+  #
+  # A 429 is the feed's own server answering, so it joins the same streak a
+  # fetch error does and dates it the same way: the two columns describe the
+  # feed, and only a fault on nibbler's side is kept out of them. Counting
+  # without dating left a throttled feed reading "Failing (5 attempts)" with no
+  # duration, and started the dead clock later than the streak really began.
+  #
+  # Unlike record_failure! this never marks a feed dead. A host that is
+  # rate-limiting us is up and talking, and the cap below already holds the cost
+  # at about one request a day.
   def apply_backoff!(server_retry_after = nil)
     self.consecutive_failures += 1
+    self.first_failed_at ||= Time.current
 
     # Prefer server's Retry-After if provided and reasonable (under 48 hours)
     if server_retry_after.present? && server_retry_after < 48.hours.from_now
@@ -178,9 +189,9 @@ class Feed < ApplicationRecord
   # domain was re-requested every five minutes, 288 times a day, indefinitely.
   # Under the curve above it converges on one attempt a week instead.
   #
-  # The year before a feed is marked dead is read from first_failed_at alone. A
-  # 429 streak leaves that unset, so its clock starts at the first failure that
-  # stamps it: later than the streak really began, never earlier.
+  # The year before a feed is marked dead is read from first_failed_at alone,
+  # which a rate limit also stamps, so a streak that began with 429s and turned
+  # into fetch errors is measured from where it actually began.
   def record_failure!(error_message)
     self.consecutive_failures += 1
     self.last_error = error_message.to_s
