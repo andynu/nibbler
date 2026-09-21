@@ -9,7 +9,8 @@
 # The stream is keyed on the connection's user and the subscription takes no
 # params, so a client has no way to name someone else's stream.
 #
-# @see UpdateFeedJob for the process that broadcasts here
+# @see UpdateFeedJob and Api::V1::FeedsController for the processes that
+#   broadcast here
 class CountersChannel < ApplicationCable::Channel
   def self.stream_name_for(user)
     "counters:#{user.id}"
@@ -18,6 +19,19 @@ class CountersChannel < ApplicationCable::Channel
   # @param user [User] whose counts moved
   def self.broadcast_stale(user)
     ActionCable.server.broadcast(stream_name_for(user), { stale: true })
+  end
+
+  # What a caller that has already stored the entries should use. A broken
+  # cable must not take the surrounding work down with it: raising would make
+  # the job re-fetch a feed whose entries are stored, and would answer a
+  # request that succeeded with a 500. The client's counters poll covers a
+  # dropped nudge.
+  #
+  # @param user [User] whose counts moved
+  def self.nudge(user)
+    broadcast_stale(user)
+  rescue StandardError => e
+    Rails.logger.warn "Could not nudge counters for user #{user.id}: #{e.message}"
   end
 
   def subscribed

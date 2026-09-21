@@ -34,7 +34,8 @@ module Api
 
         if @feed.save
           # Fetch entries for the new feed
-          FeedUpdater.new(@feed).update
+          result = FeedUpdater.new(@feed).update
+          nudge_counters(result)
           render json: feed_json(@feed), status: :created
         else
           render json: { error: @feed.errors.full_messages.join(", ") }, status: :unprocessable_entity
@@ -81,6 +82,7 @@ module Api
         result = FeedUpdater.new(@feed).update
 
         if result.success?
+          nudge_counters(result)
           render json: {
             status: result.status,
             new_entries: result.new_entries_count,
@@ -99,6 +101,7 @@ module Api
       def resume
         @feed.resume_checking!
         result = FeedUpdater.new(@feed).update unless @feed.update_in_progress?
+        nudge_counters(result)
 
         render json: {
           status: result&.status,
@@ -230,10 +233,28 @@ module Api
           }
         end
 
+        # One nudge for the whole sweep. Broadcasting per feed would have every
+        # other tab refetch its counters once for each feed that had something,
+        # for counts that only settle when the sweep ends.
+        CountersChannel.nudge(current_user) if results.any? { |r| r[:new_entries].to_i.positive? }
+
         render json: { updated: results.count, results: results }
       end
 
       private
+
+      # Tells the reader's *other* tabs to refetch their counters. The tab that
+      # made this request reloads on its own and will refetch twice; ActionCable
+      # has no way to exclude the originating connection from a stream, and a
+      # second GET of the counters is cheaper than leaving every other tab and
+      # device on the 5-minute poll.
+      #
+      # +result+ is nil on the resume path that found an update already running.
+      def nudge_counters(result)
+        return unless result&.new_entries_count&.positive?
+
+        CountersChannel.nudge(current_user)
+      end
 
       def set_feed
         @feed = current_user.feeds.find(params[:id])

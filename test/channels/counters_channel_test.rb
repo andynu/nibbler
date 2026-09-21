@@ -43,4 +43,19 @@ class CountersChannelTest < ActionCable::Channel::TestCase
     message = broadcasts(CountersChannel.stream_name_for(users(:one))).last
     assert_equal({ "stale" => true }, ActiveSupport::JSON.decode(message))
   end
+
+  test "nudge broadcasts the same message" do
+    CountersChannel.nudge(users(:one))
+
+    message = broadcasts(CountersChannel.stream_name_for(users(:one))).last
+    assert_equal({ "stale" => true }, ActiveSupport::JSON.decode(message))
+  end
+
+  # Callers reach nudge with the entries already stored, so a cable that is
+  # down must not propagate into their work.
+  test "nudge swallows a failed broadcast" do
+    CountersChannel.stub(:broadcast_stale, ->(_user) { raise ActiveRecord::ConnectionNotEstablished }) do
+      assert_nothing_raised { CountersChannel.nudge(users(:one)) }
+    end
+  end
 end

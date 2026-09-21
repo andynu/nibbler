@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
+  include ActionCable::TestHelper
+
   def setup
     @user = sign_in(User.first)
     # Get a feed belonging to this user
@@ -497,7 +499,104 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, JSON.parse(response.body)["updated"]
   end
 
+  # ==========================
+  # Counter nudges
+  # ==========================
+  # These paths store entries in the request rather than in UpdateFeedJob. The
+  # tab that asked reloads on its own; every other tab and device is on the
+  # counters poll until a nudge arrives.
+
+  test "create nudges the reader's counters when the new feed brought entries" do
+    feed_url = "https://example.com/created-#{SecureRandom.hex(4)}.rss"
+    stub_feed(feed_url, item_link: "https://example.com/created-item")
+
+    assert_broadcasts(CountersChannel.stream_name_for(@user), 1) do
+      post api_v1_feeds_url, params: { feed: { title: "Created", feed_url: feed_url } }, as: :json
+    end
+
+    assert_response :created
+  end
+
+  test "refresh nudges the reader's counters when the fetch stored entries" do
+    stub_feed(@feed.feed_url, item_link: "https://example.com/refreshed-item")
+
+    assert_broadcasts(CountersChannel.stream_name_for(@user), 1) do
+      post refresh_api_v1_feed_url(@feed), as: :json
+    end
+
+    assert_equal 1, JSON.parse(response.body)["new_entries"]
+  end
+
+  test "refresh does not nudge when the feed was not modified" do
+    stub_request(:get, @feed.feed_url).to_return(status: 304)
+
+    assert_no_broadcasts(CountersChannel.stream_name_for(@user)) do
+      post refresh_api_v1_feed_url(@feed), as: :json
+    end
+
+    assert_response :success
+  end
+
+  test "resume nudges the reader's counters when the feed comes back with entries" do
+    stub_feed(@feed.feed_url, item_link: "https://example.com/resumed-item")
+    kill(@feed)
+
+    assert_broadcasts(CountersChannel.stream_name_for(@user), 1) do
+      post resume_api_v1_feed_url(@feed), as: :json
+    end
+
+    assert_equal 1, JSON.parse(response.body)["new_entries"]
+  end
+
+  # resume skips the fetch entirely when one is already running, leaving no
+  # result to read a count from.
+  test "resume does not nudge when an update was already in progress" do
+    kill(@feed)
+    @feed.update!(last_update_started: Time.current)
+
+    assert_no_broadcasts(CountersChannel.stream_name_for(@user)) do
+      post resume_api_v1_feed_url(@feed), as: :json
+    end
+
+    assert_response :success
+  end
+
+  test "refresh_all nudges once for the whole sweep rather than once per feed" do
+    @user.feeds.update_all(last_updated: Time.current)
+    swept = 2.times.map do |i|
+      feed = @user.feeds.create!(title: "Swept #{i}", feed_url: "https://example.com/swept-#{i}.rss")
+      stub_feed(feed.feed_url, item_link: "https://example.com/swept-#{i}/item")
+      feed
+    end
+
+    assert_broadcasts(CountersChannel.stream_name_for(@user), 1) do
+      post refresh_all_api_v1_feeds_url, as: :json
+    end
+
+    assert_equal swept.count, JSON.parse(response.body)["updated"]
+  end
+
+  test "refresh_all does not nudge when the sweep stored nothing" do
+    @user.feeds.update_all(last_updated: Time.current)
+    feed = @user.feeds.create!(title: "Unchanged", feed_url: "https://example.com/unchanged.rss")
+    stub_request(:get, feed.feed_url).to_return(status: 304)
+
+    assert_no_broadcasts(CountersChannel.stream_name_for(@user)) do
+      post refresh_all_api_v1_feeds_url, as: :json
+    end
+
+    assert_equal 1, JSON.parse(response.body)["updated"]
+  end
+
   private
+
+  def stub_feed(url, item_link:)
+    stub_request(:get, url).to_return(
+      status: 200,
+      body: sample_rss_feed("Stubbed Feed", item_link: item_link),
+      headers: { "Content-Type" => "application/rss+xml" }
+    )
+  end
 
   # Put +feed+ in the state a year of weekly failures leaves behind.
   def kill(feed)
@@ -537,7 +636,7 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     XML
   end
 
-  def sample_rss_feed(title)
+  def sample_rss_feed(title, item_link: "https://example.com/item1")
     <<~XML
       <?xml version="1.0" encoding="UTF-8"?>
       <rss version="2.0">
@@ -547,7 +646,7 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
           <description>Test feed</description>
           <item>
             <title>Sample Item</title>
-            <link>https://example.com/item1</link>
+            <link>#{item_link}</link>
             <description>Sample description</description>
             <pubDate>Mon, 20 Jan 2026 12:00:00 GMT</pubDate>
           </item>
