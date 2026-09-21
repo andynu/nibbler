@@ -3,17 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { StoryExtraction } from '@/lib/api';
 import { FollowStoryDialog } from './FollowStoryDialog';
-
-/** A promise whose settlement this test controls, to force response ordering. */
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
+import { deferred } from '../../../test/mocks/deferred';
 
 // Mock the api module at the boundary; tests drive behavior through these spies.
 vi.mock('@/lib/api', () => ({

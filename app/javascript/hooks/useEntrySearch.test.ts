@@ -4,6 +4,7 @@ import { api } from "@/lib/api"
 import type { SearchResponse } from "@/lib/api"
 import { useEntrySearch, SEARCH_DEBOUNCE_MS } from "./useEntrySearch"
 import { mockSearchResponse, mockSearchResult } from "../../../test/fixtures/data"
+import { deferred } from "../../../test/mocks/deferred"
 
 // Only the network call is faked. sortConfigToParam comes through untouched,
 // so the ordering these tests assert on is serialised by the same code the
@@ -14,17 +15,6 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 }))
 
 const search = vi.mocked(api.search)
-
-/** A promise whose settlement this test controls, to force response ordering. */
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
 
 /** Run the debounce out and let any resulting promise callbacks land. */
 async function settle(ms: number = SEARCH_DEBOUNCE_MS) {

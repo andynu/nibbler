@@ -1,15 +1,7 @@
 import { renderHook } from "@testing-library/react"
 import { describe, it, expect } from "vitest"
 import { useLatestRequest } from "./useLatestRequest"
-
-/** A promise whose settlement this test controls, to force reply ordering. */
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((res) => {
-    resolve = res
-  })
-  return { promise, resolve }
-}
+import { deferred } from "../../../test/mocks/deferred"
 
 describe("useLatestRequest", () => {
   it("treats a claim as current until another is made", () => {

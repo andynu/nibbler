@@ -1,6 +1,7 @@
 import { render, screen, waitForElementToBeRemoved } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { SuggestedTags } from "./SuggestedTags"
+import { deferred } from "../../../test/mocks/deferred"
 
 // Mock the API boundary. SuggestedTags fetches entry info on mount; without
 // this the relative API_BASE resolves against happy-dom's http://localhost:3000
@@ -14,17 +15,6 @@ vi.mock("@/lib/api", () => ({
     },
   },
 }))
-
-// A promise the test resolves by hand, so the in-flight window is observable.
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
 
 function renderSuggestedTags(overrides: Partial<React.ComponentProps<typeof SuggestedTags>> = {}) {
   return render(
