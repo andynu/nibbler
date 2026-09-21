@@ -1,5 +1,5 @@
 # Job to fetch and cache a feed's favicon
-# Updates the feed with icon_url and favicon_avg_color
+# Updates the feed with icon_url and favicon_last_checked
 class FetchFaviconJob < ApplicationJob
   queue_as :default
 
@@ -35,13 +35,8 @@ class FetchFaviconJob < ApplicationJob
     # Write the icon file
     File.binwrite(filepath, result.image_data)
 
-    # Calculate average color
-    avg_color = calculate_average_color(filepath)
-
-    # Update feed with icon URL and color
     feed.update!(
       icon_url: "/icons/#{filename}",
-      favicon_avg_color: avg_color,
       favicon_last_checked: Time.current
     )
 
@@ -91,12 +86,5 @@ class FetchFaviconJob < ApplicationJob
     when "image/x-icon", "image/vnd.microsoft.icon" then ".ico"
     else ".ico" # Default
     end
-  end
-
-  def calculate_average_color(filepath)
-    FaviconColorCalculator.calculate(filepath)
-  rescue StandardError => e
-    Rails.logger.warn "Failed to calculate average color: #{e.message}"
-    nil
   end
 end

@@ -79,18 +79,28 @@ class FetchFaviconJobTest < ActiveJob::TestCase
     assert_equal "/icons/custom.png", @feed.reload.icon_url
   end
 
+  # The production image ships no ImageMagick, so saving a raster favicon must
+  # stay a pure file write: no image library, no favicon_avg_color.
+  test "saves a raster favicon without inspecting the image" do
+    perform_with_icon("\x89PNG\r\n\x1a\n not-a-real-png".b, content_type: "image/png")
+
+    @feed.reload
+    assert_match %r{\A/icons/#{@feed.id}-[0-9a-f]{16}\.png\z}, @feed.icon_url
+    assert File.exist?(icon_path(@feed.icon_url))
+    assert_nil @feed.favicon_avg_color
+  end
+
   private
 
-  # SVG keeps FaviconColorCalculator from shelling out to MiniMagick.
   def svg_bytes(variant)
     %(<svg xmlns="http://www.w3.org/2000/svg" id="#{variant}"/>)
   end
 
-  def perform_with_icon(image_data)
+  def perform_with_icon(image_data, content_type: "image/svg+xml")
     result = FaviconFetcher::FetchResult.new(
       status: :ok,
       image_data: image_data,
-      content_type: "image/svg+xml",
+      content_type: content_type,
       source: "favicon_ico"
     )
 
