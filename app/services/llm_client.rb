@@ -15,6 +15,12 @@ require "json"
 #   LlmClient.new.generate(prompt: "...", format: :json)
 #   # => { "key" => "value" }
 #
+# @example JSON constrained to a schema (Ollama structured outputs)
+#   schema = { type: "object", properties: { verdict: { type: "string" } },
+#              required: [ "verdict" ] }
+#   LlmClient.new.generate(prompt: "...", format: schema)
+#   # => { "verdict" => "new" }
+#
 # @example Custom model and timeout
 #   LlmClient.new(model: "mistral-small3.2")
 #     .generate(prompt: "...", timeout: 60)
@@ -40,11 +46,12 @@ class LlmClient
   # Generate text from the LLM.
   #
   # @param prompt [String] the prompt to send
-  # @param format [Symbol, nil] :json to request and parse JSON, nil for plain text
+  # @param format [Symbol, Hash, nil] :json for any valid JSON, a JSON schema Hash
+  #   to also constrain the keys and types, nil for plain text
   # @param timeout [Integer] read timeout in seconds
-  # @return [Hash, String] parsed hash if format: :json, raw string otherwise
+  # @return [Hash, String] parsed hash for a JSON format, raw string otherwise
   # @raise [Unreachable] if the server is down or unreachable
-  # @raise [BadJson] if format: :json and response doesn't parse
+  # @raise [BadJson] if a JSON format was requested and the response doesn't parse
   def generate(prompt:, format: nil, timeout: DEFAULT_TIMEOUT)
     body = build_request_body(prompt: prompt, format: format)
     started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -67,8 +74,15 @@ class LlmClient
       prompt: prompt,
       stream: false
     }
-    body[:format] = "json" if format == :json
+    body[:format] = format.is_a?(Hash) ? format : "json" if json_format?(format)
     body
+  end
+
+  # `format: "json"` only guarantees syntactically valid JSON, so a small model
+  # is free to invent its own keys. A schema Hash goes through as Ollama's
+  # structured-output grammar, which constrains the keys and types as well.
+  def json_format?(format)
+    format == :json || format.is_a?(Hash)
   end
 
   def post_json(path, body, timeout:)
@@ -104,7 +118,7 @@ class LlmClient
 
   def parse_response(outer, format:)
     raw = outer["response"].to_s
-    return raw unless format == :json
+    return raw unless json_format?(format)
 
     begin
       JSON.parse(raw)

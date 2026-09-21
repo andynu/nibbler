@@ -87,6 +87,47 @@ class LlmClientTest < ActiveSupport::TestCase
   end
 
   # ===================
+  # Schema-Constrained JSON
+  # ===================
+
+  test "sends a schema Hash as the format so Ollama constrains the keys" do
+    schema = {
+      type: "object",
+      properties: { verdict: { type: "string", minLength: 1 } },
+      required: [ "verdict" ]
+    }
+
+    body = captured_request_body(response: "{}") do
+      @client.generate(prompt: "analyze", format: schema)
+    end
+
+    assert_equal(
+      { "type" => "object",
+        "properties" => { "verdict" => { "type" => "string", "minLength" => 1 } },
+        "required" => [ "verdict" ] },
+      body["format"]
+    )
+  end
+
+  test "parses the response when format is a schema Hash" do
+    stub_request(:post, "#{@url}/api/generate")
+      .to_return(status: 200, body: { response: '{"verdict":"new"}' }.to_json)
+
+    result = @client.generate(prompt: "analyze", format: { type: "object" })
+
+    assert_equal({ "verdict" => "new" }, result)
+  end
+
+  test "raises BadJson when format is a schema Hash and the response is not JSON" do
+    stub_request(:post, "#{@url}/api/generate")
+      .to_return(status: 200, body: { response: "not json at all" }.to_json)
+
+    assert_raises(LlmClient::BadJson) do
+      @client.generate(prompt: "analyze", format: { type: "object" })
+    end
+  end
+
+  # ===================
   # Unreachable Errors
   # ===================
 
@@ -252,12 +293,12 @@ class LlmClientTest < ActiveSupport::TestCase
   # raise NetConnectNotAllowedError from inside the client, which leaves the
   # example with no assertions of its own and reports a wrong request body as an
   # unrelated-looking connection error.
-  def captured_request_body
+  def captured_request_body(response: "ok")
     sent = nil
 
     stub_request(:post, "#{@url}/api/generate").to_return do |request|
       sent = request.body
-      { status: 200, body: { response: "ok" }.to_json }
+      { status: 200, body: { response: response }.to_json }
     end
 
     yield
