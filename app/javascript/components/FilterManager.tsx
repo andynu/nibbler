@@ -51,6 +51,7 @@ import {
   FilterRuleType,
 } from "@/lib/api"
 import { sortableGripKeyDown } from "@/lib/sortableGrip"
+import { useFilterReorderAccessibility } from "@/hooks/useFilterReorderAccessibility"
 import { Plus, Pencil, Trash2, GripVertical, Play, X, RotateCcw } from "lucide-react"
 
 const FILTER_TYPES = [
@@ -128,6 +129,8 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
+
+  const reorderAccessibility = useFilterReorderAccessibility(filters)
 
   useEffect(() => {
     loadFilters()
@@ -280,6 +283,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            accessibility={reorderAccessibility}
             onDragEnd={handleDragEnd}
           >
             <SortableContext
@@ -975,6 +979,7 @@ function SortableFilterItem({
         {...attributes}
         {...listeners}
         onKeyDown={sortableGripKeyDown(listeners, isDragging)}
+        aria-label={`Move ${filter.title}`}
       >
         <GripVertical className="w-4 h-4" />
       </div>

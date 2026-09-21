@@ -1,9 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent, { type UserEvent } from "@testing-library/user-event"
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FilterManager } from "./FilterManager"
 import { mockFilter } from "../../../test/fixtures/data"
 import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
+import { stackRows } from "../../../test/helpers/dndRowLayout"
 
 // Mock API
 const mockApiFiltersList = vi.fn()
@@ -478,6 +479,96 @@ describe("FilterManager", () => {
 
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("Escape")
+    })
+  })
+
+  describe("drag handles for screen readers", () => {
+    const titles = ["First filter", "Second filter", "Third filter"]
+
+    beforeEach(() => {
+      mockApiFiltersList.mockResolvedValue(
+        titles.map((title, index) => mockFilter({ id: index + 1, title, order_id: index }))
+      )
+    })
+
+    it("names each grip after the filter it moves", async () => {
+      render(<FilterManager {...defaultProps} />)
+
+      for (const title of titles) {
+        expect(await screen.findByRole("button", { name: `Move ${title}` })).toBeInTheDocument()
+      }
+    })
+
+    it("describes how to move a filter with the keyboard", async () => {
+      render(<FilterManager {...defaultProps} />)
+
+      expect(
+        await screen.findByRole("button", { name: "Move Second filter" })
+      ).toHaveAccessibleDescription(
+        "To move a filter, press Space or Enter to pick it up. Use the up and down arrow keys to move it, then press Space or Enter to drop it. Press Escape to cancel."
+      )
+    })
+
+    describe("announcements", () => {
+      beforeEach(() => {
+        stackRows('[data-testid="filter-row"]')
+      })
+
+      afterEach(() => {
+        vi.restoreAllMocks()
+      })
+
+      async function pickUpSecondFilter() {
+        const user = userEvent.setup()
+        render(<FilterManager {...defaultProps} />)
+        const grip = await screen.findByRole("button", { name: "Move Second filter" })
+        grip.focus()
+        await user.keyboard(" ")
+        await waitFor(() => expect(grip).toHaveAttribute("aria-pressed", "true"))
+        return user
+      }
+
+      async function expectAnnounced(text: string) {
+        await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text))
+      }
+
+      it("name the filter and its place when a row is picked up", async () => {
+        await pickUpSecondFilter()
+
+        await expectAnnounced("Picked up Second filter at position 2 of 3.")
+      })
+
+      it("name the position a lifted row moves to", async () => {
+        const user = await pickUpSecondFilter()
+
+        await user.keyboard("{ArrowDown}")
+
+        await expectAnnounced("Second filter moved to position 3 of 3.")
+      })
+
+      it("name the position a row is dropped at, which is the order the filter runs in", async () => {
+        const user = await pickUpSecondFilter()
+        await user.keyboard("{ArrowDown}")
+        await expectAnnounced("Second filter moved to position 3 of 3.")
+
+        await user.keyboard(" ")
+
+        await expectAnnounced("Dropped Second filter at position 3 of 3.")
+        await waitFor(() =>
+          expect(mockApiFiltersUpdate).toHaveBeenCalledWith(2, { filter: { order_id: 2 } })
+        )
+      })
+
+      it("name the position a canceled row returns to", async () => {
+        const user = await pickUpSecondFilter()
+        await user.keyboard("{ArrowDown}")
+        await expectAnnounced("Second filter moved to position 3 of 3.")
+
+        await user.keyboard("{Escape}")
+
+        await expectAnnounced("Move canceled. Second filter is back at position 2 of 3.")
+        expect(mockApiFiltersUpdate).not.toHaveBeenCalled()
+      })
     })
   })
 })
