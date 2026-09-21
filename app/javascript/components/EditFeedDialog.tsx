@@ -199,7 +199,11 @@ export function EditFeedDialog({
     return suggestions.sort((a, b) => b.matchingWords.length - a.matchingWords.length).slice(0, 3)
   }, [info?.top_words, categoryId, flatCategories])
 
-  // Initialize form state when feed changes
+  const feedId = feed?.id ?? null
+
+  // Seed the form when a different feed is opened. Keyed on the id, so a
+  // refreshed object for the same feed reaches the error block below without
+  // discarding what the user has typed since.
   useEffect(() => {
     if (feed) {
       setTitle(feed.title)
@@ -210,12 +214,12 @@ export function EditFeedDialog({
       setShowDeleteConfirm(false)
       setIsDeleting(false)
     }
-  }, [feed])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedId])
 
   // Load feed info when dialog opens. Keyed on the id rather than the object: a
   // new Feed object for the same feed is no reason to refetch its stats and
   // filters.
-  const feedId = feed?.id ?? null
   useEffect(() => {
     if (open && feedId !== null) {
       setIsInfoLoading(true)
@@ -279,8 +283,6 @@ export function EditFeedDialog({
     }
   }
 
-  // Closes on success: the dialog's feed is a snapshot from when it opened, so
-  // staying open would keep showing the dead state that was just cleared.
   const handleResume = async () => {
     if (!feed) return
 

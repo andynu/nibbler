@@ -725,6 +725,10 @@ function App() {
     setFeeds((prev) =>
       prev.map((f) => (f.id === updatedFeed.id ? updatedFeed : f))
     )
+    // The edit dialog reads last_error and the broken/dead wording straight off
+    // this prop, so it has to move with the list or an in-dialog Refresh leaves
+    // the feed looking the way it did when the dialog opened.
+    setEditingFeed((prev) => (prev?.id === updatedFeed.id ? updatedFeed : prev))
   }
 
   const handleCategoryCreated = (newCategory: Category) => {

@@ -436,6 +436,49 @@ describe("EditFeedDialog", () => {
       })
     })
 
+    it("drops the error block once the parent hands back the refreshed feed", async () => {
+      const user = userEvent.setup()
+      const brokenFeed = mockFeed({
+        id: 1,
+        last_error: "Connection timed out",
+        consecutive_failures: 6,
+        broken: true,
+      })
+      const healthyFeed = mockFeed({ id: 1, last_error: null, broken: false })
+      mockApiRefresh.mockResolvedValue({ feed: healthyFeed, status: "success", new_entries: 3 })
+
+      const { rerender } = render(<EditFeedDialog {...defaultProps} feed={brokenFeed} />)
+
+      expect(screen.getByText("Feed is broken")).toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: /refresh/i }))
+      await waitFor(() => expect(mockApiRefresh).toHaveBeenCalledWith(1))
+
+      rerender(<EditFeedDialog {...defaultProps} feed={healthyFeed} />)
+
+      expect(screen.queryByText("Feed is broken")).not.toBeInTheDocument()
+      expect(screen.queryByText("Connection timed out")).not.toBeInTheDocument()
+    })
+
+    it("keeps unsaved form edits when the refreshed feed arrives", async () => {
+      const user = userEvent.setup()
+      const refreshedFeed = mockFeed({ id: 1, unread_count: 10 })
+      mockApiRefresh.mockResolvedValue({ feed: refreshedFeed, status: "success", new_entries: 5 })
+
+      const { rerender } = render(<EditFeedDialog {...defaultProps} />)
+
+      const titleInput = screen.getByLabelText("Title")
+      await user.clear(titleInput)
+      await user.type(titleInput, "Renamed Feed")
+
+      await user.click(screen.getByRole("button", { name: /refresh/i }))
+      await waitFor(() => expect(mockApiRefresh).toHaveBeenCalledWith(1))
+
+      rerender(<EditFeedDialog {...defaultProps} feed={refreshedFeed} />)
+
+      expect(screen.getByLabelText("Title")).toHaveValue("Renamed Feed")
+    })
+
     it("shows error message on refresh failure", async () => {
       const user = userEvent.setup()
       mockApiRefresh.mockRejectedValue(new Error("Network error"))
