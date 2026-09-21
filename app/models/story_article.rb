@@ -9,5 +9,9 @@
 class StoryArticle < ApplicationRecord
   belongs_to :story
 
-  validates :url, presence: true, uniqueness: { scope: :story_id }
+  # Uniqueness of (story_id, url) is left to the database index. A model-level
+  # uniqueness validation would turn every already-stored article in a fetch
+  # into a RecordInvalid, which the fetch job cannot tell apart from a malformed
+  # item, and would cost a SELECT per item.
+  validates :url, presence: true
 end

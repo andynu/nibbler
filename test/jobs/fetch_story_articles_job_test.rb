@@ -60,9 +60,31 @@ class FetchStoryArticlesJobTest < ActiveJob::TestCase
     ])
     stub_query("crypto enforcement 2026", items: [])
 
-    assert_difference -> { @story.story_articles.count }, 1 do
-      FetchStoryArticlesJob.perform_now(@story.id)
+    log = capture_rails_log do
+      assert_difference -> { @story.story_articles.count }, 1 do
+        FetchStoryArticlesJob.perform_now(@story.id)
+      end
     end
+
+    assert_not_includes log, "skipped invalid item"
+    assert_not_includes log, "has already been taken"
+  end
+
+  test "logs a warning for an item that fails validation" do
+    @story.update!(queries: [ "single query" ])
+    blank_url = GoogleNewsRssFetcher::Item.new(
+      url: "", title: "No link", snippet: "s", source: "Ex", published_at: nil
+    )
+
+    log = capture_rails_log do
+      assert_no_difference -> { @story.story_articles.count } do
+        GoogleNewsRssFetcher.stub(:new, StubFetcher.new([ blank_url ])) do
+          FetchStoryArticlesJob.perform_now(@story.id)
+        end
+      end
+    end
+
+    assert_includes log, "skipped invalid item"
   end
 
   test "continues to next query when one fails" do
@@ -97,5 +119,29 @@ class FetchStoryArticlesJobTest < ActiveJob::TestCase
     assert_nothing_raised do
       FetchStoryArticlesJob.perform_now(0)
     end
+  end
+
+  private
+
+  # Stands in for GoogleNewsRssFetcher when the items under test cannot come
+  # out of the real parser (it drops link-less <item>s).
+  class StubFetcher
+    def initialize(items)
+      @items = items
+    end
+
+    def fetch
+      @items
+    end
+  end
+
+  def capture_rails_log
+    buffer = StringIO.new
+    original_logger = Rails.logger
+    Rails.logger = Logger.new(buffer)
+    yield
+    buffer.string
+  ensure
+    Rails.logger = original_logger
   end
 end

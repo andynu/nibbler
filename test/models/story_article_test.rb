@@ -15,14 +15,16 @@ class StoryArticleTest < ActiveSupport::TestCase
     assert_includes article.errors[:url], "can't be blank"
   end
 
-  test "url is unique per story" do
+  test "url is unique per story, enforced by the database index" do
     dup = StoryArticle.new(story: @article.story, url: @article.url)
-    assert_not dup.valid?
-    assert_includes dup.errors[:url], "has already been taken"
+    assert dup.valid?, "model must not pre-check uniqueness; the fetch job dedups on RecordNotUnique"
+    assert_raises ActiveRecord::RecordNotUnique do
+      dup.save!
+    end
   end
 
   test "same url allowed across different stories" do
     other = StoryArticle.new(story: stories(:sourced_story), url: @article.url, title: "Dup")
-    assert other.valid?
+    assert other.save
   end
 end
