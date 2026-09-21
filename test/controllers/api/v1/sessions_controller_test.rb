@@ -32,13 +32,63 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
-  test "login records the failed attempt and rate limits the next try" do
+  # =====================
+  # Login rate limiting
+  # =====================
+
+  test "a single failed attempt is recorded but does not lock the account" do
+    # Regression: the limit used to trip on any attempt stamped inside the
+    # window, so one typo cost fifteen minutes and only a successful login
+    # cleared it -- which the lockout itself made impossible.
     post api_v1_login_url, params: { login: @user.login, password: "wrong" }, as: :json
     assert_response :unauthorized
-    assert_not_nil @user.reload.last_auth_attempt
+    assert_equal 1, @user.reload.failed_auth_attempts
+    assert_not_nil @user.last_auth_attempt
+
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :success
+  end
+
+  test "the attempt after the limit is rejected even with the right password" do
+    fail_login(times: Api::V1::SessionsController::MAX_FAILED_LOGIN_ATTEMPTS)
+    assert_equal 5, @user.reload.failed_auth_attempts
 
     post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
     assert_response :too_many_requests
+  end
+
+  test "a successful login clears the attempt count" do
+    fail_login(times: 4)
+    assert_equal 4, @user.reload.failed_auth_attempts
+
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :success
+
+    @user.reload
+    assert_equal 0, @user.failed_auth_attempts
+    assert_nil @user.last_auth_attempt
+  end
+
+  test "the lockout lifts once the window passes" do
+    fail_login(times: Api::V1::SessionsController::MAX_FAILED_LOGIN_ATTEMPTS)
+
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :too_many_requests
+
+    travel(Api::V1::SessionsController::FAILED_LOGIN_WINDOW + 1.minute) do
+      post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+      assert_response :success
+    end
+  end
+
+  test "a failure outside the window starts the count over" do
+    fail_login(times: 3)
+    assert_equal 3, @user.reload.failed_auth_attempts
+
+    travel(Api::V1::SessionsController::FAILED_LOGIN_WINDOW + 1.minute) do
+      fail_login(times: 1)
+      assert_equal 1, @user.reload.failed_auth_attempts
+    end
   end
 
   # =====================
@@ -155,5 +205,14 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_not_equal original, JSON.parse(response.body)["access_key"]
+  end
+
+  private
+
+  def fail_login(times:)
+    times.times do
+      post api_v1_login_url, params: { login: @user.login, password: "wrong" }, as: :json
+      assert_response :unauthorized
+    end
   end
 end

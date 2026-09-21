@@ -5,6 +5,12 @@ module Api
     class SessionsController < BaseController
       skip_before_action :require_auth, only: :create
 
+      # Failed logins are counted per account over a rolling window. The window
+      # is measured from the most recent failure, so scattered typos never
+      # accumulate into a lockout while a burst does.
+      MAX_FAILED_LOGIN_ATTEMPTS = 5
+      FAILED_LOGIN_WINDOW = 15.minutes
+
       # POST /api/v1/auth/login
       def create
         # Rate limiting check
@@ -18,7 +24,8 @@ module Api
           # Track successful login
           user.update_columns(
             last_login: Time.current,
-            last_auth_attempt: nil
+            last_auth_attempt: nil,
+            failed_auth_attempts: 0
           )
 
           # Create session
@@ -103,16 +110,26 @@ module Api
 
         user = User.find_by(login: login)
         return false unless user&.last_auth_attempt
+        return false if user.last_auth_attempt <= FAILED_LOGIN_WINDOW.ago
 
-        # Allow 5 attempts per 15 minutes
-        user.last_auth_attempt > 15.minutes.ago
+        user.failed_auth_attempts >= MAX_FAILED_LOGIN_ATTEMPTS
       end
 
       def record_failed_attempt(login)
         return if login.blank?
 
         user = User.find_by(login: login)
-        user&.update_column(:last_auth_attempt, Time.current)
+        return unless user
+
+        # Counted in SQL rather than read-modify-write: a burst of concurrent
+        # failures is exactly what the limit is for, and each request reading
+        # the same stale count would let the whole burst through.
+        User.where(id: user.id).update_all(
+          User.sanitize_sql_array([
+            "failed_auth_attempts = CASE WHEN last_auth_attempt > :cutoff THEN failed_auth_attempts + 1 ELSE 1 END, last_auth_attempt = :now",
+            { cutoff: FAILED_LOGIN_WINDOW.ago, now: Time.current }
+          ])
+        )
       end
     end
   end
