@@ -652,8 +652,9 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     logged
   end
 
-  # Feedjira reads <enclosure> with its iTunes parser, which it picks for a
-  # channel that declares the iTunes namespace.
+  # Declaring the iTunes namespace sends the channel to Feedjira's iTunes
+  # parser, so these tests run the enclosure path over a podcast feed's shape.
+  # Plain RSS reads <enclosure> too; see FeedParserTest.
   def podcast(items)
     rss(items, namespaces: %( xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"))
   end
@@ -671,8 +672,7 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     XML
   end
 
-  # A nil title leaves the <title> element out altogether. An enclosure is read
-  # only inside #podcast.
+  # A nil title leaves the <title> element out altogether.
   def item(guid:, title:, body: nil, author: nil, enclosure: nil)
     headline = title.nil? ? "" : "<title>#{title}</title>"
     description = body ? "<description>#{body}</description>" : ""

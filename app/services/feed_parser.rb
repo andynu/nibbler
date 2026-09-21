@@ -141,18 +141,21 @@ class FeedParser
     if entry.respond_to?(:enclosure_url) && entry.enclosure_url.present?
       enclosures << ParsedEnclosure.new(
         url: entry.enclosure_url,
-        type: entry.enclosure_type || "application/octet-stream",
+        type: entry.enclosure_type.presence || "application/octet-stream",
         title: "",
         length: entry.enclosure_length
       )
     end
 
-    # Media content (Media RSS / iTunes)
+    # Media RSS. A media:content may carry a player rather than a file, in which
+    # case it has no url and is not an attachment.
     if entry.respond_to?(:media_contents)
       entry.media_contents.to_a.each do |media|
+        next if media.url.blank?
+
         enclosures << ParsedEnclosure.new(
           url: media.url,
-          type: media.type || "application/octet-stream",
+          type: media.type.presence || "application/octet-stream",
           title: media.title.to_s,
           length: media.file_size
         )
