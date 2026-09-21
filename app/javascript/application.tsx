@@ -369,6 +369,22 @@ function App() {
   // one on its own, every run (e2e/entry-list-sort.spec.ts).
   const { claim: claimEntriesLoad } = useLatestRequest()
 
+  // The entry the reader is heading for, set the moment a request is issued
+  // rather than when it returns. Navigation anchors on this ahead of
+  // selectedEntry, so a press landing mid-fetch steps on from the pending
+  // target instead of repeating the move already under way.
+  const pendingEntryIdRef = useRef<number | null>(null)
+  const { claim: claimEntryLoad, abandon: abandonEntryLoad } =
+    useLatestRequest<number>()
+
+  // Selection cleared by something other than a load: whatever is in flight no
+  // longer has a claim on the pane, and navigation must start over from the
+  // list rather than from a target nobody is waiting for.
+  const dropPendingEntry = useCallback(() => {
+    pendingEntryIdRef.current = null
+    abandonEntryLoad()
+  }, [abandonEntryLoad])
+
   const loadEntries = useCallback(async () => {
     const load = claimEntriesLoad()
     // The stories view is not backed by the entries API; skip loading. The
@@ -377,6 +393,7 @@ function App() {
     if (virtualFeed === "stories") {
       setEntries([])
       setSelectedEntry(null)
+      dropPendingEntry()
       setIsLoadingEntries(false)
       return
     }
@@ -386,6 +403,7 @@ function App() {
       if (!load.isCurrent()) return
       setEntries(result.entries)
       setSelectedEntry(null)
+      dropPendingEntry()
       // This list came straight from the server, so any stored probe is both
       // redundant and misleading: entries that fell off the end of the
       // per_page window would otherwise read as new.
@@ -397,7 +415,7 @@ function App() {
       // is still running, and the list is still loading.
       if (load.isCurrent()) setIsLoadingEntries(false)
     }
-  }, [virtualFeed, entriesQuery, resetNewEntries, claimEntriesLoad])
+  }, [virtualFeed, entriesQuery, resetNewEntries, claimEntriesLoad, dropPendingEntry])
 
   // Load entries when selection, sort order, filter preferences, or fresh params
   // change. virtualFeed is one of entriesQuery's inputs, so loadEntries changes
@@ -407,9 +425,15 @@ function App() {
   }, [loadEntries])
 
   const loadEntry = useCallback(async (entryId: number) => {
+    const load = claimEntryLoad(entryId)
+    pendingEntryIdRef.current = entryId
     setIsLoadingEntry(true)
     try {
       const entry = await api.entries.get(entryId)
+      // A superseded reply owns neither the pane nor the read state: the reader
+      // has already moved past this entry, so it must not land on screen and
+      // must not be marked read behind them.
+      if (!load.isCurrent()) return
       setSelectedEntry(entry)
 
       // Mark as read when opening
@@ -429,9 +453,14 @@ function App() {
     } catch (error) {
       console.error("Failed to load entry:", error)
     } finally {
-      setIsLoadingEntry(false)
+      // A superseded load must leave both alone: the load that replaced it owns
+      // the pending target and is still running.
+      if (load.isCurrent()) {
+        pendingEntryIdRef.current = null
+        setIsLoadingEntry(false)
+      }
     }
-  }, [updateSearchResult, loadCounters])
+  }, [updateSearchResult, loadCounters, claimEntryLoad])
 
   // Register audio player navigation callback
   const { setOnJumpToEntry } = audioPlayer
@@ -742,36 +771,49 @@ function App() {
     setTimeout(() => setBoundaryHit(null), 300)
   }, [])
 
+  // The row a keypress moves from: the entry a load is in flight for when there
+  // is one, and the entry on screen otherwise. Read at press time rather than
+  // off the render, so a burst advances once per press. A pending entry outside
+  // the list (opened from search, say) leaves the anchor on the selection.
+  const navigationIndex = useCallback(() => {
+    const pendingId = pendingEntryIdRef.current
+    if (pendingId === null) return currentIndex
+    const pendingIndex = entries.findIndex((e) => e.id === pendingId)
+    return pendingIndex === -1 ? currentIndex : pendingIndex
+  }, [entries, currentIndex])
+
   // Keyboard navigation handlers - use useCallback to avoid stale closures
   const handleKeyboardNext = useCallback(() => {
     if (entries.length === 0) return
-    if (currentIndex === -1) {
+    const fromIndex = navigationIndex()
+    if (fromIndex === -1) {
       // No entry selected, select first
       loadEntry(entries[0].id)
-    } else if (currentIndex < entries.length - 1) {
-      loadEntry(entries[currentIndex + 1].id)
+    } else if (fromIndex < entries.length - 1) {
+      loadEntry(entries[fromIndex + 1].id)
     } else {
       // At end of list, trigger boundary feedback
       triggerBoundaryFeedback("end")
     }
-  }, [entries, currentIndex, loadEntry, triggerBoundaryFeedback])
+  }, [entries, navigationIndex, loadEntry, triggerBoundaryFeedback])
 
   const handleKeyboardPrevious = useCallback(() => {
     if (entries.length === 0) return
-    if (currentIndex === -1) {
+    const fromIndex = navigationIndex()
+    if (fromIndex === -1) {
       // No entry selected, select last
       loadEntry(entries[entries.length - 1].id)
-    } else if (currentIndex > 0) {
-      loadEntry(entries[currentIndex - 1].id)
+    } else if (fromIndex > 0) {
+      loadEntry(entries[fromIndex - 1].id)
     } else {
       // At start of list, trigger boundary feedback
       triggerBoundaryFeedback("start")
     }
-  }, [entries, currentIndex, loadEntry, triggerBoundaryFeedback])
+  }, [entries, navigationIndex, loadEntry, triggerBoundaryFeedback])
 
   const handleKeyboardNextUnread = useCallback(() => {
     if (entries.length === 0) return
-    const startIndex = currentIndex === -1 ? -1 : currentIndex
+    const startIndex = navigationIndex()
     // Find next unread entry
     for (let i = startIndex + 1; i < entries.length; i++) {
       if (entries[i].unread) {
@@ -780,7 +822,7 @@ function App() {
       }
     }
     // No unread found after current position
-  }, [entries, currentIndex, loadEntry])
+  }, [entries, navigationIndex, loadEntry])
 
   // Flash the row of the category the reader is parked on when Shift+J/K has
   // nowhere further to go. The entry-list flash above is the wrong surface for
@@ -853,8 +895,9 @@ function App() {
       setFocusMode(false)
     } else {
       setSelectedEntry(null)
+      dropPendingEntry()
     }
-  }, [focusMode])
+  }, [focusMode, dropPendingEntry])
 
   // The one refresh the reader can ask for directly, reached by `r` and by
   // pulling down at the top of the list on a phone (EntryList). It returns the

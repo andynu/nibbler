@@ -431,40 +431,13 @@ test.describe("Input Focus Handling", () => {
 })
 
 test.describe("Rapid Key Sequences", () => {
-  // A press navigates from the entry that is open when it lands, and an entry
-  // only counts as open once its fetch returns, so a burst can advance fewer
-  // rows than it has presses and fetches can land out of order. These examples
-  // assert the rows a burst can settle on, not one row.
+  // A press navigates from the entry the last press asked for, not from the one
+  // whose fetch has returned, so a burst advances one row per press however the
+  // fetches interleave. Each example asserts the single row its presses add up
+  // to; a burst that settles anywhere else has dropped a press.
   test.beforeEach(async ({ page }) => {
     await waitForAppReady(page)
   })
-
-  /**
-   * One entry open, the same one highlighted in the list and shown in the
-   * reading pane, and among `candidates`. Polled because a fetch from the burst
-   * can still land after the presses are done.
-   */
-  async function expectOpenEntryAmong(page: Page, candidates: string[]) {
-    await expect
-      .poll(
-        async () => {
-          const highlighted = await selectedRows(page).evaluateAll((rows) =>
-            rows.map((row) => row.getAttribute("data-entry-title") ?? "")
-          )
-          const shown = (await articleHeadline(page).allTextContents()).map((text) =>
-            text.trim()
-          )
-          return (
-            highlighted.length === 1 &&
-            shown.length === 1 &&
-            highlighted[0] === shown[0] &&
-            candidates.includes(highlighted[0])
-          )
-        },
-        { message: `the open entry should be one of: ${candidates.join(" | ")}` }
-      )
-      .toBe(true)
-  }
 
   test("handles rapid j key presses", async ({ page }) => {
     const titles = await listedTitles(page)
@@ -472,7 +445,7 @@ test.describe("Rapid Key Sequences", () => {
     await page.keyboard.press("j")
     await page.keyboard.press("j")
     await page.keyboard.press("j")
-    await expectOpenEntryAmong(page, titles.slice(0, 3))
+    await expectEntryOpen(page, titles[2])
   })
 
   test("handles rapid k key presses", async ({ page }) => {
@@ -481,20 +454,19 @@ test.describe("Rapid Key Sequences", () => {
     await page.keyboard.press("k")
     await page.keyboard.press("k")
     await page.keyboard.press("k")
-    await expectOpenEntryAmong(page, titles.slice(-3))
+    await expectEntryOpen(page, titles[titles.length - 3])
   })
 
   test("handles alternating j and k", async ({ page }) => {
     const titles = await listedTitles(page)
 
     await page.keyboard.press("j")
+    // The first row has nowhere to go back to, so this k flashes the start
+    // boundary and leaves the pending target where it is.
     await page.keyboard.press("k")
     await page.keyboard.press("j")
     await page.keyboard.press("k")
-    // j from nothing opens the first row and k from nothing the last, so every
-    // interleaving of these four presses with their fetches stays within two
-    // rows of one end or the other.
-    await expectOpenEntryAmong(page, [...titles.slice(0, 2), ...titles.slice(-2)])
+    await expectEntryOpen(page, titles[0])
   })
 })
 
