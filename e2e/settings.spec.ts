@@ -323,6 +323,24 @@ test.describe("Feeds Tab", () => {
     await expect(settingsPage.feedsTab).toHaveAttribute("data-state", "active")
   })
 
+  // A row is a role=option holding a named grip, so a name taken from the whole
+  // subtree reads out as "Move Programming Programming 2 feeds". jsdom's
+  // accessible-name implementation ignores the grip's aria-label during that
+  // traversal, so this check only bites in a real engine.
+  test("a row is named for its content, not for its grip", async ({
+    feedsPage,
+    settingsPage,
+  }) => {
+    await feedsPage.openSettings()
+    await settingsPage.goToFeedsTab()
+
+    const row = settingsPage.dialog.getByRole("option", { name: /^Programming/ })
+    await expect(row).toHaveAccessibleName("Programming 2 feeds")
+    await expect(
+      row.locator('[aria-roledescription="sortable"]')
+    ).toHaveAccessibleName("Move Programming")
+  })
+
   // The organizer's grips sit behind the page's shortcuts, which stay bound
   // while the settings dialog is open, and in front of the tree's own document
   // listener. Space is "page down, then next unread" for the page and "expand

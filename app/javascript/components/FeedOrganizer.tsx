@@ -911,6 +911,11 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
       }
     }
 
+    // The row names itself from its content element rather than its whole
+    // subtree, which would swallow the grip's own label and read the row out
+    // as "Move Tech Tech 0 feeds".
+    const contentId = `${id}-content`
+
     return (
       <div
         ref={combinedRef}
@@ -924,6 +929,7 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
         onDoubleClick={onToggle}
         role="option"
         aria-selected={isSelected}
+        aria-labelledby={contentId}
         {...restProps}
       >
         <button
@@ -937,6 +943,7 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
         </button>
         {isEditing ? (
           <Input
+            id={contentId}
             value={editValue}
             onChange={(e) => onEditChange(e.target.value)}
             onBlur={onEditSave}
@@ -945,7 +952,9 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
             autoFocus
           />
         ) : (
-          <div className="flex items-center flex-1 min-w-0">{children}</div>
+          <div id={contentId} className="flex items-center flex-1 min-w-0">
+            {children}
+          </div>
         )}
       </div>
     )
