@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
+  SESSION_LIFETIME = Rails.application.config.session_options[:expire_after]
+
   def setup
     @user = users(:one)
   end
@@ -134,6 +136,30 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "logout revokes a copy of the session cookie taken before it" do
+    sign_in(@user)
+    copied = cookies[session_key]
+
+    delete api_v1_logout_url, as: :json
+    assert_response :no_content
+
+    cookies[session_key] = copied
+    get api_v1_me_url, as: :json
+    assert_response :unauthorized
+  end
+
+  test "logout signs out the user's other browsers too" do
+    sign_in(@user)
+    other = open_session
+    other.post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_equal 200, other.response.status
+
+    delete api_v1_logout_url, as: :json
+
+    other.get api_v1_me_url, as: :json
+    assert_equal 401, other.response.status
+  end
+
   test "logout without a session returns 401" do
     delete api_v1_logout_url, as: :json
     assert_response :unauthorized
@@ -176,6 +202,74 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert @user.reload.authenticate("newpassword")
   end
 
+  test "change_password keeps the current session and ends every other one" do
+    other = open_session
+    other.post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_equal 200, other.response.status
+    sign_in(@user)
+
+    post api_v1_change_password_url,
+      params: { current_password: "password", new_password: "newpassword" }, as: :json
+    assert_response :success
+
+    get api_v1_me_url, as: :json
+    assert_response :success
+
+    other.get api_v1_me_url, as: :json
+    assert_equal 401, other.response.status
+  end
+
+  # =====================
+  # Session lifetime
+  # =====================
+
+  test "sessions last at least a week" do
+    assert_operator SESSION_LIFETIME.to_i, :>=, 1.week.to_i
+  end
+
+  test "a session survives SESSION_LIFETIME minus a day without a request" do
+    sign_in(@user)
+
+    travel(SESSION_LIFETIME - 1.day) do
+      get api_v1_me_url, as: :json
+      assert_response :success
+    end
+  end
+
+  test "a session ends once SESSION_LIFETIME passes without a request" do
+    sign_in(@user)
+
+    travel(SESSION_LIFETIME + 1.day) do
+      get api_v1_me_url, as: :json
+      assert_response :unauthorized
+    end
+  end
+
+  test "an expired session cookie replayed by hand is refused" do
+    sign_in(@user)
+    copied = cookies[session_key]
+
+    travel(SESSION_LIFETIME + 1.day) do
+      cookies[session_key] = copied
+      get api_v1_me_url, as: :json
+      assert_response :unauthorized
+    end
+  end
+
+  test "each request restarts the session's lifetime" do
+    sign_in(@user)
+
+    travel(SESSION_LIFETIME - 1.day)
+    get api_v1_me_url, as: :json
+    assert_response :success
+
+    travel(SESSION_LIFETIME - 1.day)
+    get api_v1_me_url, as: :json
+    assert_response :success
+  ensure
+    travel_back
+  end
+
   # =====================
   # Public feed key
   # =====================
@@ -208,6 +302,10 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def session_key
+    Rails.application.config.session_options.fetch(:key)
+  end
 
   def fail_login(times:)
     times.times do

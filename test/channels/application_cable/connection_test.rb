@@ -7,11 +7,26 @@ module ApplicationCable
     SESSION_KEY = "_ttrb_session".freeze
 
     test "identifies the user named by the session cookie" do
-      set_session(user_id: users(:one).id)
+      set_session(user_id: users(:one).id, session_token: users(:one).current_session_token)
 
       connect
 
       assert_equal users(:one), connection.current_user
+    end
+
+    test "rejects a session whose token has been revoked" do
+      user = users(:one)
+      set_session(user_id: user.id, session_token: user.current_session_token)
+      user.revoke_sessions!
+
+      assert_reject_connection { connect }
+    end
+
+    test "rejects a session with a user_id but no token" do
+      users(:one).current_session_token
+      set_session(user_id: users(:one).id)
+
+      assert_reject_connection { connect }
     end
 
     test "rejects a connection with no session cookie" do

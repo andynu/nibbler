@@ -30,7 +30,8 @@ module Api
 
           # Create session
           session[:user_id] = user.id
-          reset_session_token
+          session[:session_token] = user.current_session_token
+          renew_session_id
 
           render json: user_json(user)
         else
@@ -41,7 +42,10 @@ module Api
       end
 
       # DELETE /api/v1/auth/logout
+      # A cookie session cannot be deleted server side, so this signs the user
+      # out of every browser, not just this one.
       def destroy
+        current_user.revoke_sessions!
         reset_session
         head :no_content
       end
@@ -63,6 +67,8 @@ module Api
 
         current_user.password = params[:new_password]
         current_user.save!
+        session[:session_token] = current_user.session_token
+        renew_session_id
 
         render json: { message: "Password changed successfully" }
       end
@@ -99,7 +105,7 @@ module Api
         }
       end
 
-      def reset_session_token
+      def renew_session_id
         # Regenerate session ID to prevent session fixation
         request.session_options[:renew] = true
       end

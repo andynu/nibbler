@@ -1,8 +1,9 @@
 module ApplicationCable
   # Identifies a websocket by the same cookie session the JSON API uses.
   #
-  # Api::V1::BaseController#current_user reads User.find_by(id: session[:user_id]);
-  # this reads the same key out of the same signed cookie jar, so a browser that
+  # Api::V1::BaseController#current_user checks session[:user_id] and
+  # session[:session_token] with User.find_by_session; this reads the same keys
+  # out of the same encrypted cookie jar, so a browser that
   # is logged in for /api/v1 is logged in for the cable and one that is not gets
   # refused at the handshake rather than reaching a channel.
   #
@@ -20,8 +21,9 @@ module ApplicationCable
 
     private
       def find_verified_user
-        user_id = session_from_cookie&.dig("user_id")
-        User.find_by(id: user_id) || reject_unauthorized_connection
+        session = session_from_cookie
+        User.find_by_session(session&.dig("user_id"), session&.dig("session_token")) ||
+          reject_unauthorized_connection
       end
 
       def session_from_cookie

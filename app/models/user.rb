@@ -13,6 +13,11 @@
 class User < ApplicationRecord
   has_secure_password
 
+  # A login session carries a copy of session_token and is honoured only while
+  # it still matches, so rotating the token signs out every browser at once.
+  has_secure_token :session_token
+  before_save :rotate_session_token, if: :will_save_change_to_password_digest?
+
   has_many :categories, dependent: :destroy
   has_many :feeds, dependent: :destroy
   has_many :user_entries, dependent: :destroy
@@ -65,6 +70,26 @@ class User < ApplicationRecord
     pwd_hash == computed_hash
   end
 
+  def self.find_by_session(user_id, token)
+    return nil if token.blank?
+
+    user = find_by(id: user_id)
+    return nil if user&.session_token.blank?
+
+    user if ActiveSupport::SecurityUtils.secure_compare(user.session_token, token)
+  end
+
+  # Shared by every browser the user is signed in on; users created before
+  # the column existed get theirs on first login.
+  def current_session_token
+    regenerate_session_token if session_token.blank?
+    session_token
+  end
+
+  def revoke_sessions!
+    regenerate_session_token
+  end
+
   # Generate a new access key for the public published feed
   def regenerate_access_key!
     update!(access_key: SecureRandom.urlsafe_base64(32))
@@ -74,5 +99,11 @@ class User < ApplicationRecord
   def ensure_access_key!
     regenerate_access_key! if access_key.blank?
     access_key
+  end
+
+  private
+
+  def rotate_session_token
+    self.session_token = self.class.generate_unique_secure_token
   end
 end

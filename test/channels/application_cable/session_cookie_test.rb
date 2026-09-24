@@ -22,7 +22,8 @@ class ApplicationCableSessionCookieTest < ActionDispatch::IntegrationTest
     user = users(:one)
     sign_in(user)
 
-    assert_equal user, User.find_by(id: decrypted_session&.dig("user_id"))
+    session_data = decrypted_session
+    assert_equal user, User.find_by_session(session_data&.dig("user_id"), session_data&.dig("session_token"))
   end
 
   private
