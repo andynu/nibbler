@@ -49,6 +49,19 @@ function silentWavDataUri(seconds = 60, rate = 8000): string {
 export async function stubTtsAudio(page: Page): Promise<void> {
   const audioUrl = silentWavDataUri()
 
+  // The layout hides the listen controls when the server has no TTS toolchain,
+  // as on CI. Since the endpoint is answered here, the page is told TTS works.
+  await page.route("**/*", async (route) => {
+    if (route.request().resourceType() !== "document") return route.fallback()
+
+    const response = await route.fetch()
+    const body = (await response.text()).replace(
+      /<meta name="tts-available" content="[^"]*">/,
+      '<meta name="tts-available" content="true">'
+    )
+    await route.fulfill({ response, body })
+  })
+
   await page.route("**/api/v1/entries/*/audio", (route) =>
     route.fulfill({
       status: 200,

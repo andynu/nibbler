@@ -8,6 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <%# Lets `curl -s https://host | grep app-version` identify the running build. %>
     <meta name="app-version" content="<%= AppVersion.sha %>">
+    <meta name="tts-available" content="<%= TtsGenerator.available? %>">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 

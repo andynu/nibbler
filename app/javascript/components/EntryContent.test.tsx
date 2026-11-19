@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, act, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { EntryContent } from "./EntryContent"
 import { SCORE_VALUES } from "./ScoreButtons"
 import { mockEntryWithContent } from "../../../test/fixtures/data"
@@ -1696,6 +1696,37 @@ describe("EntryContent", () => {
    * does not exist, while the shortcut still works up until focus crosses into
    * the embedded document.
    */
+  describe("text-to-speech availability", () => {
+    function setTtsMeta(content: string) {
+      const meta = document.createElement("meta")
+      meta.setAttribute("name", "tts-available")
+      meta.setAttribute("content", content)
+      document.head.appendChild(meta)
+    }
+
+    afterEach(() => {
+      document.head.querySelectorAll('meta[name="tts-available"]').forEach((el) => el.remove())
+    })
+
+    it("offers no listen or queue control when the server cannot run TTS", () => {
+      setTtsMeta("false")
+
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      expect(screen.queryByRole("button", { name: "Listen" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Add to queue" })).not.toBeInTheDocument()
+    })
+
+    it("offers both controls when the server can run TTS", () => {
+      setTtsMeta("true")
+
+      render(<EntryContent {...defaultProps} entry={mockEntryWithContent()} />)
+
+      expect(screen.getByRole("button", { name: "Listen" })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Add to queue" })).toBeInTheDocument()
+    })
+  })
+
   describe("the copied-link indicator", () => {
     const indicator = () => screen.getByTestId("copy-link-status")
 

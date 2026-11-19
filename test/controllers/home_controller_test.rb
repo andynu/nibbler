@@ -20,6 +20,24 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "link[rel=stylesheet][href^=?]", "/assets/application-"
   end
 
+  test "tells the client text-to-speech is unavailable when it cannot run here" do
+    TtsGenerator.stub(:available?, false) do
+      get root_url
+    end
+
+    assert_response :success
+    assert_select "meta[name=?][content=?]", "tts-available", "false"
+  end
+
+  test "tells the client text-to-speech is available when it can run here" do
+    TtsGenerator.stub(:available?, true) do
+      get root_url
+    end
+
+    assert_response :success
+    assert_select "meta[name=?][content=?]", "tts-available", "true"
+  end
+
   test "the version meta tag is readable without authenticating" do
     # The SPA gates itself through the API; the shell is public, which is what
     # makes `curl -s https://host | grep app-version` a usable deploy check.

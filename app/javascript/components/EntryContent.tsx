@@ -23,6 +23,7 @@ import { useEntrySummary } from "@/hooks/useEntrySummary"
 import { useFullArticle } from "@/hooks/useFullArticle"
 import type { CopyLinkStatus } from "@/hooks/useCopyLink"
 import type { Entry, Story } from "@/lib/api"
+import { ttsAvailable } from "@/lib/ttsAvailability"
 
 interface EntryContentProps {
   entry: Entry | null
@@ -827,7 +828,7 @@ export function EntryContent({
                 menu is drawn in iframe view too, where there is nowhere for the
                 callout to appear. */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {!isTtsActiveForThisEntry && (
+              {ttsAvailable() && !isTtsActiveForThisEntry && (
                 <>
                   <Button
                     variant="outline"
