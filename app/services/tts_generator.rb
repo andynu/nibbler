@@ -28,8 +28,7 @@ class TtsGenerator
   # Whether TTS can run here.
   #
   # config.x.tts.enabled (TTS_ENABLED) forces the answer either way. Otherwise
-  # it depends on the Python virtualenv actually being present: the production
-  # image ships neither the venv nor a Python interpreter, and a venv copied
+  # it depends on the Python virtualenv actually being present. A venv copied
   # from a host has a dangling bin/python3 symlink, which #exist? reports as
   # missing because it resolves the link.
   #
