@@ -293,6 +293,167 @@ describe("AudioPlayerContext", () => {
     })
   })
 
+  describe("dismissing the panel", () => {
+    // happy-dom does not play media, so the element's lifecycle is driven by
+    // hand: load() records the element, and the test fires its events.
+    let elements: HTMLMediaElement[]
+    let playSpy: ReturnType<typeof vi.spyOn>
+    let pauseSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      elements = []
+      playSpy = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined)
+      pauseSpy = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {})
+      vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(function (this: HTMLMediaElement) {
+        elements.push(this)
+      })
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    function DismissConsumer() {
+      const player = useAudioPlayer()
+
+      return (
+        <div>
+          <div data-testid="state">{player.state}</div>
+          <div data-testid="visible">{player.isVisible ? "yes" : "no"}</div>
+          <div data-testid="source">{player.source ?? "-"}</div>
+          <div data-testid="active-entry">{player.activeEntryId ?? "-"}</div>
+          <div data-testid="current-time">{player.currentTime}</div>
+          <button onClick={() => player.requestTtsAudio(1, "An entry", "A feed")}>Listen</button>
+          <button onClick={() => player.requestPodcastAudio(2, "An episode", "/ep.mp3", "A podcast", 600)}>
+            Play episode
+          </button>
+          <button onClick={() => player.addToQueue({ entryId: 3, entryTitle: "First", source: "podcast", audioUrl: "/one.mp3" })}>
+            Queue first episode
+          </button>
+          <button onClick={() => player.addToQueue({ entryId: 4, entryTitle: "Second", source: "podcast", audioUrl: "/two.mp3" })}>
+            Queue second episode
+          </button>
+          <div data-testid="queue-length">{player.queue.length}</div>
+          <button onClick={player.pause}>Pause</button>
+          <button onClick={player.dismiss}>Close</button>
+        </div>
+      )
+    }
+
+    function renderDismissable() {
+      return render(
+        <AudioPlayerProvider>
+          <DismissConsumer />
+        </AudioPlayerProvider>
+      )
+    }
+
+    async function startPlaying(buttonName: string) {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: buttonName }))
+      })
+      await waitFor(() => expect(elements).toHaveLength(1))
+      const element = elements[0]
+      await act(async () => {
+        element.dispatchEvent(new Event("canplaythrough"))
+      })
+      await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("playing"))
+
+      Object.defineProperty(element, "currentTime", { value: 12.5, writable: true, configurable: true })
+      await act(async () => {
+        element.dispatchEvent(new Event("timeupdate"))
+      })
+      return element
+    }
+
+    function close() {
+      fireEvent.click(screen.getByRole("button", { name: "Close" }))
+    }
+
+    it("pauses a playing TTS article and keeps its place", async () => {
+      mockAudioApi.mockResolvedValue({ status: "ready", audio_url: "/audio/1.mp3", duration: 60 })
+      renderDismissable()
+      const element = await startPlaying("Listen")
+
+      await act(async () => close())
+
+      expect(pauseSpy).toHaveBeenCalled()
+      expect(screen.getByTestId("state")).toHaveTextContent("paused")
+      expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      // Kept for a later reopen: same item, same position, same element
+      expect(screen.getByTestId("source")).toHaveTextContent("tts")
+      expect(screen.getByTestId("active-entry")).toHaveTextContent("1")
+      expect(screen.getByTestId("current-time")).toHaveTextContent("12.5")
+      expect(element.getAttribute("src")).toBe("/audio/1.mp3")
+    })
+
+    it("pauses a playing podcast and keeps its place", async () => {
+      renderDismissable()
+      await startPlaying("Play episode")
+
+      await act(async () => close())
+
+      expect(pauseSpy).toHaveBeenCalled()
+      expect(screen.getByTestId("state")).toHaveTextContent("paused")
+      expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      expect(screen.getByTestId("source")).toHaveTextContent("podcast")
+      expect(screen.getByTestId("active-entry")).toHaveTextContent("2")
+      expect(screen.getByTestId("current-time")).toHaveTextContent("12.5")
+    })
+
+    it("hides a paused player without restarting it", async () => {
+      renderDismissable()
+      await startPlaying("Play episode")
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Pause" }))
+      })
+      expect(screen.getByTestId("state")).toHaveTextContent("paused")
+      const playCalls = playSpy.mock.calls.length
+
+      expect(() => close()).not.toThrow()
+      await act(async () => {})
+
+      expect(screen.getByTestId("state")).toHaveTextContent("paused")
+      expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      expect(screen.getByTestId("current-time")).toHaveTextContent("12.5")
+      expect(playSpy).toHaveBeenCalledTimes(playCalls)
+    })
+
+    it("does not move on to the next queue item after closing", async () => {
+      renderDismissable()
+      await startPlaying("Queue first episode")
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Queue second episode" }))
+      })
+      expect(screen.getByTestId("queue-length")).toHaveTextContent("2")
+
+      await act(async () => close())
+      await act(async () => {})
+
+      expect(screen.getByTestId("state")).toHaveTextContent("paused")
+      expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      expect(screen.getByTestId("active-entry")).toHaveTextContent("3")
+      // No second element was loaded and nothing was played again
+      expect(elements).toHaveLength(1)
+      expect(playSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it("resets a request that is still loading", async () => {
+      mockAudioApi.mockReturnValue(new Promise(() => {}))
+      renderDismissable()
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Listen" }))
+      })
+      expect(screen.getByTestId("state")).toHaveTextContent("loading")
+
+      await act(async () => close())
+
+      expect(screen.getByTestId("state")).toHaveTextContent("idle")
+      expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      expect(screen.getByTestId("active-entry")).toHaveTextContent("-")
+    })
+  })
+
   describe("jumping to the playing entry", () => {
     function JumpConsumer({ onJump }: { onJump: (entryId: number) => void }) {
       const { onJumpToEntry, setOnJumpToEntry, jumpToSource, requestTtsAudio } = useAudioPlayer()

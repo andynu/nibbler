@@ -161,9 +161,10 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     }
   }, [playbackSpeed])
 
-  // Show panel when audio becomes active
+  // Show panel when audio becomes active. "paused" is excluded because closing
+  // the panel is what pauses it; showing on pause would undo the close.
   useEffect(() => {
-    if (state !== "idle" && state !== "error") {
+    if (state !== "idle" && state !== "error" && state !== "paused") {
       setIsVisible(true)
     }
   }, [state])
@@ -443,11 +444,16 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     setActiveFeedTitle(null)
   }, [cleanup])
 
-  // Dismiss the panel without stopping audio
+  // Closing the panel always silences it. A loaded item keeps its element and
+  // position so the panel can be reopened where it left off; anything still
+  // loading, generating or failed is reset.
   const dismiss = useCallback(() => {
-    setIsVisible(false)
-    // If audio is not playing, also reset
-    if (state !== "playing") {
+    const hasLoadedAudio = state === "ready" || state === "playing" || state === "paused"
+    if (audioRef.current && hasLoadedAudio) {
+      audioRef.current.pause()
+      if (state === "playing") setState("paused")
+      setIsVisible(false)
+    } else {
       reset()
     }
   }, [state, reset])
