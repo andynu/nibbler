@@ -1,9 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import userEvent, { type UserEvent } from "@testing-library/user-event"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FeedSidebar } from "./FeedSidebar"
 import { api } from "@/lib/api"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
+import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
+import { stackRows } from "../../../test/helpers/dndRowLayout"
 
 // Mock ThemeContext
 vi.mock("@/contexts/ThemeContext", () => ({
@@ -39,6 +41,7 @@ vi.mock("@/lib/api", () => ({
       refresh: vi.fn().mockResolvedValue({}),
       resume: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
     },
   },
 }))
@@ -1049,12 +1052,117 @@ describe("FeedSidebar", () => {
       }
     })
 
-    it("says the drag is pointer only, because the sidebar has no keyboard sensor", () => {
+    it("describes how to move a feed with the keyboard", () => {
       render(<FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />)
 
       expect(screen.getByRole("button", { name: "Move First Feed" })).toHaveAccessibleDescription(
-        "Drag a feed onto a category to move it there. This list has no keyboard drag."
+        "To move a feed, press Space or Enter to pick it up. Use the up and down arrow keys to move it over a category, then press Space or Enter to drop it in. Press Escape to cancel."
       )
+    })
+  })
+
+  // The arrows hop between the category headers, skipping the feed rows,
+  // because a category is the only thing a feed can be dropped on.
+  describe("keyboard drag", () => {
+    const categories = [
+      mockCategory({ id: 1, title: "Tech" }),
+      mockCategory({ id: 2, title: "News" }),
+      mockCategory({ id: 3, title: "Sports" }),
+    ]
+    const feeds = [
+      mockFeed({ id: 1, title: "First Feed", category_id: 1 }),
+      mockFeed({ id: 2, title: "Second Feed", category_id: 2 }),
+      mockFeed({ id: 3, title: "Third Feed", category_id: 3 }),
+    ]
+
+    beforeEach(() => {
+      localStorage.removeItem("nibbler:expandedCategories")
+      vi.mocked(api.feeds.update).mockImplementation(async (id, params) =>
+        mockFeed({ ...feeds.find((feed) => feed.id === id), ...params.feed })
+      )
+      stackRows("[data-category-id], [data-feed-id]")
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    function renderTree() {
+      const onKey = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <>
+          <PageShortcuts onKey={onKey} />
+          <FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />
+        </>
+      )
+      return { user, onKey }
+    }
+
+    async function pickUp(user: UserEvent, title: string) {
+      const grip = screen.getByRole("button", { name: `Move ${title}` })
+      grip.focus()
+      expect(grip).toHaveFocus()
+      await user.keyboard(" ")
+      await waitFor(() => expect(grip).toHaveAttribute("aria-pressed", "true"))
+      return grip
+    }
+
+    const expectAnnounced = (text: string) =>
+      waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text))
+
+    it("moves a lifted feed down onto the next category and drops it in", async () => {
+      const { user } = renderTree()
+      await pickUp(user, "First Feed")
+
+      await user.keyboard("{ArrowDown}")
+      await expectAnnounced("First Feed is over News.")
+      await user.keyboard(" ")
+
+      await expectAnnounced("Moved First Feed to News.")
+      await waitFor(() =>
+        expect(api.feeds.update).toHaveBeenCalledWith(1, { feed: { category_id: 2 } })
+      )
+    })
+
+    it("moves a lifted feed up past its own category to the one above", async () => {
+      const { user } = renderTree()
+      await pickUp(user, "Third Feed")
+
+      await user.keyboard("{ArrowUp}")
+      await expectAnnounced("Third Feed is over Sports.")
+      await user.keyboard("{ArrowUp}")
+      await expectAnnounced("Third Feed is over News.")
+      await user.keyboard("{Enter}")
+
+      await waitFor(() =>
+        expect(api.feeds.update).toHaveBeenCalledWith(3, { feed: { category_id: 2 } })
+      )
+    })
+
+    it("puts a lifted feed back on Escape without moving it", async () => {
+      const { user } = renderTree()
+      const grip = await pickUp(user, "First Feed")
+
+      await user.keyboard("{ArrowDown}")
+      await expectAnnounced("First Feed is over News.")
+      await user.keyboard("{Escape}")
+
+      await expectAnnounced("Move canceled. First Feed is back where it was.")
+      await waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
+      expect(api.feeds.update).not.toHaveBeenCalled()
+    })
+
+    it("keeps the drag's keys out of the page shortcuts", async () => {
+      const { user, onKey } = renderTree()
+      const grip = await pickUp(user, "First Feed")
+
+      await user.keyboard("{ArrowDown}")
+      await expectAnnounced("First Feed is over News.")
+      await user.keyboard(" ")
+      await waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
+
+      expect(onKey).not.toHaveBeenCalled()
     })
   })
 })
