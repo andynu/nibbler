@@ -6,8 +6,13 @@ module Api
       # GET /api/v1/categories
       def index
         @categories = current_user.categories.includes(:feeds).ordered
+        unread_counts = UserEntry.unread
+          .joins(:feed)
+          .where(feeds: { category_id: @categories.map(&:id) })
+          .group("feeds.category_id")
+          .count
 
-        render json: @categories.map { |cat| category_json(cat) }
+        render json: @categories.map { |cat| category_json(cat, unread_counts: unread_counts) }
       end
 
       # GET /api/v1/categories/:id
@@ -75,7 +80,9 @@ module Api
         params.require(:category).permit(:title, :parent_id, :collapsed, :order_id, :view_settings)
       end
 
-      def category_json(category, include_feeds: false)
+      # unread_counts is a category_id => count map over each category's own
+      # feeds, for rendering many at once; an absent category has none unread.
+      def category_json(category, include_feeds: false, unread_counts: nil)
         json = {
           id: category.id,
           title: category.title,
@@ -83,7 +90,7 @@ module Api
           collapsed: category.collapsed,
           order_id: category.order_id,
           feed_count: category.feeds.size,
-          unread_count: category.feeds.sum { |f| f.user_entries.unread.count }
+          unread_count: unread_counts ? unread_counts.fetch(category.id, 0) : category.feeds.sum { |f| f.user_entries.unread.count }
         }
 
         if include_feeds

@@ -22,6 +22,32 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert json.any? { |f| f["id"].present? && f["title"].present? }
   end
 
+  test "index reports each feed's unread count" do
+    other = @user.feeds.create!(title: "Other", feed_url: "https://example.com/other-#{SecureRandom.hex(4)}.rss")
+    UserEntry.where(feed: [ @feed, other ]).delete_all
+    2.times { create_user_entry(@feed) }
+    create_user_entry(@feed, unread: false)
+
+    get api_v1_feeds_url, as: :json
+
+    counts = JSON.parse(response.body).to_h { |f| [ f["id"], f["unread_count"] ] }
+    assert_equal 2, counts[@feed.id]
+    assert_equal 0, counts[other.id]
+  end
+
+  test "index query count does not grow with the number of feeds" do
+    get api_v1_feeds_url, as: :json # warm schema and auth lookups
+    before = sql_count { get api_v1_feeds_url, as: :json }
+
+    3.times do |i|
+      feed = @user.feeds.create!(title: "Extra #{i}", feed_url: "https://example.com/extra-#{SecureRandom.hex(4)}.rss")
+      create_user_entry(feed)
+    end
+    after = sql_count { get api_v1_feeds_url, as: :json }
+
+    assert_equal before, after
+  end
+
   # Show
   test "show returns feed details" do
     get api_v1_feed_url(@feed), as: :json
@@ -680,6 +706,31 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
         </entry>
       </feed>
     XML
+  end
+
+  def create_user_entry(feed, unread: true)
+    entry = Entry.create!(
+      guid: "feeds-entry-#{SecureRandom.uuid}",
+      title: "Entry",
+      link: "https://example.com/#{SecureRandom.hex(4)}",
+      content: "<p>Content</p>",
+      content_hash: SecureRandom.hex(8),
+      updated: Time.current,
+      date_entered: Time.current,
+      date_updated: Time.current
+    )
+    @user.user_entries.create!(entry: entry, feed: feed, uuid: SecureRandom.uuid, unread: unread)
+  end
+
+  # SQL statements the block runs, leaving out schema lookups and cache hits.
+  # The query cache outlives a request in tests, so it is emptied first or a
+  # repeated request would read as zero queries.
+  def sql_count(&block)
+    ActiveRecord::Base.connection.clear_query_cache
+    count = 0
+    counter = ->(*, payload) { count += 1 unless payload[:name] == "SCHEMA" || payload[:cached] }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record", &block)
+    count
   end
 
   def sample_rss_feed(title, item_link: "https://example.com/item1")

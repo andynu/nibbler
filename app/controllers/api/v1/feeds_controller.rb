@@ -6,8 +6,9 @@ module Api
       # GET /api/v1/feeds
       def index
         @feeds = current_user.feeds.includes(:category).ordered
+        unread_counts = UserEntry.unread.where(feed_id: @feeds.map(&:id)).group(:feed_id).count
 
-        render json: @feeds.map { |feed| feed_json(feed) }
+        render json: @feeds.map { |feed| feed_json(feed, unread_counts: unread_counts) }
       end
 
       # GET /api/v1/feeds/:id
@@ -292,7 +293,9 @@ module Api
         { error: "Failed to detect feed title: #{e.message}" }
       end
 
-      def feed_json(feed, include_entries: false)
+      # unread_counts is a feed_id => count map for rendering many feeds at
+      # once; a feed absent from it has nothing unread.
+      def feed_json(feed, include_entries: false, unread_counts: nil)
         json = {
           id: feed.id,
           title: feed.title,
@@ -313,7 +316,7 @@ module Api
           broken: feed.broken?,
           # Set once the feed has failed for a year and is no longer fetched.
           dead_at: feed.dead_at,
-          unread_count: feed.user_entries.unread.count,
+          unread_count: unread_counts ? unread_counts.fetch(feed.id, 0) : feed.user_entries.unread.count,
           entry_count: feed.entry_count,
           oldest_entry_date: feed.oldest_entry_date,
           newest_entry_date: feed.newest_entry_date,
