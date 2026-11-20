@@ -625,7 +625,7 @@ function App() {
     }
   }
 
-  const { handleAddTag, handleRemoveTag } = entryTagHandlers({ selectedEntry, setSelectedEntry, allTags, setAllTags })
+  const { handleAddTag, handleRemoveTag } = entryTagHandlers({ selectedEntry, patchEntry, allTags, setAllTags })
 
   const handleSetScore = async (entryId: number, score: number) => {
     try {

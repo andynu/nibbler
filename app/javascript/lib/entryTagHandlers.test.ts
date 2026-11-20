@@ -54,15 +54,17 @@ function app(entries: Entry[], selectedId: number) {
     selectedEntry: entries.find((e) => e.id === selectedId) ?? null,
     allTags: ["science"],
   }
-  const setSelectedEntry = (action: SetStateAction<Entry | null>) => {
-    state.selectedEntry = apply(state.selectedEntry, action)
+  // Same writes as App's patchEntry.
+  const patchEntry = (entryId: number, patch: Partial<Entry>) => {
+    state.entries = state.entries.map((e) => (e.id === entryId ? { ...e, ...patch } : e))
+    state.selectedEntry = state.selectedEntry?.id === entryId ? { ...state.selectedEntry, ...patch } : state.selectedEntry
   }
   const setAllTags = (action: SetStateAction<string[]>) => {
     state.allTags = apply(state.allTags, action)
   }
   const handlers = entryTagHandlers({
     selectedEntry: state.selectedEntry,
-    setSelectedEntry,
+    patchEntry,
     allTags: state.allTags,
     setAllTags,
   })
