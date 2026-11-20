@@ -247,6 +247,8 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
               audio.playbackRate = playbackSpeed
               audioRef.current = audio
 
+              // once: canplaythrough refires after a seek or a recovered stall,
+              // and auto-playing then would restart a paused or closed player.
               audio.addEventListener("canplaythrough", () => {
                 setState("ready")
                 // Auto-play when ready (for queue playback)
@@ -256,7 +258,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
                   console.warn("Auto-play failed:", err)
                   // Stay in ready state, user can manually play
                 })
-              })
+              }, { once: true })
 
               audio.addEventListener("timeupdate", () => {
                 setCurrentTime(audio.currentTime)
@@ -290,6 +292,8 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
         audio.playbackRate = playbackSpeed
         audioRef.current = audio
 
+        // once: canplaythrough refires after a seek or a recovered stall,
+        // and auto-playing then would restart a paused or closed player.
         audio.addEventListener("canplaythrough", () => {
           setState("ready")
           // Auto-play when ready (for queue playback)
@@ -299,7 +303,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
             console.warn("Auto-play failed:", err)
             // Stay in ready state, user can manually play
           })
-        })
+        }, { once: true })
 
         audio.addEventListener("timeupdate", () => {
           setCurrentTime(audio.currentTime)
@@ -356,6 +360,8 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     audio.playbackRate = playbackSpeed
     audioRef.current = audio
 
+    // once: canplaythrough refires after a seek or a recovered stall, and
+    // auto-playing then would restart a paused or closed player.
     audio.addEventListener("canplaythrough", () => {
       // Update duration from audio element if not provided
       if (!audioDuration && audio.duration && isFinite(audio.duration)) {
@@ -369,7 +375,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
         console.warn("Auto-play failed:", err)
         // Stay in ready state, user can manually play
       })
-    })
+    }, { once: true })
 
     audio.addEventListener("loadedmetadata", () => {
       // Also try to get duration from metadata
