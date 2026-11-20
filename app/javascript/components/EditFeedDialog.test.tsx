@@ -288,7 +288,46 @@ describe("EditFeedDialog", () => {
 
       await waitFor(() => expect(onFeedUpdated).toHaveBeenCalledWith(resumed))
       expect(mockApiResume).toHaveBeenCalledWith(1)
-      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it("stays open after Resume and refetches the info panel to show the attempt", async () => {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      const deadFeed = mockFeed({
+        id: 1,
+        last_error: "Feed not found",
+        consecutive_failures: 60,
+        broken: true,
+        first_failed_at: "2025-08-01T00:00:00Z",
+        dead_at: "2026-09-01T00:00:00Z",
+      })
+      const resumed = mockFeed({ id: 1, last_error: null, dead_at: null })
+      mockApiResume.mockResolvedValue({ status: "ok", new_entries: 3, error: null, feed: resumed })
+      const staleInfo = await mockApiInfo()
+      mockApiInfo.mockClear()
+      mockApiInfo
+        .mockResolvedValueOnce(staleInfo)
+        .mockResolvedValueOnce({ ...staleInfo, entry_count: 1234 })
+
+      const { rerender } = render(
+        <EditFeedDialog
+          {...defaultProps}
+          feed={deadFeed}
+          onOpenChange={onOpenChange}
+          onFeedUpdated={(f) =>
+            rerender(<EditFeedDialog {...defaultProps} feed={f} onOpenChange={onOpenChange} />)
+          }
+        />
+      )
+
+      expect(await screen.findByText("100")).toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "Resume checking" }))
+
+      expect(await screen.findByText("1,234")).toBeInTheDocument()
+      expect(screen.queryByText("No longer checked")).not.toBeInTheDocument()
+      expect(mockApiInfo).toHaveBeenCalledTimes(2)
+      expect(mockApiInfo).toHaveBeenLastCalledWith(1)
+      expect(onOpenChange).not.toHaveBeenCalled()
     })
 
     it("does not offer to resume a feed that is failing but still checked", () => {
