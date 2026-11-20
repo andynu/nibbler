@@ -1,10 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { useState } from "react"
 import { FilterManager } from "./FilterManager"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { mockFilter } from "../../../test/fixtures/data"
 import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
 import { stackRows } from "../../../test/helpers/dndRowLayout"
+import { preventedStrayDragKeys } from "../../../test/helpers/documentKeydown"
 
 // Mock API
 const mockApiFiltersList = vi.fn()
@@ -479,6 +482,58 @@ describe("FilterManager", () => {
 
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("Escape")
+    })
+  })
+
+  describe("a filter still lifted when the list goes away", () => {
+    function SettingsHost() {
+      const [open, setOpen] = useState(true)
+      return (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogTitle>Settings</DialogTitle>
+            <FilterManager {...defaultProps} />
+          </DialogContent>
+        </Dialog>
+      )
+    }
+
+    async function liftSecondFilter() {
+      const user = userEvent.setup()
+      const rows = await screen.findAllByTestId("filter-row")
+      const grip = rows[1].querySelector<HTMLElement>('[aria-roledescription="sortable"]')!
+      grip.focus()
+      await user.keyboard(" ")
+      await waitFor(() => expect(grip).toHaveAttribute("aria-pressed", "true"))
+      return user
+    }
+
+    beforeEach(() => {
+      mockApiFiltersList.mockResolvedValue([
+        mockFilter({ id: 1, title: "First filter", order_id: 0 }),
+        mockFilter({ id: 2, title: "Second filter", order_id: 1 }),
+      ])
+    })
+
+    it("leaves the page's keys alone after an unmount", async () => {
+      const view = render(<FilterManager {...defaultProps} />)
+      await liftSecondFilter()
+
+      view.unmount()
+
+      expect(preventedStrayDragKeys()).toEqual([])
+    })
+
+    it("leaves the page's keys alone after the settings dialog closes on an overlay click", async () => {
+      render(<SettingsHost />)
+      const user = await liftSecondFilter()
+
+      const overlay = document.querySelector<HTMLElement>(".fixed.inset-0.z-50")
+      expect(overlay).not.toBeNull()
+      await user.click(overlay!)
+      await waitFor(() => expect(screen.queryByText("Settings")).toBeNull())
+
+      expect(preventedStrayDragKeys()).toEqual([])
     })
   })
 

@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react"
 import {
-  DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragEndEvent,
 } from "@dnd-kit/core"
+import { UnmountSafeDndContext, UnmountSafeKeyboardSensor } from "@/lib/unmountSafeKeyboardSensor"
 import {
   arrayMove,
   SortableContext,
@@ -125,7 +124,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
+    useSensor(UnmountSafeKeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
@@ -280,7 +279,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
             </p>
           </div>
         ) : (
-          <DndContext
+          <UnmountSafeDndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             accessibility={reorderAccessibility}
@@ -309,7 +308,7 @@ export function FilterManager({ feeds, categories }: FilterManagerProps) {
                 ))}
               </div>
             </SortableContext>
-          </DndContext>
+          </UnmountSafeDndContext>
         )}
       </ScrollArea>
 

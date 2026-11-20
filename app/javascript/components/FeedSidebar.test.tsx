@@ -6,6 +6,7 @@ import { api } from "@/lib/api"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
 import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
 import { stackRows } from "../../../test/helpers/dndRowLayout"
+import { preventedStrayDragKeys } from "../../../test/helpers/documentKeydown"
 
 // Mock ThemeContext
 vi.mock("@/contexts/ThemeContext", () => ({
@@ -1179,6 +1180,19 @@ describe("FeedSidebar", () => {
       await waitFor(() => expect(grip).not.toHaveAttribute("aria-pressed", "true"))
 
       expect(onKey).not.toHaveBeenCalled()
+    })
+
+    it("leaves the page's keys alone after the sidebar collapses with a feed lifted", async () => {
+      // 'b' is not a lifted-row key, so it reaches the toggle and collapses
+      // the sidebar mid-drag, which unmounts the tree's DndContext.
+      const user = userEvent.setup()
+      const view = render(<FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />)
+      await pickUp(user, "First Feed")
+
+      view.rerender(<FeedSidebar {...defaultProps} feeds={feeds} categories={categories} isCollapsed />)
+      expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument()
+
+      expect(preventedStrayDragKeys()).toEqual([])
     })
   })
 })

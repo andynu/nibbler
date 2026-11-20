@@ -6,6 +6,7 @@ import { api } from "@/lib/api"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
 import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
 import { stackRows } from "../../../test/helpers/dndRowLayout"
+import { preventedStrayDragKeys } from "../../../test/helpers/documentKeydown"
 
 // Mock API
 vi.mock("@/lib/api", () => ({
@@ -501,6 +502,18 @@ describe("FeedOrganizer", () => {
 
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("Escape")
+    })
+
+    it("leaves the page's keys alone after it unmounts with a feed lifted", async () => {
+      const user = userEvent.setup()
+      const view = render(<FeedOrganizer {...defaultProps} feeds={feeds} categories={categories} />)
+      const grip = gripOf(/second feed/i)
+      await user.keyboard(" ")
+      await expectLifted(grip)
+
+      view.unmount()
+
+      expect(preventedStrayDragKeys()).toEqual([])
     })
   })
 

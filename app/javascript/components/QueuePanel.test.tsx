@@ -5,6 +5,7 @@ import { QueuePanel } from "./QueuePanel"
 import type { QueueItem } from "@/lib/api"
 import { PageShortcuts } from "../../../test/mocks/pageShortcuts"
 import { stackRows } from "../../../test/helpers/dndRowLayout"
+import { preventedStrayDragKeys } from "../../../test/helpers/documentKeydown"
 
 const queue: QueueItem[] = [
   { id: "q1", entryId: 1, entryTitle: "Playing article", source: "tts", status: "ready" },
@@ -122,6 +123,19 @@ describe("QueuePanel keyboard reordering", () => {
       expect(onKey).toHaveBeenCalledTimes(1)
       expect(onKey).toHaveBeenCalledWith("Escape")
     })
+  })
+
+  it("leaves the page's keys alone after the panel unmounts with a row lifted", async () => {
+    const user = userEvent.setup()
+    const view = render(<QueuePanel />)
+    const grip = screen.getByRole("button", { name: "Move Second article" })
+    grip.focus()
+    await user.keyboard(" ")
+    await expectLifted(grip)
+
+    view.unmount()
+
+    expect(preventedStrayDragKeys()).toEqual([])
   })
 })
 

@@ -1,15 +1,14 @@
 import { useMemo } from "react"
 import {
-  DndContext,
   DragOverlay,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
 } from "@dnd-kit/core"
+import { UnmountSafeDndContext, UnmountSafeKeyboardSensor } from "@/lib/unmountSafeKeyboardSensor"
 import {
   SortableContext,
   sortableKeyboardCoordinates,
@@ -202,7 +201,7 @@ export function QueuePanel() {
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
+    useSensor(UnmountSafeKeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
@@ -289,7 +288,7 @@ export function QueuePanel() {
       ) : (
         <ScrollArea className="flex-1">
           <div className="p-2">
-            <DndContext
+            <UnmountSafeDndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               accessibility={reorderAccessibility}
@@ -319,7 +318,7 @@ export function QueuePanel() {
               <DragOverlay>
                 {activeItem ? <DragOverlayItem item={activeItem} /> : null}
               </DragOverlay>
-            </DndContext>
+            </UnmountSafeDndContext>
           </div>
         </ScrollArea>
       )}

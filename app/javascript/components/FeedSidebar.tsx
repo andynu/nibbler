@@ -1,17 +1,16 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useAltKeyHeld } from "@/hooks/useAltKeyHeld"
 import {
-  DndContext,
   DragOverlay,
   useDraggable,
   useDroppable,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
 } from "@dnd-kit/core"
+import { UnmountSafeDndContext, UnmountSafeKeyboardSensor } from "@/lib/unmountSafeKeyboardSensor"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -212,7 +211,7 @@ export function FeedSidebar({
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
-    useSensor(KeyboardSensor, {
+    useSensor(UnmountSafeKeyboardSensor, {
       coordinateGetter: categoryKeyboardCoordinates,
     })
   )
@@ -1041,7 +1040,7 @@ export function FeedSidebar({
         className="flex-1 [&>[data-slot=scroll-area-viewport]>div]:block!"
         viewportRef={scrollViewportRef}
       >
-        <DndContext
+        <UnmountSafeDndContext
           sensors={sensors}
           collisionDetection={categoryCollisionDetection}
           accessibility={dragAccessibility}
@@ -1347,7 +1346,7 @@ export function FeedSidebar({
             </div>
           )}
         </DragOverlay>
-        </DndContext>
+        </UnmountSafeDndContext>
       </ScrollArea>
 
       <SyncStatusBar feeds={feeds} isRefreshing={isRefreshing} />

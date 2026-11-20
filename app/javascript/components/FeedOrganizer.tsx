@@ -1,15 +1,14 @@
 import { useState, useLayoutEffect, useMemo, forwardRef, useRef } from "react"
 import {
-  DndContext,
   DragOverlay,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
 } from "@dnd-kit/core"
+import { UnmountSafeDndContext, UnmountSafeKeyboardSensor } from "@/lib/unmountSafeKeyboardSensor"
 import { snapCenterToCursor } from "@dnd-kit/modifiers"
 import {
   SortableContext,
@@ -243,7 +242,7 @@ export function FeedOrganizer({
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
+    useSensor(UnmountSafeKeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
@@ -580,7 +579,7 @@ export function FeedOrganizer({
       </div>
 
       <ScrollArea className="flex-1">
-        <DndContext
+        <UnmountSafeDndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           accessibility={dragAccessibility}
@@ -812,7 +811,7 @@ export function FeedOrganizer({
               </div>
             )}
           </DragOverlay>
-        </DndContext>
+        </UnmountSafeDndContext>
       </ScrollArea>
 
       <CommandPalette
