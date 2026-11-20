@@ -17,6 +17,28 @@ module Feedjira
 
       element :"media:title", as: :title
     end
+
+    # One Atom <link rel="enclosure">, Atom's attachment.
+    class AtomEnclosureLink
+      include SAXMachine
+
+      attribute :href
+      attribute :type
+      attribute :length
+      attribute :title
+    end
+  end
+end
+
+# Feedjira's Atom entries read <link> only as a list of hrefs, which loses the
+# rel, type and length that identify an enclosure. A <link> that matches a
+# class collection is read by that class alone, so an enclosure link drops out
+# of #links and can no longer become the entry's #url; widening the filter
+# past rel="enclosure" would empty #links and #url for every entry.
+[ Feedjira::Parser::AtomEntry, Feedjira::Parser::AtomFeedBurnerEntry ].each do |entry_class|
+  entry_class.class_eval do
+    elements :link, as: :enclosure_links, class: Feedjira::Parser::AtomEnclosureLink,
+                    with: { rel: "enclosure" }
   end
 end
 

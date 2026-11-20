@@ -254,9 +254,24 @@ class FeedParserTest < ActiveSupport::TestCase
     assert_equal "https://example.com/ep1", result.entries.first.link
   end
 
+  test "an Atom entry listing its enclosure first keeps its article link" do
+    links = <<~XML
+      <link rel="enclosure" type="audio/mpeg" href="https://cdn.example.com/ep1.mp3"/>
+      <link href="https://example.com/ep1"/>
+    XML
+
+    assert_equal "https://example.com/ep1", rss_parse(atom_feed(atom_entry_with(links))).entries.first.link
+  end
+
+  test "an Atom entry with only an enclosure link falls back to it" do
+    links = %(<link rel="enclosure" type="audio/mpeg" href="https://cdn.example.com/ep1.mp3"/>)
+
+    assert_equal "https://cdn.example.com/ep1.mp3", rss_parse(atom_feed(atom_entry_with(links))).entries.first.link
+  end
+
   private
 
-  ENCLOSURE =%(<enclosure url="https://cdn.example.com/ep1.mp3" type="audio/mpeg" length="12345"/>).freeze
+  ENCLOSURE = %(<enclosure url="https://cdn.example.com/ep1.mp3" type="audio/mpeg" length="12345"/>).freeze
   ITUNES_NS = %( xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd").freeze
   MEDIA_NS = %( xmlns:media="http://search.yahoo.com/mrss/").freeze
   FEEDBURNER_NS = %( xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0").freeze

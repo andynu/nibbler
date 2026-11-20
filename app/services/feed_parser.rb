@@ -97,6 +97,10 @@ class FeedParser
     if entry.respond_to?(:enclosure_url) && entry.enclosure_url.present?
       return entry.enclosure_url
     end
+    if entry.respond_to?(:enclosure_links)
+      href = entry.enclosure_links.to_a.map(&:href).find(&:present?)
+      return href if href
+    end
 
     nil
   end
@@ -158,6 +162,20 @@ class FeedParser
           type: media.type.presence || "application/octet-stream",
           title: media.title.to_s,
           length: media.file_size
+        )
+      end
+    end
+
+    # Atom
+    if entry.respond_to?(:enclosure_links)
+      entry.enclosure_links.to_a.each do |link|
+        next if link.href.blank?
+
+        enclosures << ParsedEnclosure.new(
+          url: link.href,
+          type: link.type.presence || "application/octet-stream",
+          title: link.title.to_s,
+          length: link.length
         )
       end
     end
