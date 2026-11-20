@@ -148,6 +148,7 @@ describe("EntryContent", () => {
     cableUnsubscribe.mockClear()
     mockAudioPlayer.source = null
     mockAudioPlayer.activeEntryId = null
+    mockAudioPlayer.currentTime = 0
     mockApiStoriesExtractFromEntry.mockResolvedValue({
       topic: "",
       queries: [],
@@ -319,6 +320,46 @@ describe("EntryContent", () => {
 
       expect(screen.getByText(/This is/)).toBeInTheDocument()
       expect(screen.getByText("bold")).toBeInTheDocument()
+    })
+
+    // Audio playback re-renders the reader on every timeupdate. React 19
+    // rewrites innerHTML whenever the dangerouslySetInnerHTML object changes
+    // identity, so an unstable object recreates every image several times a
+    // second and the images flicker.
+    it("keeps the body's images across a re-render from audio time updates", () => {
+      const entry = mockEntryWithContent({
+        content: '<p>Before</p><img src="https://example.com/a.png" alt="Pic"><p>After</p>',
+      })
+
+      const { rerender } = render(<EntryContent {...defaultProps} entry={entry} />)
+      const img = screen.getByRole("img", { name: "Pic" })
+
+      mockAudioPlayer.currentTime = 1.25
+      rerender(<EntryContent {...defaultProps} entry={entry} />)
+      mockAudioPlayer.currentTime = 1.5
+      rerender(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(img.isConnected).toBe(true)
+      expect(screen.getByRole("img", { name: "Pic" })).toBe(img)
+    })
+
+    it("replaces the body when the article's content changes", () => {
+      const entry = mockEntryWithContent({
+        content: '<img src="https://example.com/a.png" alt="Pic">',
+      })
+
+      const { rerender } = render(<EntryContent {...defaultProps} entry={entry} />)
+      const img = screen.getByRole("img", { name: "Pic" })
+
+      rerender(
+        <EntryContent
+          {...defaultProps}
+          entry={{ ...entry, content: '<img src="https://example.com/b.png" alt="Other">' }}
+        />
+      )
+
+      expect(img.isConnected).toBe(false)
+      expect(screen.getByRole("img", { name: "Other" })).toBeInTheDocument()
     })
 
     it("shows note section when entry has note", () => {

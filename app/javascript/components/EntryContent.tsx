@@ -275,6 +275,11 @@ export function EntryContent({
     return shouldStripImages ? stripImages(html) : html
   }, [entry?.content, fullArticle.content, shouldStripImages])
 
+  // React 19 rewrites innerHTML whenever this object's identity changes, and
+  // audio playback re-renders the reader on every timeupdate. An inline
+  // object would recreate every image in the body several times a second.
+  const bodyHtml = useMemo(() => ({ __html: processedContent }), [processedContent])
+
   // Headline-only and link-only items are a normal RSS shape, so an entry with
   // no body is expected rather than broken. Injecting "" would render a
   // zero-height prose block and leave the reader staring at a header over
@@ -954,7 +959,7 @@ export function EntryContent({
                 [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
                 [&_a]:text-primary [&_a]:underline
                 [&_img]:block [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded"
-              dangerouslySetInnerHTML={{ __html: processedContent }}
+              dangerouslySetInnerHTML={bodyHtml}
             />
           ) : (
             <div className="rounded-md border border-dashed p-6 text-center">

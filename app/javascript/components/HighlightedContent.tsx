@@ -90,6 +90,11 @@ export function HighlightedContent({
     }
   }, [html, timestamps.length])
 
+  // React 19 rewrites innerHTML whenever this object's identity changes. Each
+  // word advance re-renders, and a rewrite would recreate the images and drop
+  // the active-word class the effect below sets.
+  const bodyHtml = useMemo(() => ({ __html: processedHtml }), [processedHtml])
+
   // Detect user scroll (to pause auto-scroll)
   const handleScroll = useCallback(() => {
     // Ignore scroll events triggered by our auto-scroll
@@ -146,7 +151,7 @@ export function HighlightedContent({
       ref={containerRef}
       className={className}
       onScroll={handleScroll}
-      dangerouslySetInnerHTML={{ __html: processedHtml }}
+      dangerouslySetInnerHTML={bodyHtml}
     />
   )
 }
