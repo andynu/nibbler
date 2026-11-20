@@ -39,6 +39,7 @@ import { useEntrySearch } from "@/hooks/useEntrySearch"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 import { applyUnreadCounts } from "@/lib/unreadCounts"
 import { entryTagHandlers } from "@/lib/entryTagHandlers"
+import { markAllEntriesRead, toggleEntryRead } from "@/lib/entryReadHandlers"
 
 // Virtual folder ids the entries API recognizes as a `view`. The virtual folder
 // registry is open, so ids outside this set (All Feeds, the feed-list smart
@@ -453,20 +454,16 @@ function App() {
 
       // Mark as read when opening
       if (entry.unread) {
-        const result = await api.entries.toggleRead(entryId)
         // `entry` above was fetched before the toggle, so the copy just put in
         // the pane still reads unread. It needs the patch as much as the list
         // row does, or the header offers "Mark as read" for an article the
         // server already has as read - and the endpoint is a toggle, so
         // pressing it does the opposite of its label.
-        patchEntry(entryId, { unread: result.unread })
-        // The search owns its own rows, so the entry list update above does not
+        // The search owns its own rows, so the entry list update does not
         // reach them. Opening a hit is the commonest way into that: the reader
         // takes no deliberate action and the row they just clicked would go on
         // claiming to be unread (ttrb-zgvy).
-        updateSearchResult(entryId, { unread: result.unread })
-        loadFeeds() // Refresh unread counts
-        loadCounters() // Refresh virtual folder counts
+        await toggleEntryRead(entryId, { patchEntry, updateSearchResult, loadCounters })
       }
     } catch (error) {
       console.error("Failed to load entry:", error)
@@ -579,11 +576,7 @@ function App() {
 
   const handleToggleRead = useCallback(async (entryId: number) => {
     try {
-      const result = await api.entries.toggleRead(entryId)
-      patchEntry(entryId, { unread: result.unread })
-      updateSearchResult(entryId, { unread: result.unread })
-      loadFeeds() // Refresh unread counts
-      loadCounters() // Refresh virtual folder counts
+      await toggleEntryRead(entryId, { patchEntry, updateSearchResult, loadCounters })
     } catch (error) {
       console.error("Failed to toggle read:", error)
     }
@@ -667,14 +660,19 @@ function App() {
 
   const doMarkAllRead = async () => {
     try {
-      await api.entries.markAllRead({
-        feed_id: selectedFeedId || undefined,
-        category_id: selectedCategoryId || undefined,
-      })
-      setEntries((prev) => prev.map((e) => ({ ...e, unread: false })))
-      entrySearch.updateResults(sweptByMarkAllRead, { unread: false })
-      loadFeeds() // Refresh unread counts
-      loadCounters() // Refresh virtual folder counts
+      await markAllEntriesRead(
+        {
+          feed_id: selectedFeedId || undefined,
+          category_id: selectedCategoryId || undefined,
+        },
+        {
+          markLoadedRead: () => {
+            setEntries((prev) => prev.map((e) => ({ ...e, unread: false })))
+            entrySearch.updateResults(sweptByMarkAllRead, { unread: false })
+          },
+          loadCounters,
+        }
+      )
     } catch (error) {
       console.error("Failed to mark all read:", error)
     }
