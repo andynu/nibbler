@@ -276,6 +276,12 @@ export function EditFeedDialog({
     try {
       const result = await api.feeds.refresh(feed.id)
       onFeedUpdated(result.feed)
+      // The info effect is keyed on the id and will not rerun for this feed.
+      // Swapped in without the loading state so the panel does not blank out.
+      api.feeds
+        .info(feed.id)
+        .then(setInfo)
+        .catch((err) => console.error("Failed to reload feed info:", err))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to refresh feed")
     } finally {
