@@ -269,6 +269,60 @@ class FeedParserTest < ActiveSupport::TestCase
     assert_equal "https://cdn.example.com/ep1.mp3", rss_parse(atom_feed(atom_entry_with(links))).entries.first.link
   end
 
+  test "an RSS enclosure with a non-http url is neither stored nor used as the link" do
+    rss = channel(<<~XML)
+      <item>
+        <title>Linkless</title>
+        <guid>ep1</guid>
+        <enclosure url="javascript:alert(1)" type="audio/mpeg" length="1"/>
+      </item>
+    XML
+
+    entry = rss_parse(rss).entries.first
+
+    assert_empty entry.enclosures
+    assert_nil entry.link
+  end
+
+  test "a media:content with a non-http url is skipped" do
+    media = %(<media:content url="data:text/html,hi" type="video/mp4"/>)
+
+    assert_empty rss_parse(channel(item_with(media), namespaces: MEDIA_NS)).entries.first.enclosures
+  end
+
+  test "an Atom enclosure link with a non-http href is neither stored nor used as the link" do
+    links = %(<link rel="enclosure" type="audio/mpeg" href="javascript:alert(1)"/>)
+
+    entry = rss_parse(atom_feed(atom_entry_with(links))).entries.first
+
+    assert_empty entry.enclosures
+    assert_nil entry.link
+  end
+
+  test "a plain http enclosure is still stored and used as the link" do
+    rss = channel(<<~XML)
+      <item>
+        <title>Linkless</title>
+        <guid>ep1</guid>
+        <enclosure url="http://cdn.example.com/ep1.mp3" type="audio/mpeg" length="1"/>
+      </item>
+    XML
+
+    entry = rss_parse(rss).entries.first
+
+    assert_equal [ "http://cdn.example.com/ep1.mp3" ], entry.enclosures.map(&:url)
+    assert_equal "http://cdn.example.com/ep1.mp3", entry.link
+  end
+
+  test "a plain http Atom enclosure link is still stored and used as the link" do
+    links = %(<link rel="enclosure" type="audio/mpeg" href="http://cdn.example.com/ep1.mp3"/>)
+
+    entry = rss_parse(atom_feed(atom_entry_with(links))).entries.first
+
+    assert_equal [ "http://cdn.example.com/ep1.mp3" ], entry.enclosures.map(&:url)
+    assert_equal "http://cdn.example.com/ep1.mp3", entry.link
+  end
+
   private
 
   ENCLOSURE = %(<enclosure url="https://cdn.example.com/ep1.mp3" type="audio/mpeg" length="12345"/>).freeze
