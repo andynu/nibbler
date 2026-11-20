@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 
-const { createConsumer, disconnect } = vi.hoisted(() => {
+const { createConsumer, disconnect, reconnectIfStale } = vi.hoisted(() => {
   const disconnect = vi.fn()
-  const createConsumer = vi.fn(() => ({ disconnect, subscriptions: { create: vi.fn() } }))
-  return { createConsumer, disconnect }
+  const reconnectIfStale = vi.fn()
+  const createConsumer = vi.fn(() => ({
+    disconnect,
+    subscriptions: { create: vi.fn() },
+    connection: { isOpen: () => true, monitor: { reconnectIfStale } },
+  }))
+  return { createConsumer, disconnect, reconnectIfStale }
 })
 
 vi.mock("@rails/actioncable", () => ({ createConsumer }))
@@ -50,6 +55,22 @@ describe("cable", () => {
 
     expect(getConsumer()).not.toBe(first)
     expect(createConsumer).toHaveBeenCalledTimes(2)
+  })
+
+  it("holds the stale-socket reopen on the consumer it builds while the tab is hidden", () => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" })
+    try {
+      const built = getConsumer() as unknown as {
+        connection: { monitor: { reconnectIfStale(): void } }
+      }
+      reconnectIfStale.mockClear()
+
+      built.connection.monitor.reconnectIfStale()
+
+      expect(reconnectIfStale).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" })
+    }
   })
 
   it("does not disconnect a consumer that was never built", () => {

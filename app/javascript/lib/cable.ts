@@ -1,4 +1,5 @@
 import { createConsumer, type Consumer } from "@rails/actioncable"
+import { holdStaleReopenWhileHidden, type GuardableConnection } from "@/lib/cableStaleGuard"
 
 /**
  * The one Action Cable consumer for the whole app.
@@ -17,7 +18,11 @@ import { createConsumer, type Consumer } from "@rails/actioncable"
 let consumer: Consumer | null = null
 
 export function getConsumer(): Consumer {
-  consumer ??= createConsumer()
+  if (consumer === null) {
+    consumer = createConsumer()
+    // `connection` is real at runtime but missing from @types/rails__actioncable.
+    holdStaleReopenWhileHidden((consumer as unknown as { connection: GuardableConnection }).connection)
+  }
   return consumer
 }
 
