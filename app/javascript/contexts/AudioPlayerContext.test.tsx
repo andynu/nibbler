@@ -1,8 +1,9 @@
-import { render, screen, act, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, act, fireEvent, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { useEffect } from "react"
 import { AudioPlayerProvider, useAudioPlayer } from "./AudioPlayerContext"
+import { AudioPanel } from "@/components/AudioPanel"
 
 const POLL_INTERVAL = 2000
 
@@ -336,14 +337,17 @@ describe("AudioPlayerContext", () => {
           <div data-testid="queue-length">{player.queue.length}</div>
           <button onClick={player.pause}>Pause</button>
           <button onClick={player.dismiss}>Close</button>
+          <div data-testid="can-reopen">{player.canReopen ? "yes" : "no"}</div>
+          <button onClick={player.reopen}>Reopen</button>
         </div>
       )
     }
 
-    function renderDismissable() {
+    function renderDismissable({ withPanel = false } = {}) {
       return render(
         <AudioPlayerProvider>
           <DismissConsumer />
+          {withPanel && <AudioPanel />}
         </AudioPlayerProvider>
       )
     }
@@ -451,6 +455,41 @@ describe("AudioPlayerContext", () => {
       expect(screen.getByTestId("state")).toHaveTextContent("idle")
       expect(screen.getByTestId("visible")).toHaveTextContent("no")
       expect(screen.getByTestId("active-entry")).toHaveTextContent("-")
+    })
+
+    it("reopens a closed article paused where it left off", async () => {
+      mockAudioApi.mockResolvedValue({ status: "ready", audio_url: "/audio/1.mp3", duration: 60 })
+      renderDismissable({ withPanel: true })
+      const element = await startPlaying("Listen")
+      await act(async () => close())
+      expect(screen.queryByTestId("audio-panel")).not.toBeInTheDocument()
+      expect(screen.getByTestId("can-reopen")).toHaveTextContent("yes")
+      const playCalls = playSpy.mock.calls.length
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Reopen" }))
+      })
+
+      const panel = within(screen.getByTestId("audio-panel"))
+      expect(panel.getByRole("button", { name: "Play" })).toBeInTheDocument()
+      expect(panel.getByText("An entry")).toBeInTheDocument()
+      expect(screen.getByTestId("state")).toHaveTextContent("paused")
+      expect(screen.getByTestId("current-time")).toHaveTextContent("12.5")
+      expect(screen.getByTestId("can-reopen")).toHaveTextContent("no")
+      expect(element.getAttribute("src")).toBe("/audio/1.mp3")
+      expect(playSpy).toHaveBeenCalledTimes(playCalls)
+    })
+
+    it("has nothing to reopen with no item loaded and an empty queue", async () => {
+      renderDismissable({ withPanel: true })
+      expect(screen.getByTestId("can-reopen")).toHaveTextContent("no")
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Reopen" }))
+      })
+
+      expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      expect(screen.queryByTestId("audio-panel")).not.toBeInTheDocument()
     })
   })
 

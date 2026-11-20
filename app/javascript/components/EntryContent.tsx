@@ -3,7 +3,7 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 import { ScrollBar } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard, Sparkles, Loader2, TriangleAlert } from "lucide-react"
+import { ExternalLink, Star, Circle, ChevronLeft, ChevronRight, StickyNote, X, Check, FileText, Globe, Maximize2, Minimize2, ArrowLeft, Play, ListPlus, Rss, Bookmark, Keyboard, Sparkles, Loader2, TriangleAlert, Headphones } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext"
@@ -119,6 +119,9 @@ export function EntryContent({
 
   // Check if TTS is active for this entry
   const isTtsActiveForThisEntry = audioPlayer.source === "tts" && audioPlayer.activeEntryId === entry?.id
+  // Closing the panel keeps this entry's audio loaded, which hides Listen, so
+  // this is the reader's only way back to it.
+  const canShowPlayerForThisEntry = isTtsActiveForThisEntry && audioPlayer.canReopen
 
   // Swipe navigation for mobile - swipe left/right to navigate articles.
   //
@@ -866,6 +869,18 @@ export function EntryContent({
                     <ListPlus className="h-4 w-4" />
                   </Button>
                 </>
+              )}
+              {canShowPlayerForThisEntry && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={audioPlayer.reopen}
+                  title="Show audio player"
+                >
+                  <Headphones className="h-4 w-4" />
+                  Show player
+                </Button>
               )}
               {summaryOffered ? (
                 /* lucide-react marks its svg aria-hidden when the icon has no

@@ -41,6 +41,7 @@ interface AudioPlayerContextValue {
   pauseAutoScroll: () => void
   setPlaybackSpeed: (speed: number) => void
   dismiss: () => void
+  reopen: () => void
 
   // Queue controls
   addToQueue: (item: QueueItemInput) => void
@@ -66,6 +67,7 @@ interface AudioPlayerContextValue {
 
   // Computed
   isActive: boolean
+  canReopen: boolean
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null)
@@ -458,6 +460,13 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     }
   }, [state, reset])
 
+  const canReopen = !isVisible && (source !== null || queue.length > 0)
+
+  // Only shows the panel. Playback stays paused until the reader presses Play.
+  const reopen = useCallback(() => {
+    if (canReopen) setIsVisible(true)
+  }, [canReopen])
+
   const seek = useCallback((time: number) => {
     if (audioRef.current) {
       audioRef.current.currentTime = time
@@ -756,6 +765,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     pauseAutoScroll,
     setPlaybackSpeed,
     dismiss,
+    reopen,
     // Queue controls
     addToQueue,
     playNow,
@@ -773,6 +783,7 @@ export function AudioPlayerProvider({ children }: AudioPlayerProviderProps) {
     onJumpToEntry,
     setOnJumpToEntry,
     isActive,
+    canReopen,
   }
 
   return (

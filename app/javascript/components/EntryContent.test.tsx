@@ -72,6 +72,7 @@ const mockAudioPlayer = {
   autoScroll: true,
   playbackSpeed: 1,
   isVisible: false,
+  canReopen: false,
   activeEntryId: null as number | null,
   activeEntryTitle: null,
   activeFeedTitle: null,
@@ -85,6 +86,7 @@ const mockAudioPlayer = {
   pauseAutoScroll: vi.fn(),
   setPlaybackSpeed: vi.fn(),
   dismiss: vi.fn(),
+  reopen: vi.fn(),
   requestTtsAudio: vi.fn(),
   requestPodcastAudio: vi.fn(),
   jumpToSource: vi.fn(),
@@ -1765,6 +1767,55 @@ describe("EntryContent", () => {
 
       expect(screen.getByRole("button", { name: "Listen" })).toBeInTheDocument()
       expect(screen.getByRole("button", { name: "Add to queue" })).toBeInTheDocument()
+    })
+  })
+
+  describe("reopening a closed audio player", () => {
+    afterEach(() => {
+      mockAudioPlayer.isVisible = false
+      mockAudioPlayer.canReopen = false
+    })
+
+    function loadThisEntryHidden(entry: ReturnType<typeof mockEntryWithContent>) {
+      mockAudioPlayer.source = "tts"
+      mockAudioPlayer.activeEntryId = entry.id
+      mockAudioPlayer.isVisible = false
+      mockAudioPlayer.canReopen = true
+    }
+
+    it("offers to show the player for the entry whose audio is loaded but hidden", async () => {
+      const user = userEvent.setup()
+      const entry = mockEntryWithContent()
+      loadThisEntryHidden(entry)
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+      await user.click(screen.getByRole("button", { name: "Show player" }))
+
+      expect(mockAudioPlayer.reopen).toHaveBeenCalledTimes(1)
+      expect(mockAudioPlayer.play).not.toHaveBeenCalled()
+      expect(screen.queryByRole("button", { name: "Listen" })).not.toBeInTheDocument()
+    })
+
+    it("offers nothing extra while the player is on screen", () => {
+      const entry = mockEntryWithContent()
+      loadThisEntryHidden(entry)
+      mockAudioPlayer.isVisible = true
+      mockAudioPlayer.canReopen = false
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(screen.queryByRole("button", { name: "Show player" })).not.toBeInTheDocument()
+    })
+
+    it("offers Listen, not Show player, on a different entry", () => {
+      const entry = mockEntryWithContent()
+      loadThisEntryHidden(entry)
+      mockAudioPlayer.activeEntryId = entry.id + 1
+
+      render(<EntryContent {...defaultProps} entry={entry} />)
+
+      expect(screen.queryByRole("button", { name: "Show player" })).not.toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Listen" })).toBeInTheDocument()
     })
   })
 
