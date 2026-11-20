@@ -1059,6 +1059,22 @@ describe("FeedSidebar", () => {
         "To move a feed, press Space or Enter to pick it up. Use the up and down arrow keys to move it over a category, then press Space or Enter to drop it in. Press Escape to cancel."
       )
     })
+
+    // jsdom loads no stylesheet, so the class tokens are all that can be read
+    // here. A touch screen fires no hover, so without the coarse-pointer reveal
+    // the grip takes a tap while drawing nothing.
+    it("reveals each grip on hover, on keyboard focus and on a touch screen", () => {
+      render(<FeedSidebar {...defaultProps} feeds={feeds} categories={categories} />)
+
+      for (const feed of feeds) {
+        expect(screen.getByRole("button", { name: `Move ${feed.title}` })).toHaveClass(
+          "opacity-0",
+          "group-hover:opacity-100",
+          "focus-visible:opacity-100",
+          "pointer-coarse:opacity-100"
+        )
+      }
+    })
   })
 
   // The arrows hop between the category headers, skipping the feed rows,

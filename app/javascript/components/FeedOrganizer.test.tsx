@@ -522,6 +522,23 @@ describe("FeedOrganizer", () => {
       }
     })
 
+    // jsdom loads no stylesheet, so the class tokens are all that can be read
+    // here. A grip hidden until hover is invisible to a touch screen and to a
+    // keyboard user tabbing onto it, while still taking the tap or the focus.
+    it("reveals each grip on hover, on keyboard focus and on a touch screen", () => {
+      render(<FeedOrganizer {...treeProps} />)
+
+      for (const name of ["Tech", "First Feed"]) {
+        const grip = screen.getByRole("button", { name: `Move ${name}` })
+        expect(grip).toHaveClass(
+          "opacity-0",
+          "group-hover:opacity-100",
+          "focus-visible:opacity-100",
+          "pointer-coarse:opacity-100"
+        )
+      }
+    })
+
     it("describes how to move a row with the keyboard", () => {
       render(<FeedOrganizer {...treeProps} />)
 
