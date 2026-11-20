@@ -223,6 +223,8 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create rejects duplicate feed_url for same user" do
+    stub_feed(@feed.feed_url, item_link: "https://example.com/duplicate-item")
+
     assert_no_difference "Feed.count" do
       post api_v1_feeds_url, params: {
         feed: {

@@ -19,17 +19,24 @@ module Api
       def create
         @feed = current_user.feeds.build(feed_params)
 
-        # Auto-detect title from feed if not provided
-        if @feed.title.blank? && @feed.feed_url.present?
+        # Resolved whether or not a title was typed, so a page URL subscribed
+        # without a preview still becomes the feed it links. A URL that does
+        # not resolve is refused only when the title was left for it to supply;
+        # with a typed title it is subscribed as given.
+        if @feed.feed_url.present?
           result = auto_detect_feed_metadata(@feed.feed_url)
           if result[:error]
-            return render json: { error: result[:error], title_required: true }, status: :unprocessable_entity
+            if @feed.title.blank?
+              return render json: { error: result[:error], title_required: true }, status: :unprocessable_entity
+            end
+          else
+            # Auto-detect title from feed if not provided
+            @feed.title = result[:title] if @feed.title.blank?
+            @feed.site_url ||= result[:site_url]
+            # What gets subscribed is the feed, which is not the URL that was
+            # pasted when that URL was a page linking one.
+            @feed.feed_url = result[:feed_url]
           end
-          @feed.title = result[:title]
-          @feed.site_url ||= result[:site_url]
-          # What gets subscribed is the feed, which is not the URL that was
-          # pasted when that URL was a page linking one.
-          @feed.feed_url = result[:feed_url]
         end
 
         if @feed.save
