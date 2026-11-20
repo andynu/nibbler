@@ -114,11 +114,24 @@ class StoryQueryExtractorTest < ActiveSupport::TestCase
     refute_includes fake_client.last_prompt, "&nbsp;"
   end
 
-  test "requests JSON format from LLM" do
+  test "constrains the response to the topic and queries keys" do
     fake_client = FakeLlmClient.new(response: { "topic" => "t", "queries" => [ "q" ] })
     StoryQueryExtractor.new(llm_client: fake_client).extract(@entry)
 
-    assert_equal :json, fake_client.last_format
+    schema = fake_client.last_format
+    assert_equal "object", schema[:type]
+    assert_equal %w[topic queries], schema[:required]
+    assert_equal %i[topic queries], schema[:properties].keys
+    assert_equal "array", schema[:properties][:queries][:type]
+    assert_equal "string", schema[:properties][:queries][:items][:type]
+  end
+
+  test "schema requires a non-empty topic and at least one non-empty query" do
+    properties = StoryQueryExtractor::RESPONSE_SCHEMA[:properties]
+
+    assert_equal 1, properties[:topic][:minLength]
+    assert_equal 1, properties[:queries][:minItems]
+    assert_equal 1, properties[:queries][:items][:minLength]
   end
 
   # Minimal stub for LlmClient.
