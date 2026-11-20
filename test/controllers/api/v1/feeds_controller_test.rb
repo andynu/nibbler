@@ -178,6 +178,50 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert json["title_required"]
   end
 
+  test "create with a typed title subscribes to the feed an HTML page links" do
+    page_url = "https://typed-title.example.com/blog"
+    feed_url = "https://typed-title.example.com/blog/rss.xml"
+
+    stub_request(:get, page_url)
+      .to_return(
+        status: 200,
+        body: sample_html_page(%(<link rel="alternate" type="application/rss+xml" href="/blog/rss.xml">)),
+        headers: { "Content-Type" => "text/html" }
+      )
+    stub_request(:get, feed_url)
+      .to_return(
+        status: 200,
+        body: sample_rss_feed("Linked Feed"),
+        headers: { "Content-Type" => "application/rss+xml" }
+      )
+
+    assert_difference "Feed.count", 1 do
+      post api_v1_feeds_url, params: {
+        feed: { title: "My Own Name", feed_url: page_url }
+      }, as: :json
+    end
+
+    assert_response :created
+    feed = Feed.find(JSON.parse(response.body)["id"])
+    assert_equal feed_url, feed.feed_url
+    assert_equal "My Own Name", feed.title
+  end
+
+  test "create with a typed title still subscribes to a URL that cannot be resolved" do
+    feed_url = "https://typed-unreachable.example.com/feed.rss"
+
+    stub_request(:get, feed_url).to_return(status: 500, body: "Internal Server Error")
+
+    assert_difference "Feed.count", 1 do
+      post api_v1_feeds_url, params: {
+        feed: { title: "Down Today", feed_url: feed_url }
+      }, as: :json
+    end
+
+    assert_response :created
+    assert_equal feed_url, Feed.find(JSON.parse(response.body)["id"]).feed_url
+  end
+
   test "create rejects duplicate feed_url for same user" do
     assert_no_difference "Feed.count" do
       post api_v1_feeds_url, params: {
