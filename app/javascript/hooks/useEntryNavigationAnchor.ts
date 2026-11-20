@@ -31,8 +31,11 @@ export function useEntryNavigationAnchor(
     pendingEntryIdRef.current = entryId
   }, [])
 
-  const settle = useCallback((_opened: boolean) => {
-    pendingEntryIdRef.current = null
+  // An opened entry stays the anchor: it is the selection the next commit will
+  // show, and clearing it here would hand a press in the gap the previous
+  // commit's selection. Only a load that changed nothing gives the anchor back.
+  const settle = useCallback((opened: boolean) => {
+    if (!opened) pendingEntryIdRef.current = null
   }, [])
 
   const drop = useCallback(() => {
