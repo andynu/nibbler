@@ -94,11 +94,11 @@ class FeedParser
       return entry.link
     end
     # For podcasts, fall back to enclosure URL
-    if entry.respond_to?(:enclosure_url) && entry.enclosure_url.present?
+    if entry.respond_to?(:enclosure_url) && url_like?(entry.enclosure_url)
       return entry.enclosure_url
     end
     if entry.respond_to?(:enclosure_links)
-      href = entry.enclosure_links.to_a.map(&:href).find(&:present?)
+      href = entry.enclosure_links.to_a.map(&:href).find { |h| url_like?(h) }
       return href if href
     end
 
@@ -138,11 +138,12 @@ class FeedParser
     entry.categories.to_a.compact.map(&:to_s)
   end
 
+  # Only http(s) urls are kept: an enclosure url ends up in an href or src.
   def extract_enclosures(entry)
     enclosures = []
 
     # Standard enclosure (RSS)
-    if entry.respond_to?(:enclosure_url) && entry.enclosure_url.present?
+    if entry.respond_to?(:enclosure_url) && url_like?(entry.enclosure_url)
       enclosures << ParsedEnclosure.new(
         url: entry.enclosure_url,
         type: entry.enclosure_type.presence || "application/octet-stream",
@@ -155,7 +156,7 @@ class FeedParser
     # case it has no url and is not an attachment.
     if entry.respond_to?(:media_contents)
       entry.media_contents.to_a.each do |media|
-        next if media.url.blank?
+        next unless url_like?(media.url)
 
         enclosures << ParsedEnclosure.new(
           url: media.url,
@@ -169,7 +170,7 @@ class FeedParser
     # Atom
     if entry.respond_to?(:enclosure_links)
       entry.enclosure_links.to_a.each do |link|
-        next if link.href.blank?
+        next unless url_like?(link.href)
 
         enclosures << ParsedEnclosure.new(
           url: link.href,
