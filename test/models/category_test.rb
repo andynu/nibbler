@@ -71,6 +71,22 @@ class CategoryTest < ActiveSupport::TestCase
     assert_equal [ tech.id ], ruby.reload.descendant_ids
   end
 
+  test "rejects a parent that belongs to another user" do
+    theirs = users(:two).categories.create!(title: "Theirs")
+
+    mine = @user.categories.new(title: "Mine", parent_id: theirs.id)
+
+    assert_not mine.valid?
+    assert_includes mine.errors.full_messages, "Parent must be one of your own categories"
+  end
+
+  test "rejects a parent id that does not exist" do
+    mine = @user.categories.new(title: "Mine", parent_id: Category.maximum(:id).to_i + 1000)
+
+    assert_not mine.valid?
+    assert_includes mine.errors.full_messages, "Parent must be one of your own categories"
+  end
+
   test "a new record with a parent is valid" do
     tech = category("Tech")
 

@@ -54,7 +54,11 @@ class Category < ApplicationRecord
   def parent_is_not_self_or_descendant
     return if parent_id.nil?
 
-    if parent_id == id
+    # A parent outside the owner's own categories puts this row under a root the
+    # owner cannot fetch, so the sidebar and the feed pickers drop it entirely.
+    if parent.nil? || parent.user_id != user_id
+      errors.add(:parent_id, "must be one of your own categories")
+    elsif parent_id == id
       errors.add(:parent_id, "cannot be the category itself")
     elsif persisted? && descendant_ids.include?(parent_id)
       errors.add(:parent_id, "cannot be one of this category's own descendants")

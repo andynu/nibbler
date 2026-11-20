@@ -40,6 +40,36 @@ class Api::V1::CategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 3, @ruby.order_id
   end
 
+  test "create refuses a parent that belongs to another user" do
+    theirs = users(:two).categories.create!(title: "Theirs")
+
+    assert_no_difference -> { Category.count } do
+      post api_v1_categories_url, params: { category: { title: "Mine", parent_id: theirs.id } }, as: :json
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes JSON.parse(response.body)["errors"], "Parent must be one of your own categories"
+  end
+
+  test "update refuses a parent that belongs to another user" do
+    theirs = users(:two).categories.create!(title: "Theirs")
+
+    patch api_v1_category_url(@tech), params: { category: { parent_id: theirs.id } }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_nil @tech.reload.parent_id
+  end
+
+  test "reorder refuses a parent that belongs to another user" do
+    theirs = users(:two).categories.create!(title: "Theirs")
+
+    patch reorder_api_v1_category_url(@ruby),
+      params: { order_id: 0, parent_id: theirs.id }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal @tech.id, @ruby.reload.parent_id
+  end
+
   test "reorder refuses a parent that is the category's own descendant" do
     patch reorder_api_v1_category_url(@tech),
       params: { order_id: 0, parent_id: @ruby.id }, as: :json
