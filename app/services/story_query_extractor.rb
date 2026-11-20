@@ -27,6 +27,19 @@ class StoryQueryExtractor
   # Maximum number of queries to keep from the LLM's response.
   MAX_QUERIES = 5
 
+  # Ollama structured-output schema for the response. The prompt describes the
+  # same shape, but description alone lets a small model answer with keys of its
+  # own invention, which #extract can only reject. minLength and minItems keep
+  # the fields #extract requires from arriving empty.
+  RESPONSE_SCHEMA = {
+    type: "object",
+    properties: {
+      topic: { type: "string", minLength: 1 },
+      queries: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 }
+    },
+    required: %w[topic queries]
+  }.freeze
+
   def initialize(llm_client: LlmClient.new)
     @llm_client = llm_client
   end
@@ -39,7 +52,7 @@ class StoryQueryExtractor
   # @raise [LlmClient::Unreachable] if Ollama is down
   def extract(entry)
     prompt = build_prompt(entry)
-    response = @llm_client.generate(prompt: prompt, format: :json)
+    response = @llm_client.generate(prompt: prompt, format: RESPONSE_SCHEMA)
 
     topic = response["topic"].to_s.strip
     queries = Array(response["queries"]).map { |q| q.to_s.strip }.reject(&:empty?).first(MAX_QUERIES)
