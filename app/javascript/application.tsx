@@ -23,7 +23,7 @@ import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { api, Feed, Entry, Category, FreshMaxAge, SearchResult, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
-import { useEntryNavigationAnchor } from "@/hooks/useEntryNavigationAnchor"
+import { navigationList, useEntryNavigationAnchor } from "@/hooks/useEntryNavigationAnchor"
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useCategoryNavigation } from "@/hooks/useCategoryNavigation"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -371,7 +371,8 @@ function App() {
   // one on its own, every run (e2e/entry-list-sort.spec.ts).
   const { claim: claimEntriesLoad } = useLatestRequest()
 
-  const navigationAnchor = useEntryNavigationAnchor(entries, selectedEntry?.id ?? null)
+  const navEntries = navigationList(entries, entrySearch)
+  const navigationAnchor = useEntryNavigationAnchor(navEntries, selectedEntry?.id ?? null)
   const { begin: beginEntryAnchor, settle: settleEntryAnchor, drop: dropEntryAnchor } =
     navigationAnchor
   const { claim: claimEntryLoad, abandon: abandonEntryLoad } =
@@ -719,7 +720,7 @@ function App() {
   }
 
   const currentIndex = selectedEntry
-    ? entries.findIndex((e) => e.id === selectedEntry.id)
+    ? navEntries.findIndex((e) => e.id === selectedEntry.id)
     : -1
 
   // Parse sort config from preference, with fallback for legacy sort_by_score
@@ -746,45 +747,45 @@ function App() {
 
   // Keyboard navigation handlers - use useCallback to avoid stale closures
   const handleKeyboardNext = useCallback(() => {
-    if (entries.length === 0) return
+    if (navEntries.length === 0) return
     const fromIndex = navigationIndex()
     if (fromIndex === -1) {
       // No entry selected, select first
-      loadEntry(entries[0].id)
-    } else if (fromIndex < entries.length - 1) {
-      loadEntry(entries[fromIndex + 1].id)
+      loadEntry(navEntries[0].id)
+    } else if (fromIndex < navEntries.length - 1) {
+      loadEntry(navEntries[fromIndex + 1].id)
     } else {
       // At end of list, trigger boundary feedback
       triggerBoundaryFeedback("end")
     }
-  }, [entries, navigationIndex, loadEntry, triggerBoundaryFeedback])
+  }, [navEntries, navigationIndex, loadEntry, triggerBoundaryFeedback])
 
   const handleKeyboardPrevious = useCallback(() => {
-    if (entries.length === 0) return
+    if (navEntries.length === 0) return
     const fromIndex = navigationIndex()
     if (fromIndex === -1) {
       // No entry selected, select last
-      loadEntry(entries[entries.length - 1].id)
+      loadEntry(navEntries[navEntries.length - 1].id)
     } else if (fromIndex > 0) {
-      loadEntry(entries[fromIndex - 1].id)
+      loadEntry(navEntries[fromIndex - 1].id)
     } else {
       // At start of list, trigger boundary feedback
       triggerBoundaryFeedback("start")
     }
-  }, [entries, navigationIndex, loadEntry, triggerBoundaryFeedback])
+  }, [navEntries, navigationIndex, loadEntry, triggerBoundaryFeedback])
 
   const handleKeyboardNextUnread = useCallback(() => {
-    if (entries.length === 0) return
+    if (navEntries.length === 0) return
     const startIndex = navigationIndex()
     // Find next unread entry
-    for (let i = startIndex + 1; i < entries.length; i++) {
-      if (entries[i].unread) {
-        loadEntry(entries[i].id)
+    for (let i = startIndex + 1; i < navEntries.length; i++) {
+      if (navEntries[i].unread) {
+        loadEntry(navEntries[i].id)
         return
       }
     }
     // No unread found after current position
-  }, [entries, navigationIndex, loadEntry])
+  }, [navEntries, navigationIndex, loadEntry])
 
   // Flash the row of the category the reader is parked on when Shift+J/K has
   // nowhere further to go. The entry-list flash above is the wrong surface for
@@ -845,11 +846,11 @@ function App() {
   const handleKeyboardOpen = useCallback(() => {
     if (selectedEntry) {
       loadEntry(selectedEntry.id)
-    } else if (entries.length > 0) {
+    } else if (navEntries.length > 0) {
       // If no entry selected, open first one
-      loadEntry(entries[0].id)
+      loadEntry(navEntries[0].id)
     }
-  }, [selectedEntry, entries, loadEntry])
+  }, [selectedEntry, navEntries, loadEntry])
 
   const handleKeyboardClose = useCallback(() => {
     // If in focus mode, exit it; otherwise close the selected entry
@@ -1405,12 +1406,12 @@ function App() {
             onPrevious={handleKeyboardPrevious}
             onNext={handleKeyboardNext}
             hasPrevious={currentIndex > 0}
-            hasNext={currentIndex < entries.length - 1}
+            hasNext={currentIndex < navEntries.length - 1}
             // Names the target on the end-of-article button. Indexed the same
             // way handleKeyboardNext picks its entry, including the -1 case
             // where that loads entries[0], so the label cannot name one article
             // while the press opens another.
-            nextEntryTitle={entries[currentIndex + 1]?.title}
+            nextEntryTitle={navEntries[currentIndex + 1]?.title}
             isLoading={isLoadingEntry}
             scrollViewportRef={contentScrollRef}
             onUpdateNote={handleUpdateNote}
@@ -1425,7 +1426,7 @@ function App() {
             copyLinkStatus={copyLinkStatus}
             listTitle={getListTitle()}
             entryIndex={currentIndex}
-            entryCount={entries.length}
+            entryCount={navEntries.length}
             onBack={layout.isMobile ? layout.goToList : undefined}
             onFollowStoryCreated={handleFollowStoryCreated}
           />

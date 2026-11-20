@@ -1,5 +1,25 @@
 import { useCallback, useRef } from "react"
 
+/** What j/k/n need of a row: where to go, whether it is unread, what to call it. */
+export interface NavigableEntry {
+  id: number
+  unread: boolean
+  title: string
+}
+
+/**
+ * The list j/k/n walk: the one on screen. An active search replaces the entry
+ * list with its hits, so the keys follow the hits, including an empty set
+ * still in flight. Stepping through the hidden list instead opens, and marks
+ * read, articles the reader cannot see.
+ */
+export function navigationList(
+  entries: ReadonlyArray<NavigableEntry>,
+  search: { isActive: boolean; results: ReadonlyArray<NavigableEntry> }
+): ReadonlyArray<NavigableEntry> {
+  return search.isActive ? search.results : entries
+}
+
 export interface EntryNavigationAnchor {
   /** A load for this entry has been issued. */
   begin: (entryId: number) => void

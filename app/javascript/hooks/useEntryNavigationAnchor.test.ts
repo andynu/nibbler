@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react"
 import { describe, it, expect } from "vitest"
-import { useEntryNavigationAnchor } from "./useEntryNavigationAnchor"
+import { navigationList, useEntryNavigationAnchor } from "./useEntryNavigationAnchor"
 
 const entries = [{ id: 10 }, { id: 11 }, { id: 12 }, { id: 13 }]
 
@@ -80,5 +80,37 @@ describe("useEntryNavigationAnchor", () => {
     rerender({ selected: 13 })
 
     expect(result.current.navigationIndex()).toBe(3)
+  })
+
+  it("anchors on an opened search hit in the order the results are shown", () => {
+    const hits = [{ id: 7 }, { id: 3 }, { id: 9 }]
+    const { result } = renderHook(() => useEntryNavigationAnchor(hits, 3))
+
+    expect(result.current.navigationIndex()).toBe(1)
+  })
+})
+
+describe("navigationList", () => {
+  const listed = [
+    { id: 1, unread: true, title: "Listed one" },
+    { id: 2, unread: false, title: "Listed two" },
+  ]
+  const hits = [
+    { id: 7, unread: false, title: "Hit seven" },
+    { id: 3, unread: true, title: "Hit three" },
+  ]
+
+  it("is the search results while a search is active", () => {
+    expect(navigationList(listed, { isActive: true, results: hits })).toBe(hits)
+  })
+
+  // Falling through to the hidden list would open, and mark read, articles
+  // nobody can see.
+  it("is the empty result set rather than the hidden list while hits are pending", () => {
+    expect(navigationList(listed, { isActive: true, results: [] })).toEqual([])
+  })
+
+  it("is the entry list once the search is cleared", () => {
+    expect(navigationList(listed, { isActive: false, results: hits })).toBe(listed)
   })
 })

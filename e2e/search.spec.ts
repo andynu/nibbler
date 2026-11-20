@@ -542,6 +542,98 @@ test.describe("A hit the reader changes under the search", () => {
   })
 })
 
+test.describe("Keyboard navigation through the hits", () => {
+  /** The open article's headline. EntryContent draws it once the entry has loaded. */
+  const articleHeadline = (page: Page) =>
+    page.getByRole("article").getByRole("heading", { level: 1 })
+
+  const selectedSearchRow = (page: Page) =>
+    searchResults(page).locator('[role="option"][aria-selected="true"]')
+
+  /**
+   * "rust" from All Feeds, oldest first: the six Rust Weekly hits, the two read
+   * ones leading. The 24-row list behind them interleaves the other feeds, so
+   * a key that walked it would open an article that is not a hit.
+   */
+  async function oldestRustHitsFirst(page: Page) {
+    await runSearch(page, "rust")
+    await expect(searchRows(page)).toHaveCount(6)
+    await page.getByRole("button", { name: "Date" }).click()
+    await expect.poll(() => resultHeadlines(page)).toEqual(RUST_HEADLINES_NEWEST_FIRST)
+    await page.getByRole("button", { name: "Date" }).click()
+    await expect
+      .poll(() => resultHeadlines(page))
+      .toEqual([...RUST_HEADLINES_NEWEST_FIRST].reverse())
+  }
+
+  test("j and k step through the hits and the hit list shows which is open", async ({
+    authenticatedPage: page,
+  }) => {
+    const [oldest, second, third] = [...RUST_HEADLINES_NEWEST_FIRST].reverse()
+    await oldestRustHitsFirst(page)
+
+    await searchRow(page, oldest).click()
+    await expect(articleHeadline(page)).toHaveText(oldest)
+    await expect(selectedSearchRow(page)).toHaveText(new RegExp(oldest))
+
+    await page.keyboard.press("j")
+    await expect(articleHeadline(page)).toHaveText(second)
+    await expect(selectedSearchRow(page)).toHaveText(new RegExp(second))
+
+    // The end-of-article control names the next hit, not the next list row.
+    await expect(page.getByRole("button", { name: /^Next article/ })).toContainText(third)
+
+    await page.keyboard.press("k")
+    await expect(articleHeadline(page)).toHaveText(oldest)
+    await expect(selectedSearchRow(page)).toHaveText(new RegExp(oldest))
+  })
+
+  // The seeded bodies fit the pane, so one Space is already past the end.
+  test("Space at the end of a hit skips to the next unread hit", async ({
+    authenticatedPage: page,
+  }) => {
+    const [embedded, asyncRuntimes, cargo] = [...RUST_HEADLINES_NEWEST_FIRST].reverse()
+    expect([embedded, asyncRuntimes].sort()).toEqual([...READ_RUST_HEADLINES].sort())
+    await oldestRustHitsFirst(page)
+
+    await searchRow(page, embedded).click()
+    await expect(articleHeadline(page)).toHaveText(embedded)
+
+    await page.keyboard.press(" ")
+    await expect(articleHeadline(page)).toHaveText(cargo)
+    await expect(selectedSearchRow(page)).toHaveText(new RegExp(cargo))
+  })
+
+  test("clearing the search hands j back to the list", async ({
+    authenticatedPage: page,
+  }) => {
+    await runSearch(page, "heliopause")
+    await expect(searchRows(page)).toHaveCount(1)
+    await searchRow(page, "Mapping the heliopause").click()
+    await expect(articleHeadline(page)).toHaveText("Mapping the heliopause")
+
+    // Alone in the hits, so j has nowhere further to go there.
+    await page.keyboard.press("j")
+    await expect(articleHeadline(page)).toHaveText("Mapping the heliopause")
+
+    await page.keyboard.press("/")
+    await page.keyboard.press("Escape")
+    await expect(entryList(page).getByRole("option")).toHaveCount(24)
+    // Escape empties the box but leaves the cursor in it, where j is a letter.
+    await entryListTitle(page).click()
+
+    const rows = entryList(page).getByRole("option")
+    const opened = await rows.evaluateAll((els) =>
+      els.findIndex((el) => el.getAttribute("aria-selected") === "true")
+    )
+    expect(opened).toBeGreaterThanOrEqual(0)
+    expect(opened).toBeLessThan(23)
+
+    await page.keyboard.press("j")
+    await expect(rows.nth(opened + 1)).toHaveAttribute("aria-selected", "true")
+  })
+})
+
 /** The list header's sweep, through its confirmation. */
 async function markAllRead(page: Page) {
   // Exact: /mark.*read/i also matches the per-entry "Mark as read" buttons.
