@@ -23,6 +23,7 @@ import { LayoutProvider, useLayout } from "@/contexts/LayoutContext"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { api, Feed, Entry, Category, FreshMaxAge, SearchResult, SortConfig, paramToSortConfig, sortConfigToParam } from "@/lib/api"
 import { useKeyboardCommands, KeyboardCommand } from "@/hooks/useKeyboardCommands"
+import { useEntryNavigationAnchor } from "@/hooks/useEntryNavigationAnchor"
 import { buildKeyboardCommands } from "@/lib/keyboardShortcuts"
 import { useCategoryNavigation } from "@/hooks/useCategoryNavigation"
 import { useNavigationHistory } from "@/hooks/useNavigationHistory"
@@ -369,11 +370,9 @@ function App() {
   // one on its own, every run (e2e/entry-list-sort.spec.ts).
   const { claim: claimEntriesLoad } = useLatestRequest()
 
-  // The entry the reader is heading for, set the moment a request is issued
-  // rather than when it returns. Navigation anchors on this ahead of
-  // selectedEntry, so a press landing mid-fetch steps on from the pending
-  // target instead of repeating the move already under way.
-  const pendingEntryIdRef = useRef<number | null>(null)
+  const navigationAnchor = useEntryNavigationAnchor(entries, selectedEntry?.id ?? null)
+  const { begin: beginEntryAnchor, settle: settleEntryAnchor, drop: dropEntryAnchor } =
+    navigationAnchor
   const { claim: claimEntryLoad, abandon: abandonEntryLoad } =
     useLatestRequest<number>()
 
@@ -381,9 +380,9 @@ function App() {
   // longer has a claim on the pane, and navigation must start over from the
   // list rather than from a target nobody is waiting for.
   const dropPendingEntry = useCallback(() => {
-    pendingEntryIdRef.current = null
+    dropEntryAnchor()
     abandonEntryLoad()
-  }, [abandonEntryLoad])
+  }, [abandonEntryLoad, dropEntryAnchor])
 
   // `entries` and `selectedEntry` are two views of one record, so a field
   // written to either has to land on both. The updater form is what keeps them
@@ -438,8 +437,9 @@ function App() {
 
   const loadEntry = useCallback(async (entryId: number) => {
     const load = claimEntryLoad(entryId)
-    pendingEntryIdRef.current = entryId
+    beginEntryAnchor(entryId)
     setIsLoadingEntry(true)
+    let opened = false
     try {
       const entry = await api.entries.get(entryId)
       // A superseded reply owns neither the pane nor the read state: the reader
@@ -447,6 +447,7 @@ function App() {
       // must not be marked read behind them.
       if (!load.isCurrent()) return
       setSelectedEntry(entry)
+      opened = true
 
       // Mark as read when opening
       if (entry.unread) {
@@ -471,11 +472,11 @@ function App() {
       // A superseded load must leave both alone: the load that replaced it owns
       // the pending target and is still running.
       if (load.isCurrent()) {
-        pendingEntryIdRef.current = null
+        settleEntryAnchor(opened)
         setIsLoadingEntry(false)
       }
     }
-  }, [updateSearchResult, loadCounters, claimEntryLoad, patchEntry])
+  }, [updateSearchResult, loadCounters, claimEntryLoad, patchEntry, beginEntryAnchor, settleEntryAnchor])
 
   // Register audio player navigation callback
   const { setOnJumpToEntry } = audioPlayer
@@ -766,15 +767,8 @@ function App() {
   }, [])
 
   // The row a keypress moves from: the entry a load is in flight for when there
-  // is one, and the entry on screen otherwise. Read at press time rather than
-  // off the render, so a burst advances once per press. A pending entry outside
-  // the list (opened from search, say) leaves the anchor on the selection.
-  const navigationIndex = useCallback(() => {
-    const pendingId = pendingEntryIdRef.current
-    if (pendingId === null) return currentIndex
-    const pendingIndex = entries.findIndex((e) => e.id === pendingId)
-    return pendingIndex === -1 ? currentIndex : pendingIndex
-  }, [entries, currentIndex])
+  // is one, and the entry on screen otherwise.
+  const { navigationIndex } = navigationAnchor
 
   // Keyboard navigation handlers - use useCallback to avoid stale closures
   const handleKeyboardNext = useCallback(() => {
