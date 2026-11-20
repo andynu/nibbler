@@ -479,6 +479,25 @@ describe("EditFeedDialog", () => {
       expect(screen.getByLabelText("Title")).toHaveValue("Renamed Feed")
     })
 
+    it("refetches the info panel so its stats reflect the refresh", async () => {
+      const user = userEvent.setup()
+      const staleInfo = await mockApiInfo()
+      mockApiInfo.mockClear()
+      mockApiInfo
+        .mockResolvedValueOnce(staleInfo)
+        .mockResolvedValueOnce({ ...staleInfo, entry_count: 1234 })
+
+      render(<EditFeedDialog {...defaultProps} />)
+
+      expect(await screen.findByText("100")).toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: /refresh/i }))
+
+      expect(await screen.findByText("1,234")).toBeInTheDocument()
+      expect(mockApiInfo).toHaveBeenCalledTimes(2)
+      expect(mockApiInfo).toHaveBeenLastCalledWith(1)
+    })
+
     it("shows error message on refresh failure", async () => {
       const user = userEvent.setup()
       mockApiRefresh.mockRejectedValue(new Error("Network error"))
