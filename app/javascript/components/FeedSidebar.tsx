@@ -1776,7 +1776,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
             {...attributes}
             {...listeners}
             onKeyDown={sortableGripKeyDown(listeners, !!isDragging)}
-            className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 touch-none"
+            className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 touch-none"
             aria-label={`Move ${feed.title}`}
           >
             <GripVertical className="h-3 w-3 text-muted-foreground" />

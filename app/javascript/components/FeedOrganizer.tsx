@@ -933,7 +933,7 @@ const SortableItem = forwardRef<HTMLDivElement, SortableItemProps>(
         {...restProps}
       >
         <button
-          className="touch-none opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+          className="touch-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 cursor-grab active:cursor-grabbing"
           {...attributes}
           {...listeners}
           onKeyDown={sortableGripKeyDown(listeners, isDragging)}
