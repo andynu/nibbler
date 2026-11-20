@@ -38,6 +38,7 @@ import { useCopyLink } from "@/hooks/useCopyLink"
 import { useEntrySearch } from "@/hooks/useEntrySearch"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 import { applyUnreadCounts } from "@/lib/unreadCounts"
+import { entryTagHandlers } from "@/lib/entryTagHandlers"
 
 // Virtual folder ids the entries API recognizes as a `view`. The virtual folder
 // registry is open, so ids outside this set (All Feeds, the feed-list smart
@@ -624,34 +625,7 @@ function App() {
     }
   }
 
-  const handleAddTag = async (tagName: string) => {
-    if (!selectedEntry) return
-    const entryId = selectedEntry.id
-    try {
-      const result = await api.entryTags.add(entryId, tagName)
-      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, tags: result.tags } : prev))
-      // If this is a new tag, add it to allTags
-      const normalizedName = tagName.toLowerCase()
-      if (!allTags?.includes(normalizedName)) {
-        setAllTags((prev) => [...(prev || []), normalizedName].sort())
-      }
-    } catch (error) {
-      console.error("Failed to add tag:", error)
-      throw error
-    }
-  }
-
-  const handleRemoveTag = async (tagName: string) => {
-    if (!selectedEntry) return
-    const entryId = selectedEntry.id
-    try {
-      const result = await api.entryTags.remove(entryId, tagName)
-      setSelectedEntry((prev) => (prev?.id === entryId ? { ...prev, tags: result.tags } : prev))
-    } catch (error) {
-      console.error("Failed to remove tag:", error)
-      throw error
-    }
-  }
+  const { handleAddTag, handleRemoveTag } = entryTagHandlers({ selectedEntry, setSelectedEntry, allTags, setAllTags })
 
   const handleSetScore = async (entryId: number, score: number) => {
     try {
