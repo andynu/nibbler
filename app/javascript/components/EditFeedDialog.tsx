@@ -298,7 +298,11 @@ export function EditFeedDialog({
     try {
       const result = await api.feeds.resume(feed.id)
       onFeedUpdated(result.feed)
-      onOpenChange(false)
+      // Resume makes a fetch attempt, so sync times and entry stats move too.
+      api.feeds
+        .info(feed.id)
+        .then(setInfo)
+        .catch((err) => console.error("Failed to reload feed info:", err))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resume checking feed")
     } finally {
