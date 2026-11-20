@@ -2,11 +2,11 @@ import { useMemo, useRef } from "react"
 import type { Announcements, ScreenReaderInstructions, UniqueIdentifier } from "@dnd-kit/core"
 import type { Category, Feed } from "@/lib/api"
 
-// The sidebar's sensors are pointer only, so the grip is focusable but answers
-// no key. Saying "press Space to pick it up", which is dnd-kit's default
-// instruction, would send a screen reader user after a drag that never starts.
+// The arrows hop between categories, not rows, which dnd-kit's default
+// instruction does not say.
 const screenReaderInstructions: ScreenReaderInstructions = {
-  draggable: "Drag a feed onto a category to move it there. This list has no keyboard drag.",
+  draggable:
+    "To move a feed, press Space or Enter to pick it up. Use the up and down arrow keys to move it over a category, then press Space or Enter to drop it in. Press Escape to cancel.",
 }
 
 /**

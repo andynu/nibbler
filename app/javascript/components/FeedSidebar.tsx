@@ -5,6 +5,7 @@ import {
   DragOverlay,
   useDraggable,
   useDroppable,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -46,6 +47,8 @@ import { getVirtualFoldersByMode, SmartFolderIcon } from "@/lib/virtualFolders"
 import { categoryAncestorIds, visibleCategoryIds } from "@/lib/categoryNavigation"
 import { feedHealthSummary } from "@/lib/feedHealth"
 import { useFeedSidebarDragAccessibility } from "@/hooks/useFeedSidebarDragAccessibility"
+import { categoryCollisionDetection, categoryKeyboardCoordinates } from "@/lib/categoryDropTargets"
+import { sortableGripKeyDown } from "@/lib/sortableGrip"
 
 type VirtualFeed = string | null
 
@@ -208,6 +211,9 @@ export function FeedSidebar({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: categoryKeyboardCoordinates,
     })
   )
 
@@ -1037,6 +1043,7 @@ export function FeedSidebar({
       >
         <DndContext
           sensors={sensors}
+          collisionDetection={categoryCollisionDetection}
           accessibility={dragAccessibility}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
@@ -1768,7 +1775,8 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-100 touch-none"
+            onKeyDown={sortableGripKeyDown(listeners, !!isDragging)}
+            className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 touch-none"
             aria-label={`Move ${feed.title}`}
           >
             <GripVertical className="h-3 w-3 text-muted-foreground" />

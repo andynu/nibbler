@@ -4,9 +4,8 @@ import type { Announcements, UniqueIdentifier } from "@dnd-kit/core"
 import { useFeedSidebarDragAccessibility } from "./useFeedSidebarDragAccessibility"
 import { mockFeed, mockCategory } from "../../../test/fixtures/data"
 
-// The sidebar's DndContext has pointer sensors only, so a rendered drag cannot
-// be driven from the keyboard in a test. The announcements are a function of
-// the ids dnd-kit reports, which is what these call directly.
+// The announcements are a function of the ids dnd-kit reports, which is what
+// these call directly; FeedSidebar.test.tsx drives them through a keyboard drag.
 type Active = Parameters<Announcements["onDragStart"]>[0]["active"]
 type Over = Parameters<Announcements["onDragOver"]>[0]["over"]
 
