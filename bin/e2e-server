@@ -24,7 +24,8 @@ export OFFLINE_FEED_FETCH=1
 PORT="${E2E_PORT:-3001}"
 
 echo "==> Building assets"
-npm run build --silent
+# Development bundle, as bin/dev serves: React dev warnings stay visible to the suite.
+npm run build:dev --silent
 npm run build:css --silent
 
 echo "==> Preparing ${E2E_DATABASE_NAME}"
