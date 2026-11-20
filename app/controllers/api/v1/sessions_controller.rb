@@ -61,6 +61,7 @@ module Api
       # out of every browser, not just this one.
       def destroy
         current_user.revoke_sessions!
+        remember_device(current_user)
         reset_session
         head :no_content
       end
@@ -83,6 +84,7 @@ module Api
         current_user.password = params[:new_password]
         current_user.save!
         session[:session_token] = current_user.session_token
+        remember_device(current_user)
         renew_session_id
 
         render json: { message: "Password changed successfully" }
@@ -157,13 +159,19 @@ module Api
         trusted_device?(user) ? TRUSTED_DEVICE_COUNTER : UNKNOWN_DEVICE_COUNTER
       end
 
+      # Bound to session_token so a password change or revoke_sessions! drops
+      # trust everywhere. Encrypted rather than signed because the payload
+      # carries that token.
       def trusted_device?(user)
-        cookies.signed[DEVICE_COOKIE] == user.id
+        user_id, token = cookies.encrypted[DEVICE_COOKIE]
+        return false unless user_id == user.id && token.is_a?(String) && user.session_token.present?
+
+        ActiveSupport::SecurityUtils.secure_compare(token, user.session_token)
       end
 
       def remember_device(user)
-        cookies.signed[DEVICE_COOKIE] = {
-          value: user.id,
+        cookies.encrypted[DEVICE_COOKIE] = {
+          value: [ user.id, user.current_session_token ],
           expires: DEVICE_COOKIE_LIFETIME.from_now,
           httponly: true,
           same_site: :lax

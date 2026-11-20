@@ -141,6 +141,52 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :too_many_requests
   end
 
+  test "a device cookie issued before a password change no longer counts as trusted" do
+    sign_in(@user)
+    @user.reload.update!(password: "newpassword")
+
+    lock_out_unknown_browsers(@user)
+
+    post api_v1_login_url, params: { login: @user.login, password: "newpassword" }, as: :json
+    assert_response :too_many_requests
+  end
+
+  test "a device cookie issued before revoke_sessions! no longer counts as trusted" do
+    sign_in(@user)
+    @user.reload.revoke_sessions!
+
+    lock_out_unknown_browsers(@user)
+
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :too_many_requests
+  end
+
+  test "the browser that changed the password stays trusted" do
+    sign_in(@user)
+    post api_v1_change_password_url,
+      params: { current_password: "password", new_password: "newpassword" }, as: :json
+    assert_response :success
+    delete api_v1_logout_url, as: :json
+
+    lock_out_unknown_browsers(@user)
+
+    post api_v1_login_url, params: { login: @user.login, password: "newpassword" }, as: :json
+    assert_response :success
+  end
+
+  test "logging out elsewhere drops trust for the other browsers" do
+    other = open_session
+    other.post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_equal 200, other.response.status
+    sign_in(@user)
+    delete api_v1_logout_url, as: :json
+
+    lock_out_unknown_browsers(@user)
+
+    other.post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_equal 429, other.response.status
+  end
+
   # =====================
   # GET /api/v1/auth/me
   # =====================
@@ -360,5 +406,13 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
       post api_v1_login_url, params: { login: @user.login, password: "wrong" }, as: :json
       assert_response :unauthorized
     end
+  end
+
+  def lock_out_unknown_browsers(user)
+    attacker = open_session
+    Api::V1::SessionsController::MAX_FAILED_LOGIN_ATTEMPTS.times do
+      attacker.post api_v1_login_url, params: { login: user.login, password: "wrong" }, as: :json
+    end
+    assert_equal 401, attacker.response.status
   end
 end
