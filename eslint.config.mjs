@@ -249,7 +249,9 @@ export default [
     // React lives only under app/javascript. e2e/ is Playwright, whose fixture
     // callbacks take a parameter named `use`; run the react-hooks rules over it
     // and every fixture reads as a conditional call to React's `use` hook.
-    files: ["app/javascript/**/*.{ts,tsx}"],
+    // test/ holds the shared vitest scaffolding, which renders React
+    // (test/mocks/pageShortcuts.tsx calls a hook), so it gets the same rules.
+    files: ["app/javascript/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"],
     languageOptions: babelTypeScript(["typescript", "jsx"]),
     plugins: {
       "react-hooks": reactHooks,
