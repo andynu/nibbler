@@ -491,6 +491,86 @@ describe("AudioPlayerContext", () => {
       expect(screen.getByTestId("visible")).toHaveTextContent("no")
       expect(screen.queryByTestId("audio-panel")).not.toBeInTheDocument()
     })
+
+    // canplaythrough fires again whenever readyState climbs back to
+    // HAVE_ENOUGH_DATA, after a seek or a recovered buffering stall.
+    describe("a later canplaythrough", () => {
+      async function refireCanPlayThrough(element: HTMLMediaElement) {
+        await act(async () => {
+          element.dispatchEvent(new Event("canplaythrough"))
+        })
+      }
+
+      it("does not restart a paused podcast", async () => {
+        renderDismissable()
+        const element = await startPlaying("Play episode")
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Pause" }))
+        })
+        const playCalls = playSpy.mock.calls.length
+
+        await refireCanPlayThrough(element)
+
+        expect(playSpy).toHaveBeenCalledTimes(playCalls)
+        expect(screen.getByTestId("state")).toHaveTextContent("paused")
+      })
+
+      it("does not restart or reshow a closed podcast", async () => {
+        renderDismissable()
+        const element = await startPlaying("Play episode")
+        await act(async () => close())
+        const playCalls = playSpy.mock.calls.length
+
+        await refireCanPlayThrough(element)
+
+        expect(playSpy).toHaveBeenCalledTimes(playCalls)
+        expect(screen.getByTestId("state")).toHaveTextContent("paused")
+        expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      })
+
+      it("does not restart or reshow a closed TTS article", async () => {
+        mockAudioApi.mockResolvedValue({ status: "ready", audio_url: "/audio/1.mp3", duration: 60 })
+        renderDismissable()
+        const element = await startPlaying("Listen")
+        await act(async () => close())
+        const playCalls = playSpy.mock.calls.length
+
+        await refireCanPlayThrough(element)
+
+        expect(playSpy).toHaveBeenCalledTimes(playCalls)
+        expect(screen.getByTestId("state")).toHaveTextContent("paused")
+        expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      })
+
+      it("does not restart a closed TTS article that finished generating", async () => {
+        vi.useFakeTimers()
+        mockAudioApi
+          .mockResolvedValueOnce({ status: "generating" })
+          .mockResolvedValue({ status: "ready", audio_url: "/audio/1.mp3", duration: 60 })
+        renderDismissable()
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Listen" }))
+        })
+        expect(screen.getByTestId("state")).toHaveTextContent("generating")
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(POLL_INTERVAL)
+        })
+        expect(elements).toHaveLength(1)
+        const element = elements[0]
+        await refireCanPlayThrough(element)
+        expect(screen.getByTestId("state")).toHaveTextContent("playing")
+
+        await act(async () => close())
+        const playCalls = playSpy.mock.calls.length
+
+        await refireCanPlayThrough(element)
+
+        expect(playSpy).toHaveBeenCalledTimes(playCalls)
+        expect(screen.getByTestId("state")).toHaveTextContent("paused")
+        expect(screen.getByTestId("visible")).toHaveTextContent("no")
+      })
+    })
   })
 
   describe("jumping to the playing entry", () => {
