@@ -203,9 +203,60 @@ class FeedParserTest < ActiveSupport::TestCase
     assert_equal "https://cdn.example.com/ep1.mp3", rss_parse(rss).entries.first.link
   end
 
+  test "reads an enclosure link from an Atom entry" do
+    links = <<~XML
+      <link rel="alternate" type="text/html" href="https://example.com/ep1"/>
+      <link rel="enclosure" type="audio/mpeg" length="777" title="Episode one" href="https://cdn.example.com/ep1.mp3"/>
+    XML
+
+    enclosure = only_enclosure(rss_parse(atom_feed(atom_entry_with(links))))
+
+    assert_equal "https://cdn.example.com/ep1.mp3", enclosure.url
+    assert_equal "audio/mpeg", enclosure.type
+    assert_equal "Episode one", enclosure.title
+    assert_equal "777", enclosure.length
+  end
+
+  test "reads an enclosure link from a FeedBurner Atom entry" do
+    links = %(<link rel="enclosure" type="audio/mpeg" length="777" href="https://cdn.example.com/ep1.mp3"/>)
+    atom = atom_feed(atom_entry_with(links), namespaces: FEEDBURNER_NS)
+
+    enclosure = only_enclosure(rss_parse(atom))
+
+    assert_equal "https://cdn.example.com/ep1.mp3", enclosure.url
+    assert_equal "", enclosure.title
+  end
+
+  test "reads every enclosure link of an Atom entry, skipping the others" do
+    links = <<~XML
+      <link rel="alternate" href="https://example.com/ep1"/>
+      <link href="https://example.com/ep1-norel"/>
+      <link rel="related" type="text/html" href="https://example.com/related"/>
+      <link rel="enclosure" type="audio/mpeg" href="https://cdn.example.com/ep1.mp3"/>
+      <link rel="enclosure" href="https://cdn.example.com/ep1.bin"/>
+      <link rel="enclosure" type="audio/ogg"/>
+    XML
+
+    enclosures = rss_parse(atom_feed(atom_entry_with(links))).entries.first.enclosures
+
+    assert_equal [ "https://cdn.example.com/ep1.mp3", "https://cdn.example.com/ep1.bin" ],
+                 enclosures.map(&:url)
+    assert_equal "application/octet-stream", enclosures.second.type
+    assert_nil enclosures.second.length
+  end
+
+  test "an Atom entry with no enclosure link has no enclosures" do
+    links = %(<link rel="alternate" type="text/html" href="https://example.com/ep1"/>)
+
+    result = rss_parse(atom_feed(atom_entry_with(links)))
+
+    assert_empty result.entries.first.enclosures
+    assert_equal "https://example.com/ep1", result.entries.first.link
+  end
+
   private
 
-  ENCLOSURE = %(<enclosure url="https://cdn.example.com/ep1.mp3" type="audio/mpeg" length="12345"/>).freeze
+  ENCLOSURE =%(<enclosure url="https://cdn.example.com/ep1.mp3" type="audio/mpeg" length="12345"/>).freeze
   ITUNES_NS = %( xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd").freeze
   MEDIA_NS = %( xmlns:media="http://search.yahoo.com/mrss/").freeze
   FEEDBURNER_NS = %( xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0").freeze
@@ -228,6 +279,30 @@ class FeedParserTest < ActiveSupport::TestCase
         <guid>ep1</guid>
         #{attachments}
       </item>
+    XML
+  end
+
+  def atom_entry_with(links)
+    <<~XML
+      <entry>
+        <title>Ep</title>
+        <id>urn:uuid:ep1</id>
+        <updated>2026-09-21T12:00:00Z</updated>
+        #{links}
+      </entry>
+    XML
+  end
+
+  def atom_feed(entries, namespaces: "")
+    <<~XML
+      <?xml version="1.0" encoding="UTF-8"?>
+      <feed xmlns="http://www.w3.org/2005/Atom"#{namespaces}>
+        <title>Test Feed</title>
+        <link rel="alternate" type="text/html" href="https://example.com"/>
+        <id>urn:uuid:feed</id>
+        <updated>2026-09-21T12:00:00Z</updated>
+        #{entries}
+      </feed>
     XML
   end
 
