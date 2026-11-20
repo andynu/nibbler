@@ -59,6 +59,19 @@ describe("useEntryNavigationAnchor", () => {
     expect(result.current.navigationIndex()).toBe(-1)
   })
 
+  // The reply sets the selection and settles in one go, but the keyboard
+  // listener keeps the previous commit's selection until React renders. A
+  // press in that gap moved from the old selection, so k, k, k from nothing
+  // opened the last entry twice and stopped one row short.
+  it("anchors on an opened entry before its render lands", () => {
+    const { result } = setup(null)
+
+    result.current.begin(13)
+    result.current.settle(true)
+
+    expect(result.current.navigationIndex()).toBe(3)
+  })
+
   it("anchors on the opened entry once its render lands", () => {
     const { result, rerender } = setup(null)
 
