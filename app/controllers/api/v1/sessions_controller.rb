@@ -11,10 +11,23 @@ module Api
       MAX_FAILED_LOGIN_ATTEMPTS = 5
       FAILED_LOGIN_WINDOW = 15.minutes
 
+      # Each account keeps two counters: one for browsers holding a signed
+      # device cookie from an earlier sign-in as that user, one for everything
+      # else. Anyone who knows a login can exhaust the second, but that never
+      # locks out a browser the owner already uses. Keyed on the cookie, not
+      # remote_ip: every hop to this app is a private address, so remote_ip
+      # falls back to the client-supplied X-Forwarded-For and a guesser could
+      # pick a fresh key per request.
+      DEVICE_COOKIE = :login_device
+      DEVICE_COOKIE_LIFETIME = 1.year
+      UNKNOWN_DEVICE_COUNTER = %w[failed_auth_attempts last_auth_attempt].freeze
+      TRUSTED_DEVICE_COUNTER = %w[trusted_failed_auth_attempts trusted_last_auth_attempt].freeze
+
       # POST /api/v1/auth/login
       def create
         # Rate limiting check
-        if login_rate_limited?(params[:login])
+        account = User.find_by(login: params[:login]) if params[:login].present?
+        if login_rate_limited?(account)
           return render json: { error: "Too many login attempts. Please try again later." }, status: :too_many_requests
         end
 
@@ -22,11 +35,13 @@ module Api
 
         if user
           # Track successful login
+          count_column, last_attempt_column = failure_counter(user)
           user.update_columns(
-            last_login: Time.current,
-            last_auth_attempt: nil,
-            failed_auth_attempts: 0
+            :last_login => Time.current,
+            last_attempt_column => nil,
+            count_column => 0
           )
+          remember_device(user)
 
           # Create session
           session[:user_id] = user.id
@@ -36,7 +51,7 @@ module Api
           render json: user_json(user)
         else
           # Track failed attempt
-          record_failed_attempt(params[:login])
+          record_failed_attempt(account)
           render json: { error: "Invalid username or password" }, status: :unauthorized
         end
       end
@@ -111,31 +126,48 @@ module Api
       end
 
       # Simple rate limiting using database
-      def login_rate_limited?(login)
-        return false if login.blank?
+      def login_rate_limited?(user)
+        return false unless user
 
-        user = User.find_by(login: login)
-        return false unless user&.last_auth_attempt
-        return false if user.last_auth_attempt <= FAILED_LOGIN_WINDOW.ago
+        count_column, last_attempt_column = failure_counter(user)
+        last_attempt = user[last_attempt_column]
+        return false unless last_attempt
+        return false if last_attempt <= FAILED_LOGIN_WINDOW.ago
 
-        user.failed_auth_attempts >= MAX_FAILED_LOGIN_ATTEMPTS
+        user[count_column] >= MAX_FAILED_LOGIN_ATTEMPTS
       end
 
-      def record_failed_attempt(login)
-        return if login.blank?
-
-        user = User.find_by(login: login)
+      def record_failed_attempt(user)
         return unless user
+
+        count_column, last_attempt_column = failure_counter(user)
 
         # Counted in SQL rather than read-modify-write: a burst of concurrent
         # failures is exactly what the limit is for, and each request reading
         # the same stale count would let the whole burst through.
         User.where(id: user.id).update_all(
           User.sanitize_sql_array([
-            "failed_auth_attempts = CASE WHEN last_auth_attempt > :cutoff THEN failed_auth_attempts + 1 ELSE 1 END, last_auth_attempt = :now",
+            "#{count_column} = CASE WHEN #{last_attempt_column} > :cutoff THEN #{count_column} + 1 ELSE 1 END, #{last_attempt_column} = :now",
             { cutoff: FAILED_LOGIN_WINDOW.ago, now: Time.current }
           ])
         )
+      end
+
+      def failure_counter(user)
+        trusted_device?(user) ? TRUSTED_DEVICE_COUNTER : UNKNOWN_DEVICE_COUNTER
+      end
+
+      def trusted_device?(user)
+        cookies.signed[DEVICE_COOKIE] == user.id
+      end
+
+      def remember_device(user)
+        cookies.signed[DEVICE_COOKIE] = {
+          value: user.id,
+          expires: DEVICE_COOKIE_LIFETIME.from_now,
+          httponly: true,
+          same_site: :lax
+        }
       end
     end
   end

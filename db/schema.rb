@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_20_181021) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -73,8 +73,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.integer "num_comments", default: 0, null: false
     t.text "plugin_data"
     t.text "title", null: false
-    t.virtual "tsvector_combined", type: :tsvector, as: "(to_tsvector('english'::regconfig, COALESCE(title, ''::text)) || to_tsvector('english'::regconfig, regexp_replace(\"left\"(COALESCE(content, ''::text), 100000), '<[^>]*>'::text, ' '::text, 'g'::text)))", stored: true
     t.datetime "updated", null: false
+    t.virtual "tsvector_combined", type: :tsvector, as: "(to_tsvector('english'::regconfig, COALESCE(title, ''::text)) || to_tsvector('english'::regconfig, regexp_replace(\"left\"(COALESCE(content, ''::text), 100000), '<[^>]*>'::text, ' '::text, 'g'::text)))", stored: true
     t.index ["date_entered"], name: "index_entries_on_date_entered"
     t.index ["guid"], name: "index_entries_on_guid", unique: true
     t.index ["tsvector_combined"], name: "entries_tsvector_combined_idx", using: :gin
@@ -82,24 +82,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
   end
 
   create_table "entry_full_texts", force: :cascade do |t|
-    t.integer "char_count", default: 0, null: false
-    t.text "content", default: "", null: false
-    t.string "content_hash", null: false
     t.bigint "entry_id", null: false
+    t.string "status", null: false
+    t.text "content", default: "", null: false
+    t.integer "char_count", default: 0, null: false
+    t.string "content_hash", null: false
     t.string "failure_detail"
     t.datetime "fetched_at", null: false
-    t.string "status", null: false
     t.virtual "tsvector_content", type: :tsvector, as: "to_tsvector('english'::regconfig, regexp_replace(\"left\"(COALESCE(content, ''::text), 100000), '<[^>]*>'::text, ' '::text, 'g'::text))", stored: true
     t.index ["entry_id"], name: "index_entry_full_texts_on_entry_id", unique: true
   end
 
   create_table "entry_summaries", force: :cascade do |t|
-    t.string "content_hash", null: false
     t.bigint "entry_id", null: false
-    t.datetime "generated_at", null: false
-    t.string "model", null: false
-    t.string "readable_content_hash"
     t.text "summary", null: false
+    t.string "content_hash", null: false
+    t.string "model", null: false
+    t.datetime "generated_at", null: false
+    t.string "readable_content_hash"
     t.index ["entry_id"], name: "index_entry_summaries_on_entry_id", unique: true
   end
 
@@ -130,7 +130,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.integer "calculated_interval_seconds"
     t.bigint "category_id"
     t.integer "consecutive_failures", default: 0, null: false
-    t.datetime "dead_at"
     t.integer "entry_count", default: 0, null: false
     t.string "etag", default: "", null: false
     t.string "favicon_avg_color"
@@ -138,12 +137,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.datetime "favicon_last_checked"
     t.string "feed_language", default: "", null: false
     t.text "feed_url", null: false
-    t.datetime "first_failed_at"
     t.boolean "hidden", default: false, null: false
     t.boolean "hide_images", default: false, null: false
     t.string "icon_url", default: "", null: false
     t.boolean "include_in_digest", default: true, null: false
-    t.integer "infrastructure_failures", default: 0, null: false
     t.text "last_error", default: "", null: false
     t.string "last_modified", default: "", null: false
     t.datetime "last_new_entry_at"
@@ -171,6 +168,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.boolean "update_on_checksum_change", default: false, null: false
     t.bigint "user_id", null: false
     t.string "view_settings", default: "", null: false
+    t.datetime "first_failed_at"
+    t.integer "infrastructure_failures", default: 0, null: false
+    t.datetime "dead_at"
     t.index ["category_id"], name: "index_feeds_on_category_id"
     t.index ["feed_url", "user_id"], name: "index_feeds_on_feed_url_and_user_id", unique: true
     t.index ["next_poll_at"], name: "index_feeds_on_next_poll_at"
@@ -387,7 +387,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.datetime "created_at"
     t.string "email", default: "", null: false
     t.boolean "email_digest", default: false, null: false
-    t.integer "failed_auth_attempts", default: 0, null: false
     t.string "full_name", default: "", null: false
     t.datetime "last_auth_attempt"
     t.datetime "last_digest_sent"
@@ -399,7 +398,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.string "pwd_hash"
     t.string "resetpass_token"
     t.string "salt", default: ""
+    t.integer "failed_auth_attempts", default: 0, null: false
     t.string "session_token"
+    t.integer "trusted_failed_auth_attempts", default: 0, null: false
+    t.datetime "trusted_last_auth_attempt"
     t.index ["access_key"], name: "index_users_on_access_key", unique: true
     t.index ["login"], name: "index_users_on_login", unique: true
   end

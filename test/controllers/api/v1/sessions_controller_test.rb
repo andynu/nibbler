@@ -93,6 +93,54 @@ class Api::V1::SessionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a lockout run up from another browser does not block a browser that has signed in before" do
+    sign_in(@user)
+    delete api_v1_logout_url, as: :json
+
+    attacker = open_session
+    (Api::V1::SessionsController::MAX_FAILED_LOGIN_ATTEMPTS + 1).times do
+      attacker.post api_v1_login_url, params: { login: @user.login, password: "wrong" }, as: :json
+    end
+    assert_equal 429, attacker.response.status
+
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :success
+  end
+
+  test "a browser that has signed in before is still limited after its own failures" do
+    sign_in(@user)
+    delete api_v1_logout_url, as: :json
+
+    fail_login(times: Api::V1::SessionsController::MAX_FAILED_LOGIN_ATTEMPTS)
+
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :too_many_requests
+  end
+
+  test "a forged device cookie is treated as an unknown browser" do
+    attacker = open_session
+    Api::V1::SessionsController::MAX_FAILED_LOGIN_ATTEMPTS.times do
+      attacker.post api_v1_login_url, params: { login: @user.login, password: "wrong" }, as: :json
+    end
+
+    cookies[Api::V1::SessionsController::DEVICE_COOKIE] = @user.id.to_s
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :too_many_requests
+  end
+
+  test "a device cookie earned by one user does not shield another" do
+    sign_in(users(:two))
+    delete api_v1_logout_url, as: :json
+
+    attacker = open_session
+    Api::V1::SessionsController::MAX_FAILED_LOGIN_ATTEMPTS.times do
+      attacker.post api_v1_login_url, params: { login: @user.login, password: "wrong" }, as: :json
+    end
+
+    post api_v1_login_url, params: { login: @user.login, password: "password" }, as: :json
+    assert_response :too_many_requests
+  end
+
   # =====================
   # GET /api/v1/auth/me
   # =====================
