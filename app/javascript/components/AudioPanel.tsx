@@ -116,14 +116,13 @@ export function AudioPanel() {
           here, because on a phone it has to sit on top of MobileNavBar instead
           of over it, and because application.tsx has to deduct exactly this
           much from the main row. Box sizing is border-box, so the declared
-          height covers the top border and the safe-area padding and leaves the
-          controls their 56px row. See ttrb-8k7e. */}
+          height covers the top border and leaves the controls their 56px row.
+          See ttrb-8k7e. */}
       <div
         data-testid="audio-panel"
         style={{
           bottom: "var(--audio-panel-bottom)",
           height: "var(--audio-panel-height)",
-          paddingBottom: "var(--audio-panel-inset)",
         }}
         className={cn(
           "fixed left-0 right-0 z-50",

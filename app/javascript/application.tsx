@@ -1154,19 +1154,16 @@ function App() {
 
     if (audioPlayer.isVisible) {
       // The panel's own height, from the one place it is defined. On a phone
-      // that is the bar alone, stacked on the nav bar whose variable follows;
-      // above the mobile breakpoint it is the bar plus the safe-area inset,
-      // because there is no nav bar under it to carry that. A literal 56px
+      // the bar is stacked on the nav bar whose variable follows. A literal 56px
       // here reserved the right amount for the wrong arrangement: both bars
       // were pinned to bottom-0, so 113px was set aside for one visible 57px
       // band and the reader got a strip of empty background (ttrb-8k7e).
       deductions.push("var(--audio-panel-height)")
     }
     if (layout.isMobile) {
-      // The bar's own height, border and safe-area inset included, read from
-      // the one place it is defined (application.tailwind.css). A literal here
-      // was 56px against a 57px bar, and would have been 56 against 91 on a
-      // phone with a home indicator (ttrb-0apn).
+      // The bar's own height, border included, read from the one place it is
+      // defined (application.tailwind.css). A literal here was 56px against a
+      // 57px bar (ttrb-0apn).
       deductions.push("var(--mobile-nav-height)")
     }
 

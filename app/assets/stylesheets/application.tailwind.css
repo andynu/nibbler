@@ -112,23 +112,15 @@
   }
 
   :root {
-    /* Every env(safe-area-inset-bottom) below resolves to 0 until the layout's
-       viewport meta opts in with viewport-fit=cover. Until then the browser
-       insets the layout viewport around the cutout itself and hands the page a
-       zero safe area, on WebKit and Blink alike. Correct arithmetic, not live
-       values: a phone with a home indicator reports 0 here too. */
-
     /* How much of the bottom of the phone viewport MobileNavBar owns: the
-       56px row of tab buttons, its top border, and the home-indicator inset
-       on the devices that have one.
+       56px row of tab buttons and its top border.
 
        One definition rather than a literal in each place that needs it.
        MobileNavBar sizes itself from this and application.tsx deducts it from
        the main row, so the bar and the space reserved for it cannot disagree.
-       They did: the bar measured 57px against a hardcoded 56px deduction, and
-       an iPhone's safe-area inset would have widened that to 91 against 56.
+       They did: the bar measured 57px against a hardcoded 56px deduction.
        See ttrb-0apn. */
-    --mobile-nav-height: calc(3.5rem + 1px + env(safe-area-inset-bottom, 0px));
+    --mobile-nav-height: calc(3.5rem + 1px);
 
     /* Where AudioPanel's bar sits and how much of the viewport it owns.
 
@@ -139,16 +131,9 @@
        answered with the panel, and a click on any of them was intercepted in
        Chromium and Firefox alike. A reader could not leave the article they
        had just started playing. Stacking keeps the pane switcher reachable,
-       which giving the panel the bar's place would not.
-
-       The inset is split out because only the bottom-most bar may claim it,
-       and which bar that is depends on whether MobileNavBar is on screen:
-       below the breakpoint --mobile-nav-height already carries the inset for
-       both, above it the panel is alone down there and carries its own. See
-       ttrb-8k7e. */
-    --audio-panel-inset: 0px;
+       which giving the panel the bar's place would not. See ttrb-8k7e. */
     --audio-panel-bottom: var(--mobile-nav-height);
-    --audio-panel-height: calc(3.5rem + 1px + var(--audio-panel-inset));
+    --audio-panel-height: calc(3.5rem + 1px);
   }
 
   /* 640px is where LayoutContext stops calling the viewport mobile, and so
@@ -157,7 +142,6 @@
      classes already key off. */
   @media (min-width: 640px) {
     :root {
-      --audio-panel-inset: env(safe-area-inset-bottom, 0px);
       --audio-panel-bottom: 0px;
     }
   }
@@ -404,10 +388,5 @@
 
   .animate-boundary-flash {
     animation: boundary-flash 0.3s ease-out forwards;
-  }
-
-  /* Safe area for mobile devices with home indicators */
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
