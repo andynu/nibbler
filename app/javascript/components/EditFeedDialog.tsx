@@ -27,7 +27,7 @@ import { CategorySelector } from "@/components/CategorySelector"
 import { api, Feed, FeedInfo, Category, Filter } from "@/lib/api"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { cn } from "@/lib/utils"
-import { feedHealthSummary } from "@/lib/feedHealth"
+import { feedErrorHeading, feedHealthSummary } from "@/lib/feedHealth"
 import {
   Loader2,
   AlertCircle,
@@ -485,7 +485,7 @@ export function EditFeedDialog({
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
                     <div>
                       <div className="font-medium">
-                        {feed.dead_at ? "No longer checked" : feed.broken ? "Feed is broken" : "Last Error"}
+                        {feedErrorHeading(feed, "Last Error")}
                       </div>
                       <div className="text-xs mt-1">{feed.last_error}</div>
                       {feedHealthSummary(feed) && (

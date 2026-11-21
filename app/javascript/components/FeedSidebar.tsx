@@ -44,7 +44,7 @@ import { CategoryDialog } from "@/components/CategoryDialog"
 import { usePreferences } from "@/contexts/PreferencesContext"
 import { getVirtualFoldersByMode, SmartFolderIcon } from "@/lib/virtualFolders"
 import { categoryAncestorIds, visibleCategoryIds } from "@/lib/categoryNavigation"
-import { feedHealthSummary } from "@/lib/feedHealth"
+import { feedErrorHeading, feedHealthSummary } from "@/lib/feedHealth"
 import { useFeedSidebarDragAccessibility } from "@/hooks/useFeedSidebarDragAccessibility"
 import { categoryCollisionDetection, categoryKeyboardCoordinates } from "@/lib/categoryDropTargets"
 import { sortableGripKeyDown } from "@/lib/sortableGrip"
@@ -1820,7 +1820,7 @@ function FeedItem({ feed, isSelected, isTracked, isDragging, onSelect, onEdit, o
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
                     <p className="font-medium">
-                      {feed.dead_at ? "No longer checked" : feed.broken ? "Feed is broken" : "Update Error"}
+                      {feedErrorHeading(feed, "Update Error")}
                     </p>
                     <p className="text-xs opacity-90">{feed.last_error}</p>
                     {healthSummary && (

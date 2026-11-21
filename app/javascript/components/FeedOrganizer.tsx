@@ -36,7 +36,7 @@ import {
 } from "@/hooks/useFeedOrganizerDragAccessibility"
 import { isWithheldFromKeyboardCommands } from "@/hooks/useKeyboardCommands"
 import { api, Feed, Category } from "@/lib/api"
-import { feedHealthSummary } from "@/lib/feedHealth"
+import { feedErrorHeading, feedHealthSummary } from "@/lib/feedHealth"
 import { sortableGripKeyDown } from "@/lib/sortableGrip"
 import {
   Rss,
@@ -157,7 +157,7 @@ function FeedErrorIndicator({ feed }: { feed: Feed }) {
         </TooltipTrigger>
         <TooltipContent side="left" className="max-w-xs">
           <p className="font-medium">
-            {feed.dead_at ? "No longer checked" : feed.broken ? "Feed is broken" : "Update Error"}
+            {feedErrorHeading(feed, "Update Error")}
           </p>
           <p className="text-xs opacity-90">{feed.last_error}</p>
           {healthSummary && (

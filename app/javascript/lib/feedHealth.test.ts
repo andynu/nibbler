@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { formatFailingDuration, feedHealthSummary } from "./feedHealth"
+import { formatFailingDuration, feedHealthSummary, feedErrorHeading } from "./feedHealth"
 
 // A fixed "now" so nothing here depends on the wall clock.
 const NOW = new Date("2026-08-31T12:00:00Z")
@@ -109,5 +109,24 @@ describe("feedHealthSummary", () => {
         NOW
       )
     ).toBe("Checking stopped after a year of failures")
+  })
+})
+
+describe("feedErrorHeading", () => {
+  it("says a dead feed is no longer checked", () => {
+    expect(
+      feedErrorHeading({ dead_at: "2026-08-01T00:00:00Z", broken: true }, "Update Error")
+    ).toBe("No longer checked")
+  })
+
+  it("says a broken feed is broken", () => {
+    expect(feedErrorHeading({ broken: true, dead_at: null }, "Update Error")).toBe(
+      "Feed is broken"
+    )
+  })
+
+  it("falls back to the caller's heading for an ordinary failure", () => {
+    expect(feedErrorHeading({ broken: false }, "Update Error")).toBe("Update Error")
+    expect(feedErrorHeading({}, "Last Error")).toBe("Last Error")
   })
 })

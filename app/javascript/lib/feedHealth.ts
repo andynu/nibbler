@@ -84,3 +84,15 @@ export function feedHealthSummary(
 
   return duration ? `Failing for ${duration} (${attempts})` : `Failing (${attempts})`
 }
+
+/**
+ * The heading over a feed's error text. Dead outranks broken, since a dead feed
+ * is usually broken too and "no longer checked" is the part that changes what
+ * the reader should do. The fallback is the caller's: row tooltips say "Update
+ * Error", the edit dialog says "Last Error".
+ */
+export function feedErrorHeading(feed: FeedHealthFields, fallback: string): string {
+  if (feed.dead_at) return "No longer checked"
+  if (feed.broken) return "Feed is broken"
+  return fallback
+}
