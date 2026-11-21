@@ -80,14 +80,13 @@ class FetchFaviconJobTest < ActiveJob::TestCase
   end
 
   # The production image ships no ImageMagick, so saving a raster favicon must
-  # stay a pure file write: no image library, no favicon_avg_color.
+  # stay a pure file write: no image library.
   test "saves a raster favicon without inspecting the image" do
     perform_with_icon("\x89PNG\r\n\x1a\n not-a-real-png".b, content_type: "image/png")
 
     @feed.reload
     assert_match %r{\A/icons/#{@feed.id}-[0-9a-f]{16}\.png\z}, @feed.icon_url
     assert File.exist?(icon_path(@feed.icon_url))
-    assert_nil @feed.favicon_avg_color
   end
 
   private
