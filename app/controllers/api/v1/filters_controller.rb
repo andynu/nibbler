@@ -164,7 +164,7 @@ module Api
 
       # Determine the scope of user_entries to backfill based on filter rules
       def user_entries_scope
-        scope = current_user.user_entries.joins(:entry).includes(:entry, :feed, :tags)
+        scope = current_user.user_entries.joins(:entry).includes(:entry, :feed)
 
         # Collect feed/category constraints from rules
         feed_ids = @filter.filter_rules.map(&:feed_id).compact.uniq
