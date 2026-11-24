@@ -191,4 +191,95 @@ class FilterRuleTest < ActiveSupport::TestCase
     assert_not rule.matches?(published: 3.days.ago)
     assert rule.matches?(published: 10.days.ago)
   end
+
+  # ===================
+  # Metric rules
+  # ===================
+
+  test "word_count >= threshold is inclusive" do
+    rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: ">=2500")
+
+    assert rule.matches?(word_count: 2500)
+    assert_not rule.matches?(word_count: 2499)
+  end
+
+  test "word_count > threshold is exclusive" do
+    rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: ">2500")
+
+    assert rule.matches?(word_count: 2501)
+    assert_not rule.matches?(word_count: 2500)
+  end
+
+  test "link_density < threshold is exclusive" do
+    rule = FilterRule.new(filter: @filter, filter_type: "link_density", reg_exp: "<3")
+
+    assert rule.matches?(link_density: 2.9)
+    assert_not rule.matches?(link_density: 3.0)
+  end
+
+  test "link_density <= threshold accepts a decimal" do
+    rule = FilterRule.new(filter: @filter, filter_type: "link_density", reg_exp: "<=2.5")
+
+    assert rule.matches?(link_density: 2.5)
+    assert_not rule.matches?(link_density: 2.51)
+  end
+
+  test "range threshold is inclusive at both ends" do
+    rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: "1000..4000")
+
+    assert rule.matches?(word_count: 1000)
+    assert rule.matches?(word_count: 4000)
+    assert_not rule.matches?(word_count: 999)
+    assert_not rule.matches?(word_count: 4001)
+  end
+
+  test "threshold tolerates surrounding whitespace" do
+    rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: " >= 2500 ")
+
+    assert rule.matches?(word_count: 3000)
+  end
+
+  test "NULL metric never matches" do
+    rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: ">=2500")
+
+    assert_not rule.matches?(word_count: nil)
+    assert_not rule.matches?({})
+  end
+
+  test "NULL metric does not match an inverse rule either" do
+    word_rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: ">=2500", inverse: true)
+    density_rule = FilterRule.new(filter: @filter, filter_type: "link_density", reg_exp: "<3", inverse: true)
+
+    assert_not word_rule.matches?(word_count: nil)
+    assert_not density_rule.matches?(link_density: nil)
+  end
+
+  test "inverse metric rule negates a measured value" do
+    rule = FilterRule.new(filter: @filter, filter_type: "link_density", reg_exp: "<3", inverse: true)
+
+    assert rule.matches?(link_density: 5.0)
+    assert_not rule.matches?(link_density: 1.0)
+  end
+
+  test "malformed threshold yields no match and no exception" do
+    [ "abc", ">=", "5..", "..5", ">=abc", "1..2..3", "=5" ].each do |criterion|
+      rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: criterion)
+
+      assert_nothing_raised { rule.matches?(word_count: 5) }
+      assert_not rule.matches?(word_count: 5), "expected #{criterion.inspect} not to match"
+    end
+  end
+
+  test "malformed threshold yields no match on an inverse rule" do
+    rule = FilterRule.new(filter: @filter, filter_type: "word_count", reg_exp: "abc", inverse: true)
+
+    assert_not rule.matches?(word_count: 5)
+  end
+
+  test "metric types pass validation" do
+    %w[word_count link_density].each do |type|
+      rule = FilterRule.new(filter: @filter, filter_type: type, reg_exp: ">=1")
+      assert rule.valid?, rule.errors.full_messages.to_sentence
+    end
+  end
 end

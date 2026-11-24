@@ -15,12 +15,18 @@ class FilterRule < ApplicationRecord
   belongs_to :feed, optional: true
   belongs_to :category, optional: true
 
-  FILTER_TYPES = %w[title content both link date author tag].freeze
+  METRIC_TYPES = %w[word_count link_density].freeze
+  FILTER_TYPES = (%w[title content both link date author tag] + METRIC_TYPES).freeze
+
+  NUMBER = /\d+(?:\.\d+)?/
+  THRESHOLD = /\A\s*(?:(?<op>>=|<=|>|<)\s*(?<value>#{NUMBER})|(?<low>#{NUMBER})\s*\.\.\s*(?<high>#{NUMBER}))\s*\z/
 
   validates :reg_exp, presence: true
   validates :filter_type, presence: true, inclusion: { in: FILTER_TYPES }
 
   def matches?(article)
+    return matches_metric?(article) if METRIC_TYPES.include?(filter_type)
+
     regex = Regexp.new(reg_exp, Regexp::IGNORECASE)
     result = case filter_type
     when "title"
@@ -46,6 +52,38 @@ class FilterRule < ApplicationRecord
   end
 
   private
+
+  # An unmeasured entry or a malformed threshold matches nothing, inverse
+  # included, so negation never auto-publishes an entry nobody has measured.
+  def matches_metric?(article)
+    value = article[filter_type.to_sym]
+    return false if value.nil?
+
+    result = matches_threshold?(value)
+    return false if result.nil?
+
+    inverse ? !result : result
+  end
+
+  # Compares a metric against the threshold in reg_exp.
+  #
+  # Supported formats: >=N, >N, <=N, <N, N..M (inclusive), where N and M are
+  # integers or decimals. Returns nil when the threshold is malformed.
+  def matches_threshold?(value)
+    match = THRESHOLD.match(reg_exp.to_s)
+    return nil unless match
+
+    value = value.to_f
+    return value.between?(match[:low].to_f, match[:high].to_f) if match[:low]
+
+    threshold = match[:value].to_f
+    case match[:op]
+    when ">=" then value >= threshold
+    when ">" then value > threshold
+    when "<=" then value <= threshold
+    when "<" then value < threshold
+    end
+  end
 
   # Matches article date against the date criterion in reg_exp.
   #

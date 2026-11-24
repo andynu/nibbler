@@ -133,17 +133,19 @@ module Api
         # Get recent articles from the user's feeds for testing
         current_user.user_entries
           .joins(:entry)
-          .includes(entry: :tags)
+          .includes(entry: [ :tags, :entry_full_text ])
           .order("entries.date_entered DESC")
           .limit(100)
           .map do |ue|
             {
               id: ue.entry.id,
               title: ue.entry.title,
-              content: ue.entry.content,
+              content: ue.entry.readable_content,
               link: ue.entry.link,
               author: ue.entry.author,
-              tags: ue.entry.tags.map(&:name)
+              tags: ue.entry.tags.map(&:name),
+              word_count: ue.entry.word_count,
+              link_density: ue.entry.link_density
             }
           end
       end
@@ -164,7 +166,7 @@ module Api
 
       # Determine the scope of user_entries to backfill based on filter rules
       def user_entries_scope
-        scope = current_user.user_entries.joins(:entry).includes(:entry, :feed)
+        scope = current_user.user_entries.joins(:entry).includes({ entry: :entry_full_text }, :feed)
 
         # Collect feed/category constraints from rules
         feed_ids = @filter.filter_rules.map(&:feed_id).compact.uniq
@@ -186,10 +188,12 @@ module Api
         {
           id: entry.id,
           title: entry.title,
-          content: entry.content,
+          content: entry.readable_content,
           link: entry.link,
           author: entry.author,
           tags: entry.tags.where(user_id: current_user.id).pluck(:name),
+          word_count: entry.word_count,
+          link_density: entry.link_density,
           published: entry.updated,
           updated: entry.updated
         }

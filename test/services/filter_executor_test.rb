@@ -517,6 +517,50 @@ class FilterExecutorTest < ActiveSupport::TestCase
   end
 
   # ===================
+  # Article hash: readable content and metrics
+  # ===================
+
+  test "content rule matches a word that appears only in the usable full text" do
+    @entry.create_entry_full_text!(
+      status: EntryFullText::OK,
+      content: "<p>The full article discusses zymurgy at length.</p>",
+      char_count: 45,
+      content_hash: @entry.content_hash,
+      fetched_at: Time.current
+    )
+    filter = create_filter
+    create_filter_rule(filter, filter_type: "content", reg_exp: "zymurgy")
+    create_filter_action(filter, action_type: "mark_read")
+
+    FilterExecutor.execute(@user_entry)
+
+    assert_equal false, @user_entry.reload.unread
+  end
+
+  test "word_count rule matches the entry's stored word count" do
+    @entry.update_columns(word_count: 3000, link_density: 1.0)
+    filter = create_filter
+    create_filter_rule(filter, filter_type: "word_count", reg_exp: ">=2500")
+    create_filter_rule(filter, filter_type: "link_density", reg_exp: "<3")
+    create_filter_action(filter, action_type: "mark_read")
+
+    FilterExecutor.execute(@user_entry)
+
+    assert_equal false, @user_entry.reload.unread
+  end
+
+  test "inverse metric rule does not publish an unmeasured entry" do
+    @entry.update_columns(word_count: nil, link_density: nil)
+    filter = create_filter
+    FilterRule.create!(filter: filter, filter_type: "link_density", reg_exp: ">=3", inverse: true)
+    create_filter_action(filter, action_type: "publish")
+
+    FilterExecutor.execute(@user_entry)
+
+    assert_equal false, @user_entry.reload.published
+  end
+
+  # ===================
   # Class Method Interface
   # ===================
 

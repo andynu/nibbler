@@ -33,10 +33,12 @@ class FilterExecutor
     {
       id: @entry.id,
       title: @entry.title,
-      content: @entry.content,
+      content: @entry.readable_content,
       link: @entry.link,
       author: @entry.author,
-      tags: @entry.tags.where(user_id: @user.id).pluck(:name)
+      tags: @entry.tags.where(user_id: @user.id).pluck(:name),
+      word_count: @entry.word_count,
+      link_density: @entry.link_density
     }
   end
 
