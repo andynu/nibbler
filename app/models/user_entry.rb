@@ -86,7 +86,19 @@ class UserEntry < ApplicationRecord
     update!(marked: !marked, last_marked: marked ? nil : Time.current)
   end
 
+  # No-op when already published: moving last_published would reorder the
+  # public feed and present the entry as new.
+  def publish!
+    return if published
+
+    update!(published: true, last_published: Time.current)
+  end
+
   def toggle_published!
-    update!(published: !published, last_published: published ? nil : Time.current)
+    if published
+      update!(published: false, last_published: nil)
+    else
+      publish!
+    end
   end
 end

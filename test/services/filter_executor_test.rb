@@ -260,6 +260,31 @@ class FilterExecutorTest < ActiveSupport::TestCase
     assert_equal true, @user_entry.published
   end
 
+  test "publish action sets last_published" do
+    filter = create_filter
+    create_filter_rule(filter, filter_type: "title", reg_exp: "Technology")
+    create_filter_action(filter, action_type: "publish")
+    freeze_time
+
+    FilterExecutor.execute(@user_entry)
+
+    @user_entry.reload
+    assert_equal Time.current, @user_entry.last_published
+  end
+
+  test "publish action on an already published entry keeps last_published" do
+    original = 1.day.ago.change(usec: 0)
+    @user_entry.update!(published: true, last_published: original)
+    filter = create_filter
+    create_filter_rule(filter, filter_type: "title", reg_exp: "Technology")
+    create_filter_action(filter, action_type: "publish")
+
+    FilterExecutor.execute(@user_entry)
+
+    @user_entry.reload
+    assert_equal original, @user_entry.last_published
+  end
+
   # ===================
   # Actions: score
   # ===================

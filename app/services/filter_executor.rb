@@ -86,7 +86,7 @@ class FilterExecutor
         Rails.logger.info "Filter #{filter.id}: starred entry #{@entry.id}"
 
       when "publish"
-        @user_entry.update!(published: true)
+        @user_entry.publish!
         Rails.logger.info "Filter #{filter.id}: published entry #{@entry.id}"
 
       when "score"

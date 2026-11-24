@@ -233,7 +233,7 @@ module Api
             user_entry.update!(marked: true)
 
           when "publish"
-            user_entry.update!(published: true)
+            user_entry.publish!
 
           when "score"
             score_delta = action.action_param.to_i
