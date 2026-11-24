@@ -17,6 +17,10 @@ class UserEntry < ApplicationRecord
 
   validates :uuid, presence: true
 
+  # On the model rather than in a controller so filter and backfill publishes
+  # fetch the full text too.
+  after_commit :enqueue_full_text_fetch, if: :published_just_now?
+
   scope :unread, -> { where(unread: true) }
   scope :read, -> { where(unread: false) }
   scope :starred, -> { where(marked: true) }
@@ -100,5 +104,17 @@ class UserEntry < ApplicationRecord
     else
       publish!
     end
+  end
+
+  private
+
+  def published_just_now?
+    saved_change_to_published? && published?
+  end
+
+  def enqueue_full_text_fetch
+    return if entry.entry_full_text&.usable?
+
+    FetchFullTextJob.perform_later(entry_id)
   end
 end
