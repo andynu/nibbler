@@ -8,13 +8,36 @@ require "builder"
 class PublicFeedController < ActionController::Base
   before_action :find_user_by_access_key
 
+  # How long a published entry waits for its full-text fetch to resolve before
+  # it is listed with the feed's own body. Consumers ingest an entry once, so
+  # listing it before the fetch lands would freeze the excerpt in place.
+  TEXT_SETTLE_GRACE = 2.hours
+
+  FULL_TEXT_JOIN_SQL =
+    "LEFT JOIN entry_full_texts ON entry_full_texts.entry_id = entries.id".freeze
+
+  # An entry is listed once its text has settled: a usable fetch, a failed fetch
+  # with a feed body to fall back on, or the grace period passed with a feed
+  # body. A NULL last_published predates that column being kept and counts as
+  # past grace. An entry with neither a usable fetch nor a body is never listed.
+  SETTLED_SQL = <<~SQL.squish.freeze
+    (#{format(Entry::USABLE_FULL_TEXT_SQL, full_text: 'entry_full_texts', entry: 'entries')})
+    OR (entries.content ~ '\\S' AND (
+      entry_full_texts.status = '#{EntryFullText::FAILED}'
+      OR user_entries.last_published IS NULL
+      OR user_entries.last_published < :settled_before
+    ))
+  SQL
+
   # GET /public/feed/:access_key.atom
   def show
     @published_entries = @user.user_entries
       .published
-      .includes(entry: :enclosures)
       .joins(:entry)
-      .order("entries.date_entered DESC")
+      .joins(FULL_TEXT_JOIN_SQL)
+      .where(SETTLED_SQL, settled_before: TEXT_SETTLE_GRACE.ago)
+      .includes(entry: [ :enclosures, :entry_full_text ])
+      .order(Arel.sql("user_entries.last_published DESC NULLS LAST, entries.date_entered DESC"))
       .limit(50)
 
     respond_to do |format|
@@ -53,7 +76,7 @@ class PublicFeedController < ActionController::Base
           xml.published(entry.date_entered.iso8601)
           xml.updated(entry.updated.iso8601)
           xml.author { xml.name(entry.author) } if entry.author.present?
-          xml.content(entry.content, type: "html")
+          xml.content(entry.readable_content, type: "html")
 
           # Include enclosures as links
           entry.enclosures.each do |enclosure|
