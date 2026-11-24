@@ -195,6 +195,23 @@ class EntryFullTextTest < ActiveSupport::TestCase
     end
   end
 
+  test "a usable fetch measures the article it fetched" do
+    stub_page
+
+    record = EntryFullText.for(@entry)
+
+    assert_equal ArticleMetrics.measure(record.content)[:word_count], @entry.reload.word_count
+    assert_operator @entry.word_count, :>, ArticleMetrics.measure(@entry.content)[:word_count]
+  end
+
+  test "a failed fetch measures the feed's own body" do
+    stub_page(status: 403, body: "no")
+
+    EntryFullText.for(@entry)
+
+    assert_equal 2, @entry.reload.word_count
+  end
+
   # PurgeArticlesJob deletes orphaned entries with Relation#delete_all, which
   # instantiates nothing, so dependent: :destroy never runs on that path. The
   # database-level cascade is what covers it.

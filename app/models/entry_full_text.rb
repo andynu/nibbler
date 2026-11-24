@@ -129,6 +129,7 @@ class EntryFullText < ApplicationRecord
     end
 
     record.update!(content_hash: entry.content_hash, fetched_at: Time.current)
+    ArticleMetrics.refresh!(entry)
     record
   rescue ActiveRecord::RecordNotUnique
     # Two readers opened the same article at once and both missed the cache. The

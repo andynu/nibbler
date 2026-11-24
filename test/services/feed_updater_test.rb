@@ -435,6 +435,25 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_includes Entry.find_by!(guid: "edited").content, "first draft"
   end
 
+  # ==========================================
+  # Article metrics
+  # ==========================================
+
+  test "a new entry is measured on arrival" do
+    update_with(rss(item(guid: "measured", title: "Measured", body: "&lt;p&gt;one two three&lt;/p&gt;")))
+
+    entry = Entry.find_by!(guid: "measured")
+    assert_equal 3, entry.word_count
+    assert_in_delta 0.0, entry.link_density
+  end
+
+  test "an edited body is measured again" do
+    update_with(edition("first draft"))
+    update_with(edition("a longer corrected copy"))
+
+    assert_equal 4, Entry.find_by!(guid: "edited").word_count
+  end
+
   # A headline or byline corrected under the same GUID is an edit too. Search
   # reads the title, and the reading pane shows both.
 

@@ -208,6 +208,7 @@ class FeedUpdater
         date_entered: Time.current,
         date_updated: Time.current
       )
+      ArticleMetrics.refresh!(entry)
 
       create_enclosures(entry, parsed_entry.enclosures)
     end
@@ -266,6 +267,7 @@ class FeedUpdater
     return if changes.empty? && !enclosures_replaced
 
     entry.update!(changes.merge(date_updated: Time.current))
+    ArticleMetrics.refresh!(entry) if changes.key?(:content)
     CacheArticleImagesJob.perform_later(entry.id) if changes.key?(:content) && @feed.cache_images?
     FeedTagsForEntryApplier.apply(user_entry: user_entry) if changes.key?(:content) || changes.key?(:title)
   end
