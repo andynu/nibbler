@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -152,6 +153,7 @@ export function EditFeedDialog({
   const [feedUrl, setFeedUrl] = useState("")
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [updateInterval, setUpdateInterval] = useState<string>("0")
+  const [fetchFullTextOnArrival, setFetchFullTextOnArrival] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isResuming, setIsResuming] = useState(false)
@@ -210,6 +212,7 @@ export function EditFeedDialog({
       setFeedUrl(feed.feed_url)
       setCategoryId(feed.category_id ?? null)
       setUpdateInterval(String(feed.update_interval ?? 0))
+      setFetchFullTextOnArrival(feed.fetch_full_text_on_arrival ?? false)
       setError(null)
       setShowDeleteConfirm(false)
       setIsDeleting(false)
@@ -250,6 +253,7 @@ export function EditFeedDialog({
           feed_url: feedUrl,
           category_id: categoryId,
           update_interval: parseInt(updateInterval, 10),
+          fetch_full_text_on_arrival: fetchFullTextOnArrival,
         },
       })
       onFeedUpdated(updatedFeed)
@@ -478,6 +482,24 @@ export function EditFeedDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="fetchFullTextOnArrival">
+                      Fetch full article when it arrives
+                    </Label>
+                    <p id="fetchFullTextOnArrivalHelp" className="text-xs text-muted-foreground">
+                      Use for feeds that only send an excerpt. Adds one request per new
+                      article to the publisher's site.
+                    </p>
+                  </div>
+                  <Switch
+                    id="fetchFullTextOnArrival"
+                    aria-describedby="fetchFullTextOnArrivalHelp"
+                    checked={fetchFullTextOnArrival}
+                    onCheckedChange={setFetchFullTextOnArrival}
+                  />
                 </div>
 
                 {feed.last_error && (

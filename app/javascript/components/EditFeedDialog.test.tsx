@@ -389,8 +389,41 @@ describe("EditFeedDialog", () => {
             feed_url: "https://example.com/feed.xml",
             category_id: null,
             update_interval: 0,
+            fetch_full_text_on_arrival: false,
           },
         })
+      })
+    })
+
+    it("shows the feed's full-text-on-arrival setting on the switch", () => {
+      render(
+        <EditFeedDialog
+          {...defaultProps}
+          feed={mockFeed({ id: 1, fetch_full_text_on_arrival: true })}
+        />
+      )
+
+      const toggle = screen.getByRole("switch", { name: /fetch full article when it arrives/i })
+      expect(toggle).toHaveAttribute("aria-checked", "true")
+      expect(
+        screen.getByText(/use for feeds that only send an excerpt/i)
+      ).toBeInTheDocument()
+    })
+
+    it("sends fetch_full_text_on_arrival when the switch is turned on and saved", async () => {
+      const user = userEvent.setup()
+      render(<EditFeedDialog {...defaultProps} />)
+
+      const toggle = screen.getByRole("switch", { name: /fetch full article when it arrives/i })
+      expect(toggle).toHaveAttribute("aria-checked", "false")
+
+      await user.click(toggle)
+      expect(toggle).toHaveAttribute("aria-checked", "true")
+      await user.click(screen.getByRole("button", { name: /save changes/i }))
+
+      await waitFor(() => expect(mockApiUpdate).toHaveBeenCalledTimes(1))
+      expect(mockApiUpdate.mock.calls[0][1].feed).toMatchObject({
+        fetch_full_text_on_arrival: true,
       })
     })
 

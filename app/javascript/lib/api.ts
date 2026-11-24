@@ -46,6 +46,8 @@ export interface Feed {
   oldest_entry_date: string | null
   newest_entry_date: string | null
   update_interval?: number
+  /** Fetch the article page for each new entry before filters run. */
+  fetch_full_text_on_arrival?: boolean
 }
 
 export interface Enclosure {
