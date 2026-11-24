@@ -431,7 +431,16 @@ export interface StoryExtraction {
   source_entry_id: number
 }
 
-export type FilterRuleType = "title" | "content" | "both" | "link" | "date" | "author" | "tag"
+export type FilterRuleType =
+  | "title"
+  | "content"
+  | "both"
+  | "link"
+  | "date"
+  | "author"
+  | "tag"
+  | "word_count"
+  | "link_density"
 export type FilterActionType = "delete" | "mark_read" | "star" | "tag" | "publish" | "score" | "stop" | "ignore_tag"
 
 export interface FilterRule {

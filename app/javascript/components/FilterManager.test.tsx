@@ -340,6 +340,41 @@ describe("FilterManager", () => {
     })
   })
 
+  describe("metric rule types", () => {
+    async function openRuleTypeSelect(user: UserEvent) {
+      render(<FilterManager {...defaultProps} />)
+      await user.click(await screen.findByRole("button", { name: /new filter/i }))
+      await screen.findByRole("heading", { name: /create filter/i })
+      await user.click(screen.getByRole("combobox", { name: "Rule type" }))
+    }
+
+    it("lists Word count and Link density as rule types", async () => {
+      const user = userEvent.setup()
+      await openRuleTypeSelect(user)
+
+      expect(await screen.findByRole("option", { name: "Word count" })).toBeInTheDocument()
+      expect(screen.getByRole("option", { name: "Link density" })).toBeInTheDocument()
+    })
+
+    it("shows the threshold syntax once Word count is chosen", async () => {
+      const user = userEvent.setup()
+      await openRuleTypeSelect(user)
+
+      await user.click(await screen.findByRole("option", { name: "Word count" }))
+
+      expect(screen.getByPlaceholderText(/>=2500/)).toBeInTheDocument()
+    })
+
+    it("explains link density as links per 100 words", async () => {
+      const user = userEvent.setup()
+      await openRuleTypeSelect(user)
+
+      await user.click(await screen.findByRole("option", { name: "Link density" }))
+
+      expect(screen.getByPlaceholderText(/links per 100 words, e\.g\. <3/)).toBeInTheDocument()
+    })
+  })
+
   describe("edit filter button", () => {
     it("clicking edit button opens edit dialog", async () => {
       const user = userEvent.setup()

@@ -61,7 +61,15 @@ const FILTER_TYPES = [
   { value: "date", label: "Date" },
   { value: "author", label: "Author" },
   { value: "tag", label: "Tags" },
+  { value: "word_count", label: "Word count" },
+  { value: "link_density", label: "Link density" },
 ]
+
+const RULE_PATTERN_HINTS: Partial<Record<FilterRuleType, string>> = {
+  date: "<7d (last 7 days), >2025-01-01, 2025-01-01..2025-12-31",
+  word_count: "e.g. >=2500, <800, 1000..4000",
+  link_density: "links per 100 words, e.g. <3",
+}
 
 const ACTION_TYPES = [
   { value: "mark_read", label: "Mark as read" },
@@ -696,7 +704,7 @@ function FilterEditorDialog({
                           })
                         }
                       >
-                        <SelectTrigger className="w-[160px]">
+                        <SelectTrigger className="w-[160px]" aria-label="Rule type">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -720,9 +728,8 @@ function FilterEditorDialog({
                           handleUpdateRule(index, { reg_exp: e.target.value })
                         }
                         placeholder={
-                          rule.filter_type === "date"
-                            ? "<7d (last 7 days), >2025-01-01, 2025-01-01..2025-12-31"
-                            : "Regular expression pattern"
+                          RULE_PATTERN_HINTS[rule.filter_type] ??
+                          "Regular expression pattern"
                         }
                       />
                     </div>
