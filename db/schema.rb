@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_224821) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_234023) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -172,6 +172,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_224821) do
     t.datetime "first_failed_at"
     t.integer "infrastructure_failures", default: 0, null: false
     t.datetime "dead_at"
+    t.boolean "fetch_full_text_on_arrival", default: false, null: false
     t.index ["category_id"], name: "index_feeds_on_category_id"
     t.index ["feed_url", "user_id"], name: "index_feeds_on_feed_url_and_user_id", unique: true
     t.index ["next_poll_at"], name: "index_feeds_on_next_poll_at"

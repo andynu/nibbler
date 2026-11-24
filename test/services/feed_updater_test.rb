@@ -610,7 +610,52 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert user_entry.reload.unread
   end
 
+  # ==========================================
+  # Full text on arrival
+  # ==========================================
+
+  # A flagged feed hands its new entries to ProcessArrivalJob, which fetches the
+  # article before filtering. Running the filters here as well would run their
+  # actions twice.
+
+  test "a flagged feed queues the arrival job instead of filtering inline" do
+    @feed.update!(fetch_full_text_on_arrival: true)
+    mark_read_filter_for("Wombat")
+
+    update_with(rss(item(guid: "arrival", title: "Wombat Returns")))
+
+    user_entry = @feed.user_entries.joins(:entry).find_by!(entries: { guid: "arrival" })
+    assert_enqueued_with(job: ProcessArrivalJob, args: [ user_entry.id ])
+    assert user_entry.unread, "filters must wait for the job"
+  end
+
+  test "a flagged feed leaves feed tags to the arrival job" do
+    @feed.update!(fetch_full_text_on_arrival: true)
+    tag = @user.tags.create!(name: "wombat", bg_color: "#64748b", fg_color: "#ffffff")
+    @feed.tags << tag
+
+    update_with(rss(item(guid: "arrival", title: "Wombat Returns")))
+
+    assert_not_includes Entry.find_by!(guid: "arrival").tags, tag
+  end
+
+  test "an unflagged feed filters inline and queues no arrival job" do
+    mark_read_filter_for("Wombat")
+
+    update_with(rss(item(guid: "arrival", title: "Wombat Returns")))
+
+    user_entry = @feed.user_entries.joins(:entry).find_by!(entries: { guid: "arrival" })
+    assert_no_enqueued_jobs(only: ProcessArrivalJob)
+    assert_not user_entry.unread
+  end
+
   private
+
+  def mark_read_filter_for(title_pattern)
+    filter = Filter.create!(user: @user, title: "Arrival", match_any_rule: false, inverse: false, order_id: 0, enabled: true)
+    FilterRule.create!(filter: filter, filter_type: "title", reg_exp: title_pattern)
+    FilterAction.create!(filter: filter, action_type: "mark_read", action_param: "")
+  end
 
   def edition(text)
     rss(item(guid: "edited", title: "Edited", body: "&lt;p&gt;#{text}&lt;/p&gt;"))

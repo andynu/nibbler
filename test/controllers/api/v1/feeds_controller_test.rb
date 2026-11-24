@@ -277,6 +277,16 @@ class Api::V1::FeedsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Updated Title", @feed.title
   end
 
+  test "update sets fetch_full_text_on_arrival and returns it" do
+    patch api_v1_feed_url(@feed), params: {
+      feed: { fetch_full_text_on_arrival: true }
+    }, as: :json
+
+    assert_response :success
+    assert_equal true, JSON.parse(response.body)["fetch_full_text_on_arrival"]
+    assert @feed.reload.fetch_full_text_on_arrival
+  end
+
   test "update returns 404 for non-existent feed" do
     patch api_v1_feed_url(id: 999999), params: {
       feed: { title: "Won't Work" }

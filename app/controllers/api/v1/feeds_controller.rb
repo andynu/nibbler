@@ -273,7 +273,8 @@ module Api
           :title, :feed_url, :category_id, :site_url,
           :update_interval, :purge_interval, :hidden,
           :cache_images, :mark_unread_on_update,
-          :include_in_digest, :always_display_enclosures
+          :include_in_digest, :always_display_enclosures,
+          :fetch_full_text_on_arrival
         )
       end
 
@@ -326,7 +327,8 @@ module Api
           cache_images: feed.cache_images,
           mark_unread_on_update: feed.mark_unread_on_update,
           include_in_digest: feed.include_in_digest,
-          always_display_enclosures: feed.always_display_enclosures
+          always_display_enclosures: feed.always_display_enclosures,
+          fetch_full_text_on_arrival: feed.fetch_full_text_on_arrival
         }
 
         if include_entries

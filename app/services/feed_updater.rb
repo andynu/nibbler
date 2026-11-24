@@ -226,11 +226,18 @@ class FeedUpdater
         unread: true
       )
 
-      # Execute user's filters on the new entry
-      FilterExecutor.execute(user_entry)
+      # A flagged feed's filters wait for the full article, fetched off this
+      # thread because DomainThrottler spacing would stall a busy feed's update.
+      # The job is then the entry's only filter run.
+      if @feed.fetch_full_text_on_arrival?
+        ProcessArrivalJob.perform_later(user_entry.id)
+      else
+        # Execute user's filters on the new entry
+        FilterExecutor.execute(user_entry)
 
-      # Apply feed-level tags to the new entry
-      FeedTagsForEntryApplier.apply(user_entry: user_entry)
+        # Apply feed-level tags to the new entry
+        FeedTagsForEntryApplier.apply(user_entry: user_entry)
+      end
 
       # Enqueue image caching if enabled for this feed and entry is new
       if new_entry && @feed.cache_images?
