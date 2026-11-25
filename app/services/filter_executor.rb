@@ -122,7 +122,7 @@ class FilterExecutor
         tag_name = action.action_param.to_s.strip.downcase
         tag = @user.tags.find_by(name: tag_name)
         if tag
-          EntryTag.where(entry: @entry, tag: tag).destroy_all
+          EntryTag.remove(entry: @entry, tag: tag)
           Rails.logger.info "Filter #{filter.id}: removed tag '#{tag_name}' from entry #{@entry.id}"
         end
       end

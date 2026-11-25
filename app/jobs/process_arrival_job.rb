@@ -22,6 +22,7 @@ class ProcessArrivalJob < ApplicationJob
 
     FilterExecutor.execute(user_entry)
     FeedTagsForEntryApplier.apply(user_entry: user_entry)
+    TagRuleApplier.apply(user_entry)
   end
 
   private

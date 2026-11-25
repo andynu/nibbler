@@ -19,7 +19,7 @@ module Api
           end
 
           # Link tag to entry if not already linked
-          EntryTag.find_or_create_by!(entry: @entry, tag: tag)
+          EntryTag.add_manual(entry: @entry, tag: tag)
 
           # Propagate tag to feed level for auto-application
           FeedTagPropagator.propagate(user_entry: @user_entry, tag: tag)
@@ -35,7 +35,7 @@ module Api
         tag = current_user.tags.find_by(name: tag_name)
 
         if tag
-          EntryTag.where(entry: @entry, tag: tag).destroy_all
+          EntryTag.remove(entry: @entry, tag: tag)
         end
 
         render_tags

@@ -125,6 +125,30 @@ class Api::V1::EntryTagsControllerTest < ActionDispatch::IntegrationTest
     assert_equal original_count, entry_tags_count
   end
 
+  test "adding by hand a tag a rule applied makes it manual" do
+    tag = @user.tags.create!(name: "hello")
+    rule = tag.tag_rules.create!(user: @user, query: "hello")
+    TagRuleApplier.sync(rule)
+    assert_not EntryTag.find_by!(entry: @entry, tag: tag).manual
+
+    post api_v1_entry_tags_url(@user_entry.id), params: { tag_name: "hello" }, as: :json
+
+    assert_response :success
+    assert EntryTag.find_by!(entry: @entry, tag: tag).manual
+  end
+
+  test "removing by hand a rule-applied tag deletes the rule's match too" do
+    tag = @user.tags.create!(name: "hello")
+    rule = tag.tag_rules.create!(user: @user, query: "hello")
+    TagRuleApplier.sync(rule)
+
+    delete api_v1_entry_tag_url(@user_entry.id, "hello"), as: :json
+
+    assert_response :success
+    assert_not EntryTag.exists?(entry: @entry, tag: tag)
+    assert_not rule.entry_tag_rule_matches.exists?(entry_id: @entry.id)
+  end
+
   test "returns 404 for non-existent user_entry" do
     post api_v1_entry_tags_url(999999),
       params: { tag_name: "tech" },

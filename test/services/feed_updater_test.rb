@@ -597,6 +597,36 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_includes Entry.find_by!(guid: "edited").tags, tag
   end
 
+  test "a new entry is tagged by the reader's matching rules" do
+    tag = @user.tags.create!(name: "quokka")
+    tag.tag_rules.create!(user: @user, query: "quokka", feed: @feed)
+
+    update_with(rss(item(guid: "arrival", title: "Quokka Returns")))
+
+    assert_includes Entry.find_by!(guid: "arrival").tags, tag
+  end
+
+  test "an edit that drops the rule's word loses the rule's tag" do
+    tag = @user.tags.create!(name: "quokka")
+    tag.tag_rules.create!(user: @user, query: "quokka")
+    update_with(rss(item(guid: "edited", title: "Quokka Returns")))
+    assert_includes Entry.find_by!(guid: "edited").tags, tag
+
+    update_with(rss(item(guid: "edited", title: "Wombat Returns")))
+
+    assert_not_includes Entry.find_by!(guid: "edited").tags, tag
+  end
+
+  test "a flagged feed leaves tag rules to the arrival job" do
+    @feed.update!(fetch_full_text_on_arrival: true)
+    tag = @user.tags.create!(name: "wombat")
+    tag.tag_rules.create!(user: @user, query: "wombat")
+
+    update_with(rss(item(guid: "arrival", title: "Wombat Returns")))
+
+    assert_not_includes Entry.find_by!(guid: "arrival").tags, tag
+  end
+
   test "an edit does not run the reader's filters again" do
     update_with(rss(item(guid: "edited", title: "Wombat Returns")))
     user_entry = @feed.user_entries.joins(:entry).find_by!(entries: { guid: "edited" })

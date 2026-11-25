@@ -267,7 +267,7 @@ module Api
           when "ignore_tag"
             tag_name = action.action_param.to_s.strip.downcase
             tag = current_user.tags.find_by(name: tag_name)
-            EntryTag.where(entry: entry, tag: tag).destroy_all if tag
+            EntryTag.remove(entry: entry, tag: tag) if tag
           end
         end
       end

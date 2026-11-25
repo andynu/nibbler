@@ -237,6 +237,7 @@ class FeedUpdater
 
         # Apply feed-level tags to the new entry
         FeedTagsForEntryApplier.apply(user_entry: user_entry)
+        TagRuleApplier.apply(user_entry)
       end
 
       # Enqueue image caching if enabled for this feed and entry is new
@@ -265,6 +266,9 @@ class FeedUpdater
   # only add a tag. FilterExecutor is not re-run: its actions write read state,
   # stars and score, which an edit leaves alone, and a score action would add up
   # again on every edit.
+  #
+  # Every subscriber's tag rules are re-run on the edited entry, and unlike feed
+  # tags they can remove a tag their rule no longer matches.
   def apply_edit(entry, user_entry, parsed_entry)
     changes = body_edit(entry, parsed_entry.content)
     title = parsed_entry.title
@@ -276,7 +280,10 @@ class FeedUpdater
     entry.update!(changes.merge(date_updated: Time.current))
     ArticleMetrics.refresh!(entry) if changes.key?(:content)
     CacheArticleImagesJob.perform_later(entry.id) if changes.key?(:content) && @feed.cache_images?
-    FeedTagsForEntryApplier.apply(user_entry: user_entry) if changes.key?(:content) || changes.key?(:title)
+    return unless changes.key?(:content) || changes.key?(:title)
+
+    FeedTagsForEntryApplier.apply(user_entry: user_entry)
+    TagRuleApplier.reevaluate(entry)
   end
 
   # A feed gives an enclosure no identity beyond its URL, so the set is compared

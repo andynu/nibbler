@@ -68,6 +68,16 @@ class ProcessArrivalJobTest < ActiveJob::TestCase
     assert_includes @entry.reload.tags, tag
   end
 
+  test "applies the reader's tag rules to the fetched article" do
+    stub_article(words: 3000)
+    tag = @user.tags.create!(name: "parcel")
+    tag.tag_rules.create!(user: @user, query: "\"fourth street\"", feed: @feed)
+
+    ProcessArrivalJob.perform_now(@user_entry.id)
+
+    assert_includes @entry.reload.tags, tag
+  end
+
   test "discards the job when the user entry no longer exists" do
     called = false
 

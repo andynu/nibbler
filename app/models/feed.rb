@@ -20,6 +20,9 @@ class Feed < ApplicationRecord
   has_many :entries, through: :user_entries
   has_many :feed_tags, dependent: :destroy
   has_many :tags, through: :feed_tags
+  # Destroyed rather than left to the foreign key's cascade, which would drop the
+  # rules' matches without pruning the tags they applied.
+  has_many :tag_rules, dependent: :destroy
 
   validates :title, presence: true
   validates :feed_url, presence: true

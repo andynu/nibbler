@@ -14,6 +14,9 @@ class Category < ApplicationRecord
   belongs_to :parent, class_name: "Category", optional: true
   has_many :children, class_name: "Category", foreign_key: :parent_id, dependent: :nullify
   has_many :feeds, dependent: :nullify
+  # Destroyed rather than left to the foreign key's cascade, which would drop the
+  # rules' matches without pruning the tags they applied.
+  has_many :tag_rules, dependent: :destroy
 
   validates :title, presence: true
   validate :parent_is_not_self_or_descendant

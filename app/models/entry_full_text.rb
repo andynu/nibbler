@@ -130,6 +130,8 @@ class EntryFullText < ApplicationRecord
 
     record.update!(content_hash: entry.content_hash, fetched_at: Time.current)
     ArticleMetrics.refresh!(entry)
+    # Search now reads the fetched text, so rules saved from a search must too.
+    TagRuleApplier.reevaluate(entry) if record.usable?
     record
   rescue ActiveRecord::RecordNotUnique
     # Two readers opened the same article at once and both missed the cache. The
