@@ -139,12 +139,20 @@ class Entry < ApplicationRecord
       regexp_replace(left(coalesce(entries.content, ''), 100000), '<[^>]*>', ' ', 'g'))
   SQL
 
-  # Full-text search using PostgreSQL tsvector, most relevant first.
-  scope :search, ->(query) {
+  # The entries a query matches, unranked: search's predicate and its refusal of
+  # blank and exclusion-only queries, for a caller that wants the set rather
+  # than a ranked list. A TagRule matches through this so a rule tags exactly
+  # what the search it was saved from showed.
+  scope :text_search_matches, ->(query) {
     return none if query.blank? || excludes_only?(query)
 
-    joins(text_search_join)
-      .where(Arel.sql(text_search_condition(query)))
+    where(Arel.sql(text_search_condition(query)))
+  }
+
+  # Full-text search using PostgreSQL tsvector, most relevant first.
+  scope :search, ->(query) {
+    text_search_matches(query)
+      .joins(text_search_join)
       .order(Arel.sql("#{text_search_rank(query)} DESC"))
   }
 
