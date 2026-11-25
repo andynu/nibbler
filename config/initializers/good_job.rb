@@ -64,6 +64,13 @@ Rails.application.configure do
       cron: "0 5 * * *", # at 5am daily, after fetch_stories_overnight (2am) has settled
       class: "AnalyzeStoriesJob",
       description: "Run LLM analysis for each active Story and update summaries"
+    },
+    # Weekly, to match PaperSelection::WINDOW (7.days); change the two together.
+    # Before morning-paper builds from the public feed at 6am Eastern.
+    paper_selection: {
+      cron: "0 5 * * 0 America/New_York", # Sundays at 5am Eastern
+      class: "PaperSelectionJob",
+      description: "Publish the top articles per tag marked for the morning paper"
     }
   }
 

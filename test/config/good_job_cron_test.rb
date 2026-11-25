@@ -36,6 +36,20 @@ class GoodJobCronTest < ActiveSupport::TestCase
     assert_equal 6, fire_times.first.to_t.in_time_zone("America/New_York").hour
   end
 
+  test "paper selection fires once a week, Sundays at 5am Eastern" do
+    entry = GoodJob::CronEntry.new(cron[:paper_selection].merge(key: :paper_selection))
+
+    assert_equal "PaperSelectionJob", entry.job_class
+    assert_equal "America/New_York", entry.send(:fugit).zone
+
+    fire_times = entry.send(:fugit).within(Time.current..PaperSelection::WINDOW.from_now)
+                      .map { |t| t.to_t.in_time_zone("America/New_York") }
+
+    assert_equal 1, fire_times.length, "expected one fire per PaperSelection::WINDOW, got #{fire_times.length}"
+    assert fire_times.first.sunday?
+    assert_equal 5, fire_times.first.hour
+  end
+
   test "morning feed sweep enqueues UpdateFeedsJob with force: true" do
     entry = GoodJob::CronEntry.new(cron[:refresh_all_feeds_morning].merge(key: :refresh_all_feeds_morning))
 
