@@ -216,7 +216,7 @@ function TagEditorDialog({
 
     const limit = Number(paperLimit)
     if (!Number.isInteger(limit) || limit < 1) {
-      alert("Per day must be a whole number of 1 or more")
+      alert("Per edition must be a whole number of 1 or more")
       return
     }
 
@@ -350,7 +350,7 @@ function TagEditorDialog({
             </div>
             {includeInPaper && (
               <div className="flex items-center gap-2">
-                <FormLabel htmlFor="tag-paper-limit">Per day</FormLabel>
+                <FormLabel htmlFor="tag-paper-limit">Per edition</FormLabel>
                 <Input
                   id="tag-paper-limit"
                   type="number"

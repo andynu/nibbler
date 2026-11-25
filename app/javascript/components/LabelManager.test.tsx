@@ -307,7 +307,7 @@ describe("LabelManager", () => {
   })
 
   describe("morning paper settings", () => {
-    it("hides the per-day limit until the switch is on", async () => {
+    it("hides the per-edition limit until the switch is on", async () => {
       const user = userEvent.setup()
       mockApiTagsList.mockResolvedValue([testTag])
 
@@ -317,12 +317,12 @@ describe("LabelManager", () => {
 
       const toggle = await screen.findByRole("switch", { name: /include in morning paper/i })
       expect(toggle).toHaveAttribute("aria-checked", "false")
-      expect(screen.queryByRole("spinbutton", { name: /per day/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole("spinbutton", { name: /per edition/i })).not.toBeInTheDocument()
 
       await user.click(toggle)
 
       expect(toggle).toHaveAttribute("aria-checked", "true")
-      expect(screen.getByRole("spinbutton", { name: /per day/i })).toHaveValue(5)
+      expect(screen.getByRole("spinbutton", { name: /per edition/i })).toHaveValue(5)
     })
 
     it("saves the switch and limit and shows the returned values on reopen", async () => {
@@ -334,7 +334,7 @@ describe("LabelManager", () => {
 
       await user.click(await screen.findByRole("button", { name: /edit important/i }))
       await user.click(await screen.findByRole("switch", { name: /include in morning paper/i }))
-      const limit = screen.getByRole("spinbutton", { name: /per day/i })
+      const limit = screen.getByRole("spinbutton", { name: /per edition/i })
       await user.clear(limit)
       await user.type(limit, "3")
       await user.click(screen.getByRole("button", { name: /save changes/i }))
@@ -353,22 +353,22 @@ describe("LabelManager", () => {
       expect(
         await screen.findByRole("switch", { name: /include in morning paper/i })
       ).toHaveAttribute("aria-checked", "true")
-      expect(screen.getByRole("spinbutton", { name: /per day/i })).toHaveValue(3)
+      expect(screen.getByRole("spinbutton", { name: /per edition/i })).toHaveValue(3)
     })
 
-    it("does not save a per-day limit below one", async () => {
+    it("does not save a per-edition limit below one", async () => {
       const user = userEvent.setup()
       mockApiTagsList.mockResolvedValue([{ ...testTag, include_in_paper: true }])
 
       render(<LabelManager />)
 
       await user.click(await screen.findByRole("button", { name: /edit important/i }))
-      const limit = await screen.findByRole("spinbutton", { name: /per day/i })
+      const limit = await screen.findByRole("spinbutton", { name: /per edition/i })
       await user.clear(limit)
       await user.type(limit, "0")
       await user.click(screen.getByRole("button", { name: /save changes/i }))
 
-      expect(window.alert).toHaveBeenCalledWith("Per day must be a whole number of 1 or more")
+      expect(window.alert).toHaveBeenCalledWith("Per edition must be a whole number of 1 or more")
       expect(mockApiTagsUpdate).not.toHaveBeenCalled()
     })
   })
