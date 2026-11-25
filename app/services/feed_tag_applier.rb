@@ -21,7 +21,7 @@ class FeedTagApplier
   def apply
     count = 0
 
-    @feed.entries.find_each do |entry|
+    @feed.entries.includes(:entry_full_text).find_each do |entry|
       next unless TagMatcher.matches?(entry, @tag.name)
 
       # Skip if already tagged

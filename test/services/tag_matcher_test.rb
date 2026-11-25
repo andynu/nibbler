@@ -71,4 +71,30 @@ class TagMatcherTest < ActiveSupport::TestCase
 
     assert_not TagMatcher.matches?(@entry, "numbat")
   end
+
+  test "matches a tag name that appears only in the fetched full text" do
+    @entry.update!(title: "Nothing here", content: "<p>A short teaser.</p>")
+    full_text_for(@entry, "<p>The numbat population recovered.</p>")
+
+    assert TagMatcher.matches?(@entry.reload, "numbat")
+  end
+
+  test "ignores a full text that no longer matches the entry" do
+    @entry.update!(title: "Nothing here", content: "<p>A short teaser.</p>")
+    full_text_for(@entry, "<p>The numbat population recovered.</p>", content_hash: "stale")
+
+    assert_not TagMatcher.matches?(@entry.reload, "numbat")
+  end
+
+  private
+
+  def full_text_for(entry, html, content_hash: entry.content_hash)
+    EntryFullText.create!(
+      entry: entry,
+      status: EntryFullText::OK,
+      content: html,
+      content_hash: content_hash,
+      fetched_at: Time.current
+    )
+  end
 end

@@ -1,7 +1,8 @@
 # Checks if an entry matches a tag name using word boundary matching.
 #
 # Performs case-insensitive word boundary regex matching against
-# the entry's title and HTML-stripped content. Used by feed tag
+# the entry's title and HTML-stripped readable content (the fetched full
+# text when usable, otherwise the feed's body). Used by feed tag
 # propagation to auto-apply tags to matching entries.
 #
 # @see ArticleText for why the content is not run through strip_tags alone.
@@ -34,7 +35,9 @@ class TagMatcher
 
   private
 
+  # readable_content, not content: a feed that sends only an excerpt would
+  # otherwise never be tagged for words that appear only in the full article.
   def stripped_content
-    ArticleText.from_html(@entry.content)
+    ArticleText.from_html(@entry.readable_content)
   end
 end
