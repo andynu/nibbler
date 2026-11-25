@@ -3,6 +3,29 @@
     {
       "warning_type": "SQL Injection",
       "warning_code": 0,
+      "fingerprint": "7544fed0666f603a68431a1b6d80308dd17c36ac420141a4506caf6e5a9b5601",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/controllers/public_feed_controller.rb",
+      "line": 38,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "User.find_by(:access_key => params[:access_key]).user_entries.published.joins(:entry).joins(\"LEFT JOIN entry_full_texts ON entry_full_texts.entry_id = entries.id\").where(\"(#{format(Entry::USABLE_FULL_TEXT_SQL, :full_text => \"entry_full_texts\", :entry => \"entries\")})\\nOR (entries.content ~ '\\\\S' AND (\\n  entry_full_texts.status = '#{\"failed\"}'\\n  OR user_entries.last_published IS NULL\\n  OR user_entries.last_published < :settled_before\\n))\\n\".squish, :settled_before => 2.hours.ago)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "PublicFeedController",
+        "method": "show"
+      },
+      "user_input": "format(Entry::USABLE_FULL_TEXT_SQL, :full_text => \"entry_full_texts\", :entry => \"entries\")",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "Nothing user-controlled reaches the string. PublicFeedController::SETTLED_SQL interpolates only constants: Entry::USABLE_FULL_TEXT_SQL formatted with the literal table names entry_full_texts and entries, and EntryFullText::FAILED. The one runtime value, the grace cutoff, is a bind (:settled_before). The access key from params is used only through find_by, which binds it. Writing the usable-full-text condition out again here would quiet Brakeman but give that condition a second definition, which Entry::USABLE_FULL_TEXT_SQL exists to prevent. If SETTLED_SQL ever interpolates a request value, this ignore must go."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
       "fingerprint": "29a950e07c6869b9f942240df9a0186704b0b1634de766407d4b05354febd228",
       "check_name": "SQL",
       "message": "Possible SQL injection",
