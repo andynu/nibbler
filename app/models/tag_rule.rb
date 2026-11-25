@@ -33,6 +33,16 @@ class TagRule < ApplicationRecord
   # so pruning leaves only the tag rows another rule or a person still supports.
   after_destroy { TagRuleApplier.prune(tag_ids: [ tag_id ]) }
 
+  # The rule that tags a feed's articles mentioning the tag's own name: what a
+  # feed tag did before rules, and what tagging an article by hand still sets
+  # up for its feed. Returns the existing rule when there is one; an unsaved
+  # rule carries the errors when the name cannot be a query.
+  #
+  # @return [TagRule]
+  def self.watch_feed(tag:, feed:)
+    find_or_create_by(user_id: tag.user_id, tag: tag, query: tag.name, feed: feed, category_id: nil)
+  end
+
   # The owner's rows this rule ranges over. A category stands for its whole
   # subtree, as it does for the sidebar and for a search narrowed to it, so the
   # rule tags what that search showed.
