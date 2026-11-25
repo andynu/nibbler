@@ -39,7 +39,6 @@ Rails.application.routes.draw do
           post :refresh_all
           post :preview
         end
-        resources :tags, only: [ :index, :create, :destroy ], controller: "feed_tags"
       end
 
       resources :entries, only: [ :index, :show, :update ] do

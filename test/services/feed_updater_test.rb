@@ -582,14 +582,13 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert_equal [ "https://example.com/ep12.mp3" ], Entry.find_by!(guid: "edited").enclosures.pluck(:content_url)
   end
 
-  # An edited headline or body is matched against the feed's own tags again,
-  # which only ever add a tag. The reader's filters are not run again: their
-  # actions mark read, star, score and delete, and an edit leaves all of that
-  # alone.
+  # An edited headline or body is matched against the reader's tag rules again.
+  # The reader's filters are not run again: their actions mark read, star,
+  # score and delete, and an edit leaves all of that alone.
 
-  test "an edit that now mentions a feed tag gets the tag" do
-    tag = @user.tags.create!(name: "quokka", bg_color: "#64748b", fg_color: "#ffffff")
-    @feed.tags << tag
+  test "an edit that now matches a rule gets the tag" do
+    tag = @user.tags.create!(name: "quokka")
+    tag.tag_rules.create!(user: @user, query: "quokka", feed: @feed)
     update_with(rss(item(guid: "edited", title: "Wombat Returns")))
 
     update_with(rss(item(guid: "edited", title: "Quokka Returns")))
@@ -659,8 +658,7 @@ class FeedUpdaterTest < ActiveSupport::TestCase
     assert user_entry.unread, "filters must wait for the job"
   end
 
-  test "a flagged feed leaves feed tags to the arrival job" do
-    @feed.update!(fetch_full_text_on_arrival: true)
+  test "a feed tag without a rule no longer tags a new entry" do
     tag = @user.tags.create!(name: "wombat", bg_color: "#64748b", fg_color: "#ffffff")
     @feed.tags << tag
 

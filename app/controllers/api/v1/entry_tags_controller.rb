@@ -22,7 +22,7 @@ module Api
           EntryTag.add_manual(entry: @entry, tag: tag)
 
           # Propagate tag to feed level for auto-application
-          FeedTagPropagator.propagate(user_entry: @user_entry, tag: tag)
+          TagRule.watch_feed(tag: tag, feed: @user_entry.feed) if @user_entry.feed
         end
 
         render_tags

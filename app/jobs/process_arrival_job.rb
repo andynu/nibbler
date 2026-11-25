@@ -1,5 +1,5 @@
 # Runs a new entry's arrival work for a feed flagged fetch_full_text_on_arrival:
-# the full article first, then the reader's filters and the feed's tags, so
+# the full article first, then the reader's filters and tag rules, so
 # length, link-density and content rules see the whole article rather than the
 # feed's excerpt.
 #
@@ -21,7 +21,6 @@ class ProcessArrivalJob < ApplicationJob
     user_entry.entry.reload
 
     FilterExecutor.execute(user_entry)
-    FeedTagsForEntryApplier.apply(user_entry: user_entry)
     TagRuleApplier.apply(user_entry)
   end
 

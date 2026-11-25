@@ -1,12 +1,10 @@
-# Join model linking feeds to tags for automatic entry tagging.
+# Join model linking feeds to tags, from before tag rules.
 #
-# When a tag is associated with a feed via FeedTag, entries from that feed
-# that match the tag name (via word boundary matching) receive the tag
-# automatically. New entries are checked on arrival.
+# Nothing applies these any more: each was converted to a feed-scoped TagRule
+# whose query is the tag's name (rake tag_rules:convert_feed_tags). The rows
+# stay until the table is dropped.
 #
-# @see Feed for the subscription
-# @see Tag for the applied classification
-# @see TagMatcher for the matching logic
+# @see TagRule for what tags arriving entries now
 class FeedTag < ApplicationRecord
   belongs_to :feed
   belongs_to :tag

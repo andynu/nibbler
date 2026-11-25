@@ -58,14 +58,14 @@ class ProcessArrivalJobTest < ActiveJob::TestCase
     assert_includes @entry.reload.tags.pluck(:name), "council"
   end
 
-  test "applies the feed's tags after the fetch" do
+  test "a feed tag without a rule no longer tags the article" do
     stub_article(words: 3000)
     tag = @user.tags.create!(name: "council", bg_color: "#64748b", fg_color: "#ffffff")
     @feed.tags << tag
 
     ProcessArrivalJob.perform_now(@user_entry.id)
 
-    assert_includes @entry.reload.tags, tag
+    assert_not_includes @entry.reload.tags, tag
   end
 
   test "applies the reader's tag rules to the fetched article" do

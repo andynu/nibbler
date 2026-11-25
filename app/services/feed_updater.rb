@@ -235,8 +235,6 @@ class FeedUpdater
         # Execute user's filters on the new entry
         FilterExecutor.execute(user_entry)
 
-        # Apply feed-level tags to the new entry
-        FeedTagsForEntryApplier.apply(user_entry: user_entry)
         TagRuleApplier.apply(user_entry)
       end
 
@@ -262,13 +260,12 @@ class FeedUpdater
   # alone. A field the republish leaves empty keeps its stored value rather than
   # being erased, and FeedParser::UNTITLED counts as empty.
   #
-  # An edited headline or body is matched against the feed's tags again, which
-  # only add a tag. FilterExecutor is not re-run: its actions write read state,
+  # FilterExecutor is not re-run on an edit: its actions write read state,
   # stars and score, which an edit leaves alone, and a score action would add up
   # again on every edit.
   #
-  # Every subscriber's tag rules are re-run on the edited entry, and unlike feed
-  # tags they can remove a tag their rule no longer matches.
+  # Every subscriber's tag rules are re-run on an edited headline or body, and
+  # can remove a tag their rule no longer matches.
   def apply_edit(entry, user_entry, parsed_entry)
     changes = body_edit(entry, parsed_entry.content)
     title = parsed_entry.title
@@ -282,7 +279,6 @@ class FeedUpdater
     CacheArticleImagesJob.perform_later(entry.id) if changes.key?(:content) && @feed.cache_images?
     return unless changes.key?(:content) || changes.key?(:title)
 
-    FeedTagsForEntryApplier.apply(user_entry: user_entry)
     TagRuleApplier.reevaluate(entry)
   end
 
