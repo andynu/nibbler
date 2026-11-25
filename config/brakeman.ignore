@@ -3,6 +3,29 @@
     {
       "warning_type": "SQL Injection",
       "warning_code": 0,
+      "fingerprint": "49fcebbd2e57cf3aa6b6174cc90071d20e900d8f981eb68716ce40f43ee3c0aa",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/services/tag_rule_applier.rb",
+      "line": 87,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "connection.exec_insert(\"INSERT INTO entry_tag_rule_matches (entry_id, tag_rule_id, created_at)\\nSELECT matched.id, #{Integer(rule.id)}, CURRENT_TIMESTAMP FROM (#{entry_ids.to_sql}) matched\\nON CONFLICT (entry_id, tag_rule_id) DO NOTHING\\n\".squish)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "TagRuleApplier",
+        "method": "self.record_matches"
+      },
+      "user_input": "Integer(rule.id)",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "Two values are interpolated and neither can carry SQL. rule.id goes through Integer(), which raises on anything but an integer. entry_ids is an ActiveRecord relation rendered with to_sql; the user-written rule query reaches it only through Entry.text_search_matches, which builds websearch_to_tsquery('english', <connection.quote'd literal>) via the private Entry.tsquery_sql, the same root cause as the two Entry ignores below. Verified in development: Entry.text_search_matches(%q{climate x'); DROP TABLE entries; --}).to_sql renders websearch_to_tsquery('english', 'climate x''); DROP TABLE entries; --'), the embedded quote doubled and the payload confined to one string literal. The INSERT ... SELECT is deliberate: a rule backfill over years of history must not bring entry ids into Ruby, and insert_all cannot take a subquery. If tsquery_sql ever stops quoting the query, or record_matches interpolates anything other than an AR relation and an Integer, this ignore must go."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
       "fingerprint": "7544fed0666f603a68431a1b6d80308dd17c36ac420141a4506caf6e5a9b5601",
       "check_name": "SQL",
       "message": "Possible SQL injection",
