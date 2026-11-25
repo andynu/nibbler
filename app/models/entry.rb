@@ -21,6 +21,7 @@ class Entry < ApplicationRecord
   has_many :enclosures, dependent: :destroy
   has_many :entry_tags, dependent: :destroy
   has_many :tags, through: :entry_tags
+  has_many :entry_tag_rule_matches, dependent: :delete_all
   has_many :cached_images, dependent: :destroy
   has_one :cached_audio, dependent: :destroy
   # On the entry rather than on UserEntry: a summary of the text is the same

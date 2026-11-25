@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_25_200200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_25_201750) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -105,9 +105,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_200200) do
     t.index ["entry_id"], name: "index_entry_summaries_on_entry_id", unique: true
   end
 
+  create_table "entry_tag_rule_matches", force: :cascade do |t|
+    t.bigint "entry_id", null: false
+    t.bigint "tag_rule_id", null: false
+    t.datetime "created_at", null: false
+    t.index ["entry_id", "tag_rule_id"], name: "index_entry_tag_rule_matches_on_entry_id_and_tag_rule_id", unique: true
+    t.index ["tag_rule_id"], name: "index_entry_tag_rule_matches_on_tag_rule_id"
+  end
+
   create_table "entry_tags", force: :cascade do |t|
     t.bigint "entry_id", null: false
     t.bigint "tag_id", null: false
+    t.boolean "manual", default: true, null: false
     t.index ["entry_id", "tag_id"], name: "index_entry_tags_on_entry_id_and_tag_id", unique: true
   end
 
@@ -344,6 +353,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_200200) do
     t.index ["story_id"], name: "index_story_articles_on_story_id"
   end
 
+  create_table "tag_rules", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "tag_id", null: false
+    t.text "query", null: false
+    t.bigint "feed_id"
+    t.bigint "category_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["category_id"], name: "index_tag_rules_on_category_id"
+    t.index ["feed_id"], name: "index_tag_rules_on_feed_id"
+    t.index ["tag_id", "query", "feed_id", "category_id"], name: "index_tag_rules_uniqueness", unique: true, nulls_not_distinct: true
+    t.index ["user_id"], name: "index_tag_rules_on_user_id"
+    t.check_constraint "feed_id IS NULL OR category_id IS NULL", name: "tag_rules_single_scope"
+  end
+
   create_table "tags", force: :cascade do |t|
     t.string "bg_color", default: "", null: false
     t.string "fg_color", default: "", null: false
@@ -417,6 +441,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_200200) do
   add_foreign_key "enclosures", "entries", on_delete: :cascade
   add_foreign_key "entry_full_texts", "entries", on_delete: :cascade
   add_foreign_key "entry_summaries", "entries", on_delete: :cascade
+  add_foreign_key "entry_tag_rule_matches", "entries", on_delete: :cascade
+  add_foreign_key "entry_tag_rule_matches", "tag_rules", on_delete: :cascade
   add_foreign_key "entry_tags", "entries", on_delete: :cascade
   add_foreign_key "entry_tags", "tags", on_delete: :cascade
   add_foreign_key "feed_tags", "feeds", on_delete: :cascade
@@ -433,6 +459,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_200200) do
   add_foreign_key "stories", "users", on_delete: :cascade
   add_foreign_key "story_analyses", "stories", on_delete: :cascade
   add_foreign_key "story_articles", "stories", on_delete: :cascade
+  add_foreign_key "tag_rules", "categories", on_delete: :cascade
+  add_foreign_key "tag_rules", "feeds", on_delete: :cascade
+  add_foreign_key "tag_rules", "tags", on_delete: :cascade
+  add_foreign_key "tag_rules", "users", on_delete: :cascade
   add_foreign_key "tags", "users", on_delete: :cascade
   add_foreign_key "user_entries", "entries", on_delete: :cascade
   add_foreign_key "user_entries", "feeds", on_delete: :cascade

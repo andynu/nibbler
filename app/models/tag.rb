@@ -17,6 +17,7 @@ class Tag < ApplicationRecord
   has_many :entries, through: :entry_tags
   has_many :feed_tags, dependent: :destroy
   has_many :feeds, through: :feed_tags
+  has_many :tag_rules, dependent: :destroy
 
   validates :name, presence: true
   validates :name, uniqueness: { scope: :user_id }
