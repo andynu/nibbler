@@ -507,6 +507,7 @@ export function EntryContent({
             size="icon"
             onClick={onToggleRead}
             aria-label={entry.unread ? "Mark as read" : "Mark as unread"}
+            title={entry.unread ? "Mark as read (m)" : "Mark as unread (m)"}
           >
             <Circle
               className="h-4 w-4"
@@ -521,6 +522,7 @@ export function EntryContent({
             size="icon"
             onClick={onToggleStarred}
             aria-label={entry.starred ? "Remove star" : "Add star"}
+            title={entry.starred ? "Remove star (s)" : "Add star (s)"}
           >
             <Star
               className="h-4 w-4"
@@ -545,7 +547,7 @@ export function EntryContent({
               size="icon"
               onClick={onTogglePublished}
               aria-label={entry.is_published ? "Remove from public feed" : "Add to public feed"}
-              title={entry.is_published ? "Remove from public feed" : "Add to public feed"}
+              title={entry.is_published ? "Remove from public feed (p)" : "Add to public feed (p)"}
               className="hidden @min-[30rem]/article-pane:inline-flex"
             >
               <Rss
@@ -622,6 +624,7 @@ export function EntryContent({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Open in new tab"
+              title="Open in new tab (v)"
             >
               <ExternalLink className="h-4 w-4" />
             </a>

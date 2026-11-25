@@ -715,7 +715,7 @@ export function FeedSidebar({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                All Feeds {totalUnread > 0 && `(${totalUnread})`}
+                All Feeds {totalUnread > 0 && `(${totalUnread})`} (a)
               </TooltipContent>
             </Tooltip>
 
@@ -735,7 +735,7 @@ export function FeedSidebar({
                   <Clock className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Fresh</TooltipContent>
+              <TooltipContent side="right">Fresh (f)</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -754,7 +754,7 @@ export function FeedSidebar({
                   <Star className="h-4 w-4" style={{ color: "var(--color-accent-secondary)" }} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Starred</TooltipContent>
+              <TooltipContent side="right">Starred (Shift+S)</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -844,6 +844,7 @@ export function FeedSidebar({
               className="h-7 w-7"
               onClick={onToggleCollapse}
               aria-label="Collapse sidebar"
+              title="Collapse sidebar (b)"
             >
               <PanelLeftClose className="h-4 w-4" />
             </Button>
@@ -914,6 +915,7 @@ export function FeedSidebar({
             onClick={onRefreshAll}
             disabled={isRefreshing}
             aria-label="Refresh all feeds"
+            title="Refresh all feeds (r)"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
           </Button>

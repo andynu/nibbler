@@ -231,6 +231,17 @@ describe("EntryContent", () => {
 
       expect(screen.getByRole("link", { name: /open in new tab/i })).toBeInTheDocument()
     })
+
+    it("names each header action's keyboard shortcut in its title", () => {
+      const entry = mockEntryWithContent({ unread: true, starred: false, is_published: false })
+
+      render(<EntryContent {...defaultProps} entry={entry} onTogglePublished={vi.fn()} />)
+
+      expect(screen.getByRole("button", { name: "Mark as read" })).toHaveAttribute("title", "Mark as read (m)")
+      expect(screen.getByRole("button", { name: "Add star" })).toHaveAttribute("title", "Add star (s)")
+      expect(screen.getByRole("button", { name: "Add to public feed" })).toHaveAttribute("title", "Add to public feed (p)")
+      expect(screen.getByRole("link", { name: "Open in new tab" })).toHaveAttribute("title", "Open in new tab (v)")
+    })
   })
 
   describe("article rendering", () => {
