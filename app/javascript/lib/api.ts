@@ -183,7 +183,17 @@ export interface Tag {
   name: string
   fg_color: string
   bg_color: string
+  include_in_paper: boolean
+  paper_limit: number
   entry_count: number
+}
+
+export interface TagAttributes {
+  name: string
+  fg_color?: string
+  bg_color?: string
+  include_in_paper?: boolean
+  paper_limit?: number
 }
 
 /**
@@ -775,9 +785,9 @@ export const api = {
   tags: {
     list: () => request<Tag[]>("/tags"),
     get: (id: number) => request<Tag>(`/tags/${id}`),
-    create: (data: { tag: { name: string; fg_color?: string; bg_color?: string } }) =>
+    create: (data: { tag: TagAttributes }) =>
       request<Tag>("/tags", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: number, data: { tag: { name?: string; fg_color?: string; bg_color?: string } }) =>
+    update: (id: number, data: { tag: Partial<TagAttributes> }) =>
       request<Tag>(`/tags/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/tags/${id}`, { method: "DELETE" }),
   },

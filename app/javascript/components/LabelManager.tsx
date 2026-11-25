@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label as FormLabel } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { api, Tag } from "@/lib/api"
+import { api, Tag, TagAttributes } from "@/lib/api"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 
 // Deliberately literal rather than theme tokens (ttrb-x7fn): these are the
@@ -172,8 +173,10 @@ interface TagEditorDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   tag: Tag | null
-  onSave: (data: { name: string; fg_color: string; bg_color: string }) => Promise<void>
+  onSave: (data: Required<TagAttributes>) => Promise<void>
 }
+
+const DEFAULT_PAPER_LIMIT = 5
 
 function TagEditorDialog({
   open,
@@ -184,6 +187,8 @@ function TagEditorDialog({
   const [name, setName] = useState("")
   const [fgColor, setFgColor] = useState("#ffffff")
   const [bgColor, setBgColor] = useState("#3b82f6")
+  const [includeInPaper, setIncludeInPaper] = useState(false)
+  const [paperLimit, setPaperLimit] = useState(String(DEFAULT_PAPER_LIMIT))
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -191,10 +196,14 @@ function TagEditorDialog({
       setName(tag.name)
       setFgColor(tag.fg_color || "#ffffff")
       setBgColor(tag.bg_color || "#3b82f6")
+      setIncludeInPaper(tag.include_in_paper)
+      setPaperLimit(String(tag.paper_limit))
     } else {
       setName("")
       setFgColor("#ffffff")
       setBgColor("#3b82f6")
+      setIncludeInPaper(false)
+      setPaperLimit(String(DEFAULT_PAPER_LIMIT))
     }
   }, [tag, open])
 
@@ -204,9 +213,21 @@ function TagEditorDialog({
       return
     }
 
+    const limit = Number(paperLimit)
+    if (!Number.isInteger(limit) || limit < 1) {
+      alert("Per day must be a whole number of 1 or more")
+      return
+    }
+
     setIsSaving(true)
     try {
-      await onSave({ name: name.trim(), fg_color: fgColor, bg_color: bgColor })
+      await onSave({
+        name: name.trim(),
+        fg_color: fgColor,
+        bg_color: bgColor,
+        include_in_paper: includeInPaper,
+        paper_limit: limit,
+      })
     } catch (error) {
       console.error("Failed to save tag:", error)
       alert("Failed to save tag")
@@ -309,6 +330,37 @@ function TagEditorDialog({
                 />
               </div>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <FormLabel htmlFor="tag-include-in-paper">Include in morning paper</FormLabel>
+                <p id="tag-include-in-paper-help" className="text-xs text-muted-foreground">
+                  Publish this tag's best articles in the daily morning paper.
+                </p>
+              </div>
+              <Switch
+                id="tag-include-in-paper"
+                aria-describedby="tag-include-in-paper-help"
+                checked={includeInPaper}
+                onCheckedChange={setIncludeInPaper}
+              />
+            </div>
+            {includeInPaper && (
+              <div className="flex items-center gap-2">
+                <FormLabel htmlFor="tag-paper-limit">Per day</FormLabel>
+                <Input
+                  id="tag-paper-limit"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={paperLimit}
+                  onChange={(e) => setPaperLimit(e.target.value)}
+                  className="w-20"
+                />
+              </div>
+            )}
           </div>
         </div>
 

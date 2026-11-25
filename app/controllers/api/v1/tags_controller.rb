@@ -49,7 +49,7 @@ module Api
       end
 
       def tag_params
-        params.require(:tag).permit(:name, :fg_color, :bg_color)
+        params.require(:tag).permit(:name, :fg_color, :bg_color, :include_in_paper, :paper_limit)
       end
 
       def tag_json(tag)
@@ -58,6 +58,8 @@ module Api
           name: tag.name,
           fg_color: tag.fg_color,
           bg_color: tag.bg_color,
+          include_in_paper: tag.include_in_paper,
+          paper_limit: tag.paper_limit,
           entry_count: tag.entries.count
         }
       end

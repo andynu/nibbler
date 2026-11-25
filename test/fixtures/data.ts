@@ -96,6 +96,8 @@ export function mockTag(overrides: Partial<Tag> = {}): Tag {
     name: "Important",
     fg_color: "#ffffff",
     bg_color: "#ff0000",
+    include_in_paper: false,
+    paper_limit: 5,
     entry_count: 5,
     ...overrides,
   }

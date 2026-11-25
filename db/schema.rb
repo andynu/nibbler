@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_234023) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_25_200200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -349,8 +349,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_234023) do
     t.string "fg_color", default: "", null: false
     t.string "name", null: false
     t.bigint "user_id", null: false
+    t.boolean "include_in_paper", default: false, null: false
+    t.integer "paper_limit", default: 5, null: false
     t.index ["user_id", "name"], name: "index_tags_on_user_id_and_name", unique: true
     t.index ["user_id"], name: "index_tags_on_user_id"
+    t.check_constraint "paper_limit > 0", name: "tags_paper_limit_positive"
   end
 
   create_table "user_entries", force: :cascade do |t|

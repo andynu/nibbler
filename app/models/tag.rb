@@ -20,4 +20,5 @@ class Tag < ApplicationRecord
 
   validates :name, presence: true
   validates :name, uniqueness: { scope: :user_id }
+  validates :paper_limit, numericality: { only_integer: true, greater_than: 0 }
 end
