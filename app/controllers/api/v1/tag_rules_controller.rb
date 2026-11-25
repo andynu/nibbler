@@ -23,7 +23,7 @@ module Api
         rule.validate
         # No tag yet: the dialog asks for one alongside the count.
         errors = rule.errors.reject { |error| error.attribute == :tag }.map(&:full_message)
-        return render json: { errors: errors }, status: :unprocessable_entity if errors.any?
+        return render_errors(errors) if errors.any?
 
         render json: { match_count: rule.matching_entries.count }
       end
@@ -42,7 +42,7 @@ module Api
         if rule.persisted?
           render json: rule_json(rule, match_counts([ rule ])), status: :created
         else
-          render json: { errors: rule.errors.full_messages }, status: :unprocessable_entity
+          render_errors(rule.errors.full_messages)
         end
       end
 
@@ -51,7 +51,7 @@ module Api
         if @rule.update(rule_params)
           render json: rule_json(@rule, match_counts([ @rule ]))
         else
-          render json: { errors: @rule.errors.full_messages }, status: :unprocessable_entity
+          render_errors(@rule.errors.full_messages)
         end
       end
 
@@ -79,6 +79,11 @@ module Api
 
         current_user.tags.where("LOWER(name) = ?", name.downcase).first ||
           current_user.tags.create(name: name)
+      end
+
+      # +error+ is the one string the client's request helper shows.
+      def render_errors(messages)
+        render json: { error: messages.to_sentence, errors: messages }, status: :unprocessable_entity
       end
 
       def match_counts(rules)
