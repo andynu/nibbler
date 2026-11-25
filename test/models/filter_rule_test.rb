@@ -192,6 +192,33 @@ class FilterRuleTest < ActiveSupport::TestCase
     assert rule.matches?(published: 10.days.ago)
   end
 
+  test "malformed date criterion matches nothing, inverse or not" do
+    [ "7d", "invalid", "<2025-13-01", ">2025-02-30", "2025-01-01..2025-13-01" ].each do |criterion|
+      [ false, true ].each do |inverse|
+        rule = FilterRule.new(filter: @filter, filter_type: "date", reg_exp: criterion, inverse: inverse)
+
+        assert_not rule.matches?(published: 3.days.ago),
+          "expected #{criterion.inspect} (inverse: #{inverse}) not to match"
+      end
+    end
+  end
+
+  test "entry without a date matches nothing, inverse or not" do
+    [ false, true ].each do |inverse|
+      rule = FilterRule.new(filter: @filter, filter_type: "date", reg_exp: "<7d", inverse: inverse)
+
+      assert_not rule.matches?(title: "Article without date"), "inverse: #{inverse}"
+    end
+  end
+
+  test "unparseable entry date matches nothing, inverse or not" do
+    [ false, true ].each do |inverse|
+      rule = FilterRule.new(filter: @filter, filter_type: "date", reg_exp: "<7d", inverse: inverse)
+
+      assert_not rule.matches?(published: "not a date"), "inverse: #{inverse}"
+    end
+  end
+
   # ===================
   # Metric rules
   # ===================

@@ -26,6 +26,7 @@ class FilterRule < ApplicationRecord
 
   def matches?(article)
     return matches_metric?(article) if METRIC_TYPES.include?(filter_type)
+    return matches_dated?(article) if filter_type == "date"
 
     regex = Regexp.new(reg_exp, Regexp::IGNORECASE)
     result = case filter_type
@@ -41,8 +42,6 @@ class FilterRule < ApplicationRecord
                regex.match?(article[:author].to_s)
     when "tag"
                article[:tags]&.any? { |t| regex.match?(t) }
-    when "date"
-               matches_date?(article)
     else
                false
     end
@@ -60,6 +59,14 @@ class FilterRule < ApplicationRecord
     return false if value.nil?
 
     result = matches_threshold?(value)
+    return false if result.nil?
+
+    inverse ? !result : result
+  end
+
+  # An undated entry or a malformed criterion matches nothing, inverse included.
+  def matches_dated?(article)
+    result = matches_date?(article)
     return false if result.nil?
 
     inverse ? !result : result
@@ -93,9 +100,11 @@ class FilterRule < ApplicationRecord
   #   >2025-01-01   - published after date (absolute)
   #   <2025-01-01   - published before date (absolute)
   #   2025-01-01..2025-12-31 - published within date range (absolute)
+  #
+  # Returns nil when the entry has no usable date or the criterion is malformed.
   def matches_date?(article)
     article_date = article[:published] || article[:updated]
-    return false unless article_date
+    return nil unless article_date
 
     # Ensure we have a Time object
     article_date = Time.parse(article_date.to_s) unless article_date.is_a?(Time)
@@ -119,10 +128,8 @@ class FilterRule < ApplicationRecord
       start_date = Date.parse(::Regexp.last_match(1))
       end_date = Date.parse(::Regexp.last_match(2))
       article_date.to_date >= start_date && article_date.to_date <= end_date
-    else
-      false
     end
   rescue ArgumentError, TypeError
-    false
+    nil
   end
 end
