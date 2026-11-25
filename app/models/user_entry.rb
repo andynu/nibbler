@@ -14,6 +14,9 @@ class UserEntry < ApplicationRecord
   belongs_to :entry
   belongs_to :feed, optional: true
   belongs_to :user
+  # The marked tag whose paper selection published this row; nil when it was
+  # published any other way. See PaperSelection.
+  belongs_to :paper_tag, class_name: "Tag", optional: true
 
   validates :uuid, presence: true
 

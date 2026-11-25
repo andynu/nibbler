@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_25_201750) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_25_211139) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -394,8 +394,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_201750) do
     t.boolean "unread", default: true, null: false
     t.bigint "user_id", null: false
     t.string "uuid", null: false
+    t.bigint "paper_tag_id"
     t.index ["entry_id"], name: "index_user_entries_on_entry_id"
     t.index ["feed_id"], name: "index_user_entries_on_feed_id"
+    t.index ["paper_tag_id"], name: "index_user_entries_on_paper_tag_id"
     t.index ["unread"], name: "index_user_entries_on_unread"
     t.index ["user_id", "unread"], name: "index_user_entries_on_user_id_and_unread"
     t.index ["user_id"], name: "index_user_entries_on_user_id"
@@ -466,6 +468,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_201750) do
   add_foreign_key "tags", "users", on_delete: :cascade
   add_foreign_key "user_entries", "entries", on_delete: :cascade
   add_foreign_key "user_entries", "feeds", on_delete: :cascade
+  add_foreign_key "user_entries", "tags", column: "paper_tag_id", on_delete: :nullify
   add_foreign_key "user_entries", "users", on_delete: :cascade
   add_foreign_key "user_preferences", "users", on_delete: :cascade
 end
