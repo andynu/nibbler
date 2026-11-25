@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { api, Tag, TagAttributes } from "@/lib/api"
 import { Plus, Pencil, Trash2 } from "lucide-react"
+import { TagRuleList } from "@/components/TagRuleList"
 
 // Deliberately literal rather than theme tokens (ttrb-x7fn): these are the
 // swatches offered for a tag's stored fg_color/bg_color, and a tag chip carries
@@ -243,7 +244,7 @@ function TagEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{tag ? "Edit Tag" : "Create Tag"}</DialogTitle>
         </DialogHeader>
@@ -362,6 +363,8 @@ function TagEditorDialog({
               </div>
             )}
           </div>
+
+          {tag && <TagRuleList tagId={tag.id} />}
         </div>
 
         <DialogFooter>

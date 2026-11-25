@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { LabelManager } from "./LabelManager"
@@ -9,6 +9,8 @@ const mockApiTagsList = vi.fn()
 const mockApiTagsCreate = vi.fn()
 const mockApiTagsUpdate = vi.fn()
 const mockApiTagsDelete = vi.fn()
+const mockApiTagRulesList = vi.fn()
+const mockApiTagRulesDelete = vi.fn()
 
 vi.mock("@/lib/api", () => ({
   api: {
@@ -17,6 +19,10 @@ vi.mock("@/lib/api", () => ({
       create: (...args: unknown[]) => mockApiTagsCreate(...args),
       update: (...args: unknown[]) => mockApiTagsUpdate(...args),
       delete: (...args: unknown[]) => mockApiTagsDelete(...args),
+    },
+    tagRules: {
+      list: (...args: unknown[]) => mockApiTagRulesList(...args),
+      delete: (...args: unknown[]) => mockApiTagRulesDelete(...args),
     },
   },
 }))
@@ -36,6 +42,8 @@ describe("LabelManager", () => {
     mockApiTagsCreate.mockResolvedValue(testTag)
     mockApiTagsUpdate.mockResolvedValue(testTag)
     mockApiTagsDelete.mockResolvedValue({})
+    mockApiTagRulesList.mockResolvedValue([])
+    mockApiTagRulesDelete.mockResolvedValue({})
 
     // Mock window.confirm
     vi.spyOn(window, "confirm").mockReturnValue(true)
@@ -362,6 +370,77 @@ describe("LabelManager", () => {
 
       expect(window.alert).toHaveBeenCalledWith("Per day must be a whole number of 1 or more")
       expect(mockApiTagsUpdate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("auto-tag rules", () => {
+    const rules = [
+      { id: 1, tag_id: 1, tag_name: "Important", query: "ruby gems", feed_id: 7, category_id: null, scope_name: "Ruby Weekly", match_count: 12 },
+      { id: 2, tag_id: 1, tag_name: "Important", query: "rails", feed_id: null, category_id: null, scope_name: "All feeds", match_count: 1 },
+    ]
+
+    async function openEditor() {
+      const user = userEvent.setup()
+      mockApiTagsList.mockResolvedValue([testTag])
+      render(<LabelManager />)
+      await user.click(await screen.findByRole("button", { name: /edit important/i }))
+      return user
+    }
+
+    it("lists the tag's rules with query, scope and match count", async () => {
+      mockApiTagRulesList.mockResolvedValue(rules)
+      await openEditor()
+
+      const list = await screen.findByRole("list", { name: "Auto-tag rules" })
+      const items = within(list).getAllByRole("listitem")
+      expect(mockApiTagRulesList).toHaveBeenCalledWith(1)
+      expect(items[0]).toHaveTextContent("ruby gems in Ruby Weekly12 articles")
+      expect(items[1]).toHaveTextContent("rails in All feeds1 article")
+    })
+
+    it("says how to add a rule when the tag has none", async () => {
+      await openEditor()
+
+      expect(
+        await screen.findByText("No rules yet. To add one, search for articles and choose Save as auto-tag.")
+      ).toBeInTheDocument()
+    })
+
+    it("is not shown while creating a tag", async () => {
+      const user = userEvent.setup()
+      render(<LabelManager />)
+      await user.click(await screen.findByRole("button", { name: /new tag/i }))
+
+      await screen.findByRole("heading", { name: /create tag/i })
+      expect(screen.queryByRole("heading", { name: "Auto-tag rules" })).not.toBeInTheDocument()
+      expect(mockApiTagRulesList).not.toHaveBeenCalled()
+    })
+
+    it("deletes a rule after confirming", async () => {
+      mockApiTagRulesList.mockResolvedValue(rules)
+      const user = await openEditor()
+
+      await user.click(await screen.findByRole("button", { name: "Delete rule ruby gems in Ruby Weekly" }))
+
+      expect(window.confirm).toHaveBeenCalledWith(
+        'Delete the auto-tag rule "ruby gems" in Ruby Weekly? Articles it tagged lose the tag, unless you tagged them yourself or another rule matches.'
+      )
+      expect(mockApiTagRulesDelete).toHaveBeenCalledWith(1)
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: "Delete rule ruby gems in Ruby Weekly" })).not.toBeInTheDocument()
+      )
+      expect(screen.getByRole("button", { name: "Delete rule rails in All feeds" })).toBeInTheDocument()
+    })
+
+    it("keeps the rule when the confirmation is cancelled", async () => {
+      mockApiTagRulesList.mockResolvedValue(rules)
+      vi.mocked(window.confirm).mockReturnValue(false)
+      const user = await openEditor()
+
+      await user.click(await screen.findByRole("button", { name: "Delete rule ruby gems in Ruby Weekly" }))
+
+      expect(mockApiTagRulesDelete).not.toHaveBeenCalled()
+      expect(screen.getByRole("button", { name: "Delete rule ruby gems in Ruby Weekly" })).toBeInTheDocument()
     })
   })
 })

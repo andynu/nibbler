@@ -4,6 +4,8 @@ import { Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SearchScopeControls } from "@/components/SearchScopeControls"
 import type { SearchScopeControl } from "@/components/SearchScopeControls"
+import { SaveSearchAsTag } from "@/components/SaveSearchAsTag"
+import type { SaveSearchAsTagTarget } from "@/components/SaveSearchAsTag"
 
 interface SearchBarProps {
   value: string
@@ -28,6 +30,11 @@ interface SearchBarProps {
    * entirely by callers that have no scope to offer.
    */
   scope?: SearchScopeControl
+  /**
+   * Where "Save as auto-tag" saves the query, offered once there is one.
+   * Omitted by callers that cannot save rules.
+   */
+  saveAsTag?: SaveSearchAsTagTarget
   placeholder?: string
   className?: string
 }
@@ -41,6 +48,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
       onDismiss,
       isSearching,
       scope,
+      saveAsTag,
       placeholder = "Search articles",
       className,
     },
@@ -144,7 +152,14 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
         )}
         {/* Only once there is a query: an idle box has no result set whose
             scope needs describing, and the pills would just be chrome. */}
-        {scope && value !== "" && <SearchScopeControls {...scope} />}
+        {value !== "" && (scope || saveAsTag) && (
+          <div className="flex items-start justify-between gap-2">
+            {scope ? <SearchScopeControls {...scope} /> : <span />}
+            {saveAsTag && value.trim() !== "" && (
+              <SaveSearchAsTag query={value} target={saveAsTag} />
+            )}
+          </div>
+        )}
       </div>
     )
   }

@@ -26,6 +26,7 @@ import { SortDropdown, ENTRY_SORT_OPTIONS, SEARCH_SORT_OPTIONS } from "@/compone
 import { SearchBar } from "@/components/SearchBar"
 import { SearchResultList } from "@/components/SearchResultList"
 import type { SearchScopeControl } from "@/components/SearchScopeControls"
+import type { SaveSearchAsTagTarget } from "@/components/SaveSearchAsTag"
 import type { Entry, Feed, FreshMaxAge, SearchResult, SortConfig, SortColumn } from "@/lib/api"
 
 /**
@@ -55,6 +56,8 @@ export interface EntryListSearch {
   scopeLabel?: string | null
   /** The two widening controls, shown under the box while a query is present. */
   scope?: SearchScopeControl
+  /** Where "Save as auto-tag" saves the query. Omit to leave the action out. */
+  saveAsTag?: SaveSearchAsTagTarget
   /**
    * How the hits are ordered, and how to change it. Search keeps its own
    * selection rather than borrowing the list's, so these are separate from the
@@ -270,6 +273,7 @@ export function EntryList({
           onDismiss={search!.onDismiss}
           isSearching={search!.isSearching}
           scope={search!.scope}
+          saveAsTag={search!.saveAsTag}
         />
       )}
       {/* Fresh view parameters */}

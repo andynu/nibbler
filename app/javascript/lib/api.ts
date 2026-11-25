@@ -188,6 +188,37 @@ export interface Tag {
   entry_count: number
 }
 
+/**
+ * A saved search that tags matching articles automatically. Neither feed_id
+ * nor category_id means the rule covers all feeds.
+ */
+export interface TagRule {
+  id: number
+  tag_id: number
+  tag_name: string
+  query: string
+  feed_id: number | null
+  category_id: number | null
+  /** The feed or category title, or "All feeds". */
+  scope_name: string
+  /** Articles the rule has tagged so far. */
+  match_count: number
+}
+
+/** Where a rule applies. Both absent means all feeds; never both present. */
+export interface TagRuleScope {
+  feed_id?: number
+  category_id?: number
+}
+
+export interface TagRuleCreate extends TagRuleScope {
+  query: string
+  /** An existing tag. */
+  tag_id?: number
+  /** A tag by name, created when the user has none by that name (any case). */
+  tag_name?: string
+}
+
 export interface TagAttributes {
   name: string
   fg_color?: string
@@ -790,6 +821,20 @@ export const api = {
     update: (id: number, data: { tag: Partial<TagAttributes> }) =>
       request<Tag>(`/tags/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/tags/${id}`, { method: "DELETE" }),
+  },
+
+  tagRules: {
+    list: (tagId: number) => request<TagRule[]>(`/tag_rules?tag_id=${tagId}`),
+    /** How many articles a rule with this query and scope matches now, without saving it. */
+    preview: (query: string, scope: TagRuleScope) => {
+      const searchParams = new URLSearchParams({ query })
+      if (scope.feed_id) searchParams.set("feed_id", String(scope.feed_id))
+      if (scope.category_id) searchParams.set("category_id", String(scope.category_id))
+      return request<{ match_count: number }>(`/tag_rules/preview?${searchParams}`)
+    },
+    create: (data: { tag_rule: TagRuleCreate }) =>
+      request<TagRule>("/tag_rules", { method: "POST", body: JSON.stringify(data) }),
+    delete: (id: number) => request<void>(`/tag_rules/${id}`, { method: "DELETE" }),
   },
 
   entryTags: {

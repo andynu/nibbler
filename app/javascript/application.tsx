@@ -36,6 +36,7 @@ import { useContentPaging } from "@/hooks/useContentPaging"
 import { useContentViewMode } from "@/hooks/useContentViewMode"
 import { useCopyLink } from "@/hooks/useCopyLink"
 import { useEntrySearch } from "@/hooks/useEntrySearch"
+import { autoTagScope } from "@/lib/auto-tag-scope"
 import { getVirtualFolder } from "@/lib/virtualFolders"
 import { applyUnreadCounts } from "@/lib/unreadCounts"
 import { entryTagHandlers } from "@/lib/entryTagHandlers"
@@ -1051,6 +1052,13 @@ function App() {
     return null
   }, [searchListScope])
 
+  // Where "Save as auto-tag" saves the query: the place pill's scope, read off
+  // the same `searchListScope` the request is built from.
+  const autoTag = autoTagScope(searchListScope, entrySearch.place, {
+    feed: feeds.find((f) => f.id === searchListScope.feed_id)?.title,
+    category: categories.find((c) => c.id === searchListScope.category_id)?.title,
+  })
+
   // What the empty state blames for finding nothing: the narrowings still in
   // effect, in the reader's own words. Null once both pills have been widened,
   // which is when "all articles" is the honest thing to say.
@@ -1349,6 +1357,7 @@ function App() {
                 placeLabel: entrySearch.canWidenPlace ? searchPlaceLabel : null,
                 historyLabel: entrySearch.canWidenHistory ? searchHistoryLabel : null,
               },
+              saveAsTag: { ...autoTag, tagNames: allTags, onSaved: () => loadTags() },
               // The search's own ordering, not the list's: relevance until the
               // reader says otherwise, and back to relevance when the box is
               // cleared. The list's sort above is left exactly where it was, so
