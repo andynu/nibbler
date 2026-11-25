@@ -63,6 +63,13 @@ Rails.application.routes.draw do
 
       resources :tags
 
+      # index takes ?tag_id=, the one tag whose rules to list.
+      resources :tag_rules, only: [ :index, :create, :update, :destroy ] do
+        collection do
+          get :preview
+        end
+      end
+
       resources :filters do
         member do
           post :test

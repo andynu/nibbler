@@ -17,9 +17,7 @@ class TagRuleApplier
   # @param rule [TagRule]
   # @param previous_tag_id [Integer, nil]
   def self.sync(rule, previous_tag_id: nil)
-    matching = Entry.text_search_matches(rule.query)
-                    .where(id: rule.user_entries.select(:entry_id))
-                    .select(:id)
+    matching = rule.matching_entries.select(:id)
 
     TagRule.transaction do
       rule.entry_tag_rule_matches.where.not(entry_id: matching).delete_all

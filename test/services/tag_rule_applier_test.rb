@@ -170,10 +170,11 @@ class TagRuleApplierTest < ActiveSupport::TestCase
     with_wombat = entry_in(@high, title: "Quokka and wombat", content: "<p>Neighbours.</p>")
     candidates = [ @in_high, @in_low, @unrelated, studies, phrase, split, with_wombat ]
 
-    [ "studies", '"happy quokka"', "quokka -wombat", "quokka or wombat", "-quokka" ].each do |query|
+    # An exclusion-only query is refused by TagRule's validation, so it is not here.
+    [ "studies", '"happy quokka"', "quokka -wombat", "quokka or wombat" ].each do |query|
       rule = create_rule(query)
       expected = Entry.search(query).where(id: candidates.map(&:id)).pluck(:id).sort
-      assert_not_empty expected, query unless query.start_with?("-")
+      assert_not_empty expected, query
 
       assert_equal expected, rule.entry_tag_rule_matches.pluck(:entry_id).sort, query
       rule.destroy!

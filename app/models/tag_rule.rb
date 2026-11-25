@@ -25,6 +25,8 @@ class TagRule < ApplicationRecord
   validates :query, presence: true
   validates :query, uniqueness: { scope: %i[tag_id feed_id category_id] }
   validate :single_scope
+  validate :owned_by_user
+  validate :query_has_a_word
 
   after_commit :apply_to_history, on: %i[create update], if: :matching_changed?
   # Matches are gone by now (dependent: :delete_all runs before the row goes),
@@ -44,6 +46,15 @@ class TagRule < ApplicationRecord
     scope
   end
 
+  # The entries this rule matches today: search's own predicate over the rows
+  # the scope covers, so a rule tags exactly what the search it was saved from
+  # showed.
+  #
+  # @return [ActiveRecord::Relation<Entry>]
+  def matching_entries
+    Entry.text_search_matches(query).where(id: user_entries.select(:entry_id))
+  end
+
   private
 
   def matching_changed?
@@ -60,5 +71,24 @@ class TagRule < ApplicationRecord
     return unless feed_id && category_id
 
     errors.add(:base, "A rule can apply to a feed or a category, not both")
+  end
+
+  # Tags, feeds and categories are per user, and a rule reaches the owner's
+  # entries through all three, so a rule may only name the owner's own.
+  def owned_by_user
+    { tag: tag, feed: feed, category: category }.each do |attribute, record|
+      next if record.nil? && self[:"#{attribute}_id"].nil?
+      next if record&.user_id == user_id
+
+      errors.add(attribute, "must be one of yours")
+    end
+  end
+
+  # "-term" alone matches nothing through search's predicate, so a rule made
+  # of it would never tag anything.
+  def query_has_a_word
+    return unless query.present? && Entry.excludes_only?(query)
+
+    errors.add(:query, 'needs a word to match. "-term" on its own only says what to leave out.')
   end
 end

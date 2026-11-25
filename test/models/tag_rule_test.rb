@@ -80,6 +80,41 @@ class TagRuleTest < ActiveSupport::TestCase
     assert_not EntryTagRuleMatch.exists?(match.id)
   end
 
+  test "rejects another user's tag, feed or category" do
+    other = users(:two)
+    their_tag = other.tags.create!(name: "theirs")
+    their_feed = other.feeds.create!(title: "Theirs", feed_url: "https://example.com/theirs.rss")
+    their_category = other.categories.create!(title: "Theirs")
+
+    foreign_tag = their_tag.tag_rules.new(user: @user, query: "ruby")
+    foreign_feed = rule(feed: their_feed)
+    foreign_category = rule(category: their_category)
+
+    assert_not foreign_tag.valid?
+    assert_includes foreign_tag.errors[:tag], "must be one of yours"
+    assert_not foreign_feed.valid?
+    assert_includes foreign_feed.errors[:feed], "must be one of yours"
+    assert_not foreign_category.valid?
+    assert_includes foreign_category.errors[:category], "must be one of yours"
+  end
+
+  test "rejects a query that only excludes" do
+    excluding = rule(query: "-wombat")
+
+    assert_not excluding.valid?
+    assert excluding.errors[:query].any? { |message| message.start_with?("needs a word to match") }
+  end
+
+  test "matching_entries counts what the rule's search would show" do
+    feed_entry = Entry.create!(guid: "m-#{SecureRandom.uuid}", title: "Ruby gems", link: "https://example.com/m1",
+                               content: "<p>gems</p>", content_hash: SecureRandom.hex(16), updated: Time.current,
+                               date_entered: Time.current, date_updated: Time.current)
+    UserEntry.create!(uuid: SecureRandom.uuid, user: @user, feed: @feed, entry: feed_entry, unread: true)
+
+    assert_includes rule(feed: @feed).matching_entries, feed_entry
+    assert_not_includes rule(feed: feeds(:low_frequency)).matching_entries, feed_entry
+  end
+
   test "deleting a category in the database removes rules scoped to it" do
     scoped = rule(category: @category)
     scoped.save!
